@@ -116,9 +116,8 @@ func (s *Server) importGuard(w http.ResponseWriter, r *http.Request) (string, bo
 		// Test提示键只发白名单里有的 那道 AST 闸在防的事（"表单失败了而
 		// 人不说话"）。所以直接在这一页把话说清楚。
 		s.renderImport(w, r, render.ImportView{
-			Mode: "blocked", Heading: "不用导了",
-			Notice: fmt.Sprintf("这个档案里已经有 %d 条书签了。导入只对「一条书签都没有」的档案开放——"+
-				"想加书签直接在页面上「＋ 添加」，那才是往已有清单里加东西的路。", n),
+			Mode: "blocked", Heading: s.t("import.blockedHeading"),
+			Notice: s.t("import.notice.blocked", n),
 		})
 		return "", false
 	}
@@ -134,10 +133,8 @@ func (s *Server) handleImportPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.renderImport(w, r, render.ImportView{
-		Mode: "pick", Heading: "从浏览器导入收藏夹",
-		Explain: "浏览器导出的书签是一个 HTML 文件。选它，下一步会先给你看一份报告：" +
-			"会加多少条、图标有几处猜不中、以及哪些被浏览器标成收藏夹栏/其它文件夹。" +
-			"看清楚再决定写不写。",
+		Mode: "pick", Heading: s.t("import.heading"),
+		Explain: s.t("import.explain"),
 	})
 }
 
@@ -158,18 +155,18 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes)
 	if err := r.ParseMultipartForm(maxImportBytes); err != nil {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: "从浏览器导入收藏夹",
-			Notice:  "读不到这个文件（最大 8 MB）。请确认选的是浏览器导出的那个 .html。",
-			Explain: importExplain,
+			Mode: "pick", Heading: s.t("import.heading"),
+			Notice:  s.t("import.notice.unreadable"),
+			Explain: s.t("import.explainStep"),
 		})
 		return
 	}
 	file, hdr, err := r.FormFile("bookmarks")
 	if err != nil {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: "从浏览器导入收藏夹",
-			Notice:  "没有选文件。",
-			Explain: importExplain,
+			Mode: "pick", Heading: s.t("import.heading"),
+			Notice:  s.t("import.notice.nofile"),
+			Explain: s.t("import.explainStep"),
 		})
 		return
 	}
@@ -177,9 +174,9 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(io.LimitReader(file, maxImportBytes+1))
 	if err != nil || len(raw) > maxImportBytes {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: "从浏览器导入收藏夹",
-			Notice:  "这个文件读不动，或超过了 8 MB。",
-			Explain: importExplain,
+			Mode: "pick", Heading: s.t("import.heading"),
+			Notice:  s.t("import.notice.toolarge"),
+			Explain: s.t("import.explainStep"),
 		})
 		return
 	}
@@ -200,14 +197,14 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 			notice = "临时存不下这次上传，稍后再试。"
 		}
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: "从浏览器导入收藏夹",
+			Mode: "pick", Heading: s.t("import.heading"),
 			Notice:  notice,
-			Explain: importExplain,
+			Explain: s.t("import.explainStep"),
 		})
 		return
 	}
 	s.renderImport(w, r, render.ImportView{
-		Mode: "report", Heading: "确认导入",
+		Mode: "report", Heading: s.t("import.reportHeading"),
 		Count: plan.Count, Skipped: plan.Skipped, Groups: plan.Groups,
 		Report: plan.Report, Token: plan.Token,
 		FileName: hdr.Filename,
@@ -236,9 +233,9 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: "从浏览器导入收藏夹",
+			Mode: "pick", Heading: s.t("import.heading"),
 			Notice:  "没写进去：" + importOutcomeText(out),
-			Explain: importExplain,
+			Explain: s.t("import.explainStep"),
 		})
 		return
 	}
@@ -509,6 +506,3 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, v render.I
 	}
 	s.writePage(w, r, page)
 }
-
-const importExplain = "浏览器导出的书签是一个 HTML 文件：Chrome/Edge 是「书签管理器 → 右上角三点 → 导出书签」，" +
-	"Firefox 是「书签 → 管理书签 → 导入与备份 → 导出为 HTML」。导入会加进「这个档案」，不碰别人的。"

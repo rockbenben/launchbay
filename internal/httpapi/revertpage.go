@@ -116,21 +116,24 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 }
 
 // choiceLabel 把一格说成人话。
-func (c snapshotChoice) choiceLabel() string {
-	label := fmt.Sprintf("第 %d 版 · %d 条书签", c.Rev, c.Items)
+// 它是 **Server 的**方法而不是 snapshotChoice 的：这一格要拼给人看的短名，
+// 而语言是机器级的、只有 Server 读得到 store。做成快照自己的方法就只能把
+// 语言当参数传进来——那等于让每一个调用点都要记得传。
+func (s *Server) choiceLabel(c snapshotChoice) string {
+	label := s.t("revert.choice.label", c.Rev, c.Items)
 	if c.When != "" {
 		label = c.When + " · " + label
 	}
 	if len(c.Groups) == 0 {
-		return label + " · 没有分组"
+		return label + s.t("revert.choice.noGroups")
 	}
 	// 组名只印收进来的那几个、每个按字截：一行六十八字的长句在下拉里会被裁，
 	// 在电话上会占三行，而读屏的人要把整串组名念完才听到最后那句"等 N 组"。
-	out := label + " · 分组：" + strings.Join(c.Groups, "、")
+	out := label + s.t("revert.choice.groups", strings.Join(c.Groups, s.t("revert.sep")))
 	// N 用 Total 而不是 len(Groups)：后者是"页面上收下了几个名字"，
 	// 拿它当总数就等于把截断说成那一版只有这么几个分组。
 	if c.Total > len(c.Groups) {
-		out += fmt.Sprintf(" 等 %d 组", c.Total)
+		out += s.t("revert.choice.more", c.Total)
 	}
 	return out
 }
@@ -159,9 +162,9 @@ func (s *Server) currentLine(id string) (string, error) {
 		if !isUnreadable(err) {
 			return "", err
 		}
-		return "现在：这一份读不出来（数据文件坏了）——回退正是这种时候的出路。", nil
+		return s.t("revert.now.unreadable"), nil
 	}
-	return fmt.Sprintf("现在：第 %d 版，%d 条书签。", cur.Rev, bookimport.CountItems(cur.B)), nil
+	return s.t("revert.now.ok", cur.Rev, bookimport.CountItems(cur.B)), nil
 }
 
 // handleRevertPage 是第一步：把可选的版本列出来，让人**认出**要退哪一版。
@@ -201,33 +204,31 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 	// Explain 是**纯文本**，一个字都不能是 markdown：`{{.Explain}}` 走 html/template
 	// 的转义，`**这样**` 在页面上就是两个星号（这一版的初稿真这么写过，实拍才发现）。
 	// 强调靠句子结构，不靠符号——与导入报告那条证人同一纪律。
-	explain := now + "\n\n回退会把这一份换成你选的那一版的样子。动手之前，现在这份会先存成一份快照，" +
-		"所以退错了还能再退回来。回退算一次新的改动，操作记录里会多一行；它不抹掉任何历史。" +
-		"快照最多留 50 份，更早的会被清掉。"
+	explain := now + "\n\n" + s.t("revert.explain.main")
 	if unreadable > 0 {
-		explain += fmt.Sprintf("\n\n另有 %d 份快照读不出来，没有列出来。", unreadable)
+		explain += "\n\n" + s.t("revert.explain.unreadable", unreadable)
 	}
 	if len(choices) == 0 {
-		explain += "\n\n这个档案还没有可回退的版本：每次改动前会自动留一份，所以你现在只有这一版。"
+		explain += "\n\n" + s.t("revert.explain.noversions")
 	}
 
 	view := render.AdminAction{
-		Title: "回退到某一版", Heading: "回退「" + name + "」的某一版？",
+		Title: s.t("revert.title"), Heading: s.t("revert.heading", name),
 		Explain: explain,
 		Notice:  s.notice(r.URL.Query().Get("err")),
 		Action:  "/revert",
-		Submit:  "回到这一版",
+		Submit:  s.t("revert.submit"),
 		// 回管理页对一个非管理员是死路（他根本没有那一页，点了吃一个不解释的 303）。
 		NavHref:  "/",
-		NavLabel: "回我的页面",
+		NavLabel: s.t("revert.nav"),
 	}
 	if len(choices) > 0 {
 		view.Choices = make([]render.AdminChoice, 0, len(choices))
 		view.ChoiceName = "to-rev"
-		view.ChoiceLegend = "选一版"
+		view.ChoiceLegend = s.t("revert.legend")
 		for i, c := range choices {
 			view.Choices = append(view.Choices, render.AdminChoice{
-				Value: fmt.Sprintf("%d", c.Rev), Label: c.choiceLabel(),
+				Value: fmt.Sprintf("%d", c.Rev), Label: s.choiceLabel(c),
 				// 预选**最新一份快照**（列表降序，所以是 i==0）。
 				//
 				// 这一条推得出来是因为 WriteSnapshot 在**写之前**拍：写完 rev3 之后

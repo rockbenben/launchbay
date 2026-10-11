@@ -282,3 +282,48 @@ func Test语言_站级设置作用到每一个档案(t *testing.T) {
 		}
 	}
 }
+
+// 这一族三页的文案**在 Go 侧组装**（AdminAction 的 Title/Heading/Explain/Submit…），
+// 所以模板那六处 {{.T}} 的证人管不到它们。这里各自点一句，是这三个文件唯一的
+// 界面语言证人。
+func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
+	srv, h, admin, _ := langScene(t)
+	if err := srv.deps.Store.SetLanguage(i18n.En); err != nil {
+		t.Fatalf("落盘: %v", err)
+	}
+	for _, tc := range []struct{ page, want string }{
+		{"/admin/pin?profile=kid", "Set a new PIN"},
+		{"/admin/delete?profile=kid", "Delete "},
+		{"/admin/disable?profile=kid", "Disable "},
+		{"/revert", "to an earlier version?"},
+	} {
+		rec := get(h, tc.page, admin)
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s 该 200，实际 %d（Location=%q）", tc.page, rec.Code, rec.Header().Get("Location"))
+			continue
+		}
+		if !strings.Contains(rec.Body.String(), tc.want) {
+			t.Errorf("GET %s 没有英文标题 %q", tc.page, tc.want)
+		}
+	}
+}
+
+// 同一个文件里已经翻了的中文要在**页面上真的不见了**——只查"有英文标题"不够，
+// 那样一个混排的页面照样能过。
+func TestAdminLanguage_确认页上不留中文界面文案(t *testing.T) {
+	srv, h, admin, _ := langScene(t)
+	if err := srv.deps.Store.SetLanguage(i18n.En); err != nil {
+		t.Fatalf("落盘: %v", err)
+	}
+	for _, page := range []string{"/admin/pin?profile=kid", "/admin/delete?profile=kid", "/admin/disable?profile=kid", "/revert"} {
+		body := get(h, page, admin).Body.String()
+		for _, cn := range []string{
+			"设 PIN", "设成这个 PIN", "新 PIN", "删掉", "确认删掉", "停用", "确认停用",
+			"回退", "回到这一版", "选一版", "回我的页面", "恢复",
+		} {
+			if strings.Contains(body, cn) {
+				t.Errorf("%s 在英文界面里还留着中文 %q", page, cn)
+			}
+		}
+	}
+}

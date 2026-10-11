@@ -105,16 +105,15 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: "设 PIN", Heading: "给「" + rowLabel(row) + "」设新的 PIN",
+		ID: id, Title: s.t("admin.pin.title"), Heading: s.t("admin.pin.heading", rowLabel(row)),
 		// 档案名两侧要有引号：从前写成"进 妈妈的台 这一份"，名字裸粘在句中读起来
 		// 像漏了字。人称也换掉——"他本人""你得"假定了对方的性别与身份，
 		// 而管理员未必是家长。
-		Explain: fmt.Sprintf("设完之后，进「%s」这一份要输这个新 PIN，旧 PIN 当场作废。"+
-			"对方不知道新 PIN 就进不去，记得当面说一声。", rowLabel(row)),
-		Notice: s.notice(r.URL.Query().Get("err")),
-		Action: "/admin/pin",
-		Submit: "设成这个 PIN",
-		Fields: []render.AdminField{{Name: "new", Label: "新 PIN（4-6 位数字）", Type: "password", Autofocus: true}},
+		Explain: s.t("admin.pin.explain", rowLabel(row)),
+		Notice:  s.notice(r.URL.Query().Get("err")),
+		Action:  "/admin/pin",
+		Submit:  s.t("admin.pin.submit"),
+		Fields:  []render.AdminField{{Name: "new", Label: s.t("admin.pin.field"), Type: "password", Autofocus: true}},
 	})
 	if err != nil {
 		writeInternalError(w, err)
@@ -191,18 +190,14 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: "删档", Heading: "删掉「" + rowLabel(row) + "」？",
+		ID: id, Title: s.t("admin.delete.title"), Heading: s.t("admin.delete.heading", rowLabel(row)),
 		// 页面上不该出现 markdown 的反引号与磁盘文件名：`revert` 与 history.jsonl
 		// 是给读代码的人看的词，家里人在浏览器里看到只会愣一下。
-		Explain: fmt.Sprintf(
-			"这一份的 %d 条书签与 %d 份快照会被删掉，删掉就找不回来了——"+
-				"「恢复到某个版本」也救不了它，快照跟着档案一起没了。"+
-				"这台机器上的操作记录（谁在什么时候动过）会留着。",
-			row.Items, row.Snapshots),
-		Notice: s.notice(r.URL.Query().Get("err")),
-		Action: "/admin/delete",
-		Submit: "确认删掉",
-		Danger: true,
+		Explain: s.t("admin.delete.explain", row.Items, row.Snapshots),
+		Notice:  s.notice(r.URL.Query().Get("err")),
+		Action:  "/admin/delete",
+		Submit:  s.t("admin.delete.submit"),
+		Danger:  true,
 	})
 	if err != nil {
 		writeInternalError(w, err)

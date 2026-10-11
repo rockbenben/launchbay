@@ -163,17 +163,16 @@ func (s *Server) handleAdminDisablePage(w http.ResponseWriter, r *http.Request) 
 	var heading, explain, submit string
 	disabled := !row.Disabled
 	if disabled {
-		heading = "停用「" + label + "」？"
-		explain = "停用之后，「" + label + "」输对 PIN 也进不来，选择页上也不再出现这一份。" +
-			"书签与快照一个字节都不会动，随时可以再启用。"
-		submit = "确认停用"
+		heading = s.t("admin.disable.heading.on", label)
+		explain = s.t("admin.disable.explain.on", label)
+		submit = s.t("admin.disable.submit.on")
 	} else {
-		heading = "启用「" + label + "」？"
-		explain = "启用之后，「" + label + "」可以重新用 PIN 进门，选择页上也会重新出现这一份。"
-		submit = "确认启用"
+		heading = s.t("admin.disable.heading.off", label)
+		explain = s.t("admin.disable.explain.off", label)
+		submit = s.t("admin.disable.submit.off")
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: map[bool]string{true: "停用档案", false: "启用档案"}[disabled],
+		ID: id, Title: s.t(map[bool]string{true: "admin.disable.title.on", false: "admin.disable.title.off"}[disabled]),
 		Heading: heading, Explain: explain,
 		Notice: s.notice(r.URL.Query().Get("err")),
 		Action: "/admin/disable",

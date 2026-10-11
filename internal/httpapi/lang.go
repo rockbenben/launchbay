@@ -65,3 +65,16 @@ func (s *Server) handleAdminLanguage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "/admin")
 	w.WriteHeader(http.StatusSeeOther)
 }
+
+// t 是**生产用的通用查表**：按这台机器当前的语言翻一句话，可带占位符。
+//
+// 为什么由 httpapi 侧翻好再塞进 view，而不是让模板查表（模板里那六个页面已经是
+// `{{.T .Explain}}` 的形状）：**有些句子要带运行时的值**——
+// 「删掉这一份的 %d 条书签与 %d 份快照」里的数字是这一页刚算出来的。
+// 模板查表拿不到这些值，而在这里组装就不用给 AdminAction 再加一列参数。
+//
+// 所以两处形状并存，各有理由：模板里的 chrome（语言无关的那些）走 view.T，
+// 这一族（要带值）在 Go 侧查表。翻字只有 i18n.Load 这一份。
+func (s *Server) t(key string, args ...any) string {
+	return i18n.Load(s.deps.Store.Language()).T(key, args...)
+}
