@@ -309,8 +309,12 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
      修法与 `.tiles` 同一纪律——**让次要的换行，而不是让主要的消失**：父容器允许
      wrap，标签行本身不再被压扁。空间够时仍然是一行。 */
   [data-layout=list] .card{flex-wrap:wrap}
-  [data-layout=list] .card b{flex:1 1 auto;min-width:0}
   [data-layout=list] .tags-row{flex:0 0 auto}
+  /* 同排的卡片要一样高（2026-10-11 实拍后改）。`ul` 是 grid，默认 stretch 拉的是
+     **li**，卡片本身仍按内容高——于是同一排里标签多的那张高、标签少的矮，
+     一眼看过去参差不齐。`.plain`（需手动打开那条的非链接形态）与卡片同一张脸，
+     一起撑满，空白落在卡内而不是落在卡外。 */
+  li>.card,li>.plain{height:100%}
 .profiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
   background:rgba(255,157,108,.12);color:var(--ink)}
