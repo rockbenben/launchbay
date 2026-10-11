@@ -48,8 +48,8 @@ func TestAdminLanguage_改完立刻生效且不用重启(t *testing.T) {
 		t.Fatalf("前置状态不对：没设过语言应当是中文，拿到 %q", got)
 	}
 	zhPage := get(h, "/", admin).Body.String()
-	if !strings.Contains(zhPage, "搜名字、地址、标签") {
-		t.Fatalf("改之前应当是中文界面（找得到搜索框的占位文案）")
+	if !strings.Contains(zhPage, "换档案") {
+		t.Fatalf("改之前应当是中文界面（顶栏那枚「换档案」在）")
 	}
 
 	rec := postLangForm(t, h, "/admin/language", "language=en", admin, "")
@@ -65,11 +65,11 @@ func TestAdminLanguage_改完立刻生效且不用重启(t *testing.T) {
 
 	// 同一个进程、同一份依赖，立刻就是英文——没有重启，没有手动清缓存。
 	enPage := get(h, "/", admin).Body.String()
-	if !strings.Contains(enPage, "Search names, addresses, tags") {
-		t.Errorf("改完之后应当立刻是英文界面，实际页面没变或变了一半")
+	if !strings.Contains(enPage, "Switch profile") {
+		t.Errorf("改完之后应当立刻是英文界面（顶栏那枚 Switch profile 在），实际页面没变")
 	}
-	if strings.Contains(enPage, "搜名字、地址、标签") {
-		t.Errorf("英文界面里还留着中文占位文案")
+	if strings.Contains(enPage, "换档案") {
+		t.Errorf("英文界面里那枚动作还印着中文")
 	}
 	// <html lang> 也要跟着变，否则读屏软件与浏览器翻译提示会说错语言。
 	if !strings.Contains(enPage, `<html lang="en"`) {
@@ -216,7 +216,7 @@ func TestSetup_建档时选语言随建档生效(t *testing.T) {
 	}
 	cookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
 	page := get(h, "/", cookie).Body.String()
-	if !strings.Contains(page, "Search names, addresses, tags") {
+	if !strings.Contains(page, "Switch profile") {
 		t.Errorf("建档选了英文，进门却不是英文界面")
 	}
 }
@@ -274,11 +274,11 @@ func Test语言_站级设置作用到每一个档案(t *testing.T) {
 	} {
 		cookie := sessionCookie(t, loginAs(t, h, tc.profile, tc.pin))
 		page := get(h, "/", cookie).Body.String()
-		if !strings.Contains(page, "Search names, addresses, tags") {
+		if !strings.Contains(page, "Switch profile") {
 			t.Errorf("%s 的档案页没跟着语言变", tc.profile)
 		}
-		if strings.Contains(page, "搜名字、地址、标签") {
-			t.Errorf("%s 的档案页在英文界面里还留着中文占位文案", tc.profile)
+		if strings.Contains(page, "换档案") {
+			t.Errorf("%s 的档案页在英文界面里那枚动作还印着中文", tc.profile)
 		}
 	}
 }
