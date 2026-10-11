@@ -301,6 +301,16 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    右边空出来的那一块读作留白，而不是一个洞。
    （磁贴那条 margin-left:32px 仍在——它缩进到图标右边对齐，是另一回事。） */
 [data-layout=list] .card i{margin-left:0}
+  /* list 也需要「让次要的换行」这一套了（2026-10-11 实拍后改）。
+     上面那段注释里写着「list 形态一行 966px，不需要这一套」——**那个前提已经不成立**：
+     `[data-layout=list] ul` 改成了按 360px 下限自适应分列，于是 1280 档上一行可能
+     只有 360–490px。名字一长 + 标签有两三个，`.tags-row` 的 `min-width:0` 让它被压到
+     几十像素宽，标签于是逐个换行、竖排成一列（实拍：一个四个标签的条目竖成了四行）。
+     修法与 `.tiles` 同一纪律——**让次要的换行，而不是让主要的消失**：父容器允许
+     wrap，标签行本身不再被压扁。空间够时仍然是一行。 */
+  [data-layout=list] .card{flex-wrap:wrap}
+  [data-layout=list] .card b{flex:1 1 auto;min-width:0}
+  [data-layout=list] .tags-row{flex:0 0 auto}
 .profiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
   background:rgba(255,157,108,.12);color:var(--ink)}

@@ -103,8 +103,7 @@
        它与 httpapi 的 importGuard（"非空档案不许导"）是同一条判据的两头：
        看得见这个入口的时候，它一定进得去。 */}}
   <p><a class="badge" href="/import">{{.T "profile.import.link"}}</a></p>
-  <p class="hint">把浏览器里「导出书签」存下的那个 .html 传上来。它会先给你看一份报告，
-     你点头之后才写进来。不导也可以——这个档案一有书签，这句话就自己消失。</p>
+  <p class="hint">{{.T "profile.import.hint"}}</p>
 {{end}}
 {{range .Bookmarks.Groups}}
 <section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}"{{with .Accent}} style="--sec-accent:{{.}}"{{end}}>

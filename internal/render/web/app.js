@@ -45,7 +45,7 @@ const APP_I18N = {
     "app.readErr": "读不出来：%s",
     "app.err.group": "先选一个分组。",
     "app.err.groupName": "先给这个分组起个名字。",
-    "app.err.url": "先填地址",
+    "app.err.url": "先填地址。",
     "app.offline.queued": "离线了，这条先记下，网络通了自动补上。",
     "app.offline.chip": "离线记了 %d 条",
     "app.offline.aria": "看离线记下的条目",
@@ -137,7 +137,7 @@ const APP_I18N = {
     "app.readErr": "Could not read it: %s",
     "app.err.group": "Pick a group first.",
     "app.err.groupName": "Give the new group a name first.",
-    "app.err.url": "Fill in an address first",
+    "app.err.url": "Fill in an address first.",
     "app.offline.queued": "You are offline. This one is queued and will go through when the connection is back.",
     "app.offline.chip": "%d queued offline",
     "app.offline.aria": "Show entries queued while offline",
@@ -162,7 +162,7 @@ const APP_I18N = {
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this entry",
     "app.layout.tiles": "Tiles",
-    "app.layout.rows": "List",
+    "app.layout.rows": "Single column",
     "app.layout.aria": "Switch the group “%s” from %s to %s",
     "app.multi.aria": "Bulk actions",
     "app.multi.move": "Move to (%d)",
@@ -170,8 +170,8 @@ const APP_I18N = {
     "app.multi.none": "Clear selection",
     "app.multi.exit": "Exit",
     "app.multi.hint": "In multi-select: click cards to pick or unpick them. The row below holds the bulk actions; press Esc to exit.",
-    "app.move.aria": "Move to which group",
-    "app.move.title": "Move these %d to",
+    "app.move.aria": "Which group to move to",
+    "app.move.title": "Move these %d bookmarks to",
     "app.move.cancel": "Cancel",
     "app.tags.aria": "Add tags",
     "app.tags.title": "Tag these %d entries",
@@ -194,12 +194,12 @@ const APP_I18N = {
     "app.sw.updated": "The bookmark page has been updated. Refresh to use it.",
     "app.generic.cancel": "Cancel",
     "app.generic.save": "Save",
-    "app.ops.item": "This entry",
-    "app.ops.move": "Moving",
-    "app.ops.layout": "Switching layout",
-    "app.ops.bulkMove": "Bulk move",
-    "app.ops.bulkTags": "Bulk tagging",
-    "app.applyOps.fail": "Could not save %s: %s",
+    "app.ops.item": "this entry",
+    "app.ops.move": "the move",
+    "app.ops.layout": "the layout change",
+    "app.ops.bulkMove": "the bulk move",
+    "app.ops.bulkTags": "the bulk tags",
+    "app.applyOps.fail": "%s could not be saved: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
     "app.sep": ", ",
     "app.keys.mod": "⌘ or Ctrl",
@@ -207,6 +207,7 @@ const APP_I18N = {
   }
 };
 // END APP_I18N
+
 
 (() => {
   'use strict';
