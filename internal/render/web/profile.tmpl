@@ -1,5 +1,5 @@
 {{define "profile"}}<!doctype html>
-<html lang="zh-CN"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -14,12 +14,12 @@
        Bookmarks.Title 仍在数据里（导出/导入会带上），只是不再占用这一格。 */}}
   <h1 title="{{.Profile.Title}}">{{.Profile.Title}}</h1>
   <form class="search" method="get" action="/" role="search">
-    <input type="search" name="q" value="{{.Query}}" aria-label="搜索书签" placeholder="搜名字、地址、标签">
-    <button type="submit">搜索</button>
+    <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
+    <button type="submit">{{.T "profile.search.submit"}}</button>
   </form>
   {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，
        读起来像"还有 20 条没显示"。说清是谁的总数。 */}}
-  {{if .Query}}<p class="hits">找到 {{.Hits}} 条，这个档案一共 {{.Total}} 条</p>{{end}}
+  {{if .Query}}<p class="hits">{{.T "profile.hits" .Hits .Total}}</p>{{end}}
   {{/* 主题循环：auto→dark→light→auto（spec §8.1 的三态）。两态互切是错的——
        auto 是建档默认值，一旦离开就再也回不去，"跟随系统"这个选项等于不存在。
        值由服务端算并写死在 hidden 里：不用 JS 读当前值，因为"当前值"服务端本来就知道。
@@ -27,9 +27,9 @@
        而三个说法字数不同（4/4/7 字），按一次宽度跳一次。 */}}
   <form method="post" action="/prefs" class="theme">
     <input type="hidden" name="theme" value="{{if eq .Profile.Theme "auto"}}dark{{else if eq .Profile.Theme "dark"}}light{{else}}auto{{end}}">
-    <button type="submit" title="点一下换到下一档">主题：{{if eq .Profile.Theme "auto"}}自动{{else if eq .Profile.Theme "dark"}}暗{{else}}亮{{end}}</button>
+    <button type="submit" title="{{.T "profile.theme.title"}}">{{if eq .Profile.Theme "auto"}}{{.T "profile.theme.auto"}}{{else if eq .Profile.Theme "dark"}}{{.T "profile.theme.dark"}}{{else}}{{.T "profile.theme.light"}}{{end}}</button>
   </form>
-  <nav aria-label="档案">
+  <nav aria-label="{{.T "profile.nav.aria"}}">
     {{/* /admin 在 Task 5 落地了：路由真的存在，这枚徽章才有资格发链接
          （最终整枝评审的死链纪律）。 */}}
     {{/* 档案徽标：**点它回选择页换人**。
@@ -51,9 +51,9 @@
          一个动作。改成"换档案"之后，身份归 h1、动作归按钮，两边各说各的。 */}}
     <form method="post" action="/switch" class="profmenu">
       <input type="hidden" name="to" value="picker">
-      <button type="submit" class="badge" title="回选择页换一个人（离开这一份）">换档案</button>
+      <button type="submit" class="badge" title="{{.T "profile.switch.title"}}">{{.T "profile.switch"}}</button>
     </form>
-    {{if .Profile.Admin}}<a class="badge" href="/admin">管理</a>{{end}}
+    {{if .Profile.Admin}}<a class="badge" href="/admin">{{.T "profile.admin"}}</a>{{end}}
     {{/* 回退入口：一条零 JS 链接（GET /revert），不需要 JS 也不需要令牌。
          它是"改坏了能退回去"这条承诺在页面上的**唯一**入口——revert 此前只有
          API 与命令行两条通路，页面上一个按钮都没有，而人点不到的东西不算承诺。
@@ -61,7 +61,7 @@
          **只在还有可退版本时画**（判据在 exec.go 的 HasSnapshots）：一条书签都没
          写过的档案，snapshots/ 是空的，点进去只有一句解释——那就是 §8.1 明写
          要避免的「点了没反应的东西」。*/}}
-    {{if .HasSnapshots}}<a class="badge" href="/revert" title="回到之前的某一版书签">回退</a>{{end}}
+    {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{end}}
   </nav>
 </header>
 {{/* 管理横幅整块删掉了（2026-10-10 改判）：它那句「正在管理 X 的书签 · 由 Y 操作」
@@ -76,7 +76,7 @@
 {{if $top}}
   {{/* 顶栏形态：分组行常驻顶栏下方。同一份 grouplist，两种挂法——
        判据（分组、计数、色点、锚点）只有一份。 */}}
-  <nav class="gnav top" aria-label="分组">{{template "grouplist" .}}</nav>
+  <nav class="gnav top" aria-label="{{.T "profile.nav.groups"}}">{{template "grouplist" .}}</nav>
 {{end}}
 <div class="shell">
 {{if not $top}}
@@ -85,16 +85,16 @@
        键盘开合与可及性由原生 <details> 负责，零脚本，不补 role/aria-expanded 那类仪式。 */}}
   <aside class="side">
     <details class="drawer" open>
-      <summary>分组</summary>
-      <nav class="gnav" aria-label="分组">{{template "grouplist" .}}</nav>
+      <summary>{{.T "profile.summary.groups"}}</summary>
+      <nav class="gnav" aria-label="{{.T "profile.nav.groups"}}">{{template "grouplist" .}}</nav>
     </details>
   </aside>
 {{end}}
 <main role="main">
 {{if .Query}}
-  {{if not .Bookmarks.Groups}}<p>没有匹配「{{.Query}}」的书签。<a href="/">看全部</a></p>{{end}}
+  {{if not .Bookmarks.Groups}}<p>{{.T "profile.nomatch" .Query}} <a href="/">{{.T "profile.nomatch.all"}}</a></p>{{end}}
 {{else if .Empty}}
-  <p>这个档案还没有书签。</p>
+  <p>{{.T "profile.empty"}}</p>
   {{/* 导入卡片：只在**一条书签都没有**时出现（判据是 .Empty，exec.go 算一次，
        模板不做判断）。刻意**没有"导入过就别再问"的状态**——档案空就提示、
        有书签就不提示，判据只有"现在有几条书签"这一份；多一个"问过了"标记就要
@@ -102,7 +102,7 @@
 
        它与 httpapi 的 importGuard（"非空档案不许导"）是同一条判据的两头：
        看得见这个入口的时候，它一定进得去。 */}}
-  <p><a class="badge" href="/import">从浏览器导入收藏夹</a></p>
+  <p><a class="badge" href="/import">{{.T "profile.import.link"}}</a></p>
   <p class="hint">把浏览器里「导出书签」存下的那个 .html 传上来。它会先给你看一份报告，
      你点头之后才写进来。不导也可以——这个档案一有书签，这句话就自己消失。</p>
 {{end}}
@@ -116,9 +116,9 @@
         <span class="plain">
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          <span class="badge warn" title="这类地址浏览器不允许从网页里点开，要自己复制到地址栏">需手动打开</span>
+          <span class="badge warn" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
           <code>{{.URL}}</code>
-          {{if .Missing}}<span class="badge" title="这个图标名在图标库里找不到，先用名字首字的色块">图标未匹配</span>{{end}}
+          {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </span>
       {{else}}
@@ -126,7 +126,7 @@
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
           {{with .Desc}}<i>{{.}}</i>{{end}}
-          {{if .Missing}}<span class="badge" title="这个图标名在图标库里找不到，先用名字首字的色块">图标未匹配</span>{{end}}
+          {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </a>
       {{end}}

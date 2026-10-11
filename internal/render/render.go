@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -30,6 +31,15 @@ type cacheKey struct {
 	modified time.Time // bookmarks.json：外部改盘也失效
 	profFp   string    // 主角 profile.json 的内容指纹：主题与形态存在那里
 	iconGen  uint64    // 图标缓存的代次
+	// lang 是**站级**界面语言（data/settings.json）。它进键的理由与 HasSnapshots
+	// 不进键正好相反：快照只在写入时增删，而每一次写入都推进 rev，所以"键没变
+	// 而快照变了"不可能发生，漏一维无害。语言**不推进任何 rev**——管理员在管理页
+	// 改一次语言，所有档案的 rev、mtime、指纹全都一模一样，键却必须变，否则每个
+	// 档案都会拿缓存里那份旧语言的页面继续发，而那个旧条目的键与新的完全相等。
+	//
+	// 放在键里而不是"改语言时遍历清一遍缓存"：清缓存是**要记得做**的事，忘了就是一个
+	// "改了不生效、得重启容器"的现象；进键是**不用记得**的事，判据只有一份。
+	lang i18n.Lang
 }
 
 // PageRequest 是渲染一页所需的全部输入。用 struct 而不是三个 string 参数：
@@ -101,8 +111,9 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	// 带 ?q= 或 ?add= 的请求**不进这个缓存**（§7.1 对 ?q= 的原话，?add= 同理）：
 	// 键空间会随每次按键/每条书签膨胀，而为一个局域网页面养无界缓存不值。旁路
 	// 不等于不发 ETag——下面算的就是内容哈希，浏览器 304 那一路一分不损失。
+	lang := r.s.Language()
 	key := cacheKey{profile: req.ID, rev: snap.Rev,
-		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation()}
+		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation(), lang: lang}
 	if req.Query == "" && req.Add == "" {
 		r.mu.Lock()
 		if p, ok := r.cache[key]; ok {
@@ -124,7 +135,7 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	}
 	hasSnaps := err != nil || len(snaps) > 0
 
-	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps)
+	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -212,7 +223,7 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
 		Notice: opts.Notice}
-	body, err := r.tmpl.picker(v)
+	body, err := r.tmpl.picker(v, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
 	}
@@ -223,7 +234,7 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 // （文件名+行号），不含书签内容、PIN 哈希或任何令牌。
 // 档案列表页可能随时变，且给缓存起来就是留着看旧解释，所以不缓存。
 func (r *Renderer) BrokenPage(id, reason string) (Page, error) {
-	body, err := r.tmpl.broken(id, reason)
+	body, err := r.tmpl.broken(id, reason, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
 	}
@@ -274,7 +285,7 @@ const AdminSentinel = "-admin"
 // 能说出"刚才没建上"，否则那条通路是静默失败的。判据不在渲染器里——它只印递进来的
 // 那句，白名单与键的取法都在 httpapi（同 PickerOptions 的 Heading/Setup）。
 func (r *Renderer) AdminPage(rows []AdminRow, notice string) (Page, error) {
-	body, err := r.tmpl.admin(rows, notice)
+	body, err := r.tmpl.admin(rows, notice, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
 	}
@@ -378,7 +389,7 @@ type ImportView struct {
 // ImportPage 渲染导入页。no-store：报告与令牌都在这一次响应的上下文里，
 // 缓存住它等于把"这个人打算导什么"留给下一个共用这台电脑的人。
 func (r *Renderer) ImportPage(v ImportView) (Page, error) {
-	body, err := r.tmpl.importPage(v)
+	body, err := r.tmpl.importPage(v, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
 	}
@@ -386,7 +397,7 @@ func (r *Renderer) ImportPage(v ImportView) (Page, error) {
 }
 
 func (r *Renderer) AdminActionPage(v AdminAction) (Page, error) {
-	body, err := r.tmpl.adminAction(v)
+	body, err := r.tmpl.adminAction(v, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
 	}

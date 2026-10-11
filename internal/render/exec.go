@@ -7,10 +7,57 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
+
+// i18nView 是每一页都要的那两格，所以内嵌进每个视图而不是各写一遍字段。
+//
+// **T 由执行器注入，调用方一律不许填**——与 CSS 同一条纪律：让 httpapi 那头
+// 能填 T，就等于允许它塞一段未经查表校验的字符串进页面（而查表正是"这一句话
+// 在两种语言里都存在"的唯一保证）。
+//
+// 语言以**位置参数**递进执行器方法而不是放在视图结构体上，与 HasSnapshots 同一
+// 条理由：字段能忘填，位置参数不能。一个忘了传语言的渲染函数会立刻在测试里
+// 显出 ⟨key⟩ 而不是安静地退回中文。
+type i18nView struct {
+	// Lang 是 <html lang> 的值：zh-CN / en。取自 HTMLLang 而不是 Lang 本身——
+	// 前者是标准写法（RFC 5646），读屏软件与浏览器的翻译提示认它。
+	Lang string
+	// cat 是文案本体，**不许导出**：导出就等于让 httpapi 那头能填，一份未经查表
+	// 校验的字符串就能进页面（而查表正是"这一句话在两种语言里都存在"的唯一保证）。
+	// 模板只能拿到下面那个 T 方法。
+	cat *i18n.Catalog
+}
+
+// T 是绑定了当前语言的查表。模板里只有 `{{.T "key"}}` 这一种形状——**不许**出现
+// `{{if eq .Lang "en"}}` 那种把语言分支写进模板的写法：那会让"这一页有几种说法"
+// 从语言包里的一行变成散落在标记里的一串判断。
+//
+// **必须是方法，不能是函数字段**：Go 模板不认结构体上的函数值，连无参的都不认
+// （报 "T has arguments but cannot be invoked as function"），只认方法。实测三种
+// 形态——变参、定参、无参——作为字段一律失败，作为方法一律成功。因为这一格是
+// 内嵌进每个视图的，方法会被提升到外层，模板里写的仍然是 `{{.T "key"}}`。
+func (v i18nView) T(key string, args ...any) string {
+	if v.cat == nil {
+		return "⟨" + key + "⟩"
+	}
+	return v.cat.T(key, args...)
+}
+
+// newI18nView 把一份文案绑成视图要的那两格。
+//
+// cat 传 nil 时落默认语言而不是崩：一个漏传语言的调用点会拿到一份**能显示**的
+// 界面（中文），而不是 panic。真正的"忘了传"由那个位置参数在代码审查里拦，
+// 而崩溃只会让一台跑着的机器因为某次改动打不开。
+func newI18nView(cat *i18n.Catalog) i18nView {
+	if cat == nil {
+		cat = i18n.Load(i18n.Default)
+	}
+	return i18nView{cat: cat, Lang: cat.HTMLLang()}
+}
 
 type executor struct {
 	profileT *template.Template
@@ -56,6 +103,7 @@ type profileData struct {
 }
 
 type profileView struct {
+	i18nView
 	Profile *model.Profile
 	// Theme 落成 <html data-theme>，但**只带显式选择**：auto|dark|light 里
 	// "auto" 在这里被归一成空串，属性根本不发（见 themeAttr）。
@@ -129,6 +177,7 @@ func themeAttr(theme string) string {
 // 永远走不到的分支让人以为它有用。要按档案主题渲染解释页，得先决定读不出
 // profile.json 时算谁的，那是 ⑤ 之后的决定。
 type pickerView struct {
+	i18nView
 	Entries []pickerEntry
 	CSS     template.CSS
 	// Heading 与 Setup 是进门页三形状的两格（设计 §2）：h1 的全部文字，以及
@@ -154,6 +203,7 @@ type pickerEntry struct {
 }
 
 type brokenView struct {
+	i18nView
 	ProfileID string
 	Reason    string
 	CSS       template.CSS
@@ -162,6 +212,7 @@ type brokenView struct {
 // adminView 是管理页的数据。Count 由执行器算好递给模板：模板不做判断
 // （与 validatedAccent、themeAttr 同一条纪律——判据在 Go 侧那一份）。
 type adminView struct {
+	i18nView
 	Rows []AdminRow
 	// Notice 是 `?err=` 白名单查出的一句人话，空串不画（判据在 httpapi，这里只印）。
 	Notice string
@@ -174,6 +225,7 @@ type adminView struct {
 // 让 httpapi 那头能填 CSS，就等于允许它塞一段未经 safeCSS 的字符串进来。
 type adminActionView struct {
 	AdminAction
+	i18nView
 	CSS template.CSS
 }
 
@@ -208,10 +260,10 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 }
 
 // importPage 渲染浏览器收藏夹导入那三步。判据全在 ImportView 里，模板只印。
-func (e *executor) importPage(v ImportView) ([]byte, error) {
+func (e *executor) importPage(v ImportView, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := e.importT.ExecuteTemplate(&buf, "import", importView{
-		ImportView: v, CSS: e.cssT}); err != nil {
+		ImportView: v, CSS: e.cssT, i18nView: newI18nView(cat)}); err != nil {
 		return nil, fmt.Errorf("渲染导入页: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -219,6 +271,7 @@ func (e *executor) importPage(v ImportView) ([]byte, error) {
 
 type importView struct {
 	ImportView
+	i18nView
 	CSS template.CSS
 }
 
@@ -328,10 +381,11 @@ func shortTime(s string) string {
 // 这句话本身。这里不再补一次 `home.ID != p.ID`：同一句话写两遍，第二遍永远
 // 不可能被单独改坏（删掉它测试照样绿），留着等于一条没有证人的保险丝。
 // 权限判断（谁是管理员）不在这里、更不在模板：模板只 {{with}} 一次。
-func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps bool) ([]byte, error) {
+func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps bool, cat *i18n.Catalog) ([]byte, error) {
 	fb, hits, total := matches(query, b)
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
-		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
+		i18nView: newI18nView(cat),
+		Query:    strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
 	for _, g := range fb.Groups {
 		// 分组色只在这里算一次（唯一真相）：条目身上只带 --chip-h，
@@ -368,40 +422,43 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 	return buf.Bytes(), nil
 }
 
-func (e *executor) picker(v pickerView) ([]byte, error) {
+func (e *executor) picker(v pickerView, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
-	// CSS 由执行器填：视图结构体从 httpapi 传来时不该带着内嵌文件的引用，
+	// CSS 与语言都由执行器填：视图结构体从 httpapi 传来时不该带着内嵌文件的引用，
 	// 那等于让调用方负责注入样式（profile/broken/admin 三页同一形状）。
 	v.CSS = e.cssT
+	v.i18nView = newI18nView(cat)
 	if err := e.pickerT.ExecuteTemplate(&buf, "picker", v); err != nil {
 		return nil, fmt.Errorf("渲染进门页: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (e *executor) broken(id, reason string) ([]byte, error) {
+func (e *executor) broken(id, reason string, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := e.brokenT.ExecuteTemplate(&buf, "broken", brokenView{
+		i18nView:  newI18nView(cat),
 		ProfileID: id, Reason: reason, CSS: e.cssT}); err != nil {
 		return nil, fmt.Errorf("渲染坏档案页 %s: %w", id, err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (e *executor) admin(rows []AdminRow, notice string) ([]byte, error) {
+func (e *executor) admin(rows []AdminRow, notice string, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := e.adminT.ExecuteTemplate(&buf, "admin", adminView{
-		Rows: rows, Notice: notice, CSS: e.cssT, Count: len(rows)}); err != nil {
+		i18nView: newI18nView(cat),
+		Rows:     rows, Notice: notice, CSS: e.cssT, Count: len(rows)}); err != nil {
 		return nil, fmt.Errorf("渲染管理页: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
 // adminAction 渲染设 PIN / 删档的确认页。判据全在 AdminAction 里，模板只印。
-func (e *executor) adminAction(v AdminAction) ([]byte, error) {
+func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := e.adminActionT.ExecuteTemplate(&buf, "adminAction", adminActionView{
-		AdminAction: v, CSS: e.cssT}); err != nil {
+		AdminAction: v, CSS: e.cssT, i18nView: newI18nView(cat)}); err != nil {
 		return nil, fmt.Errorf("渲染确认页: %w", err)
 	}
 	return buf.Bytes(), nil

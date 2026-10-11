@@ -1,5 +1,5 @@
 {{define "import"}}<!doctype html>
-<html lang="zh-CN">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -9,7 +9,7 @@
 <body>
 <header>
   <h1>{{.Heading}}</h1>
-  <nav aria-label="返回"><a class="badge" href="/">回首页</a></nav>
+  <nav aria-label="{{.T "common.back.aria"}}"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
 </header>
 <main role="main">
   {{/* 提示放在最前：读屏的人不该先听完一屏说明才知道刚才那一步没成。
@@ -21,33 +21,32 @@
          `.tech` 是**容器**、换行由 `.tech pre{white-space:pre-wrap}` 给——类要挂
          在外层那个元素上。挂到 <pre> 自己身上时那条规则匹配不上，报告就按默认的
          pre 不换行、横向滚出去，长行右边直接被切掉（浏览器实测才发现）。 */}}
-    <p><b>{{.FileName}}</b>：会加 <b>{{.Count}}</b> 条书签、<b>{{.Groups}}</b> 个分组。
+    <p><b>{{.FileName}}</b>{{.T "import.file.sep"}}{{.T "import.intro.a"}}<b>{{.T "import.intro.n" .Count}}</b>{{.T "import.intro.b"}}<b>{{.T "import.intro.m" .Groups}}</b>{{.T "import.intro.c"}}
        {{/* 没能进来的单独说一句：只报"会加几条"会让人以为文件里就这么多书签，
             而少的那些去了哪里只有报告知道。 */}}
-       {{if .Skipped}}另有 <b>{{.Skipped}}</b> 条没能进来（报告里逐条列了原因）。{{end}}
-       下面这份报告是导入器自己算的，读完再决定。</p>
+       {{if .Skipped}}{{.T "import.skipped.a"}}<b>{{.T "import.skipped.n" .Skipped}}</b>{{.T "import.skipped.b"}} {{end}}{{.T "import.more"}}</p>
     <div class="rep">{{reportHTML .Report}}</div>
     {{/* 令牌是一次性的（过期/用过/不是这个档案都回第一步），所以这一发
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}
     <form method="post" action="/import/apply" class="act">
       <input type="hidden" name="token" value="{{.Token}}">
-      <button type="submit">确认导入</button>
-      <a class="badge" href="/">算了，不导</a>
+      <button type="submit">{{.T "import.apply"}}</button>
+      <a class="badge" href="/">{{.T "import.cancel"}}</a>
     </form>
   {{else if eq .Mode "blocked"}}
     {{/* 这一形状只有一个链接：档案非空 → 导入这条路本来就不通。没有第二句，
          也没有"换个档案试试"——那句话会变成一个新的枚举面。 */}}
-    <p><a class="badge" href="/">回首页</a></p>
+    <p><a class="badge" href="/">{{.T "common.back.home"}}</a></p>
   {{else}}
     <p class="explain">{{.Explain}}</p>
     {{/* multipart 是这一页与其它表单通路唯一的不同：它带文件。
          表单**必须显式写 enctype**——缺了它浏览器会按 urlencoded 发，
          服务端读到的是一个空的文件字段，而页面会说"没有选文件"。 */}}
     <form method="post" action="/import" enctype="multipart/form-data" class="act">
-      <p><label for="f">书签文件（.html）</label>
+      <p><label for="f">{{.T "import.file"}}</label>
         <input id="f" type="file" name="bookmarks" accept=".html,text/html" required></p>
-      <button type="submit">看这份会导入什么</button>
-      <a class="badge" href="/">先不导</a>
+      <button type="submit">{{.T "import.preview"}}</button>
+      <a class="badge" href="/">{{.T "import.cancelFirst"}}</a>
     </form>
   {{end}}
 </main>

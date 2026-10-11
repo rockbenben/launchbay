@@ -1,5 +1,5 @@
 {{define "adminAction"}}<!doctype html>
-<html lang="zh-CN">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -12,7 +12,7 @@
   {{/* 返回徽标默认回管理页（三张管理页确认都要回那里），由调用方用 NavHref
        覆盖成它自己的来处——回退页回的是自己的档案页。默认值写在这一处而
        不是让三张页各写一遍，是为了"回哪"只在这里有一个答案。 */}}
-  <nav aria-label="返回"><a class="badge" href="{{if .NavHref}}{{.NavHref}}{{else}}/admin{{end}}">{{if .NavLabel}}{{.NavLabel}}{{else}}回管理页{{end}}</a></nav>
+  <nav aria-label="{{.T "common.back.aria"}}"><a class="badge" href="{{if .NavHref}}{{.NavHref}}{{else}}/admin{{end}}">{{if .NavLabel}}{{.NavLabel}}{{else}}{{.T "common.back.admin"}}{{end}}</a></nav>
 </header>
 <main role="main">
   {{/* 这一族是 ⑤ 的几条写动作（设 PIN / 删档 / 停用 / 回退）的**零 JavaScript**

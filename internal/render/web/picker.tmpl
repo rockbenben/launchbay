@@ -1,5 +1,5 @@
 {{define "picker"}}<!doctype html>
-<html lang="zh-CN">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -17,14 +17,13 @@
          也不给"要不要当管理员"的选项——建出来的这个人就是这台盒子的主人，
          判据在 httpapi 与 store，不在这里。成功之后照样要输 PIN 才进门。 */}}
     <form method="post" action="/setup" class="pick setup">
-      <label>名称 <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
-      <label>PIN <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
-      <button type="submit">创建</button>
+      <label>{{.T "picker.setup.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
+      <label>{{.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
+      <button type="submit">{{.T "picker.setup.submit"}}</button>
       {{/* 「这个人」指不到表单里的任何东西（字段叫「名称」）；「建完这一步就不能
            再建第二次」读起来像"这个按钮只能按一次"。说清是什么在关闭：这个页面。
            动词与管理页的「创建档案」统一成「创建」。 */}}
-      <p class="hint">第一份建好就是这台导航台的管理员：能进管理页加人、设 PIN、停用与删除。
-        这个页面只在一份档案都没有的时候出现；建完这一次它就关掉，以后加人去管理页。</p>
+      <p class="hint">{{.T "picker.setup.hint"}}</p>
     </form>
   {{else}}
     {{if .Blocked}}
@@ -37,8 +36,8 @@
            一句话里把"进不去"说了两遍，第二遍还是反过来的说法。改判只去掉这处冗余，
            三个被测试逐字钉住的片段——「数据文件读不了」「要在这台机器上修好那个文件」
            与下面那行「进不去的档案：」——一个都没动。 */}}
-      <p class="notice">有档案的数据文件读不了，暂时进不去。要在这台机器上修好那个文件才能继续。</p>
-      <p class="hint">进不去的档案：{{range $i, $id := .Blocked}}{{if $i}}、{{end}}<code>{{ $id }}</code>{{end}}</p>
+      <p class="notice">{{.T "picker.blocked.main"}}</p>
+      <p class="hint">{{.T "picker.blocked.which"}}{{range $i, $id := .Blocked}}{{if $i}}{{$.T "picker.blocked.sep"}}{{end}}<code>{{ $id }}</code>{{end}}</p>
     {{end}}
   <ul class="profiles">
   {{range .Entries}}
@@ -50,9 +49,9 @@
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
         <span class="pick-name"><span class="ic" aria-hidden="true">{{.Letter}}</span><b>{{.Title}}</b></span>
-        <label>PIN <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+        <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
                           minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
-        <button type="submit">进入</button>
+        <button type="submit">{{$.T "picker.enter"}}</button>
       </form>
     </li>
   {{end}}
@@ -60,7 +59,7 @@
   {{- if and (not .Entries) (not .Blocked)}}
     {{/* 目录在那儿但没有 profile.json（store 有意不记成坏档：一个手滑 mkdir 的空目录
          不该在家里页面挂红字）。这一支点不出名，只能说那句总的——不编名字。 */}}
-    <p class="hint">这台导航台现在没有进得去的档案。</p>
+    <p class="hint">{{.T "picker.empty"}}</p>
   {{end}}
   {{- end}}
 </main>
