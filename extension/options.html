@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>存到 launchbay · 设置</title>
+<style>
+  /* color-scheme + 一套暗色覆写：这一页是"在自己电脑上配一次"的界面，
+     深夜配机器时整页纯白很刺眼。写死浅色是它以前唯一的问题——不是设计，
+     是没人写过暗色那一档。 */
+  :root{color-scheme:light dark;--fg:#1c1c1e;--fg2:#555;--line:#ccc;--bg:#fff;--panel:#f3f3f3;--code:#fafafa;
+    --bad:#b3261e;--ok:#1c6b2e}
+  @media (prefers-color-scheme:dark){
+    :root{--fg:#e9edf8;--fg2:#a7b2cd;--line:#3a4152;--bg:#12151d;--panel:#1c2230;--code:#0c0f16;
+      --bad:#ffb3ad;--ok:#7ee2a0}
+  }
+  body{font:15px/1.6 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;max-width:38em;margin:2em auto;padding:0 1em;
+    background:var(--bg);color:var(--fg)}
+  label{display:block;margin:14px 0 4px;font-size:13px;color:var(--fg2)}
+  input[type=url],input[type=password],input[type=text]{width:100%;box-sizing:border-box;
+    padding:9px;font:inherit;background:var(--bg);color:inherit;border:1px solid var(--line);border-radius:7px;min-height:44px}
+  button{padding:9px 16px;font:inherit;min-height:44px;border:1px solid var(--line);
+    border-radius:7px;background:var(--panel);color:inherit;cursor:pointer}
+  button:focus-visible,input:focus-visible{outline:3px solid #4c8dff;outline-offset:2px}
+  .row{display:flex;gap:8px;align-items:center}
+  /* 令牌那一列是 password：给它 flex:1，id 列固定宽，两列一眼分得开。
+     以前三列都没有列头，用户看到的就是"两个不知道是什么的框 + 一个删字按钮"。 */
+  .row input[type=password]{flex:1 1 auto;min-width:0}
+  .cols{display:flex;gap:8px;font-size:12px;color:var(--fg2);margin-top:12px}
+  .cols span:first-child{flex:0 0 9em}
+  .note{font-size:13px;color:var(--fg2);margin:6px 0 0}
+  .bad{color:var(--bad);font-weight:600}
+  .ok{color:var(--ok)}
+  /* #msg 以前只有一句"已保存"换颜色：颜色是唯一的载体，读屏的人听不到任何
+     变化（role=status + aria-live 让它念出来），色弱的人也分不清成没成。
+     成/败各带一个文字前缀，不靠颜色。 */
+  #msg:not(:empty){border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:14px}
+  #msg.bad{border-color:var(--bad)}
+  hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+  code{font-size:13px}
+  /* 报告原文照贴，不折叠：它是这一页存在的意义。pre-wrap + break-all 让长行
+     换行而不是横向滚出去——报告里有 URL 与 JSON 片段，不换行就会被切掉。 */
+  pre{white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.5;
+    background:var(--code);border:1px solid var(--line);border-radius:7px;padding:10px;max-height:26em;overflow:auto}
+  /* 服务端渲染好的那份报告（HTML）贴进来时用的排版。与主站 .rep 同一族，
+     但这里是扩展自己的页面，不共享 CSS。 */
+  #bmreport{text-align:left}
+  #bmreport h3{font-size:13px;color:var(--fg2);margin:14px 0 4px}
+  #bmreport p,#bmreport li{font-size:13px}
+  #bmreport code{background:var(--code);padding:1px 4px;border-radius:4px;word-break:break-all}
+</style>
+</head>
+<body>
+<h1>存到 launchbay</h1>
+
+<label for="base">这台机器的地址</label>
+<input id="base" type="url" placeholder="http://10.0.0.3:7600">
+<p class="note">不带结尾斜杠。扩展打过去的就是这里。</p>
+
+<label for="prof">默认档案 id</label>
+<input id="prof" type="text" placeholder="dad">
+<p class="note">右键收藏时默认存进这一份。下面要有一枚属于它的令牌，否则扩展不知道往哪存。</p>
+
+<div class="cols"><span>档案 id</span><span>这一枚令牌（写权限）</span></div>
+<div id="rows"></div>
+<p class="note">令牌是这台机器的<b>写权限</b>。它只存在这台电脑的
+<code>chrome.storage.local</code> 里，<b>不进 sync、不上云</b>；换档案就换令牌，
+某一台泄露了只吊销那一枚。</p>
+
+<hr>
+<p id="msg" role="status" aria-live="polite"></p>
+<p><button id="save">存设置</button>
+  <button id="test">试一下这台机器</button></p>
+<p class="note">「试一下」用<b>默认档案</b>那一行的地址与令牌，去读一次那一份档案
+  （<code>GET /api/v1/data</code>）。它验的是你真正要成立的那件事：这枚令牌
+  能不能打开这个档案。答 403 就是令牌与档案对不上，不是网络问题。</p>
+
+<hr>
+<h2>把浏览器书签整个导进来</h2>
+<p class="note">读的是<b>这台浏览器自己的</b>书签树，不用先去别处导出一份文件。
+  第一次点下面那枚按钮时，浏览器会问你一次「要读你的书签吗」——读书签是一件很
+  敏感的事（它等于你的整个浏览兴趣图谱），所以这项权限我们设成<b>按需申请</b>：
+  只是为「右键收藏」装这个扩展的人，永远不会看到那个提问。</p>
+<p><button id="bmimport">读浏览器书签，看看会导入什么</button></p>
+<div id="bmreport" class="note" hidden></div>
+<p><button id="bmapply" hidden>确认导入</button>
+  <button id="bmcancel" hidden>算了，不导</button></p>
+
+<script src="import.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

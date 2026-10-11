@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "存到 launchbay",
+  "version": "0.1.0",
+  "description": "右键把当前页面存进家里的 launchbay，或一次收藏当前窗口的所有标签页；也能把浏览器书签树整个导进来。",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "tabs",
+    "notifications"
+  ],
+  "optional_permissions": [
+    "bookmarks"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "bg.js"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
