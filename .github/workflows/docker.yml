@@ -6,11 +6,21 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
-# contents: read 是 checkout 要的；packages: write 是推 GHCR 必需的，缺了直接 403。
-# 只读代码 + 可写镜像，两者互不相干，所以权限按最小集合分开声明。
+# 与 ci.yml 是同一件事、同一句话：一条分支连推三次，只有最后一次该跑完。前两次
+# 还在排队等 runner，而每次发镜像是完整的多架构构建（amd64 + arm64，QEMU 模拟）。
+#
+# **group 必须与 ci.yml 的不同名**（那边是 ci-${{ github.ref }}）。共用一个 group
+# 时两个 workflow 会互相取消：推 main 的那一刻，发镜像这轮刚起来就被 CI 掐掉，
+# 镜像停在旧提交上——而那正是「latest 指的是哪份代码」出错的时刻。
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
+# contents: read 是 checkout 要的；packages: write 是推 GHCR 必需的，缺了直接 403。
+# 只读代码 + 可写镜像，两者互不相干，所以权限按最小集合分开声明。
 
 # 撞了名的镜像会被别人 push 覆盖推走，所以命名空间带用户名而不是裸 launchbay。
 env:
