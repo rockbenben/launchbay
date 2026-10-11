@@ -148,11 +148,11 @@ jobs:
       - name: 起容器探一次 /healthz
         run: |
           # **令牌必须给**：二进制拿不到任何令牌时是**拒绝启动**的（配置错误直接退出）。
-        # 那个形状本身是对的——可它挡住的正是这一格：这条 job 存在的意义是"能 build
-        # 不等于能跑"，缺了令牌，前十几格绿了也说明不了镜像起来过。
-        # 这里传一个 CI 专用的假令牌：它只让进程活到 /healthz 应答，不碰任何档案
-        #（/data 是空 tmpfs，里面什么都没有）。
-        docker run -d --name lb-ci --tmpfs /data:mode=1777 \
+          # 那个形状本身是对的——可它挡住的正是这一格：这条 job 存在的意义是"能 build
+          # 不等于能跑"，缺了令牌，前十几格绿了也说明不了镜像起来过。
+          # 这里传一个 CI 专用的假令牌：它只让进程活到 /healthz 应答，不碰任何档案
+          #（/data 是空 tmpfs，里面什么都没有）。
+          docker run -d --name lb-ci --tmpfs /data:mode=1777 \
             -e LAUNCHBAY_DATA_DIR=/data -e LAUNCHBAY_PORT=7600 \
             -e LAUNCHBAY_WRITE_TOKENS=ci:ci-only-token:* \
             -p 7600:7600 launchbay:ci
