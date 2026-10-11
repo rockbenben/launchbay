@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -182,7 +181,7 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	plan, err := s.planImport(profile, raw)
 	if err != nil {
-		notice := "解析失败：" + err.Error()
+		notice := s.t("import.notice.parseFail", err.Error())
 		switch {
 		case errors.Is(err, errNothingToImport):
 			// **Convert 不拒绝非 Netscape 文件**：喂一段普通 HTML，它解析出零条书签
@@ -234,7 +233,7 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
 		s.renderImport(w, r, render.ImportView{
 			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  "没写进去：" + importOutcomeText(out),
+			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out)),
 			Explain: s.t("import.explainStep"),
 		})
 		return
@@ -243,20 +242,22 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 }
 
 // importOutcomeText 把 applyBatch 的失败结论翻成一句人话。
-func importOutcomeText(out batchOutcome) string {
+// 它是 **Server 的**方法而不是包级函数：它拼的是给人看的结论，而语言是机器级的
+// 设置，只有 Server 读得到 store。理由与 revert 的 choiceLabel 同一处。
+func (s *Server) importOutcomeText(out batchOutcome) string {
 	switch {
 	case out.missing:
-		return "档案不存在。"
+		return s.t("import.outcome.missing")
 	case out.broken != "":
-		return "档案的数据文件读不了。" + out.broken
+		return s.t("import.outcome.broken", out.broken)
 	case out.conflict != nil:
-		return "档案已经被改动过，请重试。"
+		return s.t("import.outcome.conflict")
 	case len(out.verrs) > 0:
-		return fmt.Sprintf("有 %d 条过不了校验，整批没有写入。", len(out.verrs))
+		return s.t("import.outcome.invalid", len(out.verrs))
 	case out.snapErr != nil:
-		return "快照写不下去，本次写入已取消。"
+		return s.t("import.outcome.snapErr")
 	}
-	return "原因不明。"
+	return s.t("import.outcome.unknown")
 }
 
 // decodeImportOps 把 bookimport 产出的 map 形状 ops 解成 []ops.Op，

@@ -326,7 +326,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice}
 		switch {
 		case n == 0:
-			opts.Setup, opts.Heading = true, "还没有档案"
+			opts.Setup, opts.Heading = true, s.t("picker.heading.none")
 		case n == 1:
 			// 单人安装不再先问"谁"：标题直接是那个人的名字。名字读不出来
 			// （档案坏了）时不编造，用一句中性话——这一页本来就要输 PIN。

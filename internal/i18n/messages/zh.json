@@ -251,5 +251,14 @@
   "revert.legend": "选一版",
   "revert.explain.main": "回退会把这一份换成你选的那一版的样子。动手之前，现在这份会先存成一份快照，所以退错了还能再退回来。回退算一次新的改动，操作记录里会多一行；它不抹掉任何历史。快照最多留 50 份，更早的会被清掉。",
   "revert.explain.unreadable": "另有 %d 份快照读不出来，没有列出来。",
-  "revert.explain.noversions": "这个档案还没有可回退的版本：每次改动前会自动留一份，所以你现在只有这一版。"
+  "revert.explain.noversions": "这个档案还没有可回退的版本：每次改动前会自动留一份，所以你现在只有这一版。",
+  "picker.heading.none": "还没有档案",
+  "import.notice.parseFail": "解析失败：%s",
+  "import.notice.notSaved": "没写进去：%s",
+  "import.outcome.missing": "档案不存在。",
+  "import.outcome.broken": "档案的数据文件读不了。%s",
+  "import.outcome.conflict": "档案已经被改动过，请重试。",
+  "import.outcome.invalid": "有 %d 条过不了校验，整批没有写入。",
+  "import.outcome.snapErr": "快照写不下去，本次写入已取消。",
+  "import.outcome.unknown": "原因不明。"
 }
