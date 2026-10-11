@@ -172,7 +172,7 @@ func TestAdmin_与status同一份聚合(t *testing.T) {
 		for i, want := range []struct {
 			col  string
 			want string
-		}{{"条目", strconv.Itoa(p.Items)}, {"rev", strconv.FormatInt(p.Rev, 10)}, {"最近改动", p.Modified}} {
+		}{{"条目", strconv.Itoa(p.Items)}, {"版本号", strconv.FormatInt(p.Rev, 10)}, {"最近改动", p.Modified}} {
 			got := cells[1+i]
 			if want.col == "最近改动" {
 				// 这一格现在印的是本地「月-日 时:分」，不是 status 的 RFC3339 原文。
@@ -219,20 +219,27 @@ func TestAdmin_档案头不是任何可建的档案id(t *testing.T) {
 // 定位靠 id：正常行把它渲染在 <code> 里，profile.json 坏到读不出 title 的行
 // 只剩 <b>id</b>（模板的回退）。两种都要认，否则这条 helper 会在坏档那行
 // 直接判不出行来。
-// sameMinuteLocal 判"页面上那个月-日 时:分"与 status 的 RFC3339 UTC 原文是不是
-// 同一个时刻（按本地时区）。分钟级：这一格的用途是"今天上午改的"，不是秒表。
+// sameMinuteLocal 判"页面上那一格时间"与 status 的 RFC3339 UTC 原文是不是同一个
+// 时刻（按本地时区）。分钟级：这一格的用途是"今天上午改的"，不是秒表。
+//
+// **两种形状都要认**，因为那一格按语言排版（render 的 shortTime）：中文印
+// 「10月11日 15:04」，英文印「11 Oct, 15:04」。只认一种会让"换个语言"看起来像
+// "时间错了"——那是一个测试自己制造的假故障。
 func sameMinuteLocal(cell, rfc3339 string) bool {
 	want, err := time.Parse(time.RFC3339, rfc3339)
 	if err != nil {
 		return false
 	}
-	got, err := time.ParseInLocation("01-02 15:04", cell, time.Local)
-	if err != nil {
-		return false
+	for _, layout := range []string{"1月2日 15:04", "2 Jan, 15:04", "01-02 15:04"} {
+		got, err := time.ParseInLocation(layout, cell, time.Local)
+		if err != nil {
+			continue
+		}
+		// 两边都只取「月-日 时:分」这一段比：页面上那一格没有年份，而
+		// ParseInLocation 给 got 补的是 0000 年——连年份一起比永远不等。
+		return got.Format("01-02 15:04") == want.Local().Format("01-02 15:04")
 	}
-	// 两边都只取「月-日 时:分」这一段比：页面上那一格没有年份，而
-	// ParseInLocation 给 got 补的是 0000 年——连年份一起比永远不等。
-	return got.Format("01-02 15:04") == want.Local().Format("01-02 15:04")
+	return false
 }
 
 func adminRowCells(t *testing.T, page, id string) []string {

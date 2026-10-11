@@ -40,7 +40,7 @@
   "admin.count": "一共 %d 个档案。这一页只看得到数量和时间，看不到任何人存了什么。",
   "admin.col.profile": "档案",
   "admin.col.items": "条目",
-  "admin.col.rev": "rev",
+  "admin.col.rev": "版本号",
   "admin.col.modified": "最近改动",
   "admin.col.snapshots": "快照",
   "admin.col.actions": "动作",

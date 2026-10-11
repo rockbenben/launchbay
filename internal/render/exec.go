@@ -382,15 +382,27 @@ func InlineCSS() []byte {
 	return []byte(safeCSS(stripCSSComments(string(raw))))
 }
 
-// shortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的
-// 「月-日 时:分」（按服务器时区——它就摆在客厅）。解析不出来**原样返回**：
-// 这一格宁可难看，也不能编一个时间出来。
-func shortTime(s string) string {
+// shortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间
+// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
+// 也不能编一个时间出来。
+//
+// **按语言走形状**：同一个 `01-02 15:04` 在中文读者那里读成"10 月 11 日"，
+// 在英语读者那里分不清是 11 月 10 日还是 10 月 11 日——月在前还是日在前，
+// 两种读法都成立。英文给月份名（`11 Oct, 15:04`），中文把单位也带上
+// （`10月11日 15:04`），两边都不再靠读者猜。
+//
+// lang 显式传进来而不是自己去读 store：这一层没有 Server，而"用哪种语言排版"
+// 是渲染侧判据的一部分，调用点看得见比藏起来好（与 Server.t 同一理由）。
+func shortTime(lang, s string) string {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return s
 	}
-	return t.Local().Format("01-02 15:04")
+	t = t.Local()
+	if lang == string(i18n.En) {
+		return t.Format("2 Jan, 15:04")
+	}
+	return t.Format("1月2日 15:04")
 }
 
 // profile 的 query 是服务端过滤的输入（spec §8.1）：判据只在 filter.go 那一份，

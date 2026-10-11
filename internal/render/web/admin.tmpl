@@ -41,7 +41,7 @@
         {{/* 这一格从前直接印 statusRows 给的 RFC3339 UTC 原文
              （`2026-10-10T09:33:08Z`）：家里人说"什么时候改的"要自己解析 T 与 Z。
              格式化放在渲染侧（shortTime），判据仍只有一份——数据那头不动。 */}}
-        <td data-k="{{$.T "admin.col.modified"}}" class="col-time">{{if .Modified}}{{shortTime .Modified}}{{else}}—{{end}}</td>
+        <td data-k="{{$.T "admin.col.modified"}}" class="col-time">{{if .Modified}}{{shortTime $.Lang .Modified}}{{else}}—{{end}}</td>
         <td data-k="{{$.T "admin.col.snapshots"}}">{{.Snapshots}}</td>
         <td data-k="{{$.T "admin.col.actions"}}">
           {{if .Broken}}
