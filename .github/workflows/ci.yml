@@ -1,0 +1,166 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 一条分支连推三次，只有最后一次的结果有人看，前两次还在排队等 runner。
+# cancel-in-progress 取消掉在跑的那次：被取消的 run 在 GitHub 上是"取消"态而
+# 不是"失败"态，所以不会出现"CI 红了但没人推坏代码"的假警报。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# 只读。这条 workflow 只跑门禁与守卫：不写仓库、不发 release、不碰 issue/PR。
+# 默认的 token 权限比这宽得多，而"给 CI 一把能改仓库的钥匙"是没有理由的。
+permissions:
+  contents: read
+
+jobs:
+  # 四道门禁 + 三个只判一次的检查。ubuntu 与 windows 跑**同样的四道门禁**——
+  # 本机是 Windows，而路径正是这块代码的已知痛点（P1-④.6 的计划里专门把绝对
+  # 路径换成 git rev-parse，就是目录改过名之后那些命令会静默失效）。store 读写真实
+  # 文件、.gitattributes 管着 eol=lf、图标产物按 *.json.gz binary 提交：这些在
+  # ubuntu 上绿过一次，不等于在 Windows 上也成立。
+  #
+  # leakguard / depguard / js 语法**只在 ubuntu 上跑**：它们判的是"仓库里有没有
+  # 不该有的、或者已经坏掉的东西"，与平台无关，一个平台判一次就够，重复跑只增加
+  # 时间不增加覆盖。fail-fast: false 是为了两个
+  # 平台的读数都能拿到——windows 先红会盖掉 ubuntu 的结果，那份结果同样有用。
+  gate:
+    name: gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            guards: 'true'
+          - os: windows-latest
+            guards: 'false'
+    env:
+      # spec §15 泄漏守卫的第二层：本家真实网段前缀，形如 192.168.50（三段）。
+      #
+      # 它是 secret 而不是写进 workflow 的字面量：值就是本家的拓扑，而"拓扑
+      # 不进仓库"正是这条守卫要防的事。名字进仓库、值不进。
+      #
+      # fork 与普通 PR 本来就取不到 secret，那时守卫只跑第一层，并在 stderr
+      # 与 stdout 都点明"只有第一层"——spec §15 明写"不许因为漏配 secret 就
+      # 整体静默失效"。配错（四段、CIDR、全零）会让守卫退出 2，不是静默放行。
+      NAS_SUBNET_PREFIX: ${{ secrets.NAS_SUBNET_PREFIX }}
+    defaults:
+      run:
+        # windows runner 的默认 shell 是 pwsh，而 gofmt 那一步是 sh 脚本。
+        # 显式钉 bash 让两个平台跑**逐字相同**的命令——门禁在两个平台上
+        # 长得不一样，"平台差异"和"shell 差异"就再也分不开了。
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 门禁不需要往回写。不留凭据，泄露面就少一处：actions/checkout 默认
+          # 会把 token 写进 .git/config，jobs 里没有任何一步会用到它。
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod   # 版本从 go.mod 拿，不在这里抄一份会漂移的号
+      - name: vet
+        run: go vet ./...
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            printf '需要 gofmt:\n%s\n' "$out"
+            exit 1
+          fi
+      - name: test
+        run: go test ./... -count=1
+      - name: build
+        run: CGO_ENABLED=0 go build ./...
+      # 前端那 ~55 KB JavaScript 此前**没有任何解析门禁**：Go 测试查的是字节、
+      # 预算与指纹，app.js 里一个括号打错也能一路绿到浏览器白屏才有人发现。
+      # 这里只**解析不执行**，不引入任何仓库依赖——没有 package.json、没有锁
+      # 文件、go.sum 照旧不存在，depguard 的零依赖判定不受影响。
+      #
+      # **用 runner 自带的 node：不装、也不钉版本。** GitHub runner 镜像本来就
+      # 带着 node，而 node --check 只解析、不执行、不装包——为一个自带的工具再
+      # 加一步 setup-node，等于给 CI 凭空添一次下载和一个会随 runner 漂的版本
+      # 约束。本案写的是 ES2020 那一档的老实语法，任何近几年的 node 都判得动。
+      #
+      # 四个文件按浏览器里的真实角色本该分两批判（profile.tmpl 用
+      # `<script type="module">`，sw.js 是 register('/sw.js') 的传统 Service
+      # Worker，extension/bg.js 是 MV3 默认类型），但今天这四份都没有模块专属
+      # 语法，一道闸就够。**将来 app.js 用上 import 或顶层 await 时，按脚本解析
+      # 会误报**，那时再给它单开一条 --input-type=module——别在今天就为还不存在
+      # 的语法多写一条命令。
+      #
+      # **只在 ubuntu 上跑**，理由与下面两个守卫同源：它判的是"仓库里有没有
+      # 坏掉的文件"，与平台无关。.gitattributes 钉了 eol=lf，而 JS 两种换行
+      # 都合法，Windows 上再判一次不增加覆盖，只增加时间。
+      #
+      # Dockerfile 里那趟 amd64 门禁**覆盖不到这一步**（构建阶段没有 node），
+      # 这是有意的取舍：为一个只解析不执行的检查往镜像构建里塞一个 Node 运行时，
+      # 不值。仓库级的闸一律以本文件为准，两处别互相冒充。
+      - name: js 语法
+        if: matrix.guards == 'true'
+        run: |
+          node --check internal/render/web/app.js
+          node --check internal/render/web/sw.js
+          node --check extension/bg.js
+          node --check extension/options.js
+      # 守卫**先编译再执行，不走 go run**：go run 会把守卫自己的退出码换成它
+      # 自己的 1，于是"发现泄漏"与"守卫没跑成"（配置错、go 命令不在）并成同一档，
+      # 红的原因只能去猜。退出码是这两条守卫对 CI 唯一的输出语言，就不能把它
+      # 包进另一个进程里。
+      - name: leakguard
+        if: matrix.guards == 'true'
+        run: |
+          go build -o "$RUNNER_TEMP/leakguard" ./tools/leakguard
+          "$RUNNER_TEMP/leakguard"
+      - name: depguard
+        if: matrix.guards == 'true'
+        run: |
+          go build -o "$RUNNER_TEMP/depguard" ./tools/depguard
+          "$RUNNER_TEMP/depguard"
+
+  # 镜像能不能构建，**只有真构建一次才知道**。Dockerfile 里那句"门禁在镜像构建里
+  # 跑一遍：CI 绿不代表这个镜像可用"从来没有被 CI 验过：golang:1.27-alpine 是否
+  # 还在、COPY 的路径是否腐坏、scratch 里缺了什么，都是纸面上的。
+  #
+  # 推到能起容器探一次 /healthz 是因为**能 build 不等于能跑**：scratch 没有 shell、
+  # 没有时区库（created_at 的偏移会变成假话）、二进制以 65534 跑，而这些只有真
+  # 起一次才暴露得出。/data 用 tmpfs 而不是 bind mount——bind 到 runner 的目录要
+  # 先 chown 给 65534，tmpfs 的 mode=1777 谁都能写，省掉一个只在 CI 里才成立的
+  # 前置条件。
+  #
+  # 不推送任何东西：tag 留在 runner 上，job 结束就没了。
+  image:
+    name: image (build + 起一次，不推送)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: docker build
+        run: docker build -t launchbay:ci .
+      - name: 起容器探一次 /healthz
+        run: |
+          docker run -d --name lb-ci --tmpfs /data:mode=1777 \
+            -e LAUNCHBAY_DATA_DIR=/data -e LAUNCHBAY_PORT=7600 -p 7600:7600 launchbay:ci
+          # 轮询而不是 sleep 固定秒数：runner 快慢不一，固定等待要么白等、
+          # 要么间歇性红。
+          ok=
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:7600/healthz; then ok=1; break; fi
+            sleep 1
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::scratch 镜像里的二进制 30 秒内没给出 /healthz"
+            docker logs lb-ci
+            exit 1
+          fi
+      - name: 失败时的容器日志
+        if: failure()
+        run: docker logs lb-ci || true

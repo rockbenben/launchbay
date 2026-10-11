@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.ico binary
+# 图标索引产物：gzip 流里全是换行字节，被 eol=lf 改一次就解不开。
+# 这条不是可选的整洁——产物提交进仓库、由 //go:embed 打进二进制，
+# checkout 时被改写过 = 本地绿、干净克隆红。
+*.json.gz binary

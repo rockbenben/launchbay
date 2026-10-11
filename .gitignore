@@ -1,0 +1,19 @@
+.superpowers/
+.qoder-credits/
+data/
+node_modules/
+dist/
+.env
+*.log
+
+# go build 的本地产物（Windows 带 .exe，unix 不带）。**这一条不写就得靠开发者
+# 各自的全局 gitignore 兜底**：本机上 genicons.exe 就是被那条全局规则藏住的，
+# 而别人的机器上没有它——换台机器或在新克隆里，它会冒出来污染工作区，
+# "顺手 git add ." 就把一个二进制提交进历史。仓库该自己说明自己不许有什么。
+*.exe
+*.exe~
+/launchbay
+/genicons
+/leakguard
+/flare-sample/
+design-preview/

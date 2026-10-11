@@ -1,0 +1,47 @@
+services:
+  launchbay:
+    build: .
+    image: launchbay:0.1.0
+    container_name: launchbay
+    # 宿主端口默认 7600（spec §10），可用 LAUNCHBAY_HOST_PORT 覆盖：
+    # 本机 Windows 把 TCP 7532-7631 整段划给了 Hyper-V 动态保留，7600 直接
+    # bind 不上（ports are not available）。容器内端口与 LAUNCHBAY_PORT
+    # 一律不动，healthcheck 探的仍是 7600。
+    ports: ["${LAUNCHBAY_HOST_PORT:-7600}:7600"]
+    # 数据落在宿主上的位置由 LAUNCHBAY_HOST_DATA 决定（默认 ./data，见 .env.example）。
+    # 用**长语法**而不是 "./data:/data" 那种短串：短语法里 `D:\somewhere:/data`
+    # 的冒号会被当成分隔符，Windows 盘符路径正是这条的经典翻车点。长语法把
+    # source/target 分成两格，盘符的冒号就没有歧义了。
+    # 容器内路径永远是 /data，不跟着变——healthcheck 与 LAUNCHBAY_DATA_DIR 都认它。
+    volumes:
+      - type: bind
+        # **首次拉起之前先 chown**：镜像以 USER 65534 跑（见 Dockerfile），
+        # 宿主上 root 所属的 ./data 挂进去之后建档与写书签会全部失败。
+        # 修法就一条，见 README「数据目录的权限」：
+        #   sudo chown -R 65534:65534 ./data
+        source: ${LAUNCHBAY_HOST_DATA:-./data}
+        target: /data
+    environment:
+      LAUNCHBAY_PORT: "7600"
+      LAUNCHBAY_DATA_DIR: "/data"
+      # **两枚令牌的档案段要对上你真正建出来的档案 id**：建档只问名字与 PIN，
+      # id 由名字派生（`Dad` → dad，中文名字转不出 slug → home / home-2）。
+      # 拿中文名字建了第一个档案之后，下面那枚 `…:dad` 的作用域对不上任何档案，
+      # 打过去是 403——这是"令牌越界"的 403，不是服务坏了。改这里的 `dad` 即可，
+      # 或用 `launchbay profile create --id dad …` 建一份就叫 dad 的档案。
+      LAUNCHBAY_WRITE_TOKENS: "ai-dad:${LAUNCHBAY_TOKEN_AI_DAD}:dad,admin:${LAUNCHBAY_TOKEN_ADMIN}:*"
+      TZ: Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      # scratch 里没有 shell，所以走 CMD-signal 之外的方式：让二进制自己探。
+      # 探的不只是 /healthz：`launchbay healthcheck` 会在 LAUNCHBAY_DATA_DIR
+      # 里建删一个临时文件——65534 用户碰到 root 所属的挂载目录（群晖常见）
+      # 时，只探 HTTP 会永远误报 healthy（评审 Important #9）。
+      # 前提：宿主 ./data 需对该 uid 可写（chown -R 65534:65534 ./data），
+      # 不满足时这里要能看到 unhealthy，而不是装作能写——失败消息里带着
+      # 那条 chown 命令，读的人不用再猜是哪一侧的权限。
+      test: ["CMD", "/launchbay", "healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

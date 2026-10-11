@@ -1,0 +1,101 @@
+name: 🐳 发布镜像（Docker Hub + GHCR）
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+# contents: read 是 checkout 要的；packages: write 是推 GHCR 必需的，缺了直接 403。
+# 只读代码 + 可写镜像，两者互不相干，所以权限按最小集合分开声明。
+permissions:
+  contents: read
+  packages: write
+
+# 撞了名的镜像会被别人 push 覆盖推走，所以命名空间带用户名而不是裸 launchbay。
+env:
+  IMAGE_NAME: launchbay
+
+jobs:
+  publish:
+    name: 构建并推送多架构镜像
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # fetch-depth: 0 是取全部历史——metadata-action 的 semver 与 prune 都要看到
+      # tag。默认的浅克隆看不到它们，tag 会被静默少掉一半。
+      - name: 取代码
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # 版本号取自 docker-compose.yml 的 image tag，而不是 git tag：那是**部署
+      # 实际引用的那一份**，两者只能有一个来源。打了 git tag 却忘了改 compose，
+      # 或者反过来，是同一个 bug 的两个方向。
+      #
+      # 取不到就报错，不静默退化成"只有 latest"——那样每次发版都往 latest 上盖，
+      # 而没人能从 latest 知道它对应哪个版本。
+      - name: 取版本号
+        id: ver
+        run: |
+          VERSION=$(grep -oE 'image: launchbay:[0-9]+\.[0-9]+\.[0-9]+' docker-compose.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          if [ -z "$VERSION" ]; then
+            echo "::error::docker-compose.yml 里没有 image: launchbay:<版本>，版本号无从谈起——先改那里，别在这里编一个"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "本次发布版本 $VERSION"
+
+      # arm64 靠 QEMU 模拟：树莓派、群晖的 ARM 机型才是这类自托管项目真正会跑
+      # 上去的机器，不出 arm64 镜像等于把一半的目标设备排除在外。
+      - name: 准备 QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: 准备 Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 登录 GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          # 推本仓库的镜像用内置 token 即可，不需要额外 PAT。
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 生成 tags 与 labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          # value= 让 semver 取上面解出来的版本号而不是 git tag：手动触发
+          # （workflow_dispatch）没有 tag，没有 value= 就只剩 latest 可用。
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.ver.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.ver.outputs.version }}
+            type=semver,pattern={{major}},value=${{ steps.ver.outputs.version }}
+            type=raw,value=latest
+            type=sha,format=short
+
+      # build-push-action 只在**构建成功**之后才推：门禁（在 Dockerfile 的 amd64
+      # 那一路里跑）或交叉编译失败，push 根本不会发生。所以这一条不需要额外的
+      # "先验后发"步骤。
+      - name: 构建并推送
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # gha 缓存让第二次构建只重跑改动过的层。mode=max 连中间层一起留，
+          # 慢一点但下次几乎全命中——自托管项目的发版频率低，划算。
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

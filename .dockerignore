@@ -1,0 +1,18 @@
+.git
+.superpowers
+.qoder-credits
+data
+.env
+node_modules
+dist
+docs
+*.log
+# 镜像不需要的仓库级文件。注意 tools/ 与 .git 的关系：leakguard 的判据是
+# `git ls-files`，而 .git 已在这里被排除，所以 tools/ 在镜像里**跑不起来**；
+# genicons 又要连 Iconify registry。两样都是仓库的门禁工具（.github 同判据），
+# 不是运行时的一部分——排除它们是设计，不是漏配。
+Dockerfile
+docker-compose.yml
+tools/
+# CI 件不进构建上下文（与 tools/ 同判据：镜像是运行时，workflow 是仓库的门禁）
+.github
