@@ -1,0 +1,117 @@
+{{define "admin"}}<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<header>
+  <h1>管理</h1>
+  <nav aria-label="返回"><a class="badge" href="/">回首页</a></nav>
+</header>
+<main role="main">
+  {{/* 一行一个档案 + 条目数 + rev + 最近改动时间（spec §8.8）。这一页的存在
+       本身就是敏感信息，所以它 no-store、非管理员 303，且**一个条目内容都不带**：
+       只有数量。id 与 title 并列在名字格里——id 是 /switch 与 API 寻址用的
+       handle，坏档案那行 profile.json 读不出 title 时也要留得下定位信息。*/}}
+  {{/* 提示放在表之前：与进门页同一条理由——读屏的人不该先听完一整表
+       才知道刚才那条没建上。文案由 httpapi 的白名单给，这里只印。 */}}
+  {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
+  <p class="hits">一共 {{.Count}} 个档案。这一页只看得到数量和时间，看不到任何人存了什么。</p>
+  {{/* 每一格都带 data-k：窄屏（≤700）这张表换成一格一行、行首挂列名的读法，
+       列名与表头同一份文字，由 CSS 的 ::before 取 attr(data-k) 印出来。 */}}
+  <table class="adm">
+    <thead>
+      <tr><th>档案</th><th>条目</th><th>rev</th><th>最近改动</th><th>快照</th><th>动作</th></tr>
+    </thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td data-k="档案"><b>{{if .Title}}{{.Title}}{{else}}{{.ID}}{{end}}</b>{{if .Title}} <code>{{.ID}}</code>{{end}}
+          {{if .Admin}}<span class="badge">管理员</span>{{end}}
+          {{/* 停用与坏档是两种不同的"进不来"：坏档是数据读不出来（得修文件），
+               停用是有人把它关上了（启回来就好）。同色会让管理员分不清该做什么，
+               所以一个用中性徽标、一个用 warn 色的 .badge 本色。 */}}
+          {{if .Disabled}}<span class="badge">已停用</span>{{end}}
+          {{if .Broken}}<span class="badge warn">数据文件读不了</span>{{end}}</td>
+        <td data-k="条目">{{if .Broken}}—{{else}}{{.Items}}{{end}}</td>
+        <td data-k="rev">{{if .Broken}}—{{else}}{{.Rev}}{{end}}</td>
+        {{/* 这一格从前直接印 statusRows 给的 RFC3339 UTC 原文
+             （`2026-10-10T09:33:08Z`）：家里人说"什么时候改的"要自己解析 T 与 Z。
+             格式化放在渲染侧（shortTime），判据仍只有一份——数据那头不动。 */}}
+        <td data-k="最近改动" class="col-time">{{if .Modified}}{{shortTime .Modified}}{{else}}—{{end}}</td>
+        <td data-k="快照">{{.Snapshots}}</td>
+        <td data-k="动作">
+          {{if .Broken}}
+            {{/* 点了没反应的东西不进界面：坏档改不了（④.6 的 rebuild 那条路才要改），
+                 所以坏档这一格是文字，不是按钮。这一句从前写"先进那个档案修数据文件"
+                 ——profile.json 读不动的人根本进不去，那是一句做不到的承诺
+                 （§12：坏数据不许换来假出口）。 */}}
+            <span class="plain">要在这台机器上修好那个文件</span>
+          {{else}}
+            {{/* **「进入编辑」整枚删掉了**（2026-10-10 改判）：它就是
+                 `POST /switch to=<id>` 的一枚按钮，而那条路是管理员免 PIN 直达
+                 别人的台去改书签的唯一入口——正是本设计要拿掉的形状。
+                 这一格现在只剩**账号层面**的动作：设 PIN、停用、删档。
+                 管理员管账号，不管内容。
+
+                 设 PIN 与删档是**链接**不是按钮：它们各自先 GET 一张写明后果的
+                 确认页，那是两步二次确认的第一步。零 JavaScript——不用 confirm()，
+                 那个对话框样式不可控、移动端上常常直接不出现，而它是唯一挡在
+                 "手滑删掉一个人"前面的东西（§8.8，2026-10-09 改判）。
+
+                 CanSetPin / CanDelete 由 httpapi 算好传下来（§8.8 的两条形状闸），
+                 **模板不判断**。给了而点了必被拒的入口就是死按钮，比没有更费人。 */}}
+            <span class="acts">
+            {{if .CanSetPin}}
+              <a class="badge" href="/admin/pin?profile={{.ID}}">设 PIN</a>
+            {{end}}
+            {{if .CanToggleDisabled}}
+              <a class="badge" href="/admin/disable?profile={{.ID}}">{{if .Disabled}}启用{{else}}停用{{end}}</a>
+            {{end}}
+            {{if .CanDelete}}
+              <a class="badge danger" href="/admin/delete?profile={{.ID}}">删档</a>
+            {{end}}
+            </span>
+          {{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{/* 建档表单：两格 + 一个勾选。id 不问（由名字派生，判据在 store），PIN 存哈希。
+       勾选的后果写在同一行——"能管理全家"是能看与改所有人的书签，不是个装饰，
+       也不藏进 tooltip。不设二次确认：与管理页读侧同一档敏感度的动作，
+       做错了有快照与历史线可退（spec §11 的"不顺手看到、不误改"这一档）。 */}}
+  <form method="post" action="/admin" class="adm newprofile">
+    <label>名称 <input name="title" type="text" maxlength="60" required autocomplete="off"></label>
+    <label>PIN <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
+    <label class="chk"><input type="checkbox" name="admin" value="1"> 能管理全家（可以看与改所有人的书签）</label>
+    <button type="submit">创建档案</button>
+  </form>
+  {{/* bookmarklet 的入口与**怎么用**。
+       它放在管理页而不是顶栏：这是一次性配置，配好全家用；而顶栏那几样是
+       每个人每天都要按的（§8.1）。零 JS——一个链接加几句说明，不需要脚本。
+
+       **只给链接是不合格的出口**：/bookmarklet 会吐出一行 javascript: 源码，
+       而"怎么把这一行变成书签栏里那个能点的按钮"没人天生知道。所以步骤写在这里，
+       而不是让人自己摸索。 */}}
+  <section class="adm bm">
+    <h2>书签栏小按钮</h2>
+    {{/* 术语统一：这一页别处都叫「PIN」，这段从前一半写「口令」一半写「PIN」，
+         同一段里两个词指同一个东西。「会话写」是工程话，换成"按你当前登录的档案存"。 */}}
+    <p>配一次，家里人就能在<em>任何一个</em>网站上点一下，把当前页面存进这台机器。
+       这一行里<strong>没有 PIN</strong>：存到哪一份，看的是你当时登录的是谁的台。</p>
+    <ol>
+      <li>打开 <a href="/bookmarklet" class="badge">书签栏按钮的源码</a>，复制那一整行（它用 <code>javascript:</code> 开头）。</li>
+      <li>在浏览器里新建一个书签，把地址换成刚复制的那一行，名字随便起（比如「存到家里」）。</li>
+      <li>拖到书签栏上。以后在任何页面按它，就会跳到这台机器并把那一页填进添加浮层——<strong>还要你按一次保存</strong>，它不会自己存。</li>
+    </ol>
+    <p class="plain">这一行里写死了这台机器的地址，所以<strong>换了 NAS 或改了端口要重新配一次</strong>；
+       又因为浏览器的书签会跟着账号云同步，<strong>别往这一行里塞 PIN</strong>——这台机器也不提供塞的地方。</p>
+  </section>
+</main>
+</body>
+</html>{{end}}

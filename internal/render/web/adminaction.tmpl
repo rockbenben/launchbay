@@ -1,0 +1,64 @@
+{{define "adminAction"}}<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · launchbay</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<header>
+  <h1>{{.Heading}}</h1>
+  {{/* 返回徽标默认回管理页（三张管理页确认都要回那里），由调用方用 NavHref
+       覆盖成它自己的来处——回退页回的是自己的档案页。默认值写在这一处而
+       不是让三张页各写一遍，是为了"回哪"只在这里有一个答案。 */}}
+  <nav aria-label="返回"><a class="badge" href="{{if .NavHref}}{{.NavHref}}{{else}}/admin{{end}}">{{if .NavLabel}}{{.NavLabel}}{{else}}回管理页{{end}}</a></nav>
+</header>
+<main role="main">
+  {{/* 这一族是 ⑤ 的几条写动作（设 PIN / 删档 / 停用 / 回退）的**零 JavaScript**
+       落点。spec §8.8 原写"表单发不出二次确认，随 ⑤ 的 JS 落地"——改判：
+       二次确认用**两步页面**做（先 GET 这一页看后果，再 POST 提交），于是它在
+       关掉 JavaScript 时照样成立，与 §7.2「关掉 JS 也能看能点」同一条纪律。
+
+       不用 confirm() 的理由不止"那要 JS"：原生对话框样式不可控、移动端上
+       常常直接不出现，而它是**唯一**挡在"手滑删掉一个人"前面的东西——
+       一道在某些设备上自己不出现的闸等于没有闸。 */}}
+
+  {{/* 后果说明在提交按钮**之前**，且不许折叠：删档这一页存在的全部意义就是
+       让"会发生什么"先被读到。 */}}
+  <p class="explain">{{.Explain}}</p>
+
+  {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
+
+  {{/* NoForm 是显式的而不是从"Fields 与 Choices 都空"推出来的——删档页正是
+       两者皆空而仍要按钮的那一张（它提交的就是 hidden profile）。 */}}
+  {{if not .NoForm}}
+  <form method="post" action="{{.Action}}" class="act">
+    {{/* profile 藏在表单里，但**只在调用方给了目标档案时**才印：回退页的目标
+         是当前会话自己，表单里留一个由客户端说了算的 profile 字段，等于把
+         "回退哪一份"从服务端判据降成客户端声明。 */}}
+    {{with .ID}}<input type="hidden" name="profile" value="{{.}}">{{end}}
+    {{range .Fields}}
+    <p><label for="f-{{.Name}}">{{.Label}}</label>
+      <input id="f-{{.Name}}" name="{{.Name}}" type="{{.Type}}"{{if .Autofocus}} autofocus{{end}}
+             {{with .Hint}}aria-describedby="h-{{.Name}}"{{end}} autocomplete="off" inputmode="numeric">
+      {{with .Hint}}<small id="h-{{.Name}}">{{.}}</small>{{end}}</p>
+    {{end}}
+    {{/* "从几个里选一个"：radio 是原生控件，零 JS 可用、可 Tab 可选。
+         Checked 由服务端给——确认页要预选哪一格只有服务端知道。 */}}
+    {{if .Choices}}
+    <fieldset class="choices">
+      <legend>{{.ChoiceLegend}}</legend>
+      {{range .Choices}}
+      <p class="choice"><label for="c-{{.Value}}">
+        <input id="c-{{.Value}}" type="radio" name="{{$.ChoiceName}}" value="{{.Value}}"{{if .Checked}} checked{{end}}>
+        <span>{{.Label}}</span>{{with .Hint}}<small>{{.}}</small>{{end}}</label></p>
+      {{end}}
+    </fieldset>
+    {{end}}
+    <button{{if .Danger}} class="danger"{{end}}>{{.Submit}}</button>
+  </form>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

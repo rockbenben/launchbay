@@ -1,0 +1,31 @@
+{{define "broken"}}<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>这个档案读不了</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<main role="main">
+  {{/* 两层文案（spec §12）：第一句是人话，细节收进 details。
+       Reason 由 store 给（filepath.Base + 行号），这里不改写、不截断、
+       不拼路径——同一段字节也是 API 503 的 detail，两处共用一份真相。 */}}
+  <h1>这个档案的数据文件读不了。</h1>
+  <p>档案 <b>{{.ProfileID}}</b> 现在打不开，<b>其它档案不受影响</b>。</p>
+  <p>如果你是自己改过那个文件：把它改回读得出内容的样子，刷新一下就好。<br>
+     不确定怎么改就把下面那段细节复制给帮你搭这个的人——它写清了是哪个文件、哪里不对。</p>
+  <details class="tech">
+    <summary>技术细节（文件名与位置）</summary>
+    <pre>{{.Reason}}</pre>
+  </details>
+  {{/* 这一页从前没有任何出口：读到这里的人只能按浏览器的后退，而他刚按下的那个
+       链接就是把他带到这儿的。给一条真的出路——回选择页换一份进（走 /switch 的
+       表单通路，清会话 cookie；写成 href="/switch" 是死链，那条路只收 POST）。 */}}
+  <form method="post" action="/switch" class="act">
+    <input type="hidden" name="to" value="picker">
+    <button type="submit">回选择页，换一份进去</button>
+  </form>
+</main>
+</body>
+</html>{{end}}

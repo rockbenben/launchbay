@@ -1,0 +1,182 @@
+{{define "profile"}}<!doctype html>
+<html lang="zh-CN"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Profile.Title}}</title>
+<style>{{.CSS}}</style>
+</head>
+<body data-profile-layout="{{.Profile.Layout}}" data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
+<header>
+  {{/* 顶栏标题是**档案名**，不是 Bookmarks.Title。原来这里印的是书签文档的标题，
+       而建档时它是常量「发射台」（store.EmptyBookmarks）——三个人的台子顶栏同名，
+       身份只挂在右上角那枚 57px 宽的徽章里，进门之后认不出自己在谁的台上。
+       Bookmarks.Title 仍在数据里（导出/导入会带上），只是不再占用这一格。 */}}
+  <h1 title="{{.Profile.Title}}">{{.Profile.Title}}</h1>
+  <form class="search" method="get" action="/" role="search">
+    <input type="search" name="q" value="{{.Query}}" aria-label="搜索书签" placeholder="搜名字、地址、标签">
+    <button type="submit">搜索</button>
+  </form>
+  {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，
+       读起来像"还有 20 条没显示"。说清是谁的总数。 */}}
+  {{if .Query}}<p class="hits">找到 {{.Hits}} 条，这个档案一共 {{.Total}} 条</p>{{end}}
+  {{/* 主题循环：auto→dark→light→auto（spec §8.1 的三态）。两态互切是错的——
+       auto 是建档默认值，一旦离开就再也回不去，"跟随系统"这个选项等于不存在。
+       值由服务端算并写死在 hidden 里：不用 JS 读当前值，因为"当前值"服务端本来就知道。
+       按钮说**当前是什么**而不是"切到哪"：三态循环下"切到亮色"不告诉人现在在哪一档，
+       而三个说法字数不同（4/4/7 字），按一次宽度跳一次。 */}}
+  <form method="post" action="/prefs" class="theme">
+    <input type="hidden" name="theme" value="{{if eq .Profile.Theme "auto"}}dark{{else if eq .Profile.Theme "dark"}}light{{else}}auto{{end}}">
+    <button type="submit" title="点一下换到下一档">主题：{{if eq .Profile.Theme "auto"}}自动{{else if eq .Profile.Theme "dark"}}暗{{else}}亮{{end}}</button>
+  </form>
+  <nav aria-label="档案">
+    {{/* /admin 在 Task 5 落地了：路由真的存在，这枚徽章才有资格发链接
+         （最终整枝评审的死链纪律）。 */}}
+    {{/* 档案徽标：**点它回选择页换人**。
+
+         2026-10-10 改判：它原来是一个 `<details>` 下拉，列着"别人"并让他们
+         免 PIN 直达（`/switch to=<id>`），那是代管态的载体。那条路删掉之后，
+         这份清单永远是空的——下拉点开只剩一个"退出"，成了"点了有反应但里面
+         没东西"的界面。收成一个直接回选择页的表单：零脚本、不占常驻空间，
+         形状一眼看得懂（自己的名字 → 点它换人）。
+
+         仍然是表单而不是 href：`/switch` 是 POST-only 通路，首屏不许有
+         href="/switch"，views_test.go 的死链钉守着这条。 */}}
+    {{/* 档案徽标：**只说动作，不重复名字**。它原来印的就是 {{.Profile.Title}}，
+         而顶栏左边那个 19px 的 h1 已经用同一个词说过一遍——屏幕上出现两个"Dad"，
+         而它自己是零 JS 下**唯一**能离开这一页的出路（/switch 是 POST-only，
+         首屏不许有 href="/switch"，views_test.go 的死链钉守着）。
+
+         更要紧的是可访问名：一个只念"Dad"的按钮，读屏用户听到的是一个名字而不是
+         一个动作。改成"换档案"之后，身份归 h1、动作归按钮，两边各说各的。 */}}
+    <form method="post" action="/switch" class="profmenu">
+      <input type="hidden" name="to" value="picker">
+      <button type="submit" class="badge" title="回选择页换一个人（离开这一份）">换档案</button>
+    </form>
+    {{if .Profile.Admin}}<a class="badge" href="/admin">管理</a>{{end}}
+    {{/* 回退入口：一条零 JS 链接（GET /revert），不需要 JS 也不需要令牌。
+         它是"改坏了能退回去"这条承诺在页面上的**唯一**入口——revert 此前只有
+         API 与命令行两条通路，页面上一个按钮都没有，而人点不到的东西不算承诺。
+
+         **只在还有可退版本时画**（判据在 exec.go 的 HasSnapshots）：一条书签都没
+         写过的档案，snapshots/ 是空的，点进去只有一句解释——那就是 §8.1 明写
+         要避免的「点了没反应的东西」。*/}}
+    {{if .HasSnapshots}}<a class="badge" href="/revert" title="回到之前的某一版书签">回退</a>{{end}}
+  </nav>
+</header>
+{{/* 管理横幅整块删掉了（2026-10-10 改判）：它那句「正在管理 X 的书签 · 由 Y 操作」
+     是代管态的提醒，而代管这件事已经不存在了。留着一个永远不出现的横幅，
+     下一个读模板的人会以为"进管理态"仍然是一条路——那正是 §11 记的那类
+     "文档骗人"。sticky 那一族 CSS 随之没有挂载点，一并清掉。 */}}
+{{/* 形态判一次、两处用：topbar 那条分组行在 .shell **外面**（它要横跨整幅），
+     侧栏在 .shell **里面**（它占栅格第一列），所以这里没法写成 if/else。
+     绑成一个变量就是"判据只有一份"的形状——写成两个独立的 eq/ne 条件等于把
+     同一个判断抄两遍，将来加第三种形态时其中一处会静默失效。 */}}
+{{$top := eq .Profile.Layout "topbar"}}
+{{if $top}}
+  {{/* 顶栏形态：分组行常驻顶栏下方。同一份 grouplist，两种挂法——
+       判据（分组、计数、色点、锚点）只有一份。 */}}
+  <nav class="gnav top" aria-label="分组">{{template "grouplist" .}}</nav>
+{{end}}
+<div class="shell">
+{{if not $top}}
+  {{/* aside 不带 aria-label：名字只给里面的 nav，一页一个具名导航地标。
+       open 写死：桌面要它展开，平板断点下 summary 才现身当抽屉把手；
+       键盘开合与可及性由原生 <details> 负责，零脚本，不补 role/aria-expanded 那类仪式。 */}}
+  <aside class="side">
+    <details class="drawer" open>
+      <summary>分组</summary>
+      <nav class="gnav" aria-label="分组">{{template "grouplist" .}}</nav>
+    </details>
+  </aside>
+{{end}}
+<main role="main">
+{{if .Query}}
+  {{if not .Bookmarks.Groups}}<p>没有匹配「{{.Query}}」的书签。<a href="/">看全部</a></p>{{end}}
+{{else if .Empty}}
+  <p>这个档案还没有书签。</p>
+  {{/* 导入卡片：只在**一条书签都没有**时出现（判据是 .Empty，exec.go 算一次，
+       模板不做判断）。刻意**没有"导入过就别再问"的状态**——档案空就提示、
+       有书签就不提示，判据只有"现在有几条书签"这一份；多一个"问过了"标记就要
+       多一个字段、多一处两页可能说法的分家。
+
+       它与 httpapi 的 importGuard（"非空档案不许导"）是同一条判据的两头：
+       看得见这个入口的时候，它一定进得去。 */}}
+  <p><a class="badge" href="/import">从浏览器导入收藏夹</a></p>
+  <p class="hint">把浏览器里「导出书签」存下的那个 .html 传上来。它会先给你看一份报告，
+     你点头之后才写进来。不导也可以——这个档案一有书签，这句话就自己消失。</p>
+{{end}}
+{{range .Bookmarks.Groups}}
+<section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}"{{with .Accent}} style="--sec-accent:{{.}}"{{end}}>
+  <h2 id="g-{{.ID}}" data-group="{{.ID}}">{{.Title}}</h2>
+  <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
+  {{range .Items}}
+    <li data-item="{{.ID}}">
+      {{if .External}}
+        <span class="plain">
+          {{template "icon" .}}
+          <b title="{{.Name}}">{{.Name}}</b>
+          <span class="badge warn" title="这类地址浏览器不允许从网页里点开，要自己复制到地址栏">需手动打开</span>
+          <code>{{.URL}}</code>
+          {{if .Missing}}<span class="badge" title="这个图标名在图标库里找不到，先用名字首字的色块">图标未匹配</span>{{end}}
+          <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
+        </span>
+      {{else}}
+        <a class="card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
+          {{template "icon" .}}
+          <b title="{{.Name}}">{{.Name}}</b>
+          {{with .Desc}}<i>{{.}}</i>{{end}}
+          {{if .Missing}}<span class="badge" title="这个图标名在图标库里找不到，先用名字首字的色块">图标未匹配</span>{{end}}
+          <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
+        </a>
+      {{end}}
+    </li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
+</main>
+</div>
+{{with .Bookmarks.Footer}}<footer><p>{{.}}</p></footer>{{end}}
+{{/* ⑤ 的第一个真字节。**只有这一页引它**——选择页/引导页/坏档页/管理页继续零脚本，
+     它们的形态里没有"加书签"这回事，引入 JS 只会让 §7.2 的判据更难守。
+     type=module + defer：模块天然 defer，且不污染全局（§7.2 那个 CSP 下 'self'
+     仍然放行，因为它是外部文件而不是内联脚本）。 */}}
+<link rel="stylesheet" href="{{.AppCSS}}">
+<script type="module" src="{{.AppJS}}"></script>
+</body>
+</html>{{end}}
+{{/* 图标三级兜底（spec §5）：内联 SVG > 缓存 favicon 的 <img> > 首字母色块。
+     第三方字节（缓存 favicon）永远只走 <img>，绝不内联。SVG 由 svgMarkup
+     拼好（本案唯一拼 markup 的地方），这里只负责按三取一端出去。
+     条目身上只带 --chip-h 这一个数（int，无字符串可逃）；分组色的**判据**只有
+     validatedAccent 一份，挂载点两处——section 的 --sec-accent 与侧栏那枚色点
+     （同一个属性名，没有第三个），条目身上一个都不许有——模板不做判色。
+     这个 define 必须与 "profile" 平级：Go 模板不许嵌套 define。 */}}
+{{define "icon"}}
+{{- if .SVG}}
+{{.SVG}}
+{{- else if .Img}}
+<img class="ic-img" src="{{.Img}}" alt="" aria-hidden="true" width="22" height="22">
+{{- else}}
+<span class="ic" style="--chip-h:{{.ChipHue}}" aria-hidden="true">{{.Letter}}</span>
+{{- end}}
+{{- end}}
+{{/* 分组导航：锚点复用 section 已有的 id="g-<id>"（§8 的 section 本来就带
+     aria-labelledby，两边指同一个东西）。计数取的是当前渲染的那份数据，
+     所以带 q 时它天然是命中数——不需要第二个数。
+     三件套（分组名 + 计数 + 色点）是设计 §7 与权威源 §8.2 一起列的，少一件
+     就是少一件。色点走同一个 --sec-accent 属性名：判色仍只有 validatedAccent
+     一份（exec.go 的 groupView.Accent），只是它现在有两个挂载点（section 与
+     它的侧栏行），条目身上照旧一个都不许有——证人见 icon_test.go。
+     没有 accent 的分组不发这一格——`{{with}}` 就是"没设色就不画点"。
+     这个 define 必须与 "profile" 平级：Go 模板不许嵌套 define（同 "icon" 那条约束）。 */}}
+{{define "grouplist"}}
+<ul>
+{{range .Bookmarks.Groups}}
+  {{/* title 挂全名：侧栏 190px 里长分组名会被省略号截断，截断之后必须还有地方
+     能看到完整名字（悬停），否则"截断"就变成"信息丢了"。 */}}
+  <li><a href="#g-{{.ID}}" title="{{.Title}}">{{with .Accent}}<i class="dot" style="--sec-accent:{{.}}" aria-hidden="true"></i>{{end}}<span>{{.Title}}</span><b class="cnt">{{len .Items}}</b></a></li>
+{{end}}
+</ul>
+{{end}}

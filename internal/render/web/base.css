@@ -1,0 +1,463 @@
+:root{
+  color-scheme:dark;
+  --bg:#0b0e14;--ink:#e9edf8;--ink2:#a7b2cd;--line:rgba(255,255,255,.14);
+  --card:rgba(255,255,255,.055);--card-hi:rgba(255,255,255,.10);
+  --accent:#4c8dff;--ring:#7fa8ff;--warn:#ff9d6c;--bad:#ff7a7a;
+  /* 压在实心色块上的字色与"报错文字"要各算一遍，不能沿用色块本身：白字对
+     --accent #4c8dff 只有 3.20:1、对 --bad #ff7a7a 只有 2.52:1（都是主操作键与
+     删档键，14px 要 4.5:1）。暗档这两个色块是"压在近黑底上的浅色"，所以字要
+     **反过来取深**；亮档色块本身够深，白字 5.80 / 6.54 已过。--bad-text 是
+     浮层状态行那种"只有字没有块"的报错色：#ff7a7a 压在卡片上 3.95:1 不够。 */
+  --on-accent:#071223;--on-bad:#2b0b05;--bad-text:#ffb9b9;
+  --aurora-1:rgba(76,141,255,.30);--aurora-2:rgba(150,80,255,.22);--aurora-3:rgba(0,200,180,.18);
+}
+/* theme 只有三个合法值（model.Profile.Theme 的枚举）。data-theme 属性存在 =
+   用户显式选了 dark|light，不存在 = auto（交回媒体查询）："auto" 由 exec.go 的
+   themeAttr 归一成空串，属性里根本不留这个值——同一个事实只表一次，媒体查询是
+   auto 唯一的裁判。以前只有媒体查询，于是 profile.theme 写了也白写，亮暗两档
+   实拍拍到的是同一张图（部署验收发现的第 4 类谎话）；反过来让属性带着 "auto"
+   出场，两条亮色通路就都不匹配，默认档案被钉死在暗色上（修复轮 1 的 I-1）。
+   下面两块亮色通路逐字同值（TestCSS_对比度算得过 会比对它们），差别只在触发方式。 */
+/* 亮档为什么要把 --accent/--ring/--warn 逐条重写（修复轮 1 的 I-2）：这三条不在
+   原先那"九个变量"里，不写就沿用 :root 的暗档值——暗档那三个是"压在近黑底上的
+   浅色"，翻到白卡片上就全废了。数值由 TestCSS_对比度算得过 按 WCAG 相对亮度算：
+   --warn #a1560b 对白卡片 5.45:1（11px 徽标要 4.5:1；原沿用的 #ff9d6c 只有 2.04:1，
+   连非文本的 3:1 都不过，§12"缺图徽标要可见"在亮档就是空话）；--ring #2f6fd0
+   4.88:1、--accent #2a63bd 5.80:1（都按非文本 3:1 判：焦点环 3px 描边、h2 前 10px
+   小方块、卡片 hover 描边；原值分别是 2.35:1 与 3.20:1）。同一组色压在 --bg
+   #f6f4ef 上也全在 4.4:1 以上，所以焦点环落在卡片之外照样看得见。 */
+[data-theme=light]{color-scheme:light;--bg:#f6f4ef;--ink:#22201c;--ink2:#5d584e;
+  --line:#e3ddd1;--card:#fff;--card-hi:#fff;
+  --accent:#2a63bd;--ring:#2f6fd0;--warn:#a1560b;--bad:#b3261e;
+  --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+  --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
+[data-theme=dark]{color-scheme:dark}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme]){color-scheme:light;--bg:#f6f4ef;--ink:#22201c;--ink2:#5d584e;
+    --line:#e3ddd1;--card:#fff;--card-hi:#fff;
+    --accent:#2a63bd;--ring:#2f6fd0;--warn:#a1560b;--bad:#b3261e;
+  --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+    --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
+}
+/* 类名契约（模板与这份 CSS 共同遵守，Task 10 的 Produces 那一行）：
+   .card / .plain / .pick / .badge / .tag / .ic / .ic-svg / .ic-fill / .ic-img /
+   section[data-layout] / html[data-theme]。其中两个是 **marker 类，故意零规则**，
+   别当死码删掉（修复轮 1 的 M-6）：
+   - .rows：list 分支的 ul 上的标记。list 形态由 [data-layout=list] 选，给 .rows
+     再写一份等于同一个事实开第二个入口。
+   - .ic-stroke：svgMarkup 给线条层的标记。线条就是 .ic-svg 的默认呈现
+     （fill:none;stroke:currentColor），所以它今天不需要规则，但 fill 层
+     （.ic-fill）要覆写得靠它选得出来。 */
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;color:var(--ink);font:15px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:20px;min-height:100vh;position:relative}
+/* 极光底：三层径向渐变 + 46px 模糊，固定层不滚（spec §8.1）。
+   用 ::before 而不是 body 背景：模糊需要一张独立的层，跟着内容一起滚会糊到字上。 */
+body::before{content:"";position:fixed;inset:-120px;z-index:-1;
+  background:radial-gradient(50% 40% at 18% 22%,var(--aurora-1),transparent 60%),
+    radial-gradient(45% 35% at 82% 12%,var(--aurora-2),transparent 62%),
+    radial-gradient(55% 45% at 60% 88%,var(--aurora-3),transparent 60%);
+  filter:blur(46px);animation:drift 16s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate3d(-1.5%,-1%,0) scale(1.02)}to{transform:translate3d(2%,1.5%,0) scale(1.05)}}
+/* 顶栏是**一条可换行的横排**，不是四列栅格。栅格那版（1fr auto auto auto）在
+   窄屏上把 1fr 挤成 29px，于是档案名与「＋ 添加」竖排成三行、主题按钮 36×113，
+   而第五个子元素（JS 加的按钮）永远掉到第二行并吃满第一列的宽度——1440 上它是
+   一条 980×44 的横条。flex-wrap 让每个控件保住自己的固有宽度，标题那一格
+   nowrap + 省略号，宁可截断也不竖排。 */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin-bottom:18px}
+header h1{flex:1 1 auto;min-width:0;margin:0;font-size:19px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 顶栏的档案徽标组。**它要参与吃余量**（flex:1 0 auto + 右对齐），不是为了把
+   徽标推远，而是为了**换行时仍然靠右**：窄屏上顶栏会折行，折下来的那一行没有 h1
+   帮它吃掉余量，`flex:0 0 auto` 的 nav 就会孤零零落到**左端**——看上去像标题的
+   一部分，而不是一个导航区。让 nav 也长起来、内容右对齐，桌面与窄屏就同一套读法
+   （h1 吃左边的余量、导航贴右边），不用为"折行"单开一条判断。 */
+header nav{flex:1 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+header .theme{flex:0 0 auto}
+/* 顶栏搜索：零 JS 的 GET 表单。控件的外观与 44px 触摸目标由下面 §7.5 那几条
+   通用规则承担（那里的名单扩到了 input[type=search] 与 .search button），
+   这里只补布局；.hits 是搜索态的读数，不搜索时整行不渲染。 */
+.search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
+.search input{min-width:0;flex:1 1 auto}
+.hits{flex:0 0 100%;margin:0;font-size:13px;color:var(--ink2)}
+main{max-width:1180px;margin:0 auto}
+/* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
+   把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
+   注意：base.css 有一条全局 `ul{display:grid;grid-template-columns:auto-fill…}`
+   是给磁贴用的，它一样会打到侧栏——所以 .gnav ul 必须显式覆盖 display，
+   否则侧栏会变成一堆 190px 宽的格子（这条是实测过的坑，不是假设）。 */
+.shell{display:grid;grid-template-columns:206px minmax(0,1fr);gap:24px;align-items:start;
+  max-width:1180px;margin:0 auto}
+.shell>main{max-width:none;margin:0}
+.side{position:sticky;top:12px;align-self:start;min-width:0}
+/* 侧栏与主区之间的那道线（**只在桌面档**，2026-10-11 加）。
+   侧栏在 ≥1101px 是"裸文字悬在背景上"——四个分组名和右边的卡片不在同一层，
+   眼睛扫过去会以为它们也是卡片。给侧栏一格内衬 + 一条竖线就分开了。
+
+   两处配套：栅格首列 190 → 206px，是因为 `.side` 要腾出 16px 内衬，
+   **文字宽度仍是 190**（上面那条 190px 定轨的注释管的是文字，不是这一格）。
+   竖线只画到侧栏内容那么高——它是 sticky 且 align-self:start，整页通高的
+   竖线在内容短时反而像一道划痕。窄屏侧栏是横在上面的抽屉，那时不需要分隔，
+   所以整条只在 ≥1101px 生效。 */
+@media (min-width:1101px){.side{padding-right:16px;border-right:1px solid var(--line)}}
+/* 容器描边用 --line，不用 --ring：ring 是**焦点环专用**的颜色，抽屉框与细节块
+   借它画边，等于页面上常驻着几个"看起来正被聚焦"的框。 */
+.drawer{border:1px solid var(--line);border-radius:14px;padding:6px 10px;background:var(--card-hi)}
+/* 把手外观与开合标记：所有 summary 共用（侧栏抽屉 + 解释页细节块）。
+   display:flex 会杀掉 summary 的 UA 展开三角（三角只在 list-item 显示，Blink/Gecko
+   都这样），把手就只剩 cursor:pointer 一个暗示——家属看不出那行能点。自己画回来，
+   零脚本。Task 7 把前缀从 .drawer>summary 收宽成 summary：解释页的细节块要同一只
+   手，只钉抽屉时解释页没人管（评审 I-3 的病会在新页面上复发）。抽屉独有的"桌面把
+   把手藏掉"留在下面那条媒体查询里，解释页不该藏。 */
+summary{cursor:pointer;display:flex;align-items:center;font-size:13px;color:var(--ink2)}
+summary::before{content:"▸";margin-right:6px}
+details[open]>summary::before{content:"▾"}
+/* 解释页的细节块用**类名**，不用裸元素写法：裸 details 的 margin/padding/border
+   会一并打到侧栏那个 .drawer，而两个页面的形状本来就该不同（一个贴内容、一个贴卡片）。
+   块里的 pre 保原文换行，但窄屏上要能折行、不许横向滚出屏幕；forced-colors 下还看得出是个块。
+   注释里别写尖括号形状串：整份 CSS 内联进每张页面，字面标签会把"页面里有这个标签"
+   这类证人喂饱（views_test.go 的 details/pre 包含钉就是靠 LastIndex 躲开这一口的）。 */
+.tech{margin:14px 0;border:1px solid var(--line);border-radius:12px;padding:6px 12px}
+.tech pre{margin:0;white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--ink2)}
+@media (forced-colors:active){.tech{border:1px solid CanvasText}}
+.gnav ul{display:block;list-style:none;margin:0;padding:0}
+.gnav a{display:flex;gap:8px;align-items:center;padding:0 6px;
+  border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px}
+.gnav a:hover{background:var(--card-hi)}
+.gnav .cnt{margin-left:auto;font-weight:400;font-size:12px;color:var(--ink2)}
+/* 侧栏是分组名的第三张脸（前两张：卡片、磁贴）。190px 定轨配 CJK 换行会把
+   一行一组撑成两三行，配无空格长拉丁词会溢出到 24px 的 gap 里压住主区。 */
+.gnav a span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 色点（设计 §7 三件套的第三件）：与 h2::before 同一个属性名、同一份判据
+   （exec.go 的 validatedAccent），挂载点由模板的 {{with .Accent}} 决定——
+   没设色的分组根本不发这一格，所以这里不必给"无色"留分支。 */
+.gnav .dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;
+  background:var(--sec-accent,var(--accent))}
+[data-profile-layout=topbar] .shell{grid-template-columns:minmax(0,1fr)}
+.gnav.top{margin:0 0 14px}
+.gnav.top ul{display:flex;gap:6px;overflow-x:auto}
+.gnav.top li{flex:0 0 auto}
+@media (min-width:1101px){.drawer{border:0;padding:0;background:none}.drawer>summary{display:none}}
+@media (max-width:1100px){.shell{grid-template-columns:minmax(0,1fr)}.side{position:static}}
+@media (max-width:700px){
+  .gnav:not(.top) ul{display:flex;gap:6px;overflow-x:auto}
+  .gnav:not(.top) li{flex:0 0 auto}
+  .gnav .cnt{display:none}
+  /* 「分组」把手与那排分组名**并排**而不是上下摞：两个块各自 44px 高（§7.5 的
+     触摸目标），摞起来白占一屏的 8%，而它们说的是同一件事——上面那行就是
+     "分组"这两个字的展开。并排后整条只剩一行高，分组名仍然横向可滚。
+     写成 `.side .drawer` 而不是 `.drawer`：解释页那个 <details> 是"细节块"，
+     它的 summary 该自己占一行（base.css:101 那条理由）。 */
+  .side .drawer{display:flex;align-items:center;gap:8px}
+  .side .drawer>summary{flex:0 0 auto}
+  .side .drawer>.gnav{flex:1 1 auto;min-width:0}
+}
+@media (forced-colors:active){.drawer{border:1px solid CanvasText}.gnav a{border:1px solid CanvasText}}
+section{margin:22px 0}
+/* content-visibility（spec §8.3「整区保帧率」，2026-10-11 落地）。
+   **为什么是现在**：它当年被推着不实现，理由写着"本期 42 条不需要，条目上千再
+   评估"。现在评估了——1000 条的真实读数是：服务端渲染 7ms、传输 41ms、浏览器
+   剩下约 360ms 全在建 1000 个磁贴的 DOM 子树与首次绘制上。**瓶颈从头到尾不在
+   字节上**，所以这条不是"省流量"，是直接砍掉那 360ms 里离屏的那部分。
+
+   `auto` 关键字是关键：`contain-intrinsic-size: auto 700px` 让浏览器**记住上次
+   渲染出来的真实高度**，于是滚动条长度不跳、锚点跳转不飘；写死像素值则会在每组
+   条目数不同时让页面高度算错。
+
+   打印时整条关掉：content-visibility 会让离屏内容不进打印流，印出来是一堆空页。
+   浏览器自带的 Ctrl+F 不用管——现代引擎会为"跳到命中项"自动渲染对应子树。 */
+section{content-visibility:auto;contain-intrinsic-size:auto 700px}
+@media print{section{content-visibility:visible}}
+/* 分组标题。**letter-spacing 从 .1em 收到 .04em（2026-10-11）**：.1em 是给
+   `text-transform:uppercase` 的拉丁大写标题用的呼吸感，界面切到中文之后它变成
+   "字与字之间有缝"——实拍里「自建服务」「读与收藏」四个字都是散着的。.04em 给拉丁
+   分组名（NAS / Tools）留一点空气，中文读起来又不松。字号 13px 与 --ink2 不动：
+   标题就该比内容弱，它不是要看的东西，是找东西时的路标。 */
+h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 10px;
+  display:flex;align-items:center;gap:8px}
+h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+li{min-width:0}
+/* 卡片本体（spec §8.1：半透明 + blur + 1px 描边，hover 抬 3px、描边转亮蓝、图标微变换）。
+   .plain 是"需手动打开"那条的非链接形态：与卡片同一张脸，只是不可点。
+   动效纪律（§8.1）：只过渡 transform——border-color/background 只触发重绘、
+   不触发重排（改的是 paint 而非几何），留着代价是零，去掉会让"描边转亮蓝"
+   这条 §8.1 明写的效果消失。outline 只在 :focus-visible 上出现、不参与过渡：
+   它每次都重绘整层，做过渡会掉帧。 */
+.card,.pick,.plain{display:flex;align-items:center;gap:10px;min-width:0;
+  padding:12px;border:1px solid var(--line);border-radius:14px;
+  background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  color:inherit;text-decoration:none;min-height:56px;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.card:hover,.pick:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card-hi)}
+.card:hover .ic-svg,.card:hover .ic-img,.card:hover .ic{transform:scale(1.07) rotate(-2deg)}
+/* §7.5：所有可交互元素都要有可见焦点环（暗色下用亮环，颜色是算出来的 --ring）。
+   .pick 挂在 form 上、form 本身不可聚焦，所以 a/button/input 必须点名——
+   旧版这三样各有规则，重写时只留 .card/.pick 等于把进门表单的焦点环弄丢。 */
+.card:focus-visible,.pick:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+.card>*{min-width:0}
+/* 名字的截断一次覆盖两态：旧版写的是 `li b`，`.card`/`.plain` 都盖得住。改成只选
+   .card 之后，"需手动打开"那条（.plain）的长名字会换行而不是省略号——两态在类名
+   契约里是同一张脸，规则就该一起写（修复轮 1 的 M-4）。 */
+.card b,.plain b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card i{font-style:normal;font-size:12px;color:var(--ink2);margin-left:auto;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;max-width:38%}
+/* 图标：尺寸下限 20px（§7.5）。22px 是实测选值——20px 时 tabler 的 2px 线在
+   渐变底上已经发糊，而再大就会把 190px 的磁贴挤成两行标题。 */
+.ic-svg,.ic-img{width:22px;height:22px;flex:0 0 auto;border-radius:6px;transition:transform .16s ease}
+.ic-svg{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2}
+.ic-fill{fill:currentColor;stroke:none}
+.tiles .ic-svg{stroke-width:2.5} /* §7.5：磁贴里线条加粗，list 形态保持 2 */
+.ic-img{object-fit:contain;background:var(--card-hi);padding:1px}
+.ic{width:22px;height:22px;flex:0 0 auto;border-radius:7px;display:grid;place-items:center;
+  font-size:12px;font-weight:700;color:#fff;transition:transform .16s ease;
+  background:hsl(var(--chip-h,222) 62% 28%)}
+/* 色块底为什么是 28% 而不是最初定的 46%：白字压在 hsl(色相 62% 46%) 上，色相来自
+   条目名的 fnv 哈希（icon.go 的 chipHue，全域分布），遍历 h=0..359 的最差一处落在
+   黄区 h≈60°，只有 1.98:1 —— 12px 粗体够不上 WCAG 的大字号门槛，要 4.5:1。
+   把 L 降到 28% 后最差色相到 4.9:1（S 保持 62% 是为了色相之间的辨识度）。权威是
+   §7.5"图标/文字可读"这条硬指标，它推翻了 brief 原值，不是新增需求；
+   数字由 TestCSS_对比度算得过 遍历算出，改这里的人请先跑那条测试。 */
+/* 入场：磁贴按序 stagger（spec §8.1）。
+   用 nth-child 写死前 12 条，而不是给每个条目注入 --i：那要模板携带序号，
+   而 12 条之后已经看不出差分——多出来的那半套机制没有可感知的收益。
+   .plain 不参与入场（修复轮 1 的 M-5，裁定保持现状）：它是"需手动打开"的静态
+   提示、根本不可点，动效只给可交互对象。看到"stagger 只作用 .card"别当漏写来修。
+
+   **时长与位移都收紧了（2026-10-11）**：原值是单条 0.5s、第 12 条延迟 0.44s，
+   也就是最后一张卡在 **0.94s** 之后才落定——而这一页每天要开几十次。截图随手一拍
+   就落在动画中途（卡片停在 opacity 0 附近），"打开不用等"那句话与页面上看到的
+   头半秒正在"长出来"是对不上的。现在 0.14s + 每档 0.012s，最后一张 0.27s 落定；
+   位移从 9px 收到 4px，方向与节奏都还在，只是快到不成为一段**等待**。
+   （`prefers-reduced-motion:reduce` 那条本来就整条关掉，豁免通路没有变。） */
+@keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{animation:rise .14s ease backwards}
+li:nth-child(2) .card{animation-delay:.012s}
+li:nth-child(3) .card{animation-delay:.024s}
+li:nth-child(4) .card{animation-delay:.036s}
+li:nth-child(5) .card{animation-delay:.048s}
+li:nth-child(6) .card{animation-delay:.06s}
+li:nth-child(7) .card{animation-delay:.072s}
+li:nth-child(8) .card{animation-delay:.084s}
+li:nth-child(9) .card{animation-delay:.096s}
+li:nth-child(10) .card{animation-delay:.108s}
+li:nth-child(11) .card{animation-delay:.12s}
+li:nth-child(12) .card{animation-delay:.132s}
+/* 网点纹理压在极光之上（spec §8.1 那句"叠一层 3px 网点"）。
+   pointer-events:none 不是装饰：固定层盖住内容会把整页点击吃掉。 */
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:3px 3px}
+/* 别名/标签是 flex 行里的短词：不给 nowrap + 不许收缩，窄屏上会被挤成一列竖字
+   （Task 12 手机档实拍发现，部署验收 #1 的另一半）。 */
+.badge,.tag{font-size:11px;border-radius:6px;padding:2px 6px;white-space:nowrap;flex:0 0 auto}
+/* `.badge` 一分为二：**span 是状态，a/button 是动作**。从前两种共用一条橙色描边，
+   于是「回首页」「管理」「设 PIN」「先不导」这些每天要按的键全都长了张警告脸，
+   而真正该扎眼的（数据文件读不了）混在里面反而分不出来。
+   动作那一半改走 `.pick button` 那族同一张脸（中性描边 + 半透明底 + hover 亮蓝边），
+   状态那一半默认安静，只有 `.badge.warn` 才用告警色。 */
+.badge{border:1px solid var(--line);color:var(--ink2);background:transparent}
+.badge.warn{border-color:var(--warn);color:var(--warn)}
+a.badge,button.badge{font-size:13px;padding:8px 12px;border-radius:9px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease}
+a.badge:hover,button.badge:hover{background:var(--card-hi);border-color:var(--accent)}
+a.badge.danger,button.badge.danger{border-color:var(--bad);color:var(--bad)}
+a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);border-color:var(--bad)}
+.tag{border:1px solid var(--line);color:var(--ink2)}
+.tags-row{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+/* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。 */
+.plain{flex-wrap:wrap}
+.plain code{flex:1 0 100%;font-size:12px;color:var(--ink2);overflow-wrap:anywhere}
+/* layout: list = 单行卡；tiles = 大磁贴（spec §8.3 的 min 158px 由 190px 的
+   auto-fill 下限覆盖，窄屏两列时仍不至于把标题压成竖排）。
+
+   **list 也自适应**（2026-10-11）：从前是 `minmax(0,1fr)` 单列满宽，于是 1280 档
+   上一行就是 966px——名字贴左、描述贴右，中间一大片是空的，实拍一眼过去"什么都没
+   装下"。现在按 360px 下限自动分列：宽屏两到三列、窄屏自动回到一列，形态随视口走。
+   360 是量出来的：一行装下「图标 22 + 间隙 10 + 名字 + 间隙 10 + 把手 44 +
+   间隙 10 + 描述」之后还剩得下约 240px 给名字与描述，再窄名字就开始被挤没了。
+
+   它与 tiles 的区别**没有因此消失**：tiles 按 190px 分列（窄、要密、说明换到第二
+   行），list 按 360px 分列（宽、每条一行读完）。同一个事实（哪种形态）仍然只有
+   `[data-layout=…]` 这一个入口——.rows 是故意零规则的标记，别在这里加第二处。 */
+[data-layout=list] ul{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+/* 磁贴里的排布**分两行**：图标 + 名字 + 编辑把手走第一行，说明与标签走第二行。
+   理由不是好看：把手从"hover 才出现的绝对定位"改成"常驻 44px"之后，它在流里
+   吃掉 54px，190–234px 宽的磁贴里名字被挤成"群…"（实测改前 19 张卡 3 张截断，
+   改后几乎全截）。名字是这张卡上唯一必读的东西，标签与说明是次要元数据——
+   让次要的换行，而不是让主要的消失。list 形态一行 966px，不需要这一套。 */
+.tiles .card{flex-wrap:wrap}
+.tiles .card b{flex:1 1 auto;min-width:0}
+.tiles .pencil{margin-left:auto}
+.tiles .tags-row{flex:1 1 100%;order:8;margin-left:32px}
+.tiles .card i{flex:1 1 100%;order:9;margin-left:32px;max-width:none;text-align:left}
+/* list 形态：描述**不再被推到最右**（2026-10-11 实拍后改）。
+   `.card i` 那条 `margin-left:auto` 的本意是"把描述送到卡片另一头"，可它连同
+   后面的标签与把手一起被送了过去——单列宽行于是读成
+   「主路由 ……………… 192.168.x.x ✎」，两件相关的事被空档劈开。
+   改成贴着名字左对齐之后，一行的信息聚在左边，眼睛竖着扫下来更快；
+   右边空出来的那一块读作留白，而不是一个洞。
+   （磁贴那条 margin-left:32px 仍在——它缩进到图标右边对齐，是另一回事。） */
+[data-layout=list] .card i{margin-left:0}
+.profiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
+  background:rgba(255,157,108,.12);color:var(--ink)}
+/* .explain 是确认页的后果说明，**以前根本没有规则**——句子里带的 \n\n 被 HTML
+   默认折成空格，于是"现在是这样"与"回退会怎样"挤成一段，而这一页存在的意义
+   就是让人把"会发生什么"读清楚。pre-line 让空行真的断成段（单换行仍折行，
+   不用 pre-wrap，免得一堆空行把版撑开）。 */
+.explain{white-space:pre-line}
+.pick{font:inherit;color:inherit;flex-direction:column;align-items:stretch;gap:10px;min-height:0}
+.pick-name{display:flex;align-items:center;gap:10px;min-width:0}
+.pick label,.newprofile label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
+/* 引导建档表单（设计 §3）只改 label 的**排布**，两格竖排：必须显式
+   align-items:stretch——`.pick label` 给的是 center，列向 flex 里 center 管的是水平轴，
+   输入框会被 flex:1 1 auto 收成内容宽的一小块（行向时看不出来）。
+   表单本身、输入框与按钮都不在这里开新规则：那个 form 同时带 pick 这个类，
+   字号/颜色/44px 全部由上面与下面的族规则接。 */
+.setup label{display:flex;flex-direction:column;align-items:stretch;gap:6px;font-size:13px;color:var(--ink2)}
+.hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
+.pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
+  border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+/* 次级按钮**一张脸**：以前 .pick/.search/.theme/.adm/.act 那几族是透明底，
+   而 a.badge（回首页、管理、设 PIN…）刚改成半透明卡片底 —— 同一行里出现
+   "实心 / 透明 / 半透明"三种按钮，看着像三套系统。这里统一收进半透明卡片底，
+   实心只留给主操作键（顶栏「＋ 添加」与确认页的 danger）。 */
+.pick button,.search button,.theme button,.adm button,.act button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
+  border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
+.pick button:hover,.search button:hover,.theme button:hover,.adm button:hover,.act button:hover{background:var(--card-hi);border-color:var(--accent)}
+/* danger 是"这一步不可逆"的**视觉区分**，不是安全措施（§11 刻意不做防护）。
+   它与 --warn 分开是因为 --warn 已经表示"坏档读不出来"；让删档与坏档同色，
+   等于在一张同时出现这两者的表里把"这里坏了"与"点这里会删东西"画成一样。
+   确认页那颗实心红键（.act/.adminaction 里的 button.danger）与表格里"删档"
+   那枚描边件是同一个词族的两种强度：会直接删东西的那一下要实心。
+   **位置是判据**：必须写在上面那条联合规则之后。`.act button` 与 `button.danger`
+   权重相同，写在前头会被按顺序盖掉——确认页那颗红键会变灰。 */
+button.danger{background:var(--bad);color:var(--on-bad);border-color:var(--bad)}
+button.danger:hover{background:var(--bad);border-color:var(--bad);opacity:.88}
+/* 44px 触摸目标（spec §7.5）按"族"给，不按容器给，一族只写一遍这个数：
+   输入族（input[type=password|text|search|file]）、按钮族（.pick/.search/.theme/
+   .adm/.act button）、导航族（侧栏分组链接 .gnav a、把手 summary 与
+   顶栏那枚档案徽标 .profmenu button——抽屉的与
+   解释页细节块的是同一只手，44px 也归这一族管）
+   各一条 joint 规则。顶栏搜索框是 input[type=search]，不在 password/text 名单上
+   就会被 UA 画成一个矮盒子；侧栏的分组链接与抽屉把手既不是按钮也不是输入框，
+   走的是导航族这一条。**`.act` 是"确认页/导入页那种一张表单"的族**（管理页那两张
+   两步确认与浏览器收藏夹导入的三个形状共用它）——它们过去不在任何名单里，于是
+   提交按钮与文件选择框都是 25px；导入页的输入框要带上 file 才算进输入族。
+   同一族的数字写两处，改一处就留下一处谎话。名单由
+   TestCSS_搜索控件的44px由哪条规则保证 逐条钉着。 */
+input[type=password],input[type=text],input[type=search],input[type=file]{min-height:44px}
+/* 导航族：侧栏分组链接、把手 summary，以及**所有可点的 badge**。
+   顶栏「管理」「从浏览器导入」、管理页的「设 PIN / 停用 / 删档 / 回首页」、
+   导入页的「算了，不导」——它们此前一律只有 20px 高，而 §7.5 的 44px 是管
+   触摸目标的，**它是链接不是按钮这一点不构成豁免**。
+   .badge 另有 <span> 形态（管理态徽标、「已停用」），那些不收进来——撑高一个
+   纯标签只会让它看起来像个按钮。 */
+.gnav a,summary,a.badge,button.badge,.choice label{min-height:44px}
+/* 上面那条对 inline 元素无效，而 .badge 在 <p>／<td> 这类非 flex 容器里正是
+   inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。
+   （顶栏与表格里它们本来就是 grid/flex item，不需要这一条。） */
+a.badge,button.badge{display:inline-flex;align-items:center}
+/* 管理页表格（spec §8.8）。表头随档案数不动，所以不 sticky；
+   forced-colors 下靠 border 分行，颜色不是唯一载体（§7.5）。
+   .adm button 的外观与 44px 由上面那条 joint 规则一起给，这里不再开第二条。 */
+/* 管理页的建档表单（④.5 Task 5）。它复用输入族与按钮族那两条 joint 规则：上面只把
+   text/password 两格加进输入族的名单（勾选框不收——给它 min-height 与边框是把复选框
+   画成文本框），.adm button 本来就在按钮族里。这里只补排布。勾选那一格不新开第四个
+   min-height:44px 位点（一个数字一族只写一遍）：点击面由 label 的内衬凑，整行文字都是
+   靶子——真实高度归 Task 7 的浏览器实拍量。 */
+.newprofile{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 0 0}
+.newprofile .chk{padding:12px 2px}
+/* 确认页的"从几版里选一版"（radio 族）。**44px 不由 input[type=radio] 扛**——
+   给一个圆形控件写 min-height 会把圆画大，而它旁边的文字才是靶子：点击面由
+   label 那一行的内衬凑，与上面建档表单的勾选格同一处置（一个数字一族只写一遍）。
+   fieldset 默认自带边框与内衬，这里清掉，让它读成一张列表而不是一个框。 */
+fieldset.choices{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:16px 0 0}
+fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
+.act .choice{margin:6px 0}
+.act .choice label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;
+  padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);
+  transition:border-color .16s ease,background .16s ease}
+.act .choice label:hover{border-color:var(--accent)}
+/* 选中态：改前实测"选中与未选中逐字相同"，唯一区分是那颗 13×13 的圆点。
+   :has() 是这里唯一站得住的写法——选中由原生 radio 持有，而样式要打在整行上；
+   不认 :has 的浏览器只是退回"只有圆点"，功能不受影响。 */
+.act .choice:has(input:checked) label{border-color:var(--accent);background:var(--card-hi);
+  box-shadow:inset 3px 0 0 var(--accent)}
+.act .choice input[type=radio]{width:18px;height:18px;flex:0 0 auto;margin:2px 0 0;accent-color:var(--accent)}
+.act .choice small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
+.adm{width:100%;border-collapse:collapse;font-size:14px}
+.adm th{text-align:left;font-weight:600;color:var(--ink2);padding:6px 8px;
+  border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.adm td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+/* 窄屏上这张六列表不是"缩一点"，是**换一种读法**：实测 390 档行高 149px（坏档那行
+   333px），「最近改动」98px 宽里一个时间戳折成 7 行，三枚动作按钮在 61px 里竖排。
+   所以 ≤700 改成一行一张卡、每格前面挂列名（列名来自 td 的 data-k，与表头同一份
+   文字，由 admin.tmpl 负责）。表头整条隐藏——列名已经在每一格里了。 */
+@media (max-width:700px){
+  .adm,.adm tbody,.adm tr,.adm td{display:block;width:auto}
+  .adm thead{display:none}
+  .adm tr{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px}
+  .adm td{border:0;padding:3px 0;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .adm td::before{content:attr(data-k);color:var(--ink2);font-size:12px;flex:0 0 auto}
+  .adm td .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  /* 三个数字格（条目/rev/快照）挤回同一行：实测一行一张卡时它们各占一行，
+     档案行高从 149 涨到 209——竖排治好了"读不出"，却把表变成了六屏。
+     短数并排、长内容（名字/时间/动作）各占一行，才是窄屏要的形状。 */
+  .adm td[data-k="条目"],.adm td[data-k="rev"],.adm td[data-k="快照"]{
+    display:inline-flex;width:auto;gap:6px;margin:0 12px 0 0;border:0}
+}
+@media (forced-colors:active){.adm th,.adm td{border:1px solid CanvasText}
+  fieldset.choices,.act .choice label{border:1px solid CanvasText}}
+@media (max-width:700px){ul{grid-template-columns:repeat(2,minmax(0,1fr)}}
+/* 窄屏藏描述**只对磁贴**。从前是 `.card i{display:none}` 一刀切，可它那条规则
+   的理由只对磁贴成立：≤700px 时磁贴压成两列，一格只有 ~190px，名字 + 描述 + 编辑
+   把手挤在一行里，描述只能被挤没。
+   而 **list 在同一档是整幅单行**（上面那条 `repeat(auto-fill,minmax(360px,1fr))`
+   在 610px 上算出一列）——地方多的是，把描述一起藏掉就是白藏。实拍：1280 档看得到
+   「主路由 · 192.168.x.x」，650px 档只剩「主路由」，而描述往往正是"这个地址是哪台
+   机器"的那半句。 */
+@media (max-width:700px){.tiles .card i{display:none}}
+@media (max-width:430px){ul{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){
+  body::before{animation:none}
+  .card{animation:none}
+  *{transition:none!important}
+  .card:hover,.pick:hover{transform:none}
+  .card:hover .ic-svg,.card:hover .ic-img,.card:hover .ic{transform:none}
+}
+/* 高对比模式：毛玻璃与阴影会被系统色盖掉，只留边框与文字（spec §7.5）。 */
+@media (forced-colors:active){
+  .card,.pick,.plain{backdrop-filter:none;background:Canvas;border:1px solid CanvasText}
+  body::before{display:none}
+  .ic{border:1px solid CanvasText}
+}
+
+/* 管理页末尾那段 bookmarklet 说明。**放在 base.css 而不是 app.css**：
+   管理页是零 JS 页面（不引 app.css），而这段说明恰恰要出现在那一页上——
+   样式放错文件的后果是"管理员打开管理页看到一堆没排版的字"。
+   它也解释了为什么 §8.1 那一串顶栏入口里没有 bookmarklet：那是每人每天按的，
+   而这个是配一次的。 */
+.adm.bm{margin:18px 0 0;padding:12px 14px;background:var(--card);
+  border:1px solid var(--line);border-radius:10px}
+.adm.bm h2{margin:0 0 6px;font-size:15px}
+.adm.bm p{margin:6px 0;font-size:13px;color:var(--ink2)}
+.adm.bm ol{margin:6px 0;padding-left:20px;font-size:13px;color:var(--ink2)}
+.adm.bm li{margin:4px 0}
+.adm.bm code{font-size:12px}
+.adm.bm strong{color:var(--ink)}
+/* 导入报告的排版容器。**必须住在 base.css**：导入页是零脚本页面，不引 app.css
+   （§7.2）。放错文件的后果就是本轮实拍到的那张图——列表被全局磁贴栅格打成三列并排。
+   上面 .adm.bm 那段写的是同一个坑，我自己刚犯了一次。它从前是 `<div class="tech"><pre>整份 markdown</pre></div>`，
+   于是屏幕上直接印 `## 结论`、`**没能进来**`、成对的反引号，还有 html/template
+   顺手换出来的 &#34; 实体码。现在报告由 render.reportHTML 渲成 h3/p/ul/ol/code/b，
+   容器要的是**读得下去的段落**，不是等宽字体。
+   不复用 .tech：那一族的 white-space:pre-wrap + word-break:break-all 是给
+   "store 的原文一个字节都不许改"那一段（坏档解释页）准备的，套到报告上会把
+   每个换行都变成空行。 */
+.rep{margin:14px 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.rep-h{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;color:var(--ink2);text-transform:none}
+.rep p{margin:6px 0;font-size:13px}

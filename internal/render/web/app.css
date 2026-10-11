@@ -1,0 +1,177 @@
+/* ── ⑤/⑥ 的输入面（浮层、⌘K、就地编辑）──────────────────────────────
+   三处输入框原本各写了一遍几乎相同的规则，那是 380 B 的重复 + 三条各带
+   min-height 的 44px 规则（而 44px 那条闸只许三族各一条）。收成 .fld：
+   **44px 是 §7.5 的硬数字**（触摸目标），它要保证的是"所有输入面"，不是
+   "每处自己记得写一遍"。 */
+.fld{display:block;width:100%;margin-top:4px;padding:8px 10px;
+  font:inherit;font-size:14px;color:var(--ink);background:var(--card);
+  border:1px solid var(--line);border-radius:8px;min-height:44px}
+.sheet label,.inline-edit label{display:block;font-size:12px;color:var(--ink2)}
+/* ⌘K 结果行里的地址是**行内**的次级信息，不是标签。它原先与 label 共用一条
+   `display:block`，于是每条命中都被 URL 顶成第二行——实测行高 114px，十行
+   1140px 超过一屏，面板看起来像换了页。 */
+.cmdk-list code{display:inline;font-size:12px;color:var(--ink2)}
+
+/* 顶栏上由 app.js 造出来的可点件是**一族**：「＋ 添加」与提醒条上的「知道了」。
+   44px 在这一族只写一遍；实心蓝底是 .add 自己的事，不并进来（并进来会把
+   「知道了」也刷成一颗主操作键，而它不是）。 */
+header .add,.notice .dismiss{min-height:44px}
+header .add{flex:0 0 auto;background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+/* 浮层是**居中的面板**，不是整屏不透明的接管。旧写法 `inset:0` + `background:var(--bg)`
+   让桌面字段拉到 1385px 宽、看起来像换了一页而不是浮起来一层；背板用
+   `box-shadow: 0 0 0 100vmax` 造，零 DOM 改动（模板那边"除档案页外零脚本"的
+   判据名单因此一个字都不用动）。 */
+.sheet{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(560px,calc(100vw - 28px));max-height:calc(100vh - 32px);overflow:auto;
+  display:flex;flex-direction:column;gap:12px;padding:22px;z-index:50;
+  background:var(--bg);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
+.sheet[hidden],.cmdk[hidden]{display:none}
+.sheet h2{margin:0;font-size:18px}
+.sheet-actions{display:flex;gap:10px;margin:4px 0 0}
+.sheet-status{margin:0;min-height:1.2em;font-size:12px;color:var(--ink2)}
+.sheet-status.bad{color:var(--bad-text)}
+.sheet .close{position:absolute;top:10px;right:10px;width:auto;min-width:44px;font-size:20px;
+  background:transparent;border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;cursor:pointer}
+
+/* ⌘K 面板是**叠加**不是另一个页面（§8.6）：浮在上层，页面照常可点。
+   与 .sheet 同一套面板语言（居中 + 背板），只是贴在上方 10vh 处、更宽一档。 */
+.cmdk{position:fixed;top:10vh;left:50%;transform:translateX(-50%);
+  width:min(680px,calc(100vw - 28px));max-height:78vh;overflow:auto;
+  padding:16px;z-index:60;background:var(--bg);border:1px solid var(--line);
+  border-radius:16px;box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
+.cmdk .fld{max-width:none;margin:0;font-size:17px}
+.cmdk-list{list-style:none;margin:12px 0 0;padding:0;max-width:none}
+.cmdk-list li{display:flex;gap:10px;align-items:baseline;padding:9px 12px;
+  min-height:44px;border-radius:8px;cursor:pointer}
+.cmdk-list li.sel{background:var(--card-hi)}
+/* 名字吃掉剩余宽度并省略号截断，地址只占右侧有限一档：一行一条，不折行。 */
+.cmdk-list b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-list code{flex:0 0 auto;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr}
+.cmdk-empty{margin:10px 12px;font-size:13px;color:var(--ink2)}
+
+/* 就地编辑的把手。**常驻可见**而不是 hover 才出现：旧写法 `display:none` +
+   `li:hover>.card .pencil{display:flex}` 让触摸设备（没有 hover）与键盘用户
+   永远够不到这个功能，而它是改名字/改地址的唯一入口。常驻的代价是每张卡多一个
+   淡灰把手，比"功能不存在"便宜。44×44 是 §7.5 的触摸目标，挂在卡片行尾而不是
+   绝对定位压在角上（压角会盖住「图标未匹配」徽标与描述）。
+
+   2026-10-11 降噪：字形 15px→13px、静息透明度 .5→.34。**触摸目标一个像素都没动**
+   （还是那个 44×44 的盒子，字形在盒子里居中变小而已）。原来那一档在 13 条的页面上
+   就是 13 个各自悬浮的 ✎——实拍一眼扫过去先看见的是它们而不是书签名，而把手是
+   "要用时才找得到"的东西，不该抢主内容的第一眼。悬停/聚焦仍然回到 1。 */
+.card{position:relative}
+li{position:relative}
+.pencil{flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;font-size:13px;
+  background:transparent;border:1px solid transparent;border-radius:8px;
+  color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease}
+.card:hover .pencil,.pencil:hover,.pencil:focus-visible{opacity:1;border-color:var(--line);background:var(--card-hi)}
+/* 分组标题右端那枚布局切换键（⑤ 层，见 app.js 的同名那一支）。
+   **它紧跟在分组名后面，不靠右**（2026-10-11 实拍后改）：先前是 margin-left:auto
+   推到最右，于是 13px 的分组名与那枚键之间空出整条标题行——读起来像页面级的
+   工具，而不像是"这一组的开关"。它本来就该贴着它管的那几个字。
+
+   **44×44 的触摸目标是 §7.5 的硬线**，而它看上去只有 11px —— 与 .pencil 同一
+   处置：盒子守住 44，字形在里面安安静静。代价是 h2（13px 小字）被这枚 44px 的
+   孩子顶到 44px 高，分组标题那一行因此厚了一截；那一截换来的是手指够得着。
+   边框平时不画：它常驻在每一组的标题行上，画出来就是满屏的框。 */
+.layoutbtn{flex:0 0 auto;width:44px;height:44px;
+  display:grid;place-items:center;font:inherit;font-size:11px;line-height:1;
+  letter-spacing:0;text-transform:none;color:var(--ink2);
+  background:transparent;border:1px solid transparent;border-radius:8px;
+  cursor:pointer;transition:color .16s ease,border-color .16s ease}
+.layoutbtn:hover{color:var(--ink);border-color:var(--line);background:var(--card-hi)}
+@media (forced-colors:active){.layoutbtn{border:1px solid CanvasText}}
+li.drop{outline:2px dashed var(--accent);outline-offset:-2px}
+li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
+/* 磁贴形态下**把手不占流**（2026-10-11 实测后改）。它留在流里时，那一行的行高由
+   44px 的把手决定，而不是由 22px 的图标或 24px 的名字决定——实拍一张磁贴 287×109，
+   内部是「把手 44 / 名字 24 / 描述 19」，名字与描述之间因此空了 54px。
+   把它挪到**右上角**（磁贴的右上角本来就是空的：徽标与描述都在第二行），
+   第一行回到内容该有的 24px，整张卡约 109 → 79px，一屏多看三成。
+   名字那一格让出 44px 是为了不被压在下面；描述在第二行，与右上角不重叠，
+   仍占满整幅宽。
+
+   **list 形态不改**：它一行读完、描述在右侧，把手本来就该在行尾。 */
+.tiles .pencil{position:absolute;top:6px;right:6px}
+.tiles .card b{padding-right:44px}
+.tags-row:empty{display:none}
+/* 编辑态**盖住**这一张卡，而不是在它下面追加一坨表单：追加会把整列撑开，
+   而磁贴里的输入框只有 213px——改一条 URL 需要的是能看清它的宽度。
+
+   **但它不许被锁死在卡片的尺寸里**（2026-10-11 修）。从前写的是 `inset:0`，
+   于是这一层正好等于卡片那个盒子：磁贴 287×109、列表行 68px 高，而表单要装
+   三个「标签 + 输入框」（输入框吃 §7.5 的 44px 触摸目标）加一行存/取消，
+   实测要 ~250px。`inset:0` 把上下左右都钉死之后，内容溢出到框外，而背景与
+   边框**只画那 109px**——溢出来的那一截透明地浮在下面几张卡上，实拍出来是
+   「描述」输入框压在 WireGuard 上、「地址」输入框和 "WireGuard" 文字重叠、
+   存/取消压在 Grafana 上。
+
+   所以改成**从卡片左上角长出来、尺寸由内容定**：高度不再被 bottom 钉住、
+   宽度给一个下限（磁贴窄，300px 才放得下一条完整 URL）同时封顶（列表行
+   接近整幅宽，不封顶的话编辑一块就铺满半屏）。盖住相邻卡片是**编辑态本来就
+   该有的样子**——它底下那些卡此刻是不可点的，模态就该模态；错的是盖到一半
+   就没有背景，而不是盖得太大。阴影是为了让"这块浮在上面"这件事看得出来。 */
+.inline-edit{position:absolute;top:0;left:0;z-index:6;display:grid;gap:6px;align-content:start;
+  width:min(max(100%,300px),420px);padding:10px;background:var(--bg);
+  border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.inline-edit input{background:var(--card);font-size:13px}
+.inline-edit label{font-size:12px;color:var(--ink2)}
+.inline-edit .row{display:flex;gap:8px}
+.inline-edit .row button{flex:1 1 auto}
+
+/* forced-colors：毛玻璃与阴影一律失效，留下的是边框——所以这里的 border 是
+   承重的，不是装饰。 */
+@media (forced-colors:active){
+  .fld,.pencil,.cmdk-list li.sel{border:1px solid CanvasText}
+  .sheet-status.bad{color:LinkText}
+}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:sheet-in .12s ease-out}
+  @keyframes sheet-in{from{opacity:0}to{opacity:1}}
+}
+/* 快捷键清单。dl/dt/dd 是**唯一能把"键"与"说明"对上**的语义结构：用表格会
+   让屏幕阅读器把每一行念成两个不相关的单元，而这两行本来就该一起念。 */
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:10px 0;
+  max-width:640px;margin-inline:auto;text-align:left}
+.keys dt{font:inherit;font-size:13px;color:var(--ink);white-space:nowrap}
+.keys dd{margin:0;font-size:13px;color:var(--ink2)}
+.cmdk-h{font-size:17px;margin:0 0 6px}
+/* 批量操作条：固定在底部，随手够得到（§7.5 的 44px 同样落在它身上）。
+   它是 fixed 的，所以进多选态时给主区垫一段空白——否则最后一行卡片被压在条子
+   下面（实测条子 69px 高、bottom=视口底），而那正是多选时要点的那几行。 */
+.multibar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;
+  flex-wrap:wrap;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:var(--bg);border-top:1px solid var(--line)}
+.multibar[hidden]{display:none}
+body[data-multi] main{padding-bottom:96px}
+.multibar button{width:auto;min-width:44px;padding:6px 12px;font-size:13px;
+  border:1px solid var(--line);border-radius:8px;background:var(--bg);
+  color:var(--ink);cursor:pointer}
+/* 顶栏提醒的关闭出口。它必须存在：一条说得出结果、却说不出下一步的横幅，
+   挂在页面最顶上又关不掉，比没有更烦（实测从前一次会话里同时挂着两条）。 */
+.notice .dismiss{margin-left:10px;font:inherit;font-size:12px;color:var(--ink);
+  background:transparent;border:1px solid var(--warn);border-radius:8px;
+  padding:6px 10px;cursor:pointer}
+/* 离线记下的条目清单：名字 + 地址 + 逐条撤掉。只有"记了 N 条"那个数是不够的，
+   人要看的是"记了哪几条"，否则他不知道里面有没有他后来改过主意的。 */
+.qlist{margin:8px 0 0;padding:0;display:grid;gap:6px}
+.qlist li{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.qlist b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qlist code{font-size:12px;color:var(--ink2);direction:ltr;min-width:0;
+  overflow:hidden;text-overflow:ellipsis}
+.qlist button{flex:0 0 auto}
+@media (forced-colors:active){.multibar button{border:1px solid CanvasText}}
+
+
+/* base.css 有一条全局 `ul{list-style:none;display:grid}` 是给磁贴用的，
+   它会一并打到报告里的列表上——不显式要回符号，1. 2. 3. 会全变成无编号的缩进块。 */
+.rep-list{margin:6px 0;padding-left:22px;display:block;list-style:revert}
+ul.rep-list{list-style:disc}
+ol.rep-list{list-style:decimal}
+.rep-list li{display:list-item}
+.rep-list li{margin:3px 0;font-size:13px}
+.rep code{font-size:12px;word-break:break-all;direction:ltr}
+.rep b{font-weight:600}
+@media (forced-colors:active){.rep{border:1px solid CanvasText}}
