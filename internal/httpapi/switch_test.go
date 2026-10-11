@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
 // 夹具复用本包既有的三件：setupBatch(t)（dad=爸爸 管理员 + kid=小满 非管理员，
@@ -146,7 +147,7 @@ func TestSwitch_相邻那条_PIN输错仍带err提示(t *testing.T) {
 	if !strings.HasPrefix(loc, "/?err=") {
 		t.Errorf("PIN 输错要带 ?err= 提示，得到 %q——它不是权限拒绝，不许统一成裸 303", loc)
 	}
-	if pinNotices[strings.TrimPrefix(loc, "/?err=")] == "" {
+	if noticeOf(i18n.Default, strings.TrimPrefix(loc, "/?err=")) == "" {
 		t.Errorf("err 键必须在白名单表里: %q", loc)
 	}
 	if _, ok := rec.Header()["Set-Cookie"]; ok {

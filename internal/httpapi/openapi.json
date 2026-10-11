@@ -1891,6 +1891,18 @@
         "description": "体是 `application/x-www-form-urlencoded` 的 `{profile}`。判据取反：今天是停用就启用，反之亦然。落点与 `POST /api/v1/profiles/disable` 是同一个 `adminDisable`——判据只有一份。\n\n**幂等**：同状态再设一次不写盘、不记审计，所以重试安全。落盘或审计失败走 500 JSON 外壳，**绝不说成功**：停用可能已经生效而审计行没落。"
       }
     },
+    "/admin/language": {
+      "post": {
+        "summary": "改全机界面语言（浏览器表单通路；仅管理员会话，带令牌一律 303 拒）",
+        "x-credential": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "改这台机器的界面语言。体是 `application/x-www-form-urlencoded` 的 `{language}`，取值 `zh` 或 `en`。\n\n**语言是站级设置，不是某个档案的字段。** 落点是 `data/settings.json`（读侧一律缺省落中文），它不进 `profile.json`、不走 `POST /prefs`——那两条都是\"只改我自己\"的通路，而语言改了会立刻影响这台机器上的所有人。把语言放进档案，等于把\"改全机显示\"的权力交给任何一份档案的所有者。\n\n**权限**：只收管理员**会话**，带 Bearer 一律 303 回选择页（与 `POST /admin` 建档同一句）。`x-credential` 仍是 `admin`：前者说这条能用什么凭证打通，后者说判据档位与 `GET /admin` 同源。\n\n**失败**：`language` 没给 → 303 回 `/admin?err=nolang`；给了不认识的值 → 303 回 `/admin?err=badlang`（**不静默落默认**：静默存下去等于\"我选了法语，它没告诉我没生效\"）；同一个字段出现多次或表单读不出形状 → 422 JSON 外壳；落盘失败 → 500 JSON 外壳，**绝不说成功**（语言没存下去，界面还是原来那一种）。成功 303 回 `/admin`。\n\n**渲染缓存不用手动清**：render 的 `cacheKey` 带语言这一维，所以下一次渲染的键就变了。这是\"不用记得做\"，而\"改完遍历清一遍缓存\"是——忘了就是一个\"改了不生效、得重启容器\"的现象。\n\n另一条入口是零档案时的 `POST /setup`（建档那一趟顺手把语言定下来）；此后一律走这一条。"
+      }
+    },
     "/api/v1/profiles/disable": {
       "post": {
         "summary": "停用/启用某档案（数据不动，仍占目录数；与 /admin/disable 同一落点）",

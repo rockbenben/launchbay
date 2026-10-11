@@ -91,6 +91,24 @@
     <label class="chk"><input type="checkbox" name="admin" value="1"> {{.T "admin.new.admin"}}</label>
     <button type="submit">{{.T "admin.new.submit"}}</button>
   </form>
+  {{/* 界面语言：**站级**设置，不是某个档案的。所有页面都用它，所以它不进
+       profile.json、不走 /prefs——那两条都是"只改我自己"的通路，而语言改了
+       会立刻影响这台机器上的所有人。落点是 data/settings.json，判据与选项由
+       渲染器给（它同时知道"现在是什么语言"与"有哪些可选"）。
+
+       只给管理员：**只有管理员能改全机显示**。它不进 /admin/pin 那两步确认——
+       那套是给"改坏了撤不回来"的动作准备的，改语言随时改回来，且一个字节的
+       档案数据都不动。 */}}
+  <form method="post" action="/admin/language" class="adm langform">
+    <h2>{{.T "lang.heading"}}</h2>
+    <p class="hint">{{.T "lang.hint"}}</p>
+    <label>{{.T "lang.pick"}}
+      <select name="language">
+        {{range .Langs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    <button type="submit">{{.T "lang.submit"}}</button>
+  </form>
   {{/* bookmarklet 的入口与**怎么用**。
        它放在管理页而不是顶栏：这是一次性配置，配好全家用；而顶栏那几样是
        每个人每天都要按的（§8.1）。零 JS——一个链接加几句说明，不需要脚本。

@@ -2,7 +2,6 @@
   "common.back.aria": "Back",
   "common.back.home": "Back to start",
   "common.back.admin": "Back to admin",
-
   "profile.search.aria": "Search bookmarks",
   "profile.search.placeholder": "Search names, addresses, tags",
   "profile.search.submit": "Search",
@@ -28,7 +27,6 @@
   "profile.external.title": "Browsers refuse to open this kind of address from a page, so copy it into the address bar yourself",
   "profile.icon.missing": "No icon",
   "profile.icon.title": "This icon name is not in the icon library, so it falls back to a coloured initial",
-
   "picker.setup.title": "Name",
   "picker.setup.pin": "PIN",
   "picker.setup.submit": "Create",
@@ -38,7 +36,6 @@
   "picker.blocked.sep": ", ",
   "picker.enter": "Enter",
   "picker.empty": "No profile on this machine can be opened.",
-
   "admin.title": "Admin",
   "admin.count": "%d profiles. This page shows counts and times only — never what anyone has saved.",
   "admin.col.profile": "Profile",
@@ -78,7 +75,6 @@
   "admin.bm.plain2": "; and because browser bookmarks sync to your account,",
   "admin.bm.plain2b": "do not put a PIN in it",
   "admin.bm.plain3": " — this machine gives you no way to.",
-
   "broken.title": "This profile cannot be read",
   "broken.h1": "This profile's data file cannot be read.",
   "broken.p.a": "Profile",
@@ -87,7 +83,6 @@
   "broken.p2": "If you edited that file yourself, put it back into a readable state and refresh. If you are not sure how, copy the details below to whoever set this machine up — they name the file and what is wrong with it.",
   "broken.summary": "Technical details (file name and location)",
   "broken.back": "Back to the picker, open another profile",
-
   "import.file.sep": ": ",
   "import.intro.a": "This adds ",
   "import.intro.n": "%d",
@@ -103,10 +98,10 @@
   "import.cancelFirst": "Not now",
   "import.file": "Bookmarks file (.html)",
   "import.preview": "Show what this would import",
-
   "lang.heading": "Interface language",
+  "lang.pick": "Language",
+  "lang.submit": "Save language",
   "lang.hint": "Every page on this machine uses this language. Changing it affects everyone immediately; the bookmarks and PINs in each profile are untouched.",
-
   "app.add": "+ Add",
   "app.addTitle": "Add a bookmark (press n)",
   "app.sheetTitle": "Add bookmark",
@@ -186,5 +181,24 @@
   "app.sw.aria": "Dismiss this notice",
   "app.sw.updated": "The bookmark page has been updated. Refresh to use it.",
   "app.generic.cancel": "Cancel",
-  "app.generic.save": "Save"
+  "app.generic.save": "Save",
+  "notice.pin": "That PIN is not right. Try again.",
+  "notice.missing": "Enter a PIN first.",
+  "notice.profile": "That profile was not found. Please pick again.",
+  "notice.disabled": "This profile is disabled, and even the right PIN will not get you in. An admin can enable it from the admin page.",
+  "notice.noname": "Give the profile a name first.",
+  "notice.badpin": "A PIN is 4 to 6 digits.",
+  "notice.nametaken": "A profile with that name already exists. Pick another.",
+  "notice.notfound": "That profile is gone — it was just deleted, or the name was wrong.",
+  "notice.selfpin": "That is your own profile. Changing your own PIN needs the old one, after you are in.",
+  "notice.self": "You cannot delete the profile you are using. Switch to another one and come back.",
+  "notice.selfdisable": "That is the profile you are using. Disabling it locks you out of the only machine you can use.",
+  "notice.failed": "That did not go through. Nothing changed; you can try again.",
+  "notice.badsnap": "No version was picked (the click may have missed). Choose one below and press the button again.",
+  "notice.gone": "The version you picked is gone: at most 50 snapshots are kept. The ones below are still here, so pick another without leaving this page.",
+  "notice.nosnap": "Could not save the current version first, so the revert was called off: your bookmarks did not change at all. Try again in a moment.",
+  "notice.permission": "The data directory is not writable — this program has no permission there. Hand that directory to the user running it (uid 65534 in the container) and try again.",
+  "notice.nolang": "No interface language was picked.",
+  "notice.badlang": "That language is not one this build knows.",
+  "notice.langfail": "The profile was created, but the interface language was not saved, so it is still showing Chinese. An admin can change it from the admin page."
 }

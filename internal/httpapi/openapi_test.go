@@ -74,6 +74,10 @@ var tokensRefusedByForm = map[string]bool{
 	// TestRevertPage_令牌与无会话都拒且不写盘。
 	"GET /revert":  true,
 	"POST /revert": true,
+	// 改界面语言那条（2026-10-11）：判据同上——语言是**站级**设置，改了影响这台
+	// 机器上的所有人，所以只给管理员会话，不接受令牌替身。行为证人见
+	// TestAdminLanguage_令牌一律303且不写盘。
+	"POST /admin/language": true,
 }
 
 // docOperation 是测试要读的 operation 字段（其余字段由 json 忽略）。

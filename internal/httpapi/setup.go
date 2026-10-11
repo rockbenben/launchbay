@@ -2,6 +2,9 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
+
+	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
 // handleSetup 是引导建档：零档案时任何人建第一个（建成管理员），建完这条通路自己
@@ -36,6 +39,11 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Field: "pin", Reason: "同一个字段只能出现一次"}})
 		return
 	}
+	if n := len(r.Form["language"]); n > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Field: "language", Reason: "同一个字段只能出现一次"}})
+		return
+	}
 	res := s.createProfile(createInput{
 		Title: r.FormValue("title"),
 		PIN:   r.FormValue("pin"),
@@ -59,8 +67,52 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		// 其余落盘失败不是权限拒，走 JSON 外壳（spec §6.1 的两种长相）。
 		writeInternalError(w, res.Err)
 	default:
+		// **档案已经建成了**，所以语言写不进去不能把它变成一次失败——那会让人以为
+		// 什么都没建成，重新建一遍却撞上「窗口已关」。它是独立的一组话：建好了说
+		// 建好了，同时说清是"你选的那个语言不认识"还是"没存上去"。
+		//
+		// 它自己重定向并说清原因，返回 true；false 才表示没拦下，调用方照常 303。
+		// **不用"返回错误码、调用方再 redirectSetup"那个形状**：那样 redirectSetup
+		// 的键就变成了一个变量，agents 测试里那道静态闸（每个 redirectSetup 的键
+		// 都得是登记过的字面量）就再也拦不住一个没登记的键了。两处失败分开说，
+		// 就是这里有两条 redirectSetup 而不是一条的原因。
+		if s.applySetupLanguage(w, r.FormValue("language")) {
+			return
+		}
 		redirectPicker(w)
 	}
+}
+
+// applySetupLanguage 把引导表单里选的语言落到站级配置上。
+//
+// 返回 true = 已经拦下并且**已经把要说的话说出去了**（调用方直接 return）；
+// 返回 false = 没拦下，调用方照常 303 回选择页。
+//
+// **两种失败必须分开说**，这是它们各有一次 redirectSetup 而不是合成一条的原因：
+// 值不认识说 badlang（"你选的那个语言不存在"，人能换一个），
+// 落盘失败说 langfail（"没存上"，人去查数据目录的权限）。
+// 合成一个键就把第一种说成第二种，人会去 chown 一个根本没坏的东西。
+//
+// **给语言留空不是错**：那一格是后加的，老的自动装机脚本与测试夹具都在 POST
+// 只带 title 与 pin。空 = 不动，仍是缺省的中文——升级不该让一条本来能用的
+// 无 JS 通路突然报字段错。
+func (s *Server) applySetupLanguage(w http.ResponseWriter, raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	l := i18n.Lang(raw)
+	if !l.Valid() {
+		redirectSetup(w, "badlang")
+		return true
+	}
+	// 写不进去（数据目录不可写）**不阻断建档**：档案已经落盘了，把这一趟说成
+	// 全失败比只说语言没设上更糟——那会让人以为机子上什么都没有。
+	if err := s.deps.Store.SetLanguage(l); err != nil {
+		redirectSetup(w, "langfail")
+		return true
+	}
+	return false
 }
 
 // redirectSetup 把浏览器能懂的失败送回引导页。code 只来自本包的常量，永远不是

@@ -175,7 +175,7 @@ func (s *Server) handleAdminDisablePage(w http.ResponseWriter, r *http.Request) 
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
 		ID: id, Title: map[bool]string{true: "停用档案", false: "启用档案"}[disabled],
 		Heading: heading, Explain: explain,
-		Notice: pinNotices[r.URL.Query().Get("err")],
+		Notice: s.notice(r.URL.Query().Get("err")),
 		Action: "/admin/disable",
 		Submit: submit,
 	})

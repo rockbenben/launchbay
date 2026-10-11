@@ -111,7 +111,7 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 		// 而管理员未必是家长。
 		Explain: fmt.Sprintf("设完之后，进「%s」这一份要输这个新 PIN，旧 PIN 当场作废。"+
 			"对方不知道新 PIN 就进不去，记得当面说一声。", rowLabel(row)),
-		Notice: pinNotices[r.URL.Query().Get("err")],
+		Notice: s.notice(r.URL.Query().Get("err")),
 		Action: "/admin/pin",
 		Submit: "设成这个 PIN",
 		Fields: []render.AdminField{{Name: "new", Label: "新 PIN（4-6 位数字）", Type: "password", Autofocus: true}},
@@ -199,7 +199,7 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 				"「恢复到某个版本」也救不了它，快照跟着档案一起没了。"+
 				"这台机器上的操作记录（谁在什么时候动过）会留着。",
 			row.Items, row.Snapshots),
-		Notice: pinNotices[r.URL.Query().Get("err")],
+		Notice: s.notice(r.URL.Query().Get("err")),
 		Action: "/admin/delete",
 		Submit: "确认删掉",
 		Danger: true,

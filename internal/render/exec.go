@@ -26,10 +26,31 @@ type i18nView struct {
 	// Lang 是 <html lang> 的值：zh-CN / en。取自 HTMLLang 而不是 Lang 本身——
 	// 前者是标准写法（RFC 5646），读屏软件与浏览器的翻译提示认它。
 	Lang string
+	// Langs 是语言下拉框的选项，**每页都带着**：引导页建档时选一次，管理页随时改。
+	// 两个入口都要，所以放共用的这一格而不是各页各算一遍。
+	Langs []LangOption
 	// cat 是文案本体，**不许导出**：导出就等于让 httpapi 那头能填，一份未经查表
 	// 校验的字符串就能进页面（而查表正是"这一句话在两种语言里都存在"的唯一保证）。
 	// 模板只能拿到下面那个 T 方法。
 	cat *i18n.Catalog
+}
+
+// LangOption 是下拉框里的一格。名字用该语言自己写（「中文」「English」而不是
+// 「Chinese」「英文」）：让一个看不懂当前语言的人也能从列表里认出自己要的那一个。
+type LangOption struct {
+	Value    string
+	Name     string
+	Selected bool
+}
+
+// langOptions 由渲染器算，不让调用方传：它同时知道"机器现在是什么语言"与
+// "有哪些语言可选"，这两件事只有它两边都有。**新增一种语言只有 i18n.All 一处要动**。
+func langOptions(current i18n.Lang) []LangOption {
+	out := make([]LangOption, 0, len(i18n.All))
+	for _, l := range i18n.All {
+		out = append(out, LangOption{Value: string(l), Name: l.DisplayName(), Selected: l == current})
+	}
+	return out
 }
 
 // T 是绑定了当前语言的查表。模板里只有 `{{.T "key"}}` 这一种形状——**不许**出现
@@ -56,7 +77,7 @@ func newI18nView(cat *i18n.Catalog) i18nView {
 	if cat == nil {
 		cat = i18n.Load(i18n.Default)
 	}
-	return i18nView{cat: cat, Lang: cat.HTMLLang()}
+	return i18nView{cat: cat, Lang: cat.HTMLLang(), Langs: langOptions(cat.Lang())}
 }
 
 type executor struct {

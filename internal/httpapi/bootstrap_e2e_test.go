@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
@@ -167,7 +168,7 @@ func TestSetup_字段错说人话(t *testing.T) {
 // 白名单纪律：页面只能出现表里登记过的句子。用户可控原文一个字都不许进页面。
 func TestSetup_提示只走白名单(t *testing.T) {
 	for _, k := range []string{"noname", "badpin", "permission"} {
-		if pinNotices[k] == "" {
+		if noticeOf(i18n.Default, k) == "" {
 			t.Errorf("pinNotices 缺键 %q：引导页会说不出话，或者更糟——开始复读输入", k)
 		}
 	}
@@ -177,7 +178,7 @@ func TestSetup_提示只走白名单(t *testing.T) {
 		t.Error("未登记的 ?err= 值被复读进页面了（反射点）")
 	}
 	// 正对照：登记过的键**会**进页面，否则上面那条 Contains 是空转。
-	if !strings.Contains(get(h, "/?err=noname", "").Body.String(), pinNotices["noname"]) {
+	if !strings.Contains(get(h, "/?err=noname", "").Body.String(), noticeOf(i18n.Default, "noname")) {
 		t.Error("登记的键 noname 没把句子印出来——白名单表与页面断了两截")
 	}
 }
@@ -335,7 +336,7 @@ func Test提示键只发白名单里有的(t *testing.T) {
 		t.Fatalf("只认出 %d 个键（%v）：正则与源码形状对不上了", len(found), found)
 	}
 	for key := range found {
-		if pinNotices[key] == "" {
+		if noticeOf(i18n.Default, key) == "" {
 			t.Errorf("键 %q 被发进 ?err= 却不在 pinNotices 里：那条失败到页面上就是一个字都不说", key)
 		}
 	}

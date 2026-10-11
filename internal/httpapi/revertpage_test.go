@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 )
 
@@ -293,7 +294,7 @@ func TestRevertForm_字段没填对说人话(t *testing.T) {
 	// 页面上真的印了那句话（那张白名单闸只保证键在表里，印不印是另一回事）。
 	for _, key := range []string{"badsnap", "gone", "nosnap"} {
 		p := get(h, "/revert?err="+key, revertDadCookie)
-		if !strings.Contains(p.Body.String(), pinNotices[key]) {
+		if !strings.Contains(p.Body.String(), noticeOf(i18n.Default, key)) {
 			t.Errorf("键 %q 在页面上没印出人话", key)
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
 )
@@ -440,12 +441,12 @@ func TestAdmin_提示在场(t *testing.T) {
 		// 这句先要有：`strings.Contains(body, "")` 永远为真，白名单里的键被删掉时
 		// 页面只会"什么都不印"，光看页面看不出来——实测删掉 nametaken 那一行，
 		// 只剩页面断言的话全绿（Contains 打空串就是这个形状）。
-		if pinNotices[key] == "" {
+		if noticeOf(i18n.Default, key) == "" {
 			t.Errorf("pinNotices 缺键 %q：管理页会说不出那句失败", key)
 			continue
 		}
 		rec := get(h, "/admin?err="+key, dadFormCookie)
-		if !strings.Contains(rec.Body.String(), pinNotices[key]) {
+		if !strings.Contains(rec.Body.String(), noticeOf(i18n.Default, key)) {
 			t.Errorf("管理页说不出登记的失败 %q:\n%.400s", key, rec.Body.String())
 		}
 	}

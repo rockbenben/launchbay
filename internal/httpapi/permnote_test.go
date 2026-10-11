@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
@@ -58,7 +59,7 @@ func Test落盘失败_只把权限这一族判成permission(t *testing.T) {
 // 那句话必须**教得出下一步**，否则它只是把 EACCES 翻译成了中文：它得说清是
 // 宿主机那一侧的权限、跑服务的是哪个用户、去哪台机器上改。
 func Test权限那句话说得出出路(t *testing.T) {
-	say := pinNotices["permission"]
+	say := noticeOf(i18n.Default, "permission")
 	if say == "" {
 		t.Fatal("pinNotices 缺 permission 键：两张表单会转到这个键，而页面上只有一个空位置")
 	}
@@ -116,7 +117,7 @@ func TestSetup_数据目录不可写说得出出路(t *testing.T) {
 	// 转过去的那一页必须真的印出那句话。这一条才是"说得出出路"的正对照：
 	// 只断 303 与 Location 时，把 redirectSetup 换成裸 303 也照样全绿。
 	page := get(h, "/?err=permission", "")
-	if !strings.Contains(page.Body.String(), pinNotices["permission"]) {
+	if !strings.Contains(page.Body.String(), noticeOf(i18n.Default, "permission")) {
 		t.Errorf("引导页没印出登记的那句话:\n%.500s", page.Body.String())
 	}
 	// 内部文本不外泄：磁盘路径与 OS 原文一个字都不许进页面。
@@ -144,7 +145,7 @@ func TestAdmin_数据目录不可写说得出出路(t *testing.T) {
 		t.Fatalf("Location = %q，要 /admin?err=permission", loc)
 	}
 	page := get(h, "/admin?err=permission", dadFormCookie)
-	if !strings.Contains(page.Body.String(), pinNotices["permission"]) {
+	if !strings.Contains(page.Body.String(), noticeOf(i18n.Default, "permission")) {
 		t.Errorf("管理页没印出登记的那句话:\n%.500s", page.Body.String())
 	}
 }

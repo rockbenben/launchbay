@@ -2,7 +2,6 @@
   "common.back.aria": "返回",
   "common.back.home": "回首页",
   "common.back.admin": "回管理页",
-
   "profile.search.aria": "搜索书签",
   "profile.search.placeholder": "搜名字、地址、标签",
   "profile.search.submit": "搜索",
@@ -28,7 +27,6 @@
   "profile.external.title": "这类地址浏览器不允许从网页里点开，要自己复制到地址栏",
   "profile.icon.missing": "图标未匹配",
   "profile.icon.title": "这个图标名在图标库里找不到，先用名字首字的色块",
-
   "picker.setup.title": "名称",
   "picker.setup.pin": "PIN",
   "picker.setup.submit": "创建",
@@ -38,7 +36,6 @@
   "picker.blocked.sep": "、",
   "picker.enter": "进入",
   "picker.empty": "这台导航台现在没有进得去的档案。",
-
   "admin.title": "管理",
   "admin.count": "一共 %d 个档案。这一页只看得到数量和时间，看不到任何人存了什么。",
   "admin.col.profile": "档案",
@@ -78,7 +75,6 @@
   "admin.bm.plain2": "；又因为浏览器的书签会跟着账号云同步，",
   "admin.bm.plain2b": "别往这一行里塞 PIN",
   "admin.bm.plain3": "——这台机器也不提供塞的地方。",
-
   "broken.title": "这个档案读不了",
   "broken.h1": "这个档案的数据文件读不了。",
   "broken.p.a": "档案",
@@ -87,7 +83,6 @@
   "broken.p2": "如果你是自己改过那个文件：把它改回读得出内容的样子，刷新一下就好。不确定怎么改就把下面那段细节复制给帮你搭这个的人——它写清了是哪个文件、哪里不对。",
   "broken.summary": "技术细节（文件名与位置）",
   "broken.back": "回选择页，换一份进去",
-
   "import.file.sep": "：",
   "import.intro.a": "会加 ",
   "import.intro.n": "%d",
@@ -103,10 +98,10 @@
   "import.cancelFirst": "先不导",
   "import.file": "书签文件（.html）",
   "import.preview": "看这份会导入什么",
-
   "lang.heading": "界面语言",
+  "lang.pick": "语言",
+  "lang.submit": "保存语言",
   "lang.hint": "这台导航台的所有页面都用这个语言。改它会立刻影响所有人——各人档案里的书签与 PIN 不受影响。",
-
   "app.add": "＋ 添加",
   "app.addTitle": "添加书签（按 n）",
   "app.sheetTitle": "添加书签",
@@ -186,5 +181,24 @@
   "app.sw.aria": "关掉这条提醒",
   "app.sw.updated": "书签页面已更新，点刷新用上新的",
   "app.generic.cancel": "取消",
-  "app.generic.save": "存"
+  "app.generic.save": "存",
+  "notice.pin": "PIN 不对，再试一次。",
+  "notice.missing": "要先输入 PIN。",
+  "notice.profile": "没找到这个档案，请重新选。",
+  "notice.disabled": "这一份已经被停用，输对 PIN 也进不去。要用的话，请进管理页点「启用」。",
+  "notice.noname": "要先给这个档案起个名字。",
+  "notice.badpin": "PIN 要 4-6 位数字。",
+  "notice.nametaken": "这个名字已经有档案了，换一个。",
+  "notice.notfound": "这个档案已经不在了——它刚刚被人删了，或者名字打错了。",
+  "notice.selfpin": "这一份是你自己的。改自己的 PIN 要用旧 PIN 验证，在进门之后改。",
+  "notice.self": "不能删掉你正在用的这一份。先切到别的档案，再回来删它。",
+  "notice.selfdisable": "这一份就是你正在用的那份。停用等于把自己关在门外，而这台机器只剩你一个人能用。",
+  "notice.failed": "刚才没成功。数据还在，可以再试一次。",
+  "notice.badsnap": "没拿到要回到哪一版（可能没点中）。请在下面选一版，再按一次「回到这一版」。",
+  "notice.gone": "你选的那一版已经不在了：快照最多留 50 份，更早的已经被清掉。下面这些还在，重新选一版即可（不用离开这一页）。",
+  "notice.nosnap": "没能先存下现在这一版，这次回退取消了：你的书签一个字都没变。等一会儿再试。",
+  "notice.permission": "数据目录写不进去——这个程序没有权限。请把数据目录交给跑它的那个用户（容器里是 uid 65534）之后重试。",
+  "notice.nolang": "没选界面语言。",
+  "notice.badlang": "不认识这个语言。",
+  "notice.langfail": "档案建好了，但界面语言没设上，现在显示的是中文。之后可以在管理页改。"
 }

@@ -55,7 +55,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 	// ?err= 只当键用：不在白名单里的值一个字都不进页面（与进门页同一套，
 	// 判据由 httpapi 算，渲染器只印）。
-	notice := pinNotices[r.URL.Query().Get("err")]
+	notice := s.notice(r.URL.Query().Get("err"))
 	page, err := s.deps.Render.AdminPage(views, notice)
 	if err != nil {
 		writeInternalError(w, err)

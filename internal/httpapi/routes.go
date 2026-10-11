@@ -94,6 +94,11 @@ func (s *Server) routes() []route {
 			Summary: "管理页（读侧：档案一览与进入编辑，不含条目内容）", H: s.handleAdminPage},
 		{Method: "POST", Pattern: "/admin", Cred: credAdmin,
 			Summary: "管理页建档（浏览器表单通路；机器建档走 POST /api/v1/profiles）", H: s.handleAdminCreate},
+		// 界面语言是**站级**设置（data/settings.json），不是某个档案的字段：它改了会立刻
+		// 影响这台机器上的所有人，所以只给管理员会话，且带令牌一律 303 拒。落点与
+		// store.Language 同一份，没有第二条读入通路。
+		{Method: "POST", Pattern: "/admin/language", Cred: credAdmin,
+			Summary: "改全机界面语言（浏览器表单通路；仅管理员会话，带令牌一律 303 拒）", H: s.handleAdminLanguage},
 		// 设 PIN 与删档的零 JS 两步确认（§8.8：改判，不等 ⑤ 的 JS）。这四条
 		// **不是新的 API 面**：落点分别与 POST /api/v1/profiles/pin 和
 		// DELETE /api/v1/profiles 同一份，差别只在怎么读入、怎么答出。

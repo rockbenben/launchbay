@@ -214,7 +214,7 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 	view := render.AdminAction{
 		Title: "回退到某一版", Heading: "回退「" + name + "」的某一版？",
 		Explain: explain,
-		Notice:  pinNotices[r.URL.Query().Get("err")],
+		Notice:  s.notice(r.URL.Query().Get("err")),
 		Action:  "/revert",
 		Submit:  "回到这一版",
 		// 回管理页对一个非管理员是死路（他根本没有那一页，点了吃一个不解释的 303）。

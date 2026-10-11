@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
 	"github.com/rockbenben/launchbay/internal/store"
@@ -38,53 +39,84 @@ func isFormPost(r *http.Request) bool {
 
 // pinNotices 是表单通路能说到人话的几种失败。?err= 只当键用：不在表里的
 // 值一个字都不进页面——query 是用户可控的，原样渲染等于开一个反射点。
+// pinNotices 是表单通路能说到人话的几种失败。?err= 只当键用：不在表里的
+// 值一个字都不进页面——query 是用户可控的，原样渲染等于开一个反射点。
+//
+// **值是文案表里的键，不是句子本身**：这句话在两种语言里各有各的说法，
+// 写死在这里就等于中文界面成立而英文界面没得翻。i18n 那一层的守恒测试
+// 保证每把键在两种语言里都有一条对应的文案。
 var pinNotices = map[string]string{
-	"pin":     "PIN 不对，再试一次。",
-	"missing": "要先输入 PIN。",
-	"profile": "没找到这个档案，请重新选。",
+	"pin":     "notice.pin",
+	"missing": "notice.missing",
+	"profile": "notice.profile",
 	// 停用（2026-10-10 第二轮改判）。从前这一支故意复用「PIN 不对」，理由是
 	// "单独说已停用等于告诉摸到这台机器的人哪些档案被管理员动过"。那条理由在
 	// 本案站不住：选择页本来就把所有档案名摊在屏幕上，§11 也明写不防局域网冒充，
 	// 而它的代价落在最该被照顾的人身上——**输对了 PIN 却被叫去再试一次**，
 	// 人会一直试下去。说真话且说得出下一步。
-	"disabled": "这一份已经被停用，输对 PIN 也进不去。要用的话，请进管理页点「启用」。",
+	"disabled": "notice.disabled",
 	// 引导建档（/setup）的两种没填对。窗口已关**不在这里**：那一支回 `/` 不带键，
 	// 因为"这台机器已经建过档了"本身就是枚举线索（设计 §3）。
-	"noname": "要先给这个档案起个名字。",
-	"badpin": "PIN 要 4-6 位数字。",
+	"noname": "notice.noname",
+	"badpin": "notice.badpin",
 	// 名字撞车只有管理页那条路会**发**出这个键：派生 id 在 store 锁外算，两笔并发同名
 	// 才会撞进同一个空位（顺序提交永远拿到下一个空位，见 store.NextProfileID）；引导
 	// 那条撞车等于"窗口已关"，回 / 不带键。这张表是两页共用的**词汇表**，不是发件人
 	// 名单：手打的 `/?err=nametaken` 也会在进门页印出同一句话。那是有意的——那句是常量、
 	// 不点名任何档案，而进门页本来就把所有档案名列在屏幕上，拆成两张表只会让词汇分家。
-	"nametaken": "这个名字已经有档案了，换一个。",
-	// 管理页那两条零 JS 写动作（设 PIN / 删档，见 adminaction.go）的失败。
+	"nametaken": "notice.nametaken",
+	// 管理页那几条零 JS 写动作（设 PIN / 删档 / 停用，见 adminaction.go）的失败。
 	// 与上面同一张表，同一条理由：这是**词汇表**，两个页面（/admin 与两个确认页）
 	// 都用它把键翻成人话。分开两张表的话，同一个词在两处会有两种说法，
 	// 而读日志的人无从知道哪一句才是它。
-	"notfound": "这个档案已经不在了——它刚刚被人删了，或者名字打错了。",
-	"selfpin":  "这一份是你自己的。改自己的 PIN 要用旧 PIN 验证，在进门之后改。",
+	"notfound": "notice.notfound",
+	"selfpin":  "notice.selfpin",
 	// 「不能动自己正在用的这一份」这一句被**删档与停用两处**共用，而两者后果
 	// 完全不同（删=不可逆；停用=随手启回来）。从前统一写成"不能删掉"，于是
 	// 管理员点「停用」时看到的是"不能删掉你正在用的这一份"。拆成两个键，各说各的事。
-	"self":        "不能删掉你正在用的这一份。先切到别的档案，再回来删它。",
-	"selfdisable": "这一份就是你正在用的那份。停用等于把自己关在门外，而这台机器只剩你一个人能用。",
-	"failed":      "刚才没成功。数据还在，可以再试一次。",
+	"self":        "notice.self",
+	"selfdisable": "notice.selfdisable",
+	"failed":      "notice.failed",
 	// 回退页（revertpage.go）的三把键。与上面同一张表：这张表是**词汇表**，
 	// 谁发键它不关心，只负责把键翻成人话。三把各自对应一个不同的下一步，
 	// 所以不合并——"没选"要重选，"已经不在了"要重新看列表，
 	// "存不下"要告诉人**书签一个字都没变**（那一支最容易让人以为退了一半）。
-	"badsnap": "没拿到要回到哪一版（可能没点中）。请在下面选一版，再按一次「回到这一版」。",
-	"gone":    "你选的那一版已经不在了：快照最多留 50 份，更早的已经被清掉。下面这些还在，重新选一版即可（不用离开这一页）。",
-	"nosnap":  "没能先存下现在这一版，这次回退取消了：你的书签一个字都没变。等一会儿再试。",
+	"badsnap": "notice.badsnap",
+	"gone":    "notice.gone",
+	"nosnap":  "notice.nosnap",
 	// 宿主上的数据目录对跑服务的那个用户不可写（群晖/威联通上最常见：
 	// ./data 是 root 所属，容器以 uid 65534 跑，落盘一律 EACCES）。这一族
 	// 与上面几条不是一类东西——它是**运维装机的第一个故障**，而且用户能在
 	// 宿主机上修好，所以要说得出出路。其余落盘失败（磁盘满、只读文件系统、
 	// 校验不过）不给键：给不出能照着做的下一步时，句子只会把人引到错的地方。
 	// 判据只有 errors.Is(fs.ErrPermission) 这一条，见 createProfile。
-	"permission": "数据目录写不进去——这个程序没有权限。请把数据目录交给跑它的那个用户" +
-		"（容器里是 uid 65534）之后重试。",
+	"permission": "notice.permission",
+	// 界面语言那两条（lang.go）。**不静默落默认**是它们存在的全部理由：
+	// 提交一个不认识的语言却回一句成功，等于"我选了法语，它没告诉我没生效"。
+	"nolang":  "notice.nolang",
+	"badlang": "notice.badlang",
+	// 引导建档那一条（setup.go）：**档案已经建成了**，只是语言没写进去。
+	// 它必须说清这一半，否则人会以为什么都没建成，重新建一遍却撞上「窗口已关」。
+	"langfail": "notice.langfail",
+}
+
+// noticeOf 把 ?err= 的键翻成这一页该说的话。**不在表里的键回空串**——
+// query 是用户可控的，原样渲染等于开一个反射点（§6.1）。
+//
+// lang 显式传进来而不是自己去读 store，是为了让"用哪种语言翻"这件事
+// 在调用点上看得见：生产代码传这台机器当前的语言，测试传 i18n.Default
+// 去对照中文那句话。翻字只有这一份。
+func noticeOf(lang i18n.Lang, key string) string {
+	k, ok := pinNotices[key]
+	if !ok {
+		return ""
+	}
+	return i18n.Load(lang).T(k)
+}
+
+// notice 是生产用的那一层：按这台机器当前的语言翻。
+func (s *Server) notice(key string) string {
+	return noticeOf(s.deps.Store.Language(), key)
 }
 
 // redirectPinFail 把无 JS 的表单失败送回选择页。成功分支早就按 fromForm
@@ -183,7 +215,11 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 			redirectPinFail(w, r, "disabled")
 			return
 		}
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: pinNotices["disabled"]})
+		// 这条 detail 走 noticeOf(i18n.Default, …) 而不是 s.notice：**JSON 错误固定中文**。
+		// 页面上的提示随这台机器的语言翻，API 的 detail 不翻——它是给脚本与 AI 读的，
+		// 混进第二种语言会让"这句话在两种语言里各有一份"这件事对不上号，而调用方要的
+		// 是稳定可对照的文本，不是随界面变的散文。
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: noticeOf(i18n.Default, "disabled")})
 		return
 	}
 
@@ -245,7 +281,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	// 用 hidden 字段带上，验证成功后由前端（P1-④）或重定向接住。
 	keepAdd := r.URL.Query().Get("add")
 	// ?err= 只查表，不解释：未登记的键渲染成空字符串，页面回到普通形状。
-	notice := pinNotices[r.URL.Query().Get("err")]
+	notice := s.notice(r.URL.Query().Get("err"))
 
 	sess := auth.ReadSession(r)
 	// 会话合法性这一次请求只查一遍（与 Task 3 的"一次分诊就够"同一口径）：
@@ -273,7 +309,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			// 而界面一个字都不说，而他正是被停用的那一个。清会话，并把原因说清楚。
 			auth.ClearSession(w)
 			sess = auth.Session{}
-			notice = pinNotices["disabled"]
+			notice = s.notice("disabled")
 		}
 	}
 
