@@ -14,8 +14,219 @@
 // 所有写入都经 `POST /api/v1/batch`（§6.1 的唯一写通路）。**不直接碰 data/**：
 // 快照、历史、rev 递增都在那条通路内部发生，绕过它等于造出第二份真相。
 
+
+
+// BEGIN APP_I18N — 这一块**由 internal/i18n/messages/*.json 生成，不是手抄的第二份**。
+// 判据只有一份：语言包是源，这里是它 app.* 前缀的切片。
+// appi18n_test.go 逐条比对两者并扫残余的中文硬编码，两边不同步就红。
+// 加一条 app 文案的动作：只在语言包里加，然后跑 go test ./internal/render。
+const APP_I18N = {
+  "zh": {
+    "app.add": "＋ 添加",
+    "app.addTitle": "添加书签（按 n）",
+    "app.sheetTitle": "添加书签",
+    "app.field.url": "地址",
+    "app.field.title": "名称",
+    "app.field.desc": "描述",
+    "app.field.group": "分组",
+    "app.field.icon": "图标",
+    "app.ph.title": "网站标题，可改",
+    "app.ph.desc": "一句话说明，可不填",
+    "app.ph.group": "新分组叫什么",
+    "app.icon.none": "不选图标（用名字第一个字）",
+    "app.icon.auto": "抓这个网站的图标",
+    "app.save": "保存",
+    "app.saveMore": "保存并继续",
+    "app.close": "关闭",
+    "app.reading": "正在读取那个网页…",
+    "app.readFail": "没读到东西，标题可以自己填",
+    "app.readOk": "已读到标题、说明和图标",
+    "app.readEmpty": "这个网页没给出可读的信息，标题自己填",
+    "app.readErr": "读不出来：%s",
+    "app.err.group": "先选一个分组。",
+    "app.err.groupName": "先给这个分组起个名字。",
+    "app.err.url": "先填地址",
+    "app.offline.queued": "离线了，这条先记下，网络通了自动补上。",
+    "app.offline.chip": "离线记了 %d 条",
+    "app.offline.aria": "看离线记下的条目",
+    "app.offline.drop": "不要这条",
+    "app.offline.list": "下面这些是离线时记下的，网络通了会自动补进去。",
+    "app.offline.blocked": "现在没网，只能看。添加会先记下来，网络通了自动补进去。",
+    "app.offline.done": "离线记下的 %d 条已经补进去",
+    "app.offline.dropped": "这 %d 条和别人改的撞上了，没自动合并，请重新加一次：%s",
+    "app.offline.left": "还有 %d 条没存进去：%s",
+    "app.saving": "正在保存…",
+    "app.saved": "已保存。",
+    "app.conflict": "这一份已经被改过（可能另一边也动了）。刷新后再来一次。",
+    "app.cmdk.placeholder": "搜书签，或做点什么",
+    "app.cmdk.aria": "命令面板",
+    "app.cmdk.clipboard": "把剪贴板里的网址存进来",
+    "app.cmdk.kind": "动作",
+    "app.cmdk.none": "没有叫「%s」的书签，也没有对得上的动作。",
+    "app.cmdk.empty": "这里还没有可列的东西。",
+    "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
+    "app.clip.noturl": "剪贴板里那段不像一个网址，手动贴一下。",
+    "app.clip.noread": "读不到剪贴板（系统没给这个权限），手动贴一下地址。",
+    "app.edit.aria": "改「%s」",
+    "app.edit.fallbackName": "这一条",
+    "app.layout.tiles": "磁贴",
+    "app.layout.rows": "单列",
+    "app.layout.aria": "把「%s」这一组从%s改成%s",
+    "app.multi.aria": "批量操作",
+    "app.multi.move": "移动到（%d）",
+    "app.multi.tags": "打标签（%d）",
+    "app.multi.none": "全不选",
+    "app.multi.exit": "退出",
+    "app.multi.hint": "已经在多选里：点卡片选上或取消，下面那一排是批量动作，按 Esc 退出。",
+    "app.move.aria": "移动到哪个分组",
+    "app.move.title": "把这 %d 条移动到",
+    "app.move.cancel": "取消",
+    "app.tags.aria": "打标签",
+    "app.tags.title": "给这 %d 条打标签",
+    "app.tags.label": "标签",
+    "app.tags.ph": "用空格或逗号分开写",
+    "app.tags.empty": "标签是空的，先写一个。",
+    "app.keys.aria": "快捷键",
+    "app.keys.title": "快捷键",
+    "app.keys.k": "打开命令面板",
+    "app.keys.enter": "在面板里把选中的那条开在新标签页",
+    "app.keys.slash": "聚焦搜索框",
+    "app.keys.n": "打开添加浮层",
+    "app.keys.q": "打开这份清单",
+    "app.keys.long": "进多选：一次移动或打标签好几条",
+    "app.keys.arrows": "在面板里选择",
+    "app.keys.esc": "关掉当前浮起来的那一层",
+    "app.keys.escAll": "Esc 关掉这一页",
+    "app.sw.dismiss": "知道了",
+    "app.sw.aria": "关掉这条提醒",
+    "app.sw.updated": "书签页面已更新，点刷新用上新的",
+    "app.generic.cancel": "取消",
+    "app.generic.save": "存",
+    "app.ops.item": "这一条",
+    "app.ops.move": "移动",
+    "app.ops.layout": "切换布局",
+    "app.ops.bulkMove": "批量移动",
+    "app.ops.bulkTags": "批量打标签",
+    "app.applyOps.fail": "%s没存上：%s",
+    "app.opsConflict": "这一份已经被改过，刷新之后再试。",
+    "app.sep": "、",
+    "app.keys.mod": "⌘ 或 Ctrl",
+    "app.keys.longpress": "长按卡片"
+  },
+  "en": {
+    "app.add": "+ Add",
+    "app.addTitle": "Add a bookmark (press n)",
+    "app.sheetTitle": "Add bookmark",
+    "app.field.url": "Address",
+    "app.field.title": "Name",
+    "app.field.desc": "Description",
+    "app.field.group": "Group",
+    "app.field.icon": "Icon",
+    "app.ph.title": "Page title, editable",
+    "app.ph.desc": "One-line note, optional",
+    "app.ph.group": "Name for the new group",
+    "app.icon.none": "No icon (use the first letter)",
+    "app.icon.auto": "Fetch this site's icon",
+    "app.save": "Save",
+    "app.saveMore": "Save and continue",
+    "app.close": "Close",
+    "app.reading": "Reading that page…",
+    "app.readFail": "Nothing was read; you can fill the title in yourself",
+    "app.readOk": "Read the title, description and icon",
+    "app.readEmpty": "That page gave nothing readable, so fill the title in yourself",
+    "app.readErr": "Could not read it: %s",
+    "app.err.group": "Pick a group first.",
+    "app.err.groupName": "Give the new group a name first.",
+    "app.err.url": "Fill in an address first",
+    "app.offline.queued": "You are offline. This one is queued and will go through when the connection is back.",
+    "app.offline.chip": "%d queued offline",
+    "app.offline.aria": "Show entries queued while offline",
+    "app.offline.drop": "Drop this one",
+    "app.offline.list": "These were saved while offline and will go through once you are back online.",
+    "app.offline.blocked": "No network, so this is read-only for now. Additions are queued and sent automatically when you are back.",
+    "app.offline.done": "%d queued entries have been sent",
+    "app.offline.dropped": "%d entries clashed with someone else's changes and were not merged automatically. Please add them again: %s",
+    "app.offline.left": "%d entries still not saved: %s",
+    "app.saving": "Saving…",
+    "app.saved": "Saved.",
+    "app.conflict": "This profile changed underneath you (something else may have edited it). Refresh and try again.",
+    "app.cmdk.placeholder": "Search bookmarks, or do something",
+    "app.cmdk.aria": "Command palette",
+    "app.cmdk.clipboard": "Save the address on the clipboard",
+    "app.cmdk.kind": "action",
+    "app.cmdk.none": "No bookmark named “%s”, and no matching action either.",
+    "app.cmdk.empty": "There is nothing to list yet.",
+    "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
+    "app.clip.noturl": "What is on the clipboard does not look like an address. Paste it yourself.",
+    "app.clip.noread": "Could not read the clipboard (the system did not grant permission). Paste the address yourself.",
+    "app.edit.aria": "Edit “%s”",
+    "app.edit.fallbackName": "this entry",
+    "app.layout.tiles": "Tiles",
+    "app.layout.rows": "List",
+    "app.layout.aria": "Switch the group “%s” from %s to %s",
+    "app.multi.aria": "Bulk actions",
+    "app.multi.move": "Move to (%d)",
+    "app.multi.tags": "Tag (%d)",
+    "app.multi.none": "Clear selection",
+    "app.multi.exit": "Exit",
+    "app.multi.hint": "In multi-select: click cards to pick or unpick them. The row below holds the bulk actions; press Esc to exit.",
+    "app.move.aria": "Move to which group",
+    "app.move.title": "Move these %d to",
+    "app.move.cancel": "Cancel",
+    "app.tags.aria": "Add tags",
+    "app.tags.title": "Tag these %d entries",
+    "app.tags.label": "Tags",
+    "app.tags.ph": "Separate them with spaces or commas",
+    "app.tags.empty": "The tags are empty. Write at least one.",
+    "app.keys.aria": "Keyboard shortcuts",
+    "app.keys.title": "Keyboard shortcuts",
+    "app.keys.k": "Open the command palette",
+    "app.keys.enter": "In the palette, open the selected bookmark in a new tab",
+    "app.keys.slash": "Focus the search box",
+    "app.keys.n": "Open the add sheet",
+    "app.keys.q": "Open this list",
+    "app.keys.long": "Enter multi-select: move or tag several at once",
+    "app.keys.arrows": "Move the selection in the palette",
+    "app.keys.esc": "Close the topmost open layer",
+    "app.keys.escAll": "Esc closes this panel",
+    "app.sw.dismiss": "Got it",
+    "app.sw.aria": "Dismiss this notice",
+    "app.sw.updated": "The bookmark page has been updated. Refresh to use it.",
+    "app.generic.cancel": "Cancel",
+    "app.generic.save": "Save",
+    "app.ops.item": "This entry",
+    "app.ops.move": "Moving",
+    "app.ops.layout": "Switching layout",
+    "app.ops.bulkMove": "Bulk move",
+    "app.ops.bulkTags": "Bulk tagging",
+    "app.applyOps.fail": "Could not save %s: %s",
+    "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
+    "app.sep": ", ",
+    "app.keys.mod": "⌘ or Ctrl",
+    "app.keys.longpress": "Long-press a card"
+  }
+};
+// END APP_I18N
+
 (() => {
   'use strict';
+
+  // ── 文案查表 ────────────────────────────────────────────────────────────────
+  // 语言从 <html lang> 读（服务端渲染时已经写对了）：zh-CN → zh，en → en。
+  // 读不到就落中文——**与 server 侧 i18n.Default 同一个默认**，两处必须一致。
+  const LANG = (document.documentElement.lang || 'zh-CN').slice(0, 2);
+  const MSGS = APP_I18N[LANG] || APP_I18N.zh;
+
+  // T 是查表，可带 %s/%d 占位符。
+  // **缺 key 不返回空串**：返回 `⟨key⟩`。页面上出现尖括号一眼看出漏翻了，
+  // 而空白看着像设计如此——那种 bug 会被当成"这页本来就空"。
+  function T(key, ...args) {
+    const s = MSGS[key];
+    if (s === undefined) return '⟨' + key + '⟩';
+    if (!args.length) return s;
+    let i = 0;
+    return s.replace(/%[sdv]/g, () => (i < args.length ? String(args[i++]) : '⟨缺参数⟩'));
+  }
 
   const body = document.body;
   const profile = body.dataset.profile || '';
@@ -72,7 +283,7 @@
   }
 
   const openBtn = el('button', {
-    type: 'button', id: 'lb-add', class: 'add', text: '＋ 添加', title: '添加书签（按 n）',
+    type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
     on: { click: openSheet },
   });
   // 插在搜索表单**之后**而不是 header 末尾：DOM 顺序就是视觉顺序，这样「＋ 添加」
@@ -82,26 +293,26 @@
 
   // ── 浮层 ──────────────────────────────────────────────────────────────────
   const fUrl = el('input', { type: 'url', id: 'lb-url', class: 'fld', placeholder: 'https://', required: 'required', autocomplete: 'off' });
-  const fTitle = el('input', { type: 'text', id: 'lb-title', class: 'fld', placeholder: '网站标题，可改', autocomplete: 'off' });
-  const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: '一句话说明，可不填', autocomplete: 'off' });
+  const fTitle = el('input', { type: 'text', id: 'lb-title', class: 'fld', placeholder: T('app.ph.title'), autocomplete: 'off' });
+  const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
-  const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: '新分组叫什么', autocomplete: 'off' });
+  const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: T('app.ph.group'), autocomplete: 'off' });
   const fIcon = el('select', { id: 'lb-icon', class: 'fld' });
 
   const status = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite' });
-  const saveBtn = el('button', { type: 'submit', class: 'fld', text: '保存' });
-  const moreBtn = el('button', { type: 'button', class: 'fld more', text: '保存并继续', on: { click: () => submit(true) } });
+  const saveBtn = el('button', { type: 'submit', class: 'fld', text: T('app.save') });
+  const moreBtn = el('button', { type: 'button', class: 'fld more', text: T('app.saveMore'), on: { click: () => submit(true) } });
 
   const form = el('form', {
     on: { submit: (e) => { e.preventDefault(); submit(false); } },
   }, [
-    el('label', { text: '地址' }, [fUrl]),
+    el('label', { text: T('app.field.url') }, [fUrl]),
     // 字段名与就地编辑统一成「名称」（数据里就是 name）。这里从前叫「标题」、
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
-    el('label', { text: '名称' }, [fTitle]),
-    el('label', { text: '描述' }, [fDesc]),
-    el('label', { text: '分组' }, [fGroup, fNewGroup]),
-    el('label', { text: '图标' }, [fIcon]),
+    el('label', { text: T('app.field.title') }, [fTitle]),
+    el('label', { text: T('app.field.desc') }, [fDesc]),
+    el('label', { text: T('app.field.group') }, [fGroup, fNewGroup]),
+    el('label', { text: T('app.field.icon') }, [fIcon]),
     el('div', { class: 'sheet-actions' }, [saveBtn, moreBtn]),
     status,
   ]);
@@ -110,10 +321,10 @@
     id: 'lb-sheet', class: 'sheet', hidden: 'hidden', role: 'dialog',
     'aria-modal': 'true', 'aria-labelledby': 'lb-sheet-h',
   }, [
-    el('h2', { id: 'lb-sheet-h', text: '添加书签' }),
+    el('h2', { id: 'lb-sheet-h', text: T('app.sheetTitle') }),
     form,
     el('button', {
-      type: 'button', class: 'fld close', text: '×', 'aria-label': '关闭',
+      type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
       // 关掉之后焦点回到打开它的那枚按钮：浮层是从那儿浮起来的，键盘用户
       // 按 Esc 之后该站在原地，而不是掉回页面顶部。
       on: { click: () => { sheet.hidden = true; syncTrap(); openBtn.focus(); } },
@@ -139,8 +350,8 @@
   function iconChoices(candidates) {
     fIcon.innerHTML = '';
     fIcon.append(
-      el('option', { value: '', text: '不选图标（用名字第一个字）' }),
-      el('option', { value: 'auto', text: '抓这个网站的图标' }),
+      el('option', { value: '', text: T('app.icon.none') }),
+      el('option', { value: 'auto', text: T('app.icon.auto') }),
     );
     for (const c of candidates || []) {
       fIcon.append(el('option', { value: c, text: c.replace(/^[a-z-]+:/, '') }));
@@ -172,10 +383,10 @@
   async function resolveNow() {
     const url = fUrl.value.trim();
     if (!url) return;
-    say('正在读取那个网页…', 'busy');
+    say(T('app.reading'), 'busy');
     try {
       const r = await api('/api/v1/resolve', { url, profile });
-      if (r.detail || r.code) { say(r.detail || '没读到东西，标题可以自己填', 'bad'); return; }
+      if (r.detail || r.code) { say(r.detail || T('app.readFail'), 'bad'); return; }
       if (!fTitle.value) fTitle.value = r.title || '';
       if (!fDesc.value) fDesc.value = r.desc || '';
       if (r.suggestedGroup && !fGroup.hidden) {
@@ -184,11 +395,11 @@
         }
       }
       iconChoices(r.iconCandidates);
-      say(r.title ? '已读到标题、说明和图标' : '这个网页没给出可读的信息，标题自己填', r.title ? 'ok' : 'warn');
+      say(r.title ? T('app.readOk') : T('app.readEmpty'), r.title ? 'ok' : 'warn');
     } catch (e) {
       // **写失败一律显式报错，不静默吞**（§8.7）：一条"正在读取…"永远停在那儿，
       // 用户会以为它在加载。
-      say('读不出来：' + e.message, 'bad');
+      say(T('app.readErr', e.message), 'bad');
     }
   }
 
@@ -229,18 +440,18 @@
   function groupOpsAndTarget() {
     if (!fGroup.hidden) {
       const gid = fGroup.value;
-      if (!gid) return { err: '先选一个分组。' };
+      if (!gid) return { err: T('app.err.group') };
       return { gid, ops: [] };
     }
     const title = fNewGroup.value.trim();
-    if (!title) return { err: '先给这个分组起个名字。' };
+    if (!title) return { err: T('app.err.groupName') };
     const gid = slug(title);
     return { gid, ops: [{ op: 'add', path: 'groups', value: { id: gid, title, layout: 'tiles', items: [] } }] };
   }
 
   async function submit(keepOpen) {
     const url = fUrl.value.trim();
-    if (!url) { say('先填地址', 'bad'); return; }
+    if (!url) { say(T('app.err.url'), 'bad'); return; }
     const name = fTitle.value.trim() || url;
     const value = { id: slug(url, true), name, url };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
@@ -252,21 +463,21 @@
     // 这一支的差别是"什么时候写进去"，不是"写不写"——静默吞掉才是错的。
     if (!navigator.onLine) {
       enqueue({ gid: g.gid, ops: g.ops, value });
-      say('离线了，这条先记下，网络通了自动补上。', 'warn');
+      say(T('app.offline.queued'), 'warn');
       if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else { sheet.hidden = true; }
       paintQueue();
       return;
     }
 
     saveBtn.disabled = moreBtn.disabled = true;
-    say('正在保存…', 'busy');
+    say(T('app.saving'), 'busy');
     try {
       const r = await api('/api/v1/batch', {
         profile, expectedRev: rev, by: 'web',
         ops: [...g.ops, { op: 'add', path: 'groups/' + g.gid + '/items', value }],
       });
       rev = r.rev; // 同一页再存第二条要拿新的 rev，否则下一条必然 409
-      say('已保存。', 'ok');
+      say(T('app.saved'), 'ok');
       if (keepOpen) {
         for (const f of [fUrl, fTitle, fDesc]) f.value = '';
         iconChoices([]);
@@ -278,7 +489,7 @@
       }
     } catch (e) {
       // 409 是"数据变了"，不是"再试一次就好"：让人自己看清了刷新。
-      say(e.status === 409 ? '这一份已经被改过（可能另一边也动了）。刷新后再来一次。' : e.message, 'bad');
+      say(e.status === 409 ? T('app.conflict') : e.message, 'bad');
     } finally {
       saveBtn.disabled = moreBtn.disabled = false;
     }
@@ -313,10 +524,10 @@
     let chip = $('#lb-q');
     if (n && !chip) {
       chip = el('button', { type: 'button', class: 'badge', id: 'lb-q',
-        'aria-label': '看离线记下的条目', on: { click: showQueue } });
+        'aria-label': T('app.offline.aria'), on: { click: showQueue } });
       header.append(chip);
     }
-    if (chip) chip.textContent = `离线记了 ${n} 条`;
+    if (chip) chip.textContent = T('app.offline.chip', n);
     if (!n && chip) chip.remove();
     if (!n && $('#lb-qlist')) $('#lb-qlist').remove();
     paintOnline();
@@ -330,7 +541,7 @@
     const list = el('ul', { class: 'qlist', id: 'lb-qlist' }, q.map((entry, i) => el('li', {}, [
       el('b', { text: entry.value.name }),
       el('code', { text: entry.value.url }),
-      el('button', { type: 'button', class: 'fld', text: '不要这条', on: { click: () => {
+      el('button', { type: 'button', class: 'fld', text: T('app.offline.drop'), on: { click: () => {
         const left = readQueue();
         left.splice(i, 1);
         writeQueue(left);
@@ -338,7 +549,7 @@
       } } }),
     ])));
     header.after(el('div', { class: 'notice', role: 'status' }, [
-      el('p', { text: '下面这些是离线时记下的，网络通了会自动补进去。' }), list,
+      el('p', { text: T('app.offline.list') }), list,
     ]));
   }
 
@@ -347,7 +558,7 @@
     const badge = $('#lb-off');
     if (off && !badge) {
       header.prepend(el('p', { class: 'notice', id: 'lb-off', role: 'status',
-        text: '现在没网，只能看。添加会先记下来，网络通了自动补进去。' }));
+        text: T('app.offline.blocked') }));
     } else if (!off && badge) {
       badge.remove();
     }
@@ -391,12 +602,12 @@
 
     if (done || dropped.length) {
       const parts = [];
-      if (done) parts.push(`离线记下的 ${done} 条已经补进去`);
-      if (dropped.length) parts.push(`这 ${dropped.length} 条和别人改的撞上了，没自动合并，请重新加一次：${dropped.join('、')}`);
+      if (done) parts.push(T('app.offline.done', done));
+      if (dropped.length) parts.push(T('app.offline.dropped', dropped.length, dropped.join(T('app.sep'))));
       showBanner(parts.join('；'));
     }
     if (left.length) {
-      showBanner(`还有 ${left.length} 条没存进去：` + left.map((e) => e.value.url).join('、'));
+      showBanner(T('app.offline.left', left.length, left.map((e) => e.value.url).join(T('app.sep'))));
     }
     if (done) reloadKeepingPlace();
   }
@@ -444,9 +655,9 @@
   // ── ⌘/Ctrl K 命令面板（§8.6）───────────────────────────────────────────
   // **叠加能力而不是默认视图**：它是覆盖在上层的一个框，页面本身照常可点、
   // 可用浏览器找词。做成"另一个页面"的话，⌘K 就把搜索框和阅读位置全丢了。
-  const cmdkInput = el('input', { type: 'text', id: 'lb-k', class: 'fld', placeholder: '搜书签，或做点什么', autocomplete: 'off' });
+  const cmdkInput = el('input', { type: 'text', id: 'lb-k', class: 'fld', placeholder: T('app.cmdk.placeholder'), autocomplete: 'off' });
   const cmdkList = el('ul', { class: 'cmdk-list', role: 'listbox' });
-  const cmdk = el('div', { class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': '命令面板' }, [
+  const cmdk = el('div', { class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.cmdk.aria') }, [
     cmdkInput, cmdkList,
   ]);
   body.append(cmdk);
@@ -473,7 +684,7 @@
     // /api/v1/history——把人甩进一屏 JSON。那是接口不是界面，先撤掉。
     const actions = [];
     if (navigator.clipboard?.readText) {
-      actions.push({ kind: 'action', label: '把剪贴板里的网址存进来', run: addClipboard });
+      actions.push({ kind: 'action', label: T('app.cmdk.clipboard'), run: addClipboard });
     }
     const hits = [];
     for (const li of document.querySelectorAll('li[data-item]')) {
@@ -495,13 +706,13 @@
           click: () => cmdkRun(h),
           mouseenter: () => { cmdkSel = cmdkHits.indexOf(h); cmdkPaint(); },
         },
-      }, [el('b', { text: h.label }), h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: '动作' })]);
+      }, [el('b', { text: h.label }), h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: T('app.cmdk.kind') })]);
       cmdkList.append(row);
     }
     // 零命中从前是**一块空白面板**：没有一句话，人不知道自己搜砸了还是它坏了。
     if (!cmdkHits.length) {
       cmdkList.append(el('li', { class: 'cmdk-empty', role: 'presentation',
-        text: q ? `没有叫「${q}」的书签，也没有对得上的动作。` : '这里还没有可列的东西。' }));
+        text: q ? T('app.cmdk.none', q) : T('app.cmdk.empty') }));
     }
     cmdkPaint();
   }
@@ -521,21 +732,21 @@
     // （见 cmdkRender），下面两道判据是**贴进来不像网址**与**系统拒了权限**。
     openSheet();
     if (!navigator.clipboard?.readText) {
-      say('这个浏览器不给读剪贴板，手动贴一下地址。', 'warn');
+      say(T('app.clip.denied'), 'warn');
       fUrl.focus();
       return;
     }
     navigator.clipboard.readText().then((t) => {
       const u = (t || '').trim();
       if (!/^https?:\/\//i.test(u)) {
-        say('剪贴板里那段不像一个网址，手动贴一下。', 'warn');
+        say(T('app.clip.noturl'), 'warn');
         fUrl.focus();
         return;
       }
       fUrl.value = u;
       resolveNow();
     }).catch(() => {
-      say('读不到剪贴板（系统没给这个权限），手动贴一下地址。', 'warn');
+      say(T('app.clip.noread'), 'warn');
       fUrl.focus();
     });
   }
@@ -567,7 +778,7 @@
       rev = r.rev;
       return true;
     } catch (e) {
-      showBanner(`${what}没存上：${e.status === 409 ? '这一份已经被改过，刷新之后再试。' : e.message}`);
+      showBanner(T('app.applyOps.fail', T(what), e.status === 409 ? T('app.opsConflict') : e.message));
       return false;
     }
   }
@@ -576,7 +787,7 @@
     const card = li.querySelector('.card');
     if (!card) continue; // 坏档或非 http 的那一份不给把手（§12：不给做不到的承诺）
     const pencil = el('button', {
-      type: 'button', class: 'pencil', text: '✎', 'aria-label': `改「${li.querySelector('b')?.textContent || '这一条'}」`,
+      type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
     });
     card.append(pencil);
@@ -603,7 +814,7 @@
       const from = sibs.findIndex((x) => x.dataset.item === moved);
       if (from >= 0 && from < index) index -= 1;
       // 同组排序靠 to=自己那组 + index；跨组是 §8.4 的批量移动那条路。
-      const ok = await applyOps([{ op: 'move', path: `groups/${gid}/items/${moved}`, to: gid, index }], '移动');
+      const ok = await applyOps([{ op: 'move', path: `groups/${gid}/items/${moved}`, to: gid, index }], 'app.ops.move');
       if (ok) reloadKeepingPlace();
     });
   }
@@ -634,15 +845,15 @@
         submit: async (e) => {
           e.preventDefault();
           const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim() });
-          if (await applyOps(ops, '这一条')) reloadKeepingPlace();
+          if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
         // 这一层浮在卡片之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
         keydown: (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeEdit(li); } },
       },
-    }, [el('label', { text: '名称' }, [n]), el('label', { text: '描述' }, [d]), el('label', { text: '地址' }, [u]),
+    }, [el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
         el('div', { class: 'row' }, [
-          el('button', { type: 'submit', class: 'fld', text: '存' }),
-          el('button', { type: 'button', class: 'fld', text: '取消', on: { click: () => closeEdit(li) } }),
+          el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
+          el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit(li) } }),
         ])]);
     li.append(form);
     n.focus();
@@ -669,13 +880,13 @@
     const name = h2.textContent.trim();
     h2.append(el('button', {
       type: 'button', class: 'layoutbtn',
-      text: cur === 'tiles' ? '磁贴' : '单列',
-      'aria-label': `把「${name}」这一组从${cur === 'tiles' ? '磁贴' : '单列'}改成${other}`,
+      text: T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows'),
+      'aria-label': T('app.layout.aria', name, T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows'), other),
       on: {
         click: async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const ok = await applyOps([{ op: 'set', path: `groups/${sec.dataset.gid}/layout`, value: other }], '切换布局');
+          const ok = await applyOps([{ op: 'set', path: `groups/${sec.dataset.gid}/layout`, value: other }], 'app.ops.layout');
           if (ok) reloadKeepingPlace();
         },
       },
@@ -689,7 +900,7 @@
   // 用**长按**而不是勾选框：勾选框会占掉每张磁贴的位置，而那点位置在 44px
   // 触摸目标之下已经很紧了；长按不占任何常驻空间。
   const multi = { on: false, picked: new Set() };
-  const bar = el('div', { class: 'multibar', hidden: 'hidden', role: 'toolbar', 'aria-label': '批量操作' });
+  const bar = el('div', { class: 'multibar', hidden: 'hidden', role: 'toolbar', 'aria-label': T('app.multi.aria') });
   body.append(bar);
 
   function paintMulti() {
@@ -698,10 +909,10 @@
     if (!multi.on) return;
     bar.innerHTML = '';
     const mk = (label, fn) => bar.append(el('button', { type: 'button', class: 'fld', text: label, on: { click: fn } }));
-    mk(`移动到（${n}）`, pickMoveTarget);
-    mk(`打标签（${n}）`, pickTags);
-    mk('全不选', () => { multi.picked.clear(); paintPicked(); });
-    mk('退出', exitMulti);
+    mk(T('app.multi.move', n), pickMoveTarget);
+    mk(T('app.multi.tags', n), pickTags);
+    mk(T('app.multi.none'), () => { multi.picked.clear(); paintPicked(); });
+    mk(T('app.multi.exit'), exitMulti);
   }
   function paintPicked() {
     for (const li of document.querySelectorAll('li[data-item]')) {
@@ -714,7 +925,7 @@
     if (first) multi.picked.add(first);
     body.dataset.multi = 'on';
     paintPicked();
-    showBanner('已经在多选里：点卡片选上或取消，下面那一排是批量动作，按 Esc 退出。');
+    showBanner(T('app.multi.hint'));
   }
   function exitMulti() {
     multi.on = false;
@@ -755,8 +966,8 @@
     const picked = pickedItems();
     if (!picked.length) return;
     const groups = [...document.querySelectorAll('section[data-gid]')];
-    const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '移动到哪个分组' }, [
-      el('h2', { text: `把这 ${picked.length} 条移动到` }),
+    const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.move.aria') }, [
+      el('h2', { text: T('app.move.title', picked.length) }),
       el('div', { class: 'sheet-actions' }, groups.map((g) => el('button', {
         type: 'button', class: 'fld', text: g.querySelector('h2')?.textContent || g.dataset.gid,
         on: {
@@ -768,12 +979,12 @@
               path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}`,
               to, index: 0,
             }));
-            if (await applyOps(ops, '批量移动')) reloadKeepingPlace();
+            if (await applyOps(ops, 'app.ops.bulkMove')) reloadKeepingPlace();
           },
         },
       }))),
       el('div', { class: 'sheet-actions' }, [el('button', {
-        type: 'button', class: 'fld', text: '取消', on: { click: () => dlg.remove() },
+        type: 'button', class: 'fld', text: T('app.move.cancel'), on: { click: () => dlg.remove() },
       })]),
     ]);
     body.append(dlg);
@@ -782,29 +993,29 @@
   async function pickTags() {
     const picked = pickedItems();
     if (!picked.length) return;
-    const input = el('input', { type: 'text', class: 'fld', placeholder: '用空格或逗号分开写', autocomplete: 'off' });
-    const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '打标签' }, [
-      el('h2', { text: `给这 ${picked.length} 条打标签` }),
-      el('label', { text: '标签' }, [input]),
+    const input = el('input', { type: 'text', class: 'fld', placeholder: T('app.tags.ph'), autocomplete: 'off' });
+    const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.tags.aria') }, [
+      el('h2', { text: T('app.tags.title', picked.length) }),
+      el('label', { text: T('app.tags.label') }, [input]),
       el('div', { class: 'sheet-actions' }, [
         el('button', {
           // 按钮与条上那枚同名「打标签」：从前这里是「打上标签」，同一个动作两套词。
-          type: 'button', class: 'fld', text: '打标签',
+          type: 'button', class: 'fld', text: T('app.tags.label'),
           on: {
             click: async () => {
               const list = input.value.split(/[\s,，]+/).map((t) => t.trim()).filter(Boolean);
-              if (!list.length) { showBanner('标签是空的，先写一个。'); return; }
+              if (!list.length) { showBanner(T('app.tags.empty')); return; }
               dlg.remove();
               const ops = picked.map((li) => ({
                 op: 'set',
                 path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}/tags`,
                 value: list,
               }));
-              if (await applyOps(ops, '批量打标签')) reloadKeepingPlace();
+              if (await applyOps(ops, 'app.ops.bulkTags')) reloadKeepingPlace();
             },
           },
         }),
-        el('button', { type: 'button', class: 'fld', text: '取消', on: { click: () => dlg.remove() } }),
+        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
       ]),
     ]);
     body.append(dlg);
@@ -818,23 +1029,23 @@
   // 修饰键按平台算好再写进清单，**不要**先生成 ⌘ 版再 replace('⌘','Ctrl')：
   // 那样「⌘/Ctrl K」会变成「Ctrl/Ctrl K」（实测 Windows 上整张清单都这么坏）。
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-  const MOD = mac ? '⌘ 或 Ctrl' : 'Ctrl';
+  const MOD = mac ? T('app.keys.mod') : 'Ctrl';
   const KEYS = [
-    [MOD + ' K', '打开命令面板'],
-    [MOD + ' ↵', '在面板里把选中的那条开在新标签页'],
-    ['/', '聚焦搜索框'],
-    ['n', '打开添加浮层'],
-    ['?', '打开这份清单'],
-    ['长按卡片', '进多选：一次移动或打标签好几条'],
-    ['↑ ↓', '在面板里选择'],
-    ['Esc', '关掉当前浮起来的那一层'],
+    [MOD + ' K', T('app.keys.k')],
+    [MOD + ' ↵', T('app.keys.enter')],
+    ['/', T('app.keys.slash')],
+    ['n', T('app.keys.n')],
+    ['?', T('app.keys.q')],
+    [T('app.keys.longpress'), T('app.keys.long')],
+    ['↑ ↓', T('app.keys.arrows')],
+    ['Esc', T('app.keys.esc')],
   ];
   const help = el('div', {
-    class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': '快捷键',
+    class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.keys.aria'),
   }, [
-    el('h2', { class: 'cmdk-h', text: '快捷键' }),
+    el('h2', { class: 'cmdk-h', text: T('app.keys.title') }),
     el('dl', { class: 'keys' }, KEYS.flatMap(([k, d]) => [el('dt', { text: k }), el('dd', { text: d })])),
-    el('p', { class: 'plain', text: 'Esc 关掉这一页' }),
+    el('p', { class: 'plain', text: T('app.keys.escAll') }),
   ]);
   body.append(help);
 
@@ -903,7 +1114,7 @@
     if (old) old.remove();
     const p = el('p', { class: 'notice', id: 'lb-banner', role: 'status' }, [
       el('span', { text }),
-      el('button', { type: 'button', class: 'dismiss', text: '知道了', 'aria-label': '关掉这条提醒',
+      el('button', { type: 'button', class: 'dismiss', text: T('app.sw.dismiss'), 'aria-label': T('app.sw.aria'),
         on: { click: () => p.remove() } }),
     ]);
     header.prepend(p);
@@ -929,7 +1140,7 @@
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (said) return;
         said = true;
-        showBanner('书签页面已更新，点刷新用上新的');
+        showBanner(T('app.sw.updated'));
       });
     }).catch(() => { /* 没有 SW：在线功能一点不受影响 */ });
 

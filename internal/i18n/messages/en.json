@@ -200,5 +200,15 @@
   "notice.permission": "The data directory is not writable — this program has no permission there. Hand that directory to the user running it (uid 65534 in the container) and try again.",
   "notice.nolang": "No interface language was picked.",
   "notice.badlang": "That language is not one this build knows.",
-  "notice.langfail": "The profile was created, but the interface language was not saved, so it is still showing Chinese. An admin can change it from the admin page."
+  "notice.langfail": "The profile was created, but the interface language was not saved, so it is still showing Chinese. An admin can change it from the admin page.",
+  "app.ops.item": "This entry",
+  "app.ops.move": "Moving",
+  "app.ops.layout": "Switching layout",
+  "app.ops.bulkMove": "Bulk move",
+  "app.ops.bulkTags": "Bulk tagging",
+  "app.applyOps.fail": "Could not save %s: %s",
+  "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
+  "app.sep": ", ",
+  "app.keys.mod": "⌘ or Ctrl",
+  "app.keys.longpress": "Long-press a card"
 }

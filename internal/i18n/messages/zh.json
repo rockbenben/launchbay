@@ -200,5 +200,15 @@
   "notice.permission": "数据目录写不进去——这个程序没有权限。请把数据目录交给跑它的那个用户（容器里是 uid 65534）之后重试。",
   "notice.nolang": "没选界面语言。",
   "notice.badlang": "不认识这个语言。",
-  "notice.langfail": "档案建好了，但界面语言没设上，现在显示的是中文。之后可以在管理页改。"
+  "notice.langfail": "档案建好了，但界面语言没设上，现在显示的是中文。之后可以在管理页改。",
+  "app.ops.item": "这一条",
+  "app.ops.move": "移动",
+  "app.ops.layout": "切换布局",
+  "app.ops.bulkMove": "批量移动",
+  "app.ops.bulkTags": "批量打标签",
+  "app.applyOps.fail": "%s没存上：%s",
+  "app.opsConflict": "这一份已经被改过，刷新之后再试。",
+  "app.sep": "、",
+  "app.keys.mod": "⌘ 或 Ctrl",
+  "app.keys.longpress": "长按卡片"
 }
