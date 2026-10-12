@@ -23,6 +23,11 @@
     border-radius:7px;background:var(--panel);color:inherit;cursor:pointer}
   button:focus-visible,input:focus-visible{outline:3px solid #4c8dff;outline-offset:2px}
   .row{display:flex;gap:8px;align-items:center}
+  /* 「删掉这一枚」必须待在自己那一行里。flex 项目默认 min-width:auto，
+     而中文**每个字都能断行**，所以它的 min-content 只有一个字宽——令牌那一栏
+     一撑，这颗键就被挤成竖排的四行（实拍：删/掉/这一/枚）。
+     不缩 + 不换行，两个都要写：只写 nowrap 它还会被压扁到溢出。 */
+  .row button{flex:0 0 auto;white-space:nowrap}
   /* 令牌那一列是 password：给它 flex:1，id 列固定宽，两列一眼分得开。
      以前三列都没有列头，用户看到的就是"两个不知道是什么的框 + 一个删字按钮"。 */
   .row input[type=password]{flex:1 1 auto;min-width:0}
