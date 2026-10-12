@@ -59,6 +59,7 @@ const APP_I18N = {
     "app.saved": "已保存。",
     "app.conflict": "这一份已经被改过（可能另一边也动了）。刷新后再来一次。",
     "app.cmdk.placeholder": "搜书签，或做点什么",
+    "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
     "app.cmdk.aria": "命令面板",
     "app.cmdk.clipboard": "把剪贴板里的网址存进来",
     "app.cmdk.kind": "动作",
@@ -165,6 +166,7 @@ const APP_I18N = {
     "app.saved": "Saved.",
     "app.conflict": "This profile changed underneath you (something else may have edited it). Refresh and try again.",
     "app.cmdk.placeholder": "Search bookmarks, or do something",
+    "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
     "app.cmdk.aria": "Command palette",
     "app.cmdk.clipboard": "Save the address on the clipboard",
     "app.cmdk.kind": "action",
@@ -716,16 +718,24 @@ const APP_I18N = {
       actions.push({ kind: 'action', label: T('app.cmdk.clipboard'), run: addClipboard });
     }
     const hits = [];
+    // 从前这里数到 8 就 `break`——一千条那一份实测搜「第」命中 1000 条，
+    // 面板却只列 8 行且**什么都不说**，于是"没有更多了"与"我只给你看 8 条"
+    // 长得一模一样。现在扫完再截，并把剩下的数目变成列表里最后一条真动作：
+    // 选中它并按回车，把这个词交给页面上那个搜索框（整页搜是服务端渲染那条路）。
+    let total = 0;
     for (const li of document.querySelectorAll('li[data-item]')) {
       const a = li.querySelector('.card');
       const name = (li.querySelector('b')?.textContent || '').toLowerCase();
       const url = (a?.getAttribute('href') || li.querySelector('code')?.textContent || '').toLowerCase();
       if (!q || name.includes(q) || url.includes(q)) {
-        hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: a?.getAttribute('href') || '', el: li });
+        total++;
+        if (hits.length < 8) {
+          hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: a?.getAttribute('href') || '', el: li });
+        }
       }
-      if (hits.length >= 8) break;
     }
     cmdkHits = [...actions.filter((x) => !q || x.label.toLowerCase().includes(q)), ...hits];
+    if (total > hits.length && q) cmdkHits.push({ kind: 'more', label: T('app.cmdk.more', q, total), run: () => toPageSearch(q) });
     cmdkSel = 0;
     cmdkList.innerHTML = '';
     for (const h of cmdkHits) {
@@ -735,7 +745,11 @@ const APP_I18N = {
           click: () => cmdkRun(h),
           mouseenter: () => { cmdkSel = cmdkHits.indexOf(h); cmdkPaint(); },
         },
-      }, [el('b', { text: h.label }), h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: T('app.cmdk.kind') })]);
+      }, h.kind === 'more'
+        // 这一行不是书签，不能长得像书签：没有地址、没有类型角标，只有一句动作。
+        ? [el('span', { text: h.label })]
+        : [el('b', { text: h.label }), h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: T('app.cmdk.kind') })]);
+      if (h.kind === 'more') row.classList.add('cmdk-more');
       cmdkList.append(row);
     }
     // 零命中从前是**一块空白面板**：没有一句话，人不知道自己搜砸了还是它坏了。
@@ -755,6 +769,14 @@ const APP_I18N = {
     cmdkClose();
     if (hit.kind === 'item') { location.href = hit.url; return; }
     hit.run();
+  }
+  // 把面板里这个词交给页面上那个搜索框——它走的是服务端那条整页搜索，
+  // 命中的是全部条目，不受这里 8 行的展示上限约束。
+  function toPageSearch(q) {
+    const s = document.querySelector('input[type=search]');
+    if (!s || !s.form) return;
+    s.value = q;
+    if (s.form.requestSubmit) s.form.requestSubmit(); else s.form.submit();
   }
   function addClipboard() {
     // 这条动作只在 `navigator.clipboard?.readText` 真的存在时才会被列进面板

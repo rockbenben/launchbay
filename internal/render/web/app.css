@@ -61,6 +61,11 @@ header .add:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(4,6,10,.
 .cmdk-list b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cmdk-list code{flex:0 0 auto;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr}
 .cmdk-empty{margin:10px 12px;font-size:13px;color:var(--ink2)}
+/* 命中被展示上限截住时那一条**动作**（一千条那一份实测搜「第」命中 1000 条）。
+   它不是书签，所以不长得像书签：没有地址那一列、字重正常、颜色走 --ink2——
+   但它是可选可回车的一行（role=option），选中按回车就把这个词交给整页搜索。 */
+.cmdk-more span{flex:1 1 auto;min-width:0;color:var(--ink2);font-size:13px}
+.cmdk-more.sel span{color:var(--ink)}
 
 /* 就地编辑的把手。**常驻可见**而不是 hover 才出现：旧写法 `display:none` +
    `li:hover>.card .pencil{display:flex}` 让触摸设备（没有 hover）与键盘用户
