@@ -324,21 +324,28 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    不用 pre-wrap，免得一堆空行把版撑开）。 */
 .explain{white-space:pre-line}
 .pick{font:inherit;color:inherit;flex-direction:column;align-items:stretch;gap:10px;min-height:0}
-/* 选择页那张卡上的**脸**（2026-10-12）：名字不印了，改画这个人自己常用的那个
-   站点的图标，所以这块地是整张卡里唯一"好看"的地方——居中、够大、能看清。
+/* 选择页那张卡的头：**服务图标 + 名字**，横排（2026-10-12）。
+
+   两样都要：名字是区分档案的那一维（两个人可能常用同一个服务，那时两张卡的
+   图标一模一样），图标负责好看与"认得出来"。竖排只留图标那一版已经撤掉了。
 
    尺寸 40px：下面 .ic-svg/.ic-img 的 22px 是为 190px 的磁贴选的（磁贴里标题
-   要留地方），而这里整张卡就是一张脸，22px 在一块空地上像一枚掉下来的扣子。
-   字面形状是 16px favicon 与 24px 线性图标混排时的折中：再大线性图标的 2px 线
-   在 40px 上就显空，再小图片就看不清了。 */
-.pick-face{display:grid;place-items:center;padding:4px 0;min-height:56px}
-/* 底托：光把图标搁在卡片上，它看着像"卡片里掉进来一个零件"。给它一块
-   56px 的圆角底，整张卡就有了主次——先看见图，再看见 PIN 框。
+   要留地方），而这里是整张卡的头，22px 在一块空地上像一枚掉下来的扣子。
+   字面形状是 16px favicon 与 24px 线性图标混排时的折中。 */
+.pick-head{display:flex;align-items:center;gap:12px;min-width:0}
+/* 底托：光把图标搁在卡片上，它看着像"卡片里掉进来一个零件"。给它一圈同材质的
+   圆角底，头部就有了主次——先看见图，再看见名字。
    var(--card-hi) 是毛玻璃卡片再亮一档的那个色，所以底托与卡片是同一套材质，
    不会在浅色模式下变成一块脏斑。 */
+.pick-face{display:grid;place-items:center;flex:0 0 auto;
+  box-shadow:0 0 0 8px var(--card-hi);border-radius:14px}
 .pick-face .ic-svg,.pick-face .ic-img,.pick-face .ic{width:40px;height:40px;border-radius:10px}
-.pick-face>*{box-shadow:0 0 0 8px var(--card-hi);border-radius:14px}
 .pick-face .ic{border-radius:12px;font-size:18px}
+.pick-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+/* 悬停时跟着卡片一起"活"一下。档案页磁贴上那条是 .card:hover …，
+   这张卡的 class 是 form.pick，所以要单独点名——写 `.pick:hover …ic-svg` 会
+   顺手把 PIN 输入框边上的任何 .ic-svg 也带上（今天没有，但那是运气）。 */
+.pick:hover .pick-face .ic-svg,.pick:hover .pick-face .ic-img,.pick:hover .pick-face .ic{transform:scale(1.08)}
 /* 等高：网格项默认 stretch 的是 <li>，而 form.pick 是它儿子，自己不撑满——
    于是有 PIN 框的那张比没框的那张矮一截，一排卡片底边参差。撑满即可（form 是
    列向 flex，卡内三块从上往下排，多出来的高度落在最后一块的下面，不会散架）。 */
@@ -368,10 +375,6 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    勾选框与它的文字要并排，所以这里把方向掰回行——与 `.newprofile .chk` 同一处置：
    点击面由 label 的内衬凑，整行文字都是靶子，44px 不由勾选框自己扛。 */
 .setup .chk{flex-direction:row;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
-/* 选择页上「不设 PIN，点一下就进」那一句。用 warn 色而不是 ink2：它不是一句提示，
-   是一条**代价**（这一份谁都能进），该和旁边那枚橙色徽标同一档。用 <p> 而不是
-   <label>——它不标定任何控件，挂成 label 会白吃 `.pick label` 那一套排版。 */
-.pick .nopass{margin:0;font-size:13px;color:var(--warn)}
 /* 界面语言那个 <select>（2026-10-12 补）。它此前**不在任何一条族规则里**：UA 按
    自己的默认画——白底黑字、系统默认字号、上下不撑开，落在一页深色卡片里像块
    贴错地方的零件。

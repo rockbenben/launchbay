@@ -76,24 +76,32 @@
         <input type="hidden" name="profile" value="{{.ID}}">
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
-        {{/* **卡上不再印名字**（2026-10-12）。原来这里是「首字母色块 + 名字」，
-             现在只画一张脸：这个人自己常用的那个站点的图标（挑法在 icon.go 的
-             faceOf，判据与档案页那张脸同一份）。
+        {{/* 卡上是**名字 + 服务图标**（2026-10-12）。两样各司其职，谁也不顶谁：
 
-             名字没有丢，它在两处：**title**（鼠标停上去）与按钮的 aria-label
-             （读屏念出来）。一张没有无障碍名的卡对读屏的人等于没有名字——而
-             「不显示」说的是「不印出来」，不是「不能被读到」。 */}}
-        <span class="pick-face" title="{{.Title}}">{{template "icon" .Icon}}</span>
-        {{/* **不设防的那一份不给 PIN 输入框**（2026-10-12）。给一个空框等于在门口
-             摆一个"输什么都行"的假门槛：人会以为该输点什么，输错之后弹回来的
-             那句比不问更费解。不给框，意思就只剩一个——这张卡按下去就能进。
-             顺带说清代价：局域网里谁都能进这一份，所以页面上要**明写**它不设防，
-             而不是让人从"没有输入框"里自己推断。 */}}
+             **名字是区分档案的那一维**——共用一台电脑的一家人靠"哪张卡是我的"
+             认人，而两个档案完全可能常用同一个服务（都用 GitHub），那时候两张卡
+             的图标一模一样。所以图标不许顶掉名字。
+
+             **图标是这个档案里那个服务的图**（挑法在 icon.go 的 faceOf，判据与
+             档案页那张脸同一份）：它负责好看、认得出来，不是身份。
+
+             按钮的 aria-label 保留：读屏停在「进入」上时，念出来的是"进入爸爸的
+             书签页"而不是光一个"进入"。 */}}
+        <span class="pick-head">
+          <span class="pick-face">{{template "icon" .Icon}}</span>
+          <b class="pick-name">{{.Title}}</b>
+        </span>
+        {{/* **不设防的那一份不给 PIN 输入框，也不多说一句**（2026-10-12）。
+             没有那个框，卡上就是空的，按「进入」直接进——这就是全部语义。
+
+             这里原先印过一句「不设 PIN，点一下就进」，2026-10-12 撤掉：卡上已经有
+             名字与图标，再加一行说明就成了一段说明书，而那一行的代价是**每张
+             不设防的卡都比旁边高一截**，一排卡片底边参差。真要交代代价，位置在
+             建档那一步（勾选框下面那句）与这一页的管理员那里——**建档时说一句，
+             进门时不必再说第二遍**。 */}}
         {{if .NeedsPIN}}
           <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
                             minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
-        {{else}}
-          <p class="nopass">{{$.T "picker.nopass"}}</p>
         {{end}}
         <button type="submit" aria-label="{{$.T "picker.enterNamed" .Title}}">{{$.T "picker.enter"}}</button>
       </form>

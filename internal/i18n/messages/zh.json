@@ -30,7 +30,6 @@
   "profile.icon.title": "这个图标名在图标库里找不到，先用名字首字的色块",
   "picker.setup.title": "名称",
   "picker.setup.pin": "PIN",
-  "picker.nopass": "不设 PIN，点一下就进",
   "picker.setup.nopassHint": "勾了它就不用填 PIN。同一局域网里能访问这台机器的人，点一下就能进这一份书签页——别人存了什么会直接看见。",
   "picker.setup.nopass": "不设 PIN（局域网里谁都能进这一份）",
   "picker.setup.submit": "创建",

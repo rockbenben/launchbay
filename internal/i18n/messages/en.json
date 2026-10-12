@@ -30,7 +30,6 @@
   "profile.icon.title": "This icon name is not in the icon library, so it falls back to a coloured initial",
   "picker.setup.title": "Name",
   "picker.setup.pin": "PIN",
-  "picker.nopass": "No PIN — just press the button",
   "picker.setup.nopassHint": "Tick it and leave the PIN blank. Anyone on your LAN who can reach this machine opens this profile with one click — and sees exactly what is in it.",
   "picker.setup.nopass": "No PIN (anyone on the LAN can open this one)",
   "picker.setup.submit": "Create",

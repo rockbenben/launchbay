@@ -90,28 +90,26 @@ func TestFaceOf_三档与优先级(t *testing.T) {
 	})
 }
 
-// 卡上不印名字了，但**不能没有名字**：它在 title 与按钮的 aria-label 上。
+// 卡上**名字与服务图标都在**（2026-10-12）。
 //
-// 这一条钉的是那个"无障碍名"：一张只有图标和「进入」两个字的卡，对读屏的人
-// 来说三张卡完全一样——而它是全家共用的进门页，那正是最需要能分清谁是谁的地方。
-func TestPickerPage_卡上不印名字但仍有无障碍名(t *testing.T) {
+// 这一条钉的是"图标不许顶掉名字"：两个档案完全可能常用同一个服务（都用 GitHub），
+// 那时两张卡的图标一模一样——名字是区分档案的那一维，图标负责好看与"认得出来"。
+// 曾经有一版只留图标、把名字藏进 title 与 aria-label，那是把"好看"做成了"认不出
+// 谁是谁"，已撤。
+//
+// aria-label 仍然要：读屏停在「进入」上时，念出来的是"进入爸爸的书签页"而不是
+// 光一个"进入"——页面上看得见的名字补不了按钮自己的可访问名。
+func TestPickerPage_名字与图标都在卡上(t *testing.T) {
 	s := pickerStore(t, "dad", "mom")
 	save(t, s, "dad", "爸爸的台", "dsm")
 	body := pickerBodyOf(t, s)
 
-	// 可见的名字不许出现：档案名只进 title 与 aria-label。
-	for _, gone := range []string{`<b>档案dad</b>`, `<b>档案mom</b>`, `class="pick-name"`} {
-		if strings.Contains(body, gone) {
-			t.Errorf("卡上不该再印 %q", gone)
-		}
+	// 两样都在：名字（区分档案）与脸（那个服务的图标）。
+	if !strings.Contains(body, `<b class="pick-name">档案dad</b>`) {
+		t.Errorf("卡上要看得见档案名:\n%.800s", body)
 	}
-	// 脸在那儿。
 	if !strings.Contains(body, `class="pick-face"`) {
-		t.Errorf("卡上该有一张脸:\n%.800s", body)
-	}
-	// 名字仍在两处：鼠标停上去（title）与读屏（aria-label）。
-	if n := strings.Count(body, "title=\"档案"); n != 2 {
-		t.Errorf("每张卡的 title 都要带档案名，实际 %d 处", n)
+		t.Errorf("卡上要有服务图标:\n%.800s", body)
 	}
 	if n := strings.Count(body, `aria-label="进入 档案`); n != 2 {
 		t.Errorf("按钮的 aria-label 要念出是谁，实际 %d 处:\n%.800s", n, body)
