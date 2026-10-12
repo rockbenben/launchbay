@@ -78,6 +78,7 @@ const APP_I18N = {
     "app.multi.aria": "批量操作",
     "app.multi.move": "移动到（%d）",
     "app.multi.tags": "打标签（%d）",
+    "app.multi.delete": "删掉（%d）",
     "app.multi.none": "全不选",
     "app.multi.exit": "退出",
     "app.multi.hint": "已经在多选里：点卡片选上或取消，下面那一排是批量动作，按 Esc 退出。",
@@ -110,6 +111,16 @@ const APP_I18N = {
     "app.ops.layout": "切换布局",
     "app.ops.bulkMove": "批量移动",
     "app.ops.bulkTags": "批量打标签",
+    "app.ops.delete": "删除",
+    "app.ops.bulkDelete": "批量删除",
+    "app.edit.where": "这一条在「%s」里",
+    "app.delete.item": "删掉这条",
+    "app.delete.confirm": "确定删掉「%s」？再按一次就删",
+    "app.delete.bulk": "删掉这 %d 条？",
+    "app.delete.confirmMany": "删掉这 %d 条",
+    "app.delete.more": "…另外还有 %d 条没列出来",
+    "app.delete.aria": "批量删除",
+    "app.delete.undoHint": "删掉之后还能用顶栏的「回退」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
     "app.opsConflict": "这一份已经被改过，刷新之后再试。",
     "app.sep": "、",
@@ -173,6 +184,7 @@ const APP_I18N = {
     "app.multi.aria": "Bulk actions",
     "app.multi.move": "Move to (%d)",
     "app.multi.tags": "Tag (%d)",
+    "app.multi.delete": "Delete (%d)",
     "app.multi.none": "Clear selection",
     "app.multi.exit": "Exit",
     "app.multi.hint": "In multi-select: click cards to pick or unpick them. The row below holds the bulk actions; press Esc to exit.",
@@ -205,6 +217,16 @@ const APP_I18N = {
     "app.ops.layout": "the layout change",
     "app.ops.bulkMove": "the bulk move",
     "app.ops.bulkTags": "the bulk tags",
+    "app.ops.delete": "delete",
+    "app.ops.bulkDelete": "the bulk delete",
+    "app.edit.where": "This entry is in “%s”",
+    "app.delete.item": "Delete this bookmark",
+    "app.delete.confirm": "Delete “%s”? Press again to delete it",
+    "app.delete.bulk": "Delete these %d bookmarks?",
+    "app.delete.confirmMany": "Delete %d bookmarks",
+    "app.delete.more": "…and %d more not listed",
+    "app.delete.aria": "Bulk delete",
+    "app.delete.undoHint": "You can bring this version back from “Revert” in the top bar",
     "app.applyOps.fail": "%s could not be saved: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
     "app.sep": ", ",
@@ -771,6 +793,15 @@ const APP_I18N = {
   // **失焦即写，而不是"点保存"**：多一个按钮就多一次点错的余地，而写错了有
   // revert 可退（§11 的"不误改"那一档）。但写**失败必须显式说**，否则改完刷新
   // 就回去了，而人不会知道。
+  // 这一组叫什么。**取 h2 的 title 而不是 textContent**：那一行里还住着布局切换键
+  // （「磁贴」/「单列」），按 textContent 会念成「文档与账号单列」——实测到的。
+  // title 挂的是完整分组名，截断与悬停都不丢信息（模板那边写死的）。
+  function groupName(sec) {
+    const h2 = sec?.querySelector('h2');
+    if (!h2) return sec?.dataset.gid || '';
+    return (h2.getAttribute('title') || h2.querySelector('.sec-leaf')?.textContent || sec.dataset.gid || '').trim();
+  }
+
   function opsFor(li, fields) {
     const gid = li.closest('section')?.dataset.gid;
     const iid = li.dataset.item;
@@ -914,8 +945,14 @@ const APP_I18N = {
     });
   }
 
-  // 就地编辑：改完就写，不摆"保存"大按钮（失焦即写那条裁定见 §8.4）。
-  // 但**要有关掉它的出路**：从前这一格只有一个「存」，按 Esc 什么都不做
+  // 就地编辑：三个字段 + 存 / 取消 / 删掉这条。
+  //
+  // 注释先前写"改完就写，不摆保存大按钮（失焦即写那条裁定见 §8.4）"——那是**旧的**
+  // 交互，代码里早就换成「存 / 取消」两颗按钮（失焦即写在"改一半点到别处"时会
+  // 静默落库，而这一格没有第二次机会反悔）。注释替不存在的实现说话，比没注释更坏，
+  // 所以这一句改口成它今天的样子。
+  //
+  // **要有关掉它的出路**：从前这一格只有一个「存」，按 Esc 什么都不做
   // （Esc 只关浮层与面板），再点 ✎ 也被 `if (form) return` 挡掉——
   // 手滑点开的人只能刷新页面才能退出。
   function closeEdit(li) {
@@ -934,8 +971,44 @@ const APP_I18N = {
     // 读 <code> 的文本（模板与复制键读的是同一处，不另抄一份 URL）。
     const url = a ? (a.getAttribute('href') || '') : (li.querySelector('code')?.textContent || '').trim();
     const desc = li.querySelector('i')?.textContent || '';
+    const sec = li.closest('section');
+    const gid = sec?.dataset.gid || '';
+    // 分组那一行不是装饰：面板盖住卡片之后，"我在改哪一组的哪一条"只剩这里能说，
+    // 而删除那一步的确认句要引用它。
+    const gname = groupName(sec);
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
+    const undo = el('p', { class: 'edit-undo', text: T('app.delete.undoHint') });
+    // 删除是**两步**，两步都在这一格里走完：第一下把那颗键换成"确定删掉？"并露出
+    // 那句"还能用回退找回来"，第二下才发 op。为什么不用 confirm()——那是 §8.8
+    // 早就判过一次的：样式不可控、移动端常常直接不出现，而它是唯一挡在"手滑删掉
+    // 一条书签"前面的东西。超时自己退回第一步，所以"按了一半走开"不会留下武装态。
+    let armed = false;
+    let armTimer = 0;
+    const del = el('button', {
+      type: 'button', class: 'fld danger', text: T('app.delete.item'),
+      on: {
+        click: async () => {
+          if (!armed) {
+            armed = true;
+            del.classList.add('armed');
+            del.textContent = T('app.delete.confirm', name);
+            undo.hidden = false;
+            clearTimeout(armTimer);
+            armTimer = setTimeout(() => {
+              armed = false;
+              del.classList.remove('armed');
+              del.textContent = T('app.delete.item');
+              undo.hidden = true;
+            }, 8000);
+            return;
+          }
+          clearTimeout(armTimer);
+          const ops = [{ op: 'remove', path: `groups/${gid}/items/${li.dataset.item}` }];
+          if (await applyOps(ops, 'app.ops.delete')) reloadKeepingPlace();
+        },
+      },
+    });
     const form = el('form', {
       class: 'inline-edit',
       on: {
@@ -945,14 +1018,37 @@ const APP_I18N = {
           if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
         // 这一层浮在卡片之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
-        keydown: (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeEdit(li); } },
+        // 武装态下的 Esc 先**解除武装**，再按一次才关面板——两步确认不能被 Esc 一次跳过。
+        keydown: (e) => {
+          if (e.key !== 'Escape') return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (armed) {
+            armed = false;
+            clearTimeout(armTimer);
+            del.classList.remove('armed');
+            del.textContent = T('app.delete.item');
+            undo.hidden = true;
+            return;
+          }
+          closeEdit(li);
+        },
       },
-    }, [el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
+    }, [el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
+        el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
         el('div', { class: 'row' }, [
           el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
           el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit(li) } }),
-        ])]);
+        ]),
+        el('div', { class: 'row' }, [del]),
+        undo]);
+    undo.hidden = true;
     li.append(form);
+    // 面板宽是"至少 300px"（放得下一条完整 URL），而最后一列的磁贴只有 213px 宽——
+    // 实测那颗右边缘落在 1475 而视口是 1440：**35px 悬在屏幕外**，「取消」与
+    // 「删掉这条」那半截看不见也点不到。量一次，出屏就改成贴着卡片右边缘长出来。
+    const r = form.getBoundingClientRect();
+    if (r.right > innerWidth - 8) form.classList.add('flip');
     n.focus();
   }
 
@@ -1008,6 +1104,7 @@ const APP_I18N = {
     const mk = (label, fn) => bar.append(el('button', { type: 'button', class: 'fld', text: label, on: { click: fn } }));
     mk(T('app.multi.move', n), pickMoveTarget);
     mk(T('app.multi.tags', n), pickTags);
+    mk(T('app.multi.delete', n), pickDelete);
     mk(T('app.multi.none'), () => { multi.picked.clear(); paintPicked(); });
     mk(T('app.multi.exit'), exitMulti);
   }
@@ -1066,7 +1163,7 @@ const APP_I18N = {
     const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.move.aria') }, [
       el('h2', { text: T('app.move.title', picked.length) }),
       el('div', { class: 'sheet-actions' }, groups.map((g) => el('button', {
-        type: 'button', class: 'fld', text: g.querySelector('h2')?.textContent || g.dataset.gid,
+        type: 'button', class: 'fld', text: groupName(g),
         on: {
           click: async () => {
             dlg.remove(); // 从前是 dlg.hidden = true：节点留在 DOM 里，第二次进多选会攒出第二个同名 dialog
@@ -1117,6 +1214,46 @@ const APP_I18N = {
     ]);
     body.append(dlg);
     input.focus();
+  }
+
+  // 批量删除。这一层对话框**就是第二步**（多选条上那颗是按第一步），
+  // 所以它必须把"要删的是哪几条"念出来——只报个数字的确认页回答不了
+  // "我到底选了哪几条"，那正是 /revert 那一页早就学到的教训。
+  async function pickDelete() {
+    const picked = pickedItems();
+    if (!picked.length) return;
+    const names = picked.map((li) => li.querySelector('b')?.textContent?.trim() || li.dataset.item);
+    const SHOWN = 8;
+    const list = el('ul', { class: 'del-list' }, names.slice(0, SHOWN).map((x) => el('li', { text: x })));
+    // 超过一屏才加那行"另外还有 N 条"。**不能给 el() 传 null**：它内部是
+    // `n.append(c)`，而 append 会把非节点参数**转成文字**——传 null 就在页面上
+    // 落出一行 "null"（选中 ≤8 条是常态，那一行每次都出现）。
+    const more = names.length > SHOWN ? [el('p', { class: 'hint', text: T('app.delete.more', names.length - SHOWN) })] : [];
+    const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.delete.aria') }, [
+      el('h2', { text: T('app.delete.bulk', names.length) }),
+      list, ...more,
+      el('p', { class: 'hint', text: T('app.delete.undoHint') }),
+      el('div', { class: 'sheet-actions' }, [
+        el('button', {
+          type: 'button', class: 'fld danger', text: T('app.delete.confirmMany', names.length),
+          on: {
+            click: async () => {
+              dlg.remove();
+              const ops = picked.map((li) => ({
+                op: 'remove',
+                path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}`,
+              }));
+              if (await applyOps(ops, 'app.ops.bulkDelete')) reloadKeepingPlace();
+            },
+          },
+        }),
+        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
+      ]),
+    ]);
+    body.append(dlg);
+    // 焦点落在**取消**上，不落在删除上：走到这一步的人可能只是按错了那颗键，
+    // 而默认位置决定了他按 Enter 会发生什么。
+    dlg.querySelector('.sheet-actions:last-of-type button:last-of-type').focus();
   }
 
   // ── ⑤ §7.5 的快捷键清单与「?」帮助 ──────────────────────────────────────

@@ -151,8 +151,27 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
   border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
 .inline-edit input{background:var(--card);font-size:13px}
 .inline-edit label{font-size:12px;color:var(--ink2)}
-.inline-edit .row{display:flex;gap:8px}
+'.inline-edit .row{display:flex;gap:8px}
 .inline-edit .row button{flex:1 1 auto}
+/* 面板贴着卡片左上角长出来。最后一列的磁贴只有 213px 宽，而面板的下限是 300px
+   （放得下一条完整 URL）——实测那颗的右边缘落在 1475 而视口是 1440，**35px 悬在
+   屏幕外**，「取消」与「删掉这条」那半截看不见也点不到。开完面板量一次，
+   出屏就改成贴着卡片右边缘长（left:auto;right:0）。 */
+.inline-edit.flip{left:auto;right:0}
+/* 分组那一行：面板盖住卡片之后，"我在改哪一组的哪一条"只剩这里能说。 */
+.edit-where,.edit-undo{margin:0;font-size:12px;color:var(--ink2)}
+/* 删除那颗：**静息不穿实心红**。它是"这一格里第三个可选动作"，不是"危险警报"，
+   满屏红框会把人的眼睛从名字上拉开。第一下按下去才换成实心红——那一步是
+   "我真的要做了"，值得响。整段限定在 .inline-edit 里，是为了盖过
+   `button.danger` 那条实心规则（它的权重比 .fld 高）。 */
+.inline-edit .fld.danger{background:var(--card);color:var(--bad-text);border-color:var(--bad)}
+.inline-edit .fld.danger.armed{background:var(--bad);color:var(--on-bad);border-color:var(--bad)}
+/* 批量删除那张确认页要**念出要删的是哪几条**：只报数字的确认回答不了
+   "我到底选了哪几条"（/revert 那一页早就学过这件事）。
+   display:block 是必需的：base.css 那条给磁贴用的全局 `ul{display:grid}`
+   会一样打到这里，把名单拍成一排格子。 */
+.del-list{display:block;margin:0;padding:0 0 0 18px;font-size:13px;max-height:40vh;overflow:auto}
+.del-list li{margin:2px 0}
 
 /* forced-colors：毛玻璃与阴影一律失效，留下的是边框——所以这里的 border 是
    承重的，不是装饰。 */
