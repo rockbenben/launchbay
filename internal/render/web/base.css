@@ -337,24 +337,31 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
   border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
 /* 界面语言那个 <select>（2026-10-12 补）。它此前**不在任何一条族规则里**：UA 按
    自己的默认画——白底黑字、系统默认字号、上下不撑开，落在一页深色卡片里像块
-   贴错地方的零件。`background:transparent` 单独用它无效：select 是替换元素，
-   底色得靠 `color-scheme` 与 appearance 一起收。
+   贴错地方的零件。
+
+   **保留原生外观（不写 appearance:none）**：第一版写了 none，想让它与 input 逐像素
+   一致，结果连原生箭头一起收掉——那个框看上去就是一个**只读的输入框**，没有人
+   会想到它能点。`<select>` 的 `::after` 在多数浏览器里根本不渲染，所以补箭头只能
+   包一层元素，而 `:root` 上的 `color-scheme` 已经让原生控件随深浅色走（暗色下
+   的原生下拉是深底浅箭头），平台给的箭头也永远对得上用户自己的系统。**宁可长短
+   略有出入，也不要一个看不出是下拉的框。**
 
    **选择器里必须写全三处容器**：这个 select 搬出建档表单之后住在自己的
    `.langsel` 表单里，`/admin` 那一份在 `.adm` 里，而建档表单上曾经也有一个
    （`.pick`，2026-10-12 之前）。写成 `.pick select` 单条时实测量出来 select 只有
-   19px、UA 原生边框、appearance 还是 auto——规则整条没匹配上，而这种"看着没生效"
-   最容易被当成浏览器不支持。`.langsel` 是后来加的容器，所以它也必须在名单里。
-   `appearance:none` 让它与 input 同一张脸。 */
-.pick select,.adm select,.langsel select{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
-  border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto;appearance:none;-webkit-appearance:none;
-  cursor:pointer}
+   19px、UA 原生边框——规则整条没匹配上，而这种"看着没生效"最容易被当成浏览器
+   不支持。`.langsel` 是后来加的容器，所以它也必须在名单里。 */
+.pick select,.adm select,.langsel select{font:inherit;color:inherit;background:transparent;
+  border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto;cursor:pointer}
 .pick select:hover,.adm select:hover,.langsel select:hover{border-color:var(--accent)}
 .pick select:focus-visible,.adm select:focus-visible,.langsel select:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .langsel{display:flex;align-items:center;gap:10px;margin:16px 0 0;flex-wrap:wrap}
 .langsel label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
 .langsel select{flex:0 0 auto;min-width:148px}
 .langsel .hint{margin:0;flex:1 1 100%}
+/* 管理页那颗：它在一条纵向排的 label 里，`.adm` 不给宽度它就按内容收成 62px，
+   "English" 只剩半截。给它一个下限，与 .langsel 那颗同一个数。 */
+.adm select{flex:0 0 auto;min-width:148px}
 /* 次级按钮**一张脸**：以前 .pick/.search/.theme/.adm/.act 那几族是透明底，
    而 a.badge（回首页、管理、设 PIN…）刚改成半透明卡片底 —— 同一行里出现
    "实心 / 透明 / 半透明"三种按钮，看着像三套系统。这里统一收进半透明卡片底，

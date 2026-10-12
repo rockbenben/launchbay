@@ -9,7 +9,16 @@
 <body>
 <header>
   <h1>{{.T "admin.title"}}</h1>
-  <nav aria-label="{{.T "common.back.aria"}}"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
+  {{/* 「退出管理」住在顶栏，与「回首页」同一族：两者都是**这台机器的会话动作**，
+       不是管理页的内容。原先它挂在建档表单底下，看上去像一张表单漏出来的第二颗
+       按钮——没有标题、没有上下文，读起来像误渲染（2026-10-12 改）。
+       表单形态留着（零 JS：它是一次 POST），尺寸收成徽标那颗。 */}}
+  <nav aria-label="{{.T "admin.nav.aria"}}">
+    <form method="post" action="/admin/logout" class="profmenu">
+      <button type="submit" class="badge">{{.T "admin.logout"}}</button>
+    </form>
+    <a class="badge" href="/">{{.T "common.back.home"}}</a>
+  </nav>
 </header>
 <main role="main">
   {{/* 一行一个档案 + 条目数 + rev + 最近改动时间（spec §8.8）。这一页的存在
@@ -92,11 +101,9 @@
     <label>{{.T "admin.new.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
     <button type="submit">{{.T "admin.new.submit"}}</button>
   </form>
-  {{/* 退出管理：只清 lb_admin，**不动 lb_profile**。管理员可能同时登着自己那份
-       在用书签，"退出管理"不该把他从自己的台子里踢出去。 */}}
-  <form method="post" action="/admin/logout" class="adm logout">
-    <button type="submit" class="plain">{{.T "admin.logout"}}</button>
-  </form>
+  {{/* 退出管理那一枚挪到顶栏了（与「回首页」同一族，见上面 header 里的注释）：
+       它只清 lb_admin，**不动 lb_profile**——管理员可能同时登着自己那份在用书签，
+       "退出管理"不该把他从自己的台子里踢出去。 */}}
   {{/* 界面语言：**站级**设置，不是某个档案的。所有页面都用它，所以它不进
        profile.json、不走 /prefs——那两条都是"只改我自己"的通路，而语言改了
        会立刻影响这台机器上的所有人。落点是 data/settings.json，判据与选项由
