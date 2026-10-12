@@ -179,10 +179,18 @@ details[open]>summary::before{content:"▾"}
      触摸目标），摞起来白占一屏的 8%，而它们说的是同一件事——上面那行就是
      "分组"这两个字的展开。并排后整条只剩一行高，分组名仍然横向可滚。
      写成 `.side .drawer` 而不是 `.drawer`：解释页那个 <details> 是"细节块"，
-     它的 summary 该自己占一行（base.css:101 那条理由）。 */
-  .side .drawer{display:flex;align-items:center;gap:8px}
-  .side .drawer>summary{flex:0 0 auto}
-  .side .drawer>.gnav{flex:1 1 auto;min-width:0}
+     它的 summary 该自己占一行（base.css:101 那条理由）。
+
+     **这一条从前是 display:flex，实测是坏的**（2026-10-12 取景量出来）：390 宽上
+     那条分组带按内容撑到 747px，`min-width:0` 与 `flex:1 1 0` 两种写法都收不住它
+     （现场改样式逐种量过，见 design-preview/batch3.html 的 P1），于是
+     `documentElement.scrollWidth` = 845 —— **整页横向可滚**，手机上一条能横向滚的
+     页面会把人的第一反应变成"我划错了什么"。换成 grid 把第二轨钉成
+     `minmax(0,1fr)`：同一行高 58px 不变、文档宽回到 390、分组带在自己那 245px 里
+     横向滚（scrollWidth 仍是 747，但那正是它该有的位置）。 */
+  .side .drawer{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px}
+  .side .drawer>summary{min-width:0}
+  .side .drawer>.gnav{min-width:0}
 }
 @media (forced-colors:active){.drawer{border:1px solid CanvasText}.gnav a{border:1px solid CanvasText}}
 section{margin:13px 0}
@@ -399,7 +407,13 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
   box-shadow:0 0 0 8px var(--card-hi);border-radius:14px}
 .pick-face .ic-svg,.pick-face .ic-img,.pick-face .ic{width:40px;height:40px;border-radius:10px}
 .pick-face .ic{border-radius:12px;font-size:18px}
-.pick-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+/* 名字从前是单行省略。取景在 1440 宽（不是手机！）量到「爷爷奶奶的外婆家备用台」
+   这一份被截掉 89px——而名字正是这张卡上**区分档案的那一维**（2026-10-12 把名字
+   留在卡上就是为了这个：两份档案完全可能常用同一个服务，那时图标一模一样）。
+   改成最多两行：头部那圈底托本来就是 40px 高，15px 字两行 ≈ 40px，
+   **一行名字时不涨高、两行时不截半**。完整值仍在 title 里，截断不等于丢信息。 */
+.pick-name{font-weight:600;min-width:0;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
 /* 悬停时跟着卡片一起"活"一下。档案页磁贴上那条是 .card:hover …，
    这张卡的 class 是 form.pick，所以要单独点名——写 `.pick:hover …ic-svg` 会
    顺手把 PIN 输入框边上的任何 .ic-svg 也带上（今天没有，但那是运气）。 */
@@ -408,6 +422,10 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    于是有 PIN 框的那张比没框的那张矮一截，一排卡片底边参差。撑满即可（form 是
    列向 flex，卡内三块从上往下排，多出来的高度落在最后一块的下面，不会散架）。 */
 .pick{height:100%}
+/* 撑满之后还差一步：**把空隙挪到动作键上方**。从前多出来的高度落在「进入」下面，
+   于是同一排里带 PIN 框的卡动作键在底边、不设 PIN 的那张动作键悬在中间——
+   实拍里第三张卡的按钮看着像"还没排完"。动作键是一排里该对齐的那条线。 */
+.pick button{margin-top:auto}
 /* 悬停时跟着卡片一起"活"一下。档案页磁贴上那条是 .card:hover …，
    这张卡的 class 是 form.pick，所以要单独点名——写 `.pick:hover …ic-svg` 会
    顺手把 PIN 输入框边上的任何 .ic-svg 也带上（今天没有，但那是运气）。 */

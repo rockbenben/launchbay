@@ -662,6 +662,11 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 平板断点 1100px（spec §8.2 的第二档）：侧栏在这一档收成抽屉。删掉整个
 		// @media 块在截图上几小时看不出来，这里一行就红。
 		"平板断点 1100px": `@media (max-width:1100px)`,
+		// 手机档那条抽屉必须是 **grid**，不是 flex（2026-10-12 实测）：flex 那版
+		// 里横向可滚的分组带按内容撑到 747px，把整页抬到 845 可横滚，而
+		// `min-width:0`/`flex:1 1 0` 都收不住它。这条钉的是"第二轨的最小值被钉成 0"
+		// 这件事——改回 flex 就会红，而红得对。
+		"手机档抽屉用 grid 收住宽度": `.side .drawer{display:grid;grid-template-columns:auto minmax(0,1fr)`,
 		// base.css 有一条全局 `ul{display:grid;grid-template-columns:auto-fill…}`
 		// 是给磁贴用的，它一样会打到侧栏。侧栏必须显式把 display 覆盖回 block，
 		// 否则浏览器里侧栏变成一堆 190px 宽的格子——这条是实测过的坑，而单测量不到
