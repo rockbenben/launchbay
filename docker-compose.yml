@@ -1,82 +1,37 @@
-# 项目名钉死成 launchbay。不写的话 compose 拿**目录名**当项目名：clone 到
-# `042-launchbay` 就是 `042-launchbay`，clone 到 `launchbay-main` 又是另一个，
-# 同一份文件起出两套互不相认的容器与网络，`down` 也只清得掉自己那半边。
-# 优先级在 `-p` 与 `COMPOSE_PROJECT_NAME` 之后，那两个仍然盖得住它。
 name: launchbay
 
-# 这个文件只负责**拉**已发布的镜像。构建是 CI 的事：打 `v*` tag，
-# `.github/workflows/docker.yml` 构建并推出 amd64 + arm64 两个架构到
-# Docker Hub 与 GHCR。用它的人不需要装 Go，也不需要看 Dockerfile。
-#
-# **升级提醒（2026-10-12）**：管理员从"令牌列表里档案段写 * 的那一条"变成上面那把
-# `LAUNCHBAY_ADMIN_TOKEN`。从旧版升上来要改的就是这一处——旧的那条留着会启动失败
-# （报错里会指名让你换到哪个变量），磁盘上的档案与书签不受影响。
 services:
   launchbay:
     image: ghcr.io/rockbenben/launchbay:latest
     container_name: launchbay
-    # 不写 pull_policy，用默认的 missing。实测（Compose v2.40 / Engine 28.5）：
-    # `up` 看到本机已经有这个标签就直接用，**不会**顺手上仓库确认一遍。
-    # 代价在发新版那一侧：已经在跑的用户要 `docker compose pull` 才拿得到新的。
-    #
-    # 宿主端口默认 7600（spec §10）。本机 Windows 把 TCP 7532-7631 整段划给了
-    # Hyper-V 动态保留，撞上了就在前面加 LAUNCHBAY_HOST_PORT=7601。
-    # 容器内端口与 LAUNCHBAY_PORT 一律不动，healthcheck 探的仍是 7600。
+    # 不写 pull_policy：`up` 不会上仓库确认一遍，已在跑的机器要 `docker compose pull` 才拿得到新版。
+    # 宿主端口 7600；被占就 `LAUNCHBAY_HOST_PORT=7601`（Windows 上 7532-7631 常被 Hyper-V 预留）。
+    # 容器内恒为 7600 —— healthcheck 探的也是它。
     ports: ["${LAUNCHBAY_HOST_PORT:-7600}:7600"]
     volumes:
-      # 数据落在 compose 同目录的 ./data，想放别处就改这一行（示例见 README）。
-      # 容器内永远是 /data——healthcheck 与 LAUNCHBAY_DATA_DIR 都认它。
-      #
-      # **首次拉起之前先 chown**：镜像以 USER 65534 跑，宿主上 root 所属的目录
-      # 挂进去之后建档与写书签会全部失败：
+      # 数据落在 compose 同目录的 ./data。**首次拉起前先 chown**，否则建档与写书签全失败：
       #   sudo chown -R 65534:65534 ./data
       - ./data:/data
     environment:
       LAUNCHBAY_PORT: "7600"
       LAUNCHBAY_DATA_DIR: "/data"
-      # **这两行就是全部的令牌配置**，没有 `.env`、没有第二层变量。
-      # 要改就直接改这里，改完 `docker compose up -d` 重起。
-      #
-      # 管理员是一把**裸 key**（2026-10-12）——它不属于任何档案，于是浏览器那边
-      # 进管理页靠的是 `/admin/login` 输它，而不是"登进某个管理员档案"。
-      # 它**只管账号**（建档/删档/设 PIN/停用/看跨档案状态），**读不到任何人的书签**。
-      #
-      # ⚠ 下面那个值是**公开的默认口令**，源码里就有。谁 clone 谁都能拿它建档、删档、
-      #   给你改 PIN（那会让你登不进自己那份，虽然书签还在盘上）。同一局域网里认得这
-      #   个名字的人就能用。**换成你自己的**——这一行就是全部的配置，没有别处。
+      # 管理员是一把**裸 key**（不属于任何档案，浏览器那边靠 `/admin/login` 输它）。
+      # 它只管账号（建档/删档/设 PIN/停用/看跨档案状态），读不到任何人的书签。
+      # ⚠ 下面那个值是**公开的默认口令**，源码里就有：同一局域网里认得这个名字的人
+      #   就能建档、删档、给你改 PIN（那会让你登不进自己那份，书签还在盘上）。**换成你自己的。**
       LAUNCHBAY_ADMIN_TOKEN: "launchbay123"
-      #
-      # 档案作用域令牌：**默认留空**。书签页、管理页、回退、导入全都走会话 cookie，
-      # 一个令牌都不需要。只有这三样要它，而那三样本来就要人主动去装：
-      #
-      #   · 浏览器扩展（`extension/`，右键收藏与书签树导入）
-      #   · 命令行（`launchbay revert` / `import-bookmarks`）
-      #   · AI 与自动化脚本（`POST /api/v1/batch`）
-      #
-      # 要用的话，把下面这行填上再 `docker compose up -d`：
-      #   LAUNCHBAY_WRITE_TOKENS: "名字:密钥:档案"
-      # 档案段是**具体档案 id** 时，那一把只管那一份的读与写；误写别人的档案是 403。
-      # 档案 id 由名字派生（`Dad` → `dad`；中文名转不出 slug，会落到 `home`），
-      # 所以填完记得让它对上你真建出来的那一份。
+      # 档案作用域令牌，**默认留空**：书签页、管理页、回退、导入全走会话 cookie，一个令牌都不需要。
+      # 只有三样要它：浏览器扩展、`launchbay revert` / `import-bookmarks`、AI 与自动化脚本。
+      # 要用就填上再 `docker compose up -d`：名字:密钥:档案 —— 档案段写具体 id 时只管那一份。
+      # id 由名字派生（`Dad` → `dad`；中文名转不出 slug，落到 `home`），填完记得对上真建出来的那一份。
       LAUNCHBAY_WRITE_TOKENS: ""
       TZ: Asia/Shanghai
     restart: unless-stopped
-    # 静态二进制要的能力一个都没有：7600 是高位端口，不需要 CAP_NET_BIND_SERVICE；
-    # 唯一的写入目标是 /data 那个挂载，靠 uid 65534 的文件权限就够。全丢掉，再加
-    # no-new-privileges 堵住「容器里被塞进一个 setuid 就提权」那条路。
+    # 静态二进制一个能力都不需要：7600 是高位端口，唯一写入目标是 /data，靠文件权限就够。
+    # 再加 no-new-privileges 堵住「容器里被塞进 setuid 就提权」那条路。
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     healthcheck:
-      # scratch 里没有 shell，所以走 CMD-signal 之外的方式：让二进制自己探。
-      # 探的不只是 /healthz：`launchbay healthcheck` 会在 LAUNCHBAY_DATA_DIR
-      # 里建删一个临时文件——65534 用户碰到 root 所属的挂载目录（群晖常见）
-      # 时，只探 HTTP 会永远误报 healthy（评审 Important #9）。
-      # 前提：宿主那个目录需对该 uid 可写（chown -R 65534:65534），
-      # 不满足时这里要能看到 unhealthy，而不是装作能写——失败消息里带着
-      # 那条 chown 命令，读的人不用再猜是哪一侧的权限。
-      #
-      # **不写 start_interval**：那一条要 Docker Engine 25+（群晖 DSM 7.2 还是
-      # 24.x），为了早几秒变 healthy 去卡掉一批 NAS 用户不值。
       test: ["CMD", "/launchbay", "healthcheck"]
       interval: 30s
       timeout: 3s
