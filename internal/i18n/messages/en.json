@@ -260,5 +260,6 @@
   "import.outcome.conflict": "The profile changed underneath it. Try again.",
   "import.outcome.invalid": "%d entries failed validation, so nothing in this batch was written.",
   "import.outcome.snapErr": "The snapshot could not be written, so this import was called off.",
-  "import.outcome.unknown": "No reason was reported."
+  "import.outcome.unknown": "No reason was reported.",
+  "lang.hintLater": "Only an admin can change this later"
 }

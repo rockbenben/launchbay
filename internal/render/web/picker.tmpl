@@ -26,6 +26,10 @@
           {{range .Langs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
         </select>
       </label>
+      {{/* 这一格夹在 PIN 与「创建」之间，而人填完 PIN 的下一步就是按按钮——
+           不特意说一句，它基本会被跳过去，之后进管理页看见中文就以为不支持。
+           说清"装好之后还能改"而不是"这是可选的"：可选的东西人不会去看。 */}}
+      <p class="hint">{{.T "lang.hintLater"}}</p>
       <button type="submit">{{.T "picker.setup.submit"}}</button>
       {{/* 「这个人」指不到表单里的任何东西（字段叫「名称」）；「建完这一步就不能
            再建第二次」读起来像"这个按钮只能按一次"。说清是什么在关闭：这个页面。

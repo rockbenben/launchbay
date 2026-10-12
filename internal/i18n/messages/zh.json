@@ -260,5 +260,6 @@
   "import.outcome.conflict": "档案已经被改动过，请重试。",
   "import.outcome.invalid": "有 %d 条过不了校验，整批没有写入。",
   "import.outcome.snapErr": "快照写不下去，本次写入已取消。",
-  "import.outcome.unknown": "原因不明。"
+  "import.outcome.unknown": "原因不明。",
+  "lang.hintLater": "装好之后只有管理员能改"
 }
