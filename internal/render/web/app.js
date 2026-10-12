@@ -873,8 +873,14 @@ const APP_I18N = {
   }
 
   for (const li of document.querySelectorAll('li[data-item]')) {
-    const card = li.querySelector('.card');
-    if (!card) continue; // 坏档或非 http 的那一份不给把手（§12：不给做不到的承诺）
+    // 把手与拖拽挂在**这一行的主体**上：可点的地址是 .card，点不动的那几行是 .plain。
+    // 2026-10-12 之前这里只认 .card，注释写的是"非 http 的不给把手（不给做不到的承诺）"——
+    // 那句把两件事混成了一件：**打不开**是浏览器的限制，**改不了**不是。
+    // 就地编辑写的是 name/desc/url，与协议无关；把把手摘掉等于让一条 chrome://
+    // 或 file:// 的书签在界面上永远改不了名、换不了说明，而浏览器收藏夹导入
+    // 恰好会把这类地址成批收进来（AGENTS.md：file: 照收）。
+    const card = li.querySelector('.card') || li.querySelector('.plain');
+    if (!card) continue; // 两种形态都不是（坏档那一屏根本没有 li）才真的没有把手
     const pencil = el('button', {
       type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
@@ -924,7 +930,9 @@ const APP_I18N = {
     if (li.querySelector('form')) return;
     const a = li.querySelector('.card');
     const name = li.querySelector('b')?.textContent || '';
-    const url = a.getAttribute('href') || '';
+    // 地址从**这一行本来显示它的那个元素**上读：链接形态读 href，点不动的那一行
+    // 读 <code> 的文本（模板与复制键读的是同一处，不另抄一份 URL）。
+    const url = a ? (a.getAttribute('href') || '') : (li.querySelector('code')?.textContent || '').trim();
     const desc = li.querySelector('i')?.textContent || '';
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
