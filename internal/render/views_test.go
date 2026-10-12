@@ -209,7 +209,10 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// `input[type=file]`——它们过去不在任何名单里，于是提交按钮与文件选择框
 	// 都是 25px，浏览器实测才看出来。同一天补上的还有**所有可点的 `.badge`**：
 	// 它们是链接，可 §7.5 的 44px 一样管它们，此前一律 20px 高。
-	for _, want := range []string{"input[type=search]", "input[type=file]", ".search button", ".theme button", ".adm button", ".act button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add"} {
+	//
+	// `.langsel button`（2026-10-12）：界面语言那颗按钮住在自己的表单里，
+	// 同样一张族都没进——实测 24px，与它左边 44px 的下拉并排时像两个产品。
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {
@@ -629,7 +632,10 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 对应的 CSS 也清干净了——一条永不触发的规则比没有更糟：它看起来像在那里
 		// 守着。替代它们的是下面那条**导入页的触摸目标**——那一族过去不在名单里，
 		// 于是提交按钮与文件选择框都是 25px，同样是浏览器实测才发现的。
-		"确认/导入页的按钮入按钮族": `.adm button,.act button{`,
+		// 2026-10-12：按钮族末尾多了 `.langsel`（界面语言那颗「切换语言」住自己的
+		// 表单，同样一张族都没进，量出来 24px）。**逐字串跟着改了**——改选择器却不改
+		// 这条钉，下一个人加容器时它会红，而红的是"你得看看这条钉说的是哪一族"。
+		"确认/导入页的按钮入按钮族": `.adm button,.act button,.langsel button{`,
 		"文件选择框入输入族":     `input[type=search],input[type=file]{min-height:44px}`,
 		// 侧栏外壳（Task 6，spec §8.2）的 190px 常驻列是硬规格：grid-template-columns
 		// 的第一个值就是它。逐字串截到 minmax(0,1fr)，不钉后面的 gap/margin 顺序。
@@ -2079,7 +2085,10 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := stripCSSComments(string(raw))
-	joint := strings.Index(css, ".act button{")
+	// 锚点跟着 2026-10-12 按钮族末尾那个 `.langsel` 一起改了（见 硬规格在场 那条
+	// 逐字串的注释）。这里找的是**这条规则自身的位置**，所以锚在它的最后一段
+	// 选择器上：`.act button,` 已不再是末端，`.langsel button{` 才是。
+	joint := strings.Index(css, ".langsel button{")
 	danger := strings.Index(css, "button.danger{")
 	if joint < 0 || danger < 0 {
 		t.Fatalf("找不到要对比的两条规则（joint=%d danger=%d）：改名可以，但要连这条证人一起改", joint, danger)
