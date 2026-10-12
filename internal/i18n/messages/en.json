@@ -57,7 +57,7 @@
   "admin.count": "Profiles on this machine: %d. This page shows counts and times only — never what anyone has saved.",
   "admin.col.profile": "Profile",
   "admin.col.items": "Items",
-  "admin.col.rev": "rev",
+  "admin.col.rev": "Version",
   "admin.col.modified": "Last change",
   "admin.col.snapshots": "Snapshots",
   "admin.col.actions": "Actions",
