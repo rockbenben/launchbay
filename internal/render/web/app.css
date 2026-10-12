@@ -77,7 +77,19 @@ li{position:relative}
 .pencil{flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;font-size:13px;
   background:transparent;border:1px solid transparent;border-radius:8px;
   color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease}
-.card:hover .pencil,.pencil:hover,.pencil:focus-visible{opacity:1;border-color:var(--line);background:var(--card-hi)}
+.card:hover .pencil,.plain:hover .pencil,.pencil:hover,.pencil:focus-visible{opacity:1;border-color:var(--line);background:var(--card-hi)}
+/* 桌面这一档**静息不画把手**（2026-10-12）。用户要"更淡一些"，先量了一把：
+   .34 那档把手字形对卡片底只有 **1.82:1（暗）/ 1.70:1（亮）**，已经远低于
+   非文本控件的 3:1——再降透明度得到的不是"淡"，是"看不见一个本来就存在的功能"。
+   所以吵的来源不是**强度**而是**重复**：取景数到 556 枚常驻 ✎，每行一枚。
+   能同时满足"降噪"与上一轮那条判据（触摸设备与键盘用户要够得到）的写法是按指针能力分档：
+   有 hover 的精确指针 → 静息不画，指到这一行、或键盘走进这一行（li:focus-within）才显形；
+   触摸/粗指针 → 一字不改地常驻 .34。上一轮删掉的是"hover 才出现且触摸也看不见"，
+   不是"hover 时出现"本身——那条理由在触摸上不成立，这一版把它限定在不成立的那一档。 */
+@media (hover:hover) and (pointer:fine){
+  .pencil{opacity:0}
+  li:focus-within .pencil,.card:hover .pencil,.plain:hover .pencil{opacity:1}
+}
 /* 不可点地址（chrome:// 、file:// …）那一行的复制键。**与 .pencil 同一张脸**：
    44×44 的幽灵键、--ink2 的字、悬停才画框——它是「这一条有个动作」，不是
    「这一条有问题」，所以不穿警告橙。跟着 .pencil 一起静息压到 .34 是有意的：
