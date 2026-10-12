@@ -72,8 +72,29 @@ body::before{content:"";position:fixed;inset:-120px;z-index:-1;
    它与正文错开一百多像素。`flex-wrap` 那套布局一个字没动，只是被装进了同宽的盒子里。 */
 header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;
   max-width:1600px;margin:0 auto 18px;padding:0 16px}
-header h1{flex:1 1 auto;min-width:0;margin:0;font-size:19px;
+header h1{flex:0 1 auto;min-width:0;margin:0;font-size:19px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 「改名」那一格（顶栏标题旁边）。h1 从 `flex:1 1 auto` 收成 `0 1 auto`：
+   它以前要吃掉整行余量，那样"改名"那颗会被推到搜索框跟前去、看着像搜索区的东西；
+   余量交给 nav（它本来就是 `flex:1 0 auto` + 右对齐），这颗就贴着它管的标题。
+   长标题仍然截——`min-width:0` 加 ellipsis 一个字没动。 */
+.rename{flex:0 0 auto}
+/* 44px 不在这里写：summary 已经在那条「导航族」的联合规则里（见下面
+   `.gnav a,summary,...{min-height:44px}`），再开一条就成了第 7 条 44px 规则，
+   而那条闸只许六族各一条。 */
+.rename>summary{display:flex;align-items:center;padding:0 10px;
+  font-size:12px;color:var(--ink2);cursor:pointer;list-style:none;
+  border:1px solid transparent;border-radius:9px}
+.rename>summary:hover{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
+/* 展开时**独占一行**：一张两格的表单挤在标题那一行里会把顶栏撑成三行，
+   而它是"改一下这一页叫什么"，不是常驻控件——展开、填、存，然后回到一行。 */
+.rename[open]{flex:1 0 100%;border:1px solid var(--line);border-radius:12px;
+  background:var(--card);padding:8px 12px}
+.rename[open]>summary{margin-bottom:4px}
+.rename form{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.rename label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);flex:0 0 auto;white-space:nowrap}
+.rename input{flex:1 1 220px;min-width:0}
+.rename .hint{flex:1 0 100%;margin:0;font-size:12px}
 /* 顶栏的档案徽标组。**它要参与吃余量**（flex:1 0 auto + 右对齐），不是为了把
    徽标推远，而是为了**换行时仍然靠右**：窄屏上顶栏会折行，折下来的那一行没有 h1
    帮它吃掉余量，`flex:0 0 auto` 的 nav 就会孤零零落到**左端**——看上去像标题的
@@ -558,6 +579,13 @@ select,input[type=password],input[type=text],input[type=search],input[type=file]
    inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。
    （顶栏与表格里它们本来就是 grid/flex item，不需要这一条。） */
 a.badge,button.badge{display:inline-flex;align-items:center}
+/* 顶栏那枚现在印的是**档案名**（2026-10-12：页面名挪去 h1 之后，"我在谁的台上"
+   需要一常驻的落点）。名字是用户起的，一家人里出现过 11 个字的档案名，
+   所以它要能截——但 `inline-flex` 的容器上 text-overflow 管不到那个匿名文本项，
+   这一颗改回 inline-block 并用上下内衬凑那 44px（家族规则那条 min-height 仍在）。
+   上限给的是 `44vw`：窄屏上顶栏折行时，一枚比屏幕还宽的档案名会把整行推出去。 */
+.profmenu .badge{display:inline-block;max-width:min(260px,44vw);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:14px 12px;line-height:1.2}
 /* 管理页表格（spec §8.8）。表头随档案数不动，所以不 sticky；
    forced-colors 下靠 border 分行，颜色不是唯一载体（§7.5）。
    .adm button 的外观与 44px 由上面那条 joint 规则一起给，这里不再开第二条。 */

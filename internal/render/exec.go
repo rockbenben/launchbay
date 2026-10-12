@@ -244,6 +244,17 @@ type profileData struct {
 type profileView struct {
 	i18nView
 	Profile *model.Profile
+	// PageTitle 是**顶栏那行大字与浏览器标签页的前半**：这一页叫什么。
+	// 它取自 Profile.PageTitle（台面偏好，与 theme/layout 同族），空则按界面语言
+	// 给一个通用默认（`profile.title.default`）——默认值**只在渲染时算，不落盘**：
+	// 往档案里编一个字，等于让"没起过名字"与"名字正好等于那个字"两件事分不开，
+	// 而 store/load.go 那条"停止编造默认值"判的就是这个。
+	//
+	// 它不是 Profile.Title（那是"这是谁的那一份"）。2026-10-10 那轮把顶栏从
+	// Bookmarks.Title 换成档案名，是因为当时 Bookmarks.Title 是一个所有人共用的
+	// 常量「发射台」——那一格今天仍然不是这一页的名字（见 model.Profile.PageTitle
+	// 那段"为什么不住在那里"）。
+	PageTitle string
 	// Theme 落成 <html data-theme>，但**只带显式选择**：auto|dark|light 里
 	// "auto" 在这里被归一成空串，属性根本不发（见 themeAttr）。
 	// 只从已经拿在手里的 Profile 取值：渲染一页绝不许再读一次 profile.json。
@@ -576,6 +587,11 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
+	// 这一页的名字：起了就用，没起就按语言给通用默认（见 profileView.PageTitle）。
+	v.PageTitle = strings.TrimSpace(p.PageTitle)
+	if v.PageTitle == "" {
+		v.PageTitle = v.T("profile.title.default")
+	}
 	for _, g := range fb.Groups {
 		// 分组色只在这里算一次（唯一真相）：条目身上只带 --chip-h，
 		// 分组色经 --sec-accent 进 CSS，挂载点两处（section 与侧栏色点），

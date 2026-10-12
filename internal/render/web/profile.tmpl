@@ -3,16 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{.Profile.Title}}</title>
+<title>{{.PageTitle}} · {{.Profile.Title}}</title>
 <style>{{.CSS}}</style>
 </head>
 <body data-profile-layout="{{.Profile.Layout}}" data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
 <header>
-  {{/* 顶栏标题是**档案名**，不是 Bookmarks.Title。原来这里印的是书签文档的标题，
-       而建档时它是常量「发射台」（store.EmptyBookmarks）——三个人的台子顶栏同名，
-       身份只挂在右上角那枚 57px 宽的徽章里，进门之后认不出自己在谁的台上。
-       Bookmarks.Title 仍在数据里（导出/导入会带上），只是不再占用这一格。 */}}
-  <h1 title="{{.Profile.Title}}">{{.Profile.Title}}</h1>
+  {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「改名」那一格里改），
+       空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
+       都写上（`页面名 · 档案名`）——切换标签页时认的是后者，看内容时读的是前者。
+
+       这一格从前是档案名（2026-10-10 的改判），因为那时唯一的候选是
+       Bookmarks.Title，而它是一个所有人共用的常量「发射台」：三个人的台子顶栏
+       同名，进门之后认不出自己在谁的台上。今天档案名挪到了右上角那颗常驻的
+       徽标上（见下面 profmenu 那段），"认人"这一维没有丢，只是不再占用标题那一格。 */}}
+  <h1 title="{{.PageTitle}}">{{.PageTitle}}</h1>
+  {{/* 改名：**零脚本的两步**（<details> 展开一张表单，POST /prefs）。
+       不做成"点标题就地编辑"的 JS 控件：那一族（⑤）关掉脚本就整条消失，
+       而这一格改的是这个档案长期显示的名字，值得一条没有脚本也走得通的通路。
+       与主题那颗按钮同一个落点（/prefs 只改自己），不进 batch：档案级的 title
+       走 batch 要为它破"set 路径必须以 groups 开头"那条判据，不值。 */}}
+  <details class="rename">
+    <summary>{{.T "profile.rename.summary"}}</summary>
+    <form method="post" action="/prefs">
+      <label>{{.T "profile.rename.label"}}
+        <input name="title" type="text" maxlength="60" autocomplete="off"
+          value="{{.Profile.PageTitle}}" placeholder="{{.T "profile.title.default"}}">
+      </label>
+      <p class="hint">{{.T "profile.rename.hint" (.T "profile.title.default")}}</p>
+      <button type="submit">{{.T "profile.rename.save"}}</button>
+    </form>
+  </details>
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
     <button type="submit">{{.T "profile.search.submit"}}</button>
@@ -42,16 +62,22 @@
 
          仍然是表单而不是 href：`/switch` 是 POST-only 通路，首屏不许有
          href="/switch"，views_test.go 的死链钉守着这条。 */}}
-    {{/* 档案徽标：**只说动作，不重复名字**。它原来印的就是 {{.Profile.Title}}，
-         而顶栏左边那个 19px 的 h1 已经用同一个词说过一遍——屏幕上出现两个"Dad"，
-         而它自己是零 JS 下**唯一**能离开这一页的出路（/switch 是 POST-only，
-         首屏不许有 href="/switch"，views_test.go 的死链钉守着）。
+    {{/* 档案徽标：印的是**档案名**，动作在 title 与 aria-label 里。
 
-         更要紧的是可访问名：一个只念"Dad"的按钮，读屏用户听到的是一个名字而不是
-         一个动作。改成"换档案"之后，身份归 h1、动作归按钮，两边各说各的。 */}}
+         2026-10-12 这一格改成"只说动作、不重复名字"，因为那时它左边那个 h1 印的
+         就是同一个档案名——屏幕上出现两个「爸爸的台」。顶栏让给页面名之后，
+         这句重复不成立了，而"我在谁的台上"这件事需要一常驻的落点（它原来是 h1）。
+         所以名字回到这里，动作留给 title/aria-label。
+
+         aria-label 用「%s · 换档案」而不是光「换档案」：可见文字必须是可及名的
+         一部分（WCAG 2.5.3 Label in Name）——语音输入的人念的是屏幕上那句
+         「爷爷奶奶的外婆家备用台」，一个只叫「换档案」的按钮他点不到。
+
+         仍然是表单而不是 href：`/switch` 是 POST-only 通路，首屏不许有
+         href="/switch"，views_test.go 的死链钉守着这条。 */}}
     <form method="post" action="/switch" class="profmenu">
       <input type="hidden" name="to" value="picker">
-      <button type="submit" class="badge" title="{{.T "profile.switch.title"}}">{{.T "profile.switch"}}</button>
+      <button type="submit" class="badge" title="{{.T "profile.switch.title"}}" aria-label="{{.T "profile.switch.named" .Profile.Title}}">{{.Profile.Title}}</button>
     </form>
     {{/* 管理入口（2026-10-12）：判据从「这个档案是不是管理员」换成「这次请求是不是
          带着一把真的管理权」（lb_admin）。于是管理员可以**一边用自己的档案看书签、

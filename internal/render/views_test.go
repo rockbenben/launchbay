@@ -1063,8 +1063,23 @@ func TestProfilePage_顶栏主题表单交得出合法值(t *testing.T) {
 			t.Fatal(err)
 		}
 		body := string(mustRender(t, s, "dad"))
-		if got := strings.Count(body, `<form method="post" action="/prefs"`); got != 1 {
-			t.Fatalf("theme=%s：顶栏要恰好一张主题表单，got %d", theme, got)
+		// 钉的是"**带 theme 字段的那张表单**恰好一张"，不是"/prefs 表单恰好一张"：
+		// 2026-10-12 顶栏多了「改名」那一格，它也 POST /prefs（同一族、同样只改自己）。
+		// 按 action 数会把两件不同的事数成一件事，按字段数才是在说"主题通路没被复制"。
+		var withTheme, withTitle int
+		for _, f := range regexp.MustCompile(`(?s)<form method="post" action="/prefs".*?</form>`).FindAllString(body, -1) {
+			if strings.Contains(f, `name="theme"`) {
+				withTheme++
+			}
+			if strings.Contains(f, `name="title"`) {
+				withTitle++
+			}
+		}
+		if withTheme != 1 {
+			t.Fatalf("theme=%s：顶栏要恰好一张带 theme 的表单，got %d", theme, withTheme)
+		}
+		if withTitle != 1 {
+			t.Fatalf("theme=%s：顶栏要恰好一张改名表单（带 title 字段），got %d", theme, withTitle)
 		}
 		m := hiddenThemeRE.FindStringSubmatch(body)
 		if m == nil {

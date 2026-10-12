@@ -220,7 +220,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar，两个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：两个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是 theme 还是 layout；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。",
+        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar，两个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：两个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是 theme 还是 layout；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名）。三个字段一个都不给才 422；给了 title 而没给 theme/layout 是合法的一半。",
         "requestBody": {
           "required": true,
           "content": {
@@ -242,6 +242,11 @@
                       "sidebar",
                       "topbar"
                     ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "**这一页叫什么**（顶栏那行大字与浏览器标签页的前半），落 profile.json 的 pageTitle，与 theme/layout 同族。空串 = 清除：顶栏回到按界面语言的通用默认（中文「我的书签」/英文「My bookmarks」），默认值只在渲染时算、不写进盘。超过 60 个字 → 422 点名 title。它**不是** bookmarks.json 里那个 title 字段——改页面名不产生 rev、不写快照、不动书签数据。"
                   }
                 }
               }

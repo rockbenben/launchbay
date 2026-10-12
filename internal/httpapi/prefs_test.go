@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -248,5 +249,70 @@ func TestPrefs_拒绝文案就是model的枚举表(t *testing.T) {
 				t.Errorf("%s 的拒绝语 %q 没列出 model 里的 %q", c.field, got, v)
 			}
 		}
+	}
+}
+
+// 「这一页叫什么」那一格：改名立刻看得见、空着清除、超长点名拒。
+//
+// 它住在 profile.json（与 theme/layout 同族）而不是 bookmarks.json 的 Title 字段里，
+// 这条测试就是那一步的证人：改完之后**书签的 rev 一个字都不许动**——
+// 起个名字不是改数据，不该产生一版可回退的快照。
+func TestPrefs_页面名改得动清空回默认且不碰rev(t *testing.T) {
+	s, h := setup(t)
+	before, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := get(h, "/", dadFormCookie)
+	if !strings.Contains(page.Body.String(), "<h1 title=\"我的书签\">我的书签</h1>") {
+		t.Fatalf("没起名字时顶栏要用通用默认「我的书签」:\n%.400s", page.Body.String())
+	}
+	if rec := postForm(h, "/prefs", "title=影音室", dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("只改 title 要 303（它也是「给了一个字段」），得到 %d: %s", rec.Code, rec.Body)
+	}
+	p, err := s.LoadProfile("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.PageTitle != "影音室" {
+		t.Errorf("盘上 pageTitle = %q，要 影音室", p.PageTitle)
+	}
+	after, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Rev != before.Rev {
+		t.Errorf("改个页面名字不该产生新 rev：%d → %d", before.Rev, after.Rev)
+	}
+	body := get(h, "/", dadFormCookie).Body.String()
+	if !strings.Contains(body, "<h1 title=\"影音室\">影音室</h1>") {
+		t.Error("改了名而顶栏没变：缓存键少了 profile.json 的指纹")
+	}
+	// 标签页两件都要说：页面名在前，档案名在后（切标签页认的是"谁的台"）。
+	// 夹具里那份档案叫「爸爸」（handlers_test 的 setup），不是渲染侧的字面量。
+	if m := regexp.MustCompile(`<title>([^<]*)</title>`).FindStringSubmatch(body); m == nil || m[1] != "影音室 · 爸爸" {
+		t.Errorf("标签页要写「页面名 · 档案名」，得到 %#v", m)
+	}
+	// 空 = 清除，回到默认；不是"保持原样"。
+	if rec := postForm(h, "/prefs", "title=", dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("清空要 303，得到 %d", rec.Code)
+	}
+	if p, _ := s.LoadProfile("dad"); p.PageTitle != "" {
+		t.Errorf("清空后盘上还剩 %q", p.PageTitle)
+	}
+	if body := get(h, "/", dadFormCookie).Body.String(); !strings.Contains(body, "我的书签") {
+		t.Error("清空后顶栏没回到通用默认")
+	}
+	// 超长点名拒，且不落盘。
+	long := "title=" + strings.Repeat("长", 61)
+	rec := postForm(h, "/prefs", long, dadFormCookie)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("61 个字要 422，得到 %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"field": "title"`) {
+		t.Errorf("422 要点名 title:\n%s", rec.Body.String())
+	}
+	if p, _ := s.LoadProfile("dad"); p.PageTitle != "" {
+		t.Errorf("被拒的那次不许写盘，盘上成了 %q", p.PageTitle)
 	}
 }

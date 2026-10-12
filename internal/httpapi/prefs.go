@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -22,6 +23,10 @@ import (
 //
 // 为什么不写历史行：它不动书签、不产生 rev，与"改自己 PIN"同类。四条不写
 // 审计行的动作一起记在 spec §15，防止下一个人在这里"顺手补一行"。
+// maxPageTitleRunes 是"这一页叫什么"那一格的长度上限。按**字**（rune）数而不是
+// 按字节：这一格写中文是常态，按字节算会让中文比英文少 3 倍额度而没人说得清为什么。
+const maxPageTitleRunes = 60
+
 func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	sess := auth.ReadSession(r)
 	if _, _, ok := s.require(r, credSession, sess.Active); !ok {
@@ -40,12 +45,14 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	theme, hasTheme := r.Form["theme"]
 	layout, hasLayout := r.Form["layout"]
-	if !hasTheme && !hasLayout {
+	title, hasTitle := r.Form["title"]
+	if !hasTheme && !hasLayout && !hasTitle {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Field: "theme", Reason: "要带 theme 或 layout 至少一个"},
-			{Field: "layout", Reason: "要带 theme 或 layout 至少一个"},
+			{Field: "theme", Reason: "要带 theme、layout 或 title 至少一个"},
+			{Field: "layout", Reason: "要带 theme、layout 或 title 至少一个"},
+			{Field: "title", Reason: "要带 theme、layout 或 title 至少一个"},
 		})
 		return
 	}
@@ -58,6 +65,16 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	if hasLayout && (len(layout) != 1 || !model.ValidLayout(layout[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			[]fieldError{{Field: "layout", Reason: "只能是 " + strings.Join(model.LayoutValues, "|")}})
+		return
+	}
+	// title 是**这一页叫什么**（profile.PageTitle），不是"这是谁的那一份"。
+	// 上限必须在服务端判：表单那个 maxlength 只有浏览器认，而 curl 与扩展不认——
+	// 这一格会进每一张档案页的 <h1> 与 <title>，一条几 KB 的名字等于把首屏撑大。
+	// 空串是**合法值**，意思是"没起过名字"：渲染侧按界面语言给通用默认，
+	// 不往盘里编一个字（清名字与改名走同一格表单）。
+	if hasTitle && (len(title) != 1 || len([]rune(title[0])) > maxPageTitleRunes) {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Field: "title", Reason: fmt.Sprintf("最多 %d 个字，空着 = 用默认名", maxPageTitleRunes)}})
 		return
 	}
 	var saveErr error
@@ -75,6 +92,10 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		if hasLayout {
 			p.Layout = layout[0]
+		}
+		if hasTitle {
+			// 空串照旧写下去（= 清除），不是"没给"：没给的是 !hasTitle 那一支。
+			p.PageTitle = strings.TrimSpace(title[0])
 		}
 		saveErr = s.deps.Store.SaveProfile(p)
 		return nil

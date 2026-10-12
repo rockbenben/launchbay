@@ -124,7 +124,8 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 				Content map[string]struct {
 					Schema struct {
 						Properties map[string]struct {
-							Enum []string `json:"enum"`
+							Enum      []string `json:"enum"`
+							MaxLength *int     `json:"maxLength"`
 						} `json:"properties"`
 					} `json:"schema"`
 				} `json:"content"`
@@ -136,9 +137,12 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	}
 	form := doc.Paths["/prefs"]["post"].RequestBody.Content["application/x-www-form-urlencoded"]
 	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues}
-	// 解析器不许空转：两个字段都得真的带出 enum，否则下面的循环一次都不跑。
-	if len(form.Schema.Properties) != 2 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 2 个（theme/layout）：形状变了这条正在空转",
+	// 解析器不许空转：带 enum 的两个字段都得真的带出 enum，否则下面的循环一次都不跑。
+	// 2026-10-12 起 /prefs 有**三个**字段——多出来的 `title` 是页面名（无枚举，
+	// 只有 maxLength），所以这里数的是"两个带 enum 的 + 一个带 maxLength 的"，
+	// 而不是笼统的 2：形状变了这条要能指出变的是哪一格。
+	if len(form.Schema.Properties) != 3 {
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 3 个（theme/layout/title）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {
@@ -146,6 +150,13 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 		if strings.Join(got, ",") != strings.Join(w, ",") {
 			t.Errorf("openapi 里 %s 的枚举 = %v，model 的表是 %v", field, got, w)
 		}
+	}
+	if _, ok := form.Schema.Properties["title"]; !ok {
+		t.Fatal("/prefs 的 schema 里没有 title 这一格：端点收了它而契约不说，就是文档骗 AI")
+	}
+	// 上限要**钉在契约里**并且钉的是那个数：只写"有 maxLength"等于放开到任何值都算过。
+	if got := form.Schema.Properties["title"].MaxLength; got == nil || *got != 60 {
+		t.Errorf("openapi 里 title 的 maxLength = %v，要 60（与 prefs.go 的 maxPageTitleRunes 同源）", got)
 	}
 }
 

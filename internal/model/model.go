@@ -83,4 +83,17 @@ type Profile struct {
 	CreatedAt string `json:"createdAt"`
 	Theme     string `json:"theme"`
 	Layout    string `json:"layout"`
+	// PageTitle 是**这一页叫什么**（顶栏那行大字与浏览器标签页的前半），
+	// 与上面的 Title（**这是谁的那一份**）是两件事：一家人共用一台机器时，
+	// 「爸爸的台」回答的是"谁"，而这一页本身可以叫"我的书签"、"影音室"、
+	// "工作用的那些"。空 = 没起过，渲染侧按界面语言给一个通用默认
+	// （`profile.title.default`），**不往盘里编一个值**——与 Theme 那格
+	// "缺字段就是默认"同一形状（store/load.go 那条"停止编造默认值"的判据）。
+	//
+	// 为什么不住在 `Bookmarks.Title` 里：那一格是**书签文档**自己的标题，
+	// 跟着导出/导入走、改它要过 rev 与快照（它是那份数据的一部分），
+	// 而"这一页显示什么名字"与 theme/layout 同类——是台面偏好，不是数据。
+	// 住进 profile.json 还顺带避开了"batch 的 set 路径必须以 groups 开头"
+	// 那条判据要不要为档案级字段开特例的问题。
+	PageTitle string `json:"pageTitle"`
 }
