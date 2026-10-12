@@ -135,7 +135,7 @@ func TestAddUsageOnProfileWithoutBookmarksFileStillWorks(t *testing.T) {
 	if _, err := s.CreateProfile(NewProfileInput{ID: "dad", Title: "爸爸", PinHash: "h"}); err != nil {
 		t.Fatal(err)
 	}
-	// CreateProfile 会连带写一份 rev 0 的 bookmarks.json（profile.go:78），
+	// CreateProfile 会连带写一份 rev 0 的 bookmarks.json（它那次 SaveBookmarks），
 	// 所以这里手工删掉它，模拟"档案在、书签还没落过盘"（人或 AI 清了文件）。
 	if err := os.Remove(s.BookmarksPath("dad")); err != nil {
 		t.Fatal(err)

@@ -209,11 +209,11 @@ details[open]>summary::before{content:"▾"}
      触摸目标），摞起来白占一屏的 8%，而它们说的是同一件事——上面那行就是
      "分组"这两个字的展开。并排后整条只剩一行高，分组名仍然横向可滚。
      写成 `.side .drawer` 而不是 `.drawer`：解释页那个 <details> 是"细节块"，
-     它的 summary 该自己占一行（base.css:101 那条理由）。
+     它的 summary 该自己占一行。
 
      **这一条从前是 display:flex，实测是坏的**（2026-10-12 取景量出来）：390 宽上
      那条分组带按内容撑到 747px，`min-width:0` 与 `flex:1 1 0` 两种写法都收不住它
-     （现场改样式逐种量过，见 design-preview/batch3.html 的 P1），于是
+     （在浏览器里现场改样式逐种量过），于是
      `documentElement.scrollWidth` = 845 —— **整页横向可滚**，手机上一条能横向滚的
      页面会把人的第一反应变成"我划错了什么"。换成 grid 把第二轨钉成
      `minmax(0,1fr)`：同一行高 58px 不变、文档宽回到 390、分组带在自己那 245px 里

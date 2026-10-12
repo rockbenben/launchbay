@@ -127,7 +127,7 @@ func TestUsageUnknownIdsAreReportedNotRejected(t *testing.T) {
 }
 
 // spec §12：`?profile=` 指向不存在的档案 → 404，与"无权限"分开返回
-// （batch.go:154 同口径，read.go/admin.go 各有证人）。修复前这一条是
+// （与 batch.go 里那句 `404 "档案不存在"` 同口径，read.go/admin.go 各有证人）。修复前这一条是
 // 200 + 盘上多出 profiles/ghost/：里面只有 usage.json，ListProfiles 列不出、
 // DELETE /profiles 删不掉，下一个用同一 id 建档的人继承死人的点击史
 // （评审 Critical）。

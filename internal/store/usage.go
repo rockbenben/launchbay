@@ -80,7 +80,8 @@ func (s *Store) AddUsage(id string, ids []string, at string) (*Usage, []string, 
 		if err != nil {
 			// 原样传播，**不**吞 ErrNotFound（评审 Critical）：LoadBookmarks
 			// 只在 profile.json 同时缺失时才报它——"档案在、bookmarks.json
-			// 还没落过盘"走的是 EmptyBookmarks 那条空档案分支（load.go:86）。
+			// 还没落过盘"走的是 EmptyBookmarks 那条空档案分支（LoadBookmarks 里那句
+			// `return EmptyBookmarks(), nil`）。
 			// 所以旧代码那句吞法换不来空档案，只换来幽灵目录：给一个不存在
 			// 的 id 在 profiles/<id>/ 造出只有 usage.json 的目录，
 			// ListProfiles 既列不出也标不了坏，DELETE /profiles 删不到它，
