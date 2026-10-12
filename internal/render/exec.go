@@ -220,7 +220,7 @@ type pickerView struct {
 	Setup        bool
 	// HasAdmin 只决定要不要画那个进管理页的口子（2026-10-12）。判据在 httpapi
 	// （这次请求有没有一把真的 lb_admin），模板不判断——没管理权的人看见那个
-	// 格子只会去点一个 303。
+	// 格子只会落到登录页。管这台机器是另一件事，不该在没有管理权时把入口画出来。
 	HasAdmin bool
 	// Blocked 与 .Entries 是同一件事的两半：读得动的给卡，读不动的在这一页点名并
 	// 说明为什么进不去（死路①）。只能给 id——标题就住在读不动的那个文件里，编一个是假话。
@@ -429,12 +429,15 @@ func shortTime(lang, s string) string {
 // profile 的 query 是服务端过滤的输入（spec §8.1）：判据只在 filter.go 那一份，
 // 这里只负责把过滤后的 Groups 烤成视图、把命中数与总数交给模板。
 //
-// home 是"这个会话当初是谁验证进来的"，管理横幅要报它的显示名。横幅的**判据
-// 只有一处**：render.go 的 ProfilePage 只在 home 非空且不等于主角时才读 home
-// 那份 profile.json 并把对象传下来，所以到这里 "home != nil" 就是"这是代管态"
-// 这句话本身。这里不再补一次 `home.ID != p.ID`：同一句话写两遍，第二遍永远
-// 不可能被单独改坏（删掉它测试照样绿），留着等于一条没有证人的保险丝。
-// 权限判断（谁是管理员）不在这里、更不在模板：模板只 {{with}} 一次。
+// **这里曾经有一个 `home` 参数**，它是"这个会话当初是谁验证进来的"，供管理横幅
+// 报显示名。代管态 2026-10-10 整条下线之后，ProfilePage 不再读第二份
+// profile.json，这个参数与那条横幅一起没了——**它连同 `profileView.Home`
+// 一起删除，不是留下的**（2026-10-12 复核时这段注释还在描述那个已经不存在的参数，
+// 紧挨着一个没有 `home` 的函数签名，是那种"照着它加回去就会编译不过"的注释）。
+//
+// 现在这里唯一的身份格是 hasAdmin：顶栏那枚「管理」徽标画不画由它决定，
+// 判据在 httpapi（本次请求有没有一把真的管理权），进缓存键的理由见 cacheKey。
+// 权限判断不在这里、更不在模板。
 func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, cat *i18n.Catalog) ([]byte, error) {
 	fb, hits, total := matches(query, b)
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,

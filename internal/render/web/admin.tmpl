@@ -13,9 +13,10 @@
 </header>
 <main role="main">
   {{/* 一行一个档案 + 条目数 + rev + 最近改动时间（spec §8.8）。这一页的存在
-       本身就是敏感信息，所以它 no-store、非管理员 303，且**一个条目内容都不带**：
-       只有数量。id 与 title 并列在名字格里——id 是 /switch 与 API 寻址用的
-       handle，坏档案那行 profile.json 读不出 title 时也要留得下定位信息。*/}}
+       本身就是敏感信息，所以它 no-store、**没有管理权时另渲染登录页**（200，不是
+       303——2026-10-12 起管理员不再挂在任何档案上，见 adminlogin.tmpl），且
+       **一个条目内容都不带**：只有数量。id 与 title 并列在名字格里——id 是 API
+       寻址用的 handle，坏档案那行 profile.json 读不出 title 时也要留得下定位信息。*/}}
   {{/* 提示放在表之前：与进门页同一条理由——读屏的人不该先听完一整表
        才知道刚才那条没建上。文案由 httpapi 的白名单给，这里只印。 */}}
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}

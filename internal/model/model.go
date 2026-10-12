@@ -64,8 +64,12 @@ type Profile struct {
 	// （LAUNCHBAY_ADMIN_TOKEN），不属于任何档案，于是"这个档案是不是管理员"
 	// 这个问题不再有答案，也不该有。
 	//
-	// 升级前落盘的 profile.json 里那个 `"admin": true` 会被 encoding/json 当
-	// 未知字段丢掉——不需要迁移脚本，重新写盘之后它自然消失。
+	// 升级前落盘的 profile.json 里那个 `"admin": true` **会**被解码器判成坏档——
+	// `store.decodeProfile` 对未知键是严格的，而它必须严格（否则坏档再也发现不了，
+	// rebuild 那条通路的判据来源就没了）。`admin` 是**唯一**被放过的那一格，后门在
+	// `store/load.go`，理由与升级兼容的证人都在 `store/upgrade_compat_test.go`：
+	// 不开后门的话，升级前落盘的每一个 profile.json 一起变成坏档，全家谁都进不去。
+	// 不需要迁移脚本——下一次写盘时它自然消失。
 	// Disabled 是"停用"，不是"删掉"（2026-10-10）：停用的档案数据一个字节不动、
 	// 仍占 CountProfiles 的位置（引导窗口不会重开），但输对 PIN 也进不去。
 	// 删档不可逆——`revert` 救不了它，快照跟着档案一起没了；而"某人暂时不用了"

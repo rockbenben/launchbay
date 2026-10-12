@@ -40,16 +40,25 @@ services:
       # 管理员是一把**裸 key**（2026-10-12）——它不属于任何档案，于是浏览器那边
       # 进管理页靠的是 `/admin/login` 输它，而不是"登进某个管理员档案"。
       # 它**只管账号**（建档/删档/设 PIN/停用/看跨档案状态），**读不到任何人的书签**。
-      # 默认值是公开的：同一局域网里认得这个名字的人能拿它建档、删档、给别人改 PIN。
-      # 要把这台机器开给局域网以外的人，先把它换成自己的。
-      LAUNCHBAY_ADMIN_TOKEN: "change-me-admin-token"
       #
-      # 档案作用域令牌：每条三段式 `名字:密钥:档案`，逗号分隔。
-      # 档案段是**具体档案 id** 时，这把令牌只管那一份的读与写。
-      # 拿中文名字建档时 id 派生不出 slug，会落到 `home` / `home-2`——那时下面那枚
-      # `…:dad` 对不上任何档案，打过去是 403（"令牌越界"，不是服务坏了），把 `dad`
-      # 改成实际的档案 id 即可。
-      LAUNCHBAY_WRITE_TOKENS: "ai-dad:change-me-dad-token:dad"
+      # ⚠ 下面那个值是**公开的默认口令**，源码里就有。谁 clone 谁都能拿它建档、删档、
+      #   给你改 PIN（那会让你登不进自己那份，虽然书签还在盘上）。同一局域网里认得这
+      #   个名字的人就能用。**换成你自己的**——这一行就是全部的配置，没有别处。
+      LAUNCHBAY_ADMIN_TOKEN: "launchbay123"
+      #
+      # 档案作用域令牌：**默认留空**。书签页、管理页、回退、导入全都走会话 cookie，
+      # 一个令牌都不需要。只有这三样要它，而那三样本来就要人主动去装：
+      #
+      #   · 浏览器扩展（`extension/`，右键收藏与书签树导入）
+      #   · 命令行（`launchbay revert` / `import-bookmarks`）
+      #   · AI 与自动化脚本（`POST /api/v1/batch`）
+      #
+      # 要用的话，把下面这行填上再 `docker compose up -d`：
+      #   LAUNCHBAY_WRITE_TOKENS: "名字:密钥:档案"
+      # 档案段是**具体档案 id** 时，那一把只管那一份的读与写；误写别人的档案是 403。
+      # 档案 id 由名字派生（`Dad` → `dad`；中文名转不出 slug，会落到 `home`），
+      # 所以填完记得让它对上你真建出来的那一份。
+      LAUNCHBAY_WRITE_TOKENS: ""
       TZ: Asia/Shanghai
     restart: unless-stopped
     # 静态二进制要的能力一个都没有：7600 是高位端口，不需要 CAP_NET_BIND_SERVICE；

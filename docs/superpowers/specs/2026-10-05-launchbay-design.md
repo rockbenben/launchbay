@@ -22,6 +22,30 @@
 > **`docs/superpowers/specs/2026-10-10-launchbay-admin-boundary-design.md`**。
 > 下面正文一字未改——它是"当时为什么那么设计"的记录，而这一段是
 > "现在哪些不作数了"。两段一起读，才是今天的真相。
+>
+> ---
+>
+> **2026-10-12 又一轮：管理员不再依附于任何档案。** 上面那段写的"`*` 管理员令牌"
+> 这个形状作废了，现在的形状是：
+>
+> - **`LAUNCHBAY_ADMIN_TOKEN`** —— 一把机器级的裸 key。浏览器那边进管理页靠
+>   `POST /admin/login` 交它一次，服务端发一条 `lb_admin` cookie（**装的是 HMAC
+>   派生值，不是 key 本身**；原始 key 只在那一次 POST 里出现过）。`POST /admin/logout`
+>   只清这一条，不动 `lb_profile`——管理员可能同时登着自己的档案在用书签。
+> - **`LAUNCHBAY_WRITE_TOKENS`** —— 只放档案作用域令牌 `name:secret:profile`，
+>   **档案段写 `*` 是硬报错**（会指名让你换到 `LAUNCHBAY_ADMIN_TOKEN`）。**空值合法**：
+>   这台机器没有给扩展/CLI/AI 发写权限，服务照常起；管理员那把才是必填的。
+> - **档案上没有 `admin` 字段**了，`profile.json` 里升级前留下的那个
+>   `"admin": true` 被解码器放过（下次写盘消失）。所以本文里凡是"建成即管理员"、
+>   "勾了「能管理全家」"、`--admin` 旗标、`{profile, title, pin, admin}` 四格必填
+>   这些说法**全部不成立**。
+> - **`GET /admin` 没有管理权时渲染登录页（200）**，不再是裸 303。
+> - `selfpin` / `self` 那两道闸从"这个档案是管理员"改成"**这是你当前会话正在用的
+>   那一份**"——它本来要挡的就是这个。
+>
+> 机器级那条边界（**管理员读不到任何人的书签**）一个字没变，两条管理员通路都成立。
+> 完整的端点形状以 `AGENTS.md` 与 `internal/httpapi/openapi.json` 为准——那两处是
+> 今天唯一的契约来源，本文正文不是。
 
 
 替代 NAS 上的 [soulteary/docker-flare](https://github.com/soulteary/docker-flare) 书签导航页。
@@ -312,17 +336,19 @@ URL 协议为什么不设白名单：真实数据里就有 `chrome://extensions/
 
 ### 6.3 令牌与 bookmarklet
 
-`LAUNCHBAY_WRITE_TOKENS=name:secret:profile` 逗号分隔：
+管理员**另有一把机器级的 key**，与这份列表无关：
 
 ```
-LAUNCHBAY_WRITE_TOKENS=ai-dad:xxx:dad,ext-dad:yyy:dad,admin:zzz:*
+LAUNCHBAY_ADMIN_TOKEN=zzz
+LAUNCHBAY_WRITE_TOKENS=ai-dad:xxx:dad,ext-dad:yyy:dad
 ```
 
 - 每个客户端一个命名令牌 → 某一端泄露单独吊销，不必全换。
 - 常量时间比较；令牌只从 env 读，不进配置文件、不进日志。
-- 配置串里有空条目或尾随逗号**一律拒绝启动**，不许静默跳过：跳过一个坏条目等于留下一个操作员以为存在、却永远 401 的客户端，比启动失败难查得多。整串为空同样拒绝。
-- **bookmarklet 与页面浮层零令牌**：bookmarklet 只做一件事 `http://<NAS_IP>:7600/?add=<当前URL>&t=<标题>`，打开的是同源导航页，写走会话 cookie——家里人不需要在任何地方配令牌。令牌只发给 AI（REST）、浏览器扩展（P2，`chrome.storage.local`）和 CLI 子命令（读容器 env 里的管理员令牌，§4.5）。Chrome 书签会云同步，令牌写进任何书签 URL 等于明文外发——这条铁律不因浮层无令牌化而放松。
-- 不单独配"管理员令牌"这种角色：管理员令牌就是作用域为 `*` 的那个。
+- 配置串里有空条目或尾随逗号**一律拒绝启动**，不许静默跳过：跳过一个坏条目等于留下一个操作员以为存在、却永远 401 的客户端，比启动失败难查得多。
+- **整串为空是合法配置**（2026-10-12）：这台机器不发档案作用域令牌，服务照常起。硬性要求它等于让每个装机的人都得填一个、再把它留成一个公开的默认值——那份默认值恰好能写最常见的档案 id。要令牌的是浏览器扩展、CLI 与 AI 脚本，而那三样本来就要人主动去装。**管理员那把 key 才是必填的**：缺了它，建档与删档就没有人能做到。
+- **bookmarklet 与页面浮层零令牌**：bookmarklet 只做一件事 `http://<NAS_IP>:7600/?add=<当前URL>&t=<标题>`，打开的是同源导航页，写走会话 cookie——家里人不需要在任何地方配令牌。令牌只发给 AI（REST）、浏览器扩展（P2，`chrome.storage.local`）和 CLI 子命令（读容器 env 里的管理员 key，§4.5）。Chrome 书签会云同步，令牌写进任何书签 URL 等于明文外发——这条铁律不因浮层无令牌化而放松。
+- 管理员**不再依附于任何档案**（2026-10-12，见本节上方的注记）：`profile.json` 里没有 `admin` 字段，"第一个档案自动是管理员"这条规则随之消失。浏览器那边进管理页靠 `POST /admin/login` 交一次 key，服务端发一条 `lb_admin` cookie（装的是 HMAC 派生值，不是 key 本身）。
 
 ### 6.4 `AGENTS.md`
 
@@ -567,7 +593,9 @@ services:
 >   （`.github/workflows/docker.yml`，推 main 或打 `v*` tag 都发）。所以 `LAUNCHBAY_PULL_POLICY`
 >   这个变量不存在，`LAUNCHBAY_TOKEN_AI_DAD` / `LAUNCHBAY_TOKEN_ADMIN` / `LAUNCHBAY_HOST_DATA`
 >   也一并没了。
-> - 令牌就写在 compose 的 `environment` 里，**一行字面量**，密钥是 `change-me-…` 占位，要改直接
+> - 令牌就写在 compose 的 `environment` 里：管理员那把是**独立的一行**
+>   `LAUNCHBAY_ADMIN_TOKEN`（默认 `launchbay123`，公开值，**必须换掉**），档案作用域的
+>   `LAUNCHBAY_WRITE_TOKENS` 是另一行且**可以留空**。要改直接
 >   改那一行——不需要 `.env`，也没有第二层变量。
 > - 镜像标签是 `:latest`（用的人不该被「记得改版本号」绊住）。代价是 `docker compose up` 不会
 >   回仓库确认，**升级要先 `docker compose pull`**。

@@ -39,12 +39,6 @@ func TestLoadConfigRejectsBadTokens(t *testing.T) {
 	if _, err := loadConfig(); err == nil {
 		t.Fatal("want error for malformed tokens")
 	}
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "")
-	if _, err := loadConfig(); err == nil {
-		t.Fatal("want error for empty tokens")
-	}
-	// 2026-10-12：还多一种形状——档案段写 * 的老配置。它是明确报错而不是静默忽略：
-	// 静默的话升级后管理员令牌无声失效，症状是"建档接口永远 403"。
 	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:zzz:*")
 	_, err := loadConfig()
 	if err == nil {
@@ -58,5 +52,28 @@ func TestLoadConfigRejectsBadTokens(t *testing.T) {
 	t.Setenv("LAUNCHBAY_ADMIN_TOKEN", "")
 	if _, err := loadConfig(); err == nil {
 		t.Fatal("want error for missing LAUNCHBAY_ADMIN_TOKEN")
+	}
+}
+
+// **空令牌列表是合法配置**（2026-10-12）。书签页、管理页、回退、导入全都走会话
+// cookie，一个档案作用域令牌都不需要；硬性要求那个环境变量等于让每个装机的人都得
+// 填它，然后把它留成一个公开的默认值——那份默认值恰好能写最常见的那个档案 id。
+//
+// 这一格钉的是"它真的能起来"，而上面那条钉的是"管理员缺了起不来"：两者一起，
+// 必填与可选的边界才不会被下一次改动悄悄挪动。
+func TestLoadConfig令牌列表可以为空(t *testing.T) {
+	t.Setenv("LAUNCHBAY_ADMIN_TOKEN", "tok-admin")
+	for _, empty := range []string{"", "   "} {
+		t.Setenv("LAUNCHBAY_WRITE_TOKENS", empty)
+		cfg, err := loadConfig()
+		if err != nil {
+			t.Fatalf("空令牌列表不该是错误（%q）：%v", empty, err)
+		}
+		if len(cfg.Tokens) != 0 {
+			t.Errorf("空值应给出空列表，得到 %+v", cfg.Tokens)
+		}
+		if cfg.AdminToken.Secret() != "tok-admin" {
+			t.Errorf("管理员那把不受影响：%q", cfg.AdminToken.Secret())
+		}
 	}
 }

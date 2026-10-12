@@ -17,7 +17,7 @@ var ErrBootstrapClosed = errors.New("引导期已过：磁盘上已有档案")
 //
 // 不用 ListProfiles()：它读不动某个 profile.json 时会静默跳过（§12 的隔离），
 // 于是"把一个档案装坏了"等于把引导窗口重新打开，第二个人可以合法地再建一个
-// 管理员。引导判据要的是磁盘上的占位事实。
+// 档案——而引导窗口一旦重开就再也不会自动关上。引导判据要的是磁盘上的占位事实。
 // 目录还不存在 = 一个档案都没有，返回 (0, nil)：全新安装的形状本来就长这样。
 func (s *Store) CountProfiles() (int, error) {
 	ds, err := os.ReadDir(s.profilesDir())
@@ -93,8 +93,8 @@ func (s *Store) idTaken(id string) bool {
 //
 // 为什么必须这样：按 id 的那把锁管不了这件事——两台设备各拿 `alpha` 与
 // `intruder` 两个名字，派生出两个互不相撞的 id，各自过各自的 exists 检查，
-// 于是安静地建出**两个**管理员档案。"只在 0 档案时开着"这句话要在写入
-// 时刻也为真，就只能把判据和写入放进同一次串行化里（设计 §3、§11.1）。
+// 于是安静地建出**两份**档案，而第二个人以为根本没有这一页。"只在 0 档案时开着"
+// 这句话要在写入时刻也为真，就只能把判据和写入放进同一次串行化里（设计 §3、§11.1）。
 func (s *Store) CreateFirstProfile(in NewProfileInput) (*model.Profile, error) {
 	s.pmu.Lock()
 	defer s.pmu.Unlock()

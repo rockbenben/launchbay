@@ -20,6 +20,10 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
   （原始 key 只在那一次 POST 里出现过——cookie 会进 devtools、进导出、进同步）。
 - **`LAUNCHBAY_WRITE_TOKENS` 只放档案作用域令牌**，逗号分隔，每条三段式
   `name:secret:profile`；`Authorization: Bearer <secret>` 携带。
+  **空值是合法配置**（2026-10-12）：这台机器不发档案作用域令牌，服务照常起。
+  书签页/管理页/回退/导入全走会话 cookie；要令牌的是浏览器扩展、CLI 与 AI 脚本，
+  而那三样本来就要人主动去装。硬性要求它等于让每个装机的人都得填一个、再留成一个
+  公开的默认值——那份默认值恰好能写最常见的档案 id。
   **档案段写 `*` 是明确报错**（不是当成管理员，也不是静默忽略）：报错里直接指去
   `LAUNCHBAY_ADMIN_TOKEN`。静默忽略会把那一条变成永远匹配不上的死令牌，
   症状是"建档接口永远 403"。
@@ -92,17 +96,17 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 | GET | `/app.06064612355c.css` | 无（公开） | 200 样式表字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤/⑥ 的**交互**样式（浮层、⌘K 面板、就地编辑、拖拽把手）。走**外部**指纹文件而不内联：首屏骨架在 `base.css` 里内联，而这部分只有档案页用得到——内联等于让选择页/引导页/管理页/坏档页各白带一份，而且会把内联 CSS 顶出 §7.3 的操作线。**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变 |
 | GET | `/bookmarklet` | 无（公开） | 200 JS 源码（no-store） | P1-⑥ 的 bookmarklet：拖进书签栏，在任何网站上一点就把当前地址带回这台机器。**里面绝不会有令牌**——Chrome 书签会云同步，写进 bookmarklet 的令牌等于明文外发；它只做一件事，导航到 `/?add=<当前URL>&t=<标题>`，写走会话 cookie（§6.3）。**它自己从 Host 头算这台机器的地址**，不让人填（填错的那种错要等到用时才发现）。未登录时 `?add=` 穿过 PIN 步骤不丢；登录后 ⑤ 的浮层自动打开预填，**要人再按一次保存才落库** |
 | GET | `/api/v1/openapi.json` | 无（公开） | 200 内嵌契约原字节 | 机器可读契约，无个人信息 |
-| GET | `/api/v1/data` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, modified, data}` | 单档案全量数据 + rev，`?profile=<id>` 必填；**`*` 令牌与管理员会话都 403**（管理员看不见别人的书签） |
-| GET | `/api/v1/export` | **档案作用域**令牌/本人会话 | 200 磁盘原字节 + attachment | 导出不重编码，可直接喂 batch 对照；同样只给本人（`*` 403） |
-| GET | `/api/v1/history` | 令牌/会话 | 200 `{entries:[{at,profile,actor,by,rev,ops}]}` | 审计线，ops 只有动作与路径无 value；省略 `profile` = 全家庭聚合，仅管理员 |
-| GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名 + `auto` 且缓存无图，空 `icon` 不算缺，口径见 openapi 的 `/status`） |
-| GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profiles:[{id,title,admin,createdAt}]}` | 档案元信息列表，零条目零 URL |
-| POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 201 `{id,title,admin}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409 |
+| GET | `/api/v1/data` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, modified, data}` | 单档案全量数据 + rev，`?profile=<id>` 必填；**管理员令牌与管理员 cookie 都 403**（管理员看不见别人的书签） |
+| GET | `/api/v1/export` | **档案作用域**令牌/本人会话 | 200 磁盘原字节 + attachment | 导出不重编码，可直接喂 batch 对照；同样只给本人（管理员 403） |
+| GET | `/api/v1/history` | 令牌/会话 | 200 `{entries:[{at,profile,actor,by,rev,ops}]}` | 审计线，ops 只有动作与路径无 value；省略 `profile` = 全家庭聚合，**仅管理员**（档案作用域令牌 403）；账号类动作的 `actor` 记 `admin` |
+| GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名 + `auto` 且缓存无图，空 `icon` 不算缺，口径见 openapi 的 `/status`）。**每行没有 `admin` 字段**（2026-10-12，档案不再是管理员） |
+| GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profiles:[{id,title,createdAt}]}` | 档案元信息列表，零条目零 URL；**同样没有 `admin` 字段** |
+| POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 201 `{id,title}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409。**请求体没有 `admin` 那一格**（2026-10-12）——送来是 422 且点名该字段，脚本作者据此知道该删哪一行 |
 | DELETE | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{deleted}` | 删档连 `snapshots/`，历史保留，`?profile=<id>` |
 | POST | `/api/v1/profiles/pin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profile,pinChanged}` | 给任意档案设 PIN（不要旧 PIN），进目标档案历史 `rev:0` |
-| POST | `/api/v1/profiles/rebuild` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{id,title,admin}` | **坏档的唯一出路**：某档案 `profile.json` 读不动时只重写这一个文件，书签、快照、历史已有内容**逐字节不碰**。体 `{profile,title,pin,admin}` **四格都必须出现**（`admin` 省略 = 422，不等于 false：重写整份文件时"没给"与"给了 false"是两件事）。判据全在 store 锁内：**读得动 → 409**（改 PIN 走 `/api/v1/profiles/pin`，这条不是改档用的）；**目录不在 → 404**（它不建目录，建档仍只有 `POST /api/v1/profiles`）；只有"内容错"与"文件不在"才允许覆盖，权限/磁盘那一类读失败原样上报不许盖。`theme`/`layout`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项）。200 意味着"进门页那张卡真的回来了"——写完在同一把锁内回读过。历史追一行 `rev:0`、`path:"profile/rebuild"`；审计行写不下去仍报 200（**这条动作不幂等**，重试会拿 409，报 500 等于对已修好的档案说"没修好"），缺口只进 stderr |
-| POST | `/api/v1/profiles/self/pin` | 仅会话 | 200 `{profile,pinChanged}` | 改自己 PIN，要旧 PIN；令牌一律拒 |
-| POST | `/api/v1/batch` | **档案作用域**令牌/本人会话 | 200 `{profile,rev,applied,warnings}` | 唯一的书签写通路，一批 ops 原子写入；**`*` 令牌与管理员会话都 403** |
+| POST | `/api/v1/profiles/rebuild` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{id,title}` | **坏档的唯一出路**：某档案 `profile.json` 读不动时只重写这一个文件，书签、快照、历史已有内容**逐字节不碰**。体 `{profile,title,pin}` **三格**，**没有 `admin`**（2026-10-12 随档案属性一起删除；送来是 422 且点名该字段）。判据全在 store 锁内：**读得动 → 409**（改 PIN 走 `/api/v1/profiles/pin`，这条不是改档用的）；**目录不在 → 404**（它不建目录，建档仍只有 `POST /api/v1/profiles`）；只有"内容错"与"文件不在"才允许覆盖，权限/磁盘那一类读失败原样上报不许盖。`theme`/`layout`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项）。200 意味着"进门页那张卡真的回来了"——写完在同一把锁内回读过。历史追一行 `rev:0`、`path:"profile/rebuild"`；审计行写不下去仍报 200（**这条动作不幂等**，重试会拿 409，报 500 等于对已修好的档案说"没修好"），缺口只进 stderr |
+| POST | `/api/v1/profiles/self/pin` | 仅会话 | 200 `{profile,pinChanged}` | 改自己 PIN，要旧 PIN；令牌一律拒（管理员令牌也是 403——它是一把好钥匙，不是废钥匙） |
+| POST | `/api/v1/batch` | **档案作用域**令牌/本人会话 | 200 `{profile,rev,applied,warnings}` | 唯一的书签写通路，一批 ops 原子写入；**管理员令牌与管理员 cookie 都 403** |
 | POST | `/api/v1/revert` | 令牌/会话 | 200 `{profile,rev,restoredFrom}` | 从快照恢复，产生新 rev，不抹历史 |
 | POST | `/api/v1/usage` | 令牌/会话 | 200 `{updated, unknown[]}` | 点击计数，只写当前档案，不参与 rev |
 | GET | `/api/v1/icons` | 无（公开） | 200 `{query, total, returned, icons[]}` | 本地索引搜图标名；`q` 必填，`prefix` ∈ tabler/simple-icons，`limit` ≤200 |
@@ -117,7 +121,7 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 | GET | `/revert` | 仅会话（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 回退到某一版的**第一步**：把可回退的快照逐个列出来，每格带**条目数与分组名**——只印版本号的列表回答不了"我要退哪一版"。**两步二次确认、零 JavaScript**（与 `/admin/pin`、`/admin/delete` 同款范式）。**目标不接受申报**：档案从会话推导，所以 cred 是 credSession 而不是 credScoped——管理员进得了这一页也只能退自己那一份（2026-10-10 边界：管理员管账号、不碰内容，即使 PIN 是他设的）。`bookmarks.json` 读坏了（坏档）**不挡**这一页：revert 正是那种时候的出路。读不出来的快照不列但**报数**（静默少列会让人以为"只有这几个版本"）；一份都没有时只讲清为什么、**表单整个不画** |
 | POST | `/revert` | 仅会话（表单；带令牌一律 303 拒） | 303 回 `/` | 回退的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{to-rev}`。**不是第二条 API 面**：落点与 `POST /api/v1/revert` 是同一个 `revertLocked`（快照→写盘→审计，判据只有一份），差别只在怎么读入、怎么答出。成功 303 回 `/`（GET `/` 在有会话时渲染的就是档案页）；`to-rev` 没填/非整数/为负 → 303 `/revert?err=badsnap`；那一版的快照已经不在（被别人退掉，或被 50 份的裁剪清掉）→ `?err=gone`；当前这一版存不下所以**本次恢复已取消、书签一个字都没变** → `?err=nosnap`。落盘失败走 500 JSON 外壳，**绝不说成功**。历史里 `by` 记 `web` |
 | GET | `/admin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 HTML（no-store） | 管理页读侧：一行一个档案 + 条目数 + rev + 最近改动（`modified`，RFC3339 UTC，坏档读不出来为空、显示 `—` 不编造），**不含条目内容**；坏档案照占一行、标「数据文件读不了」、不给「进入编辑」；④.5 起这一页带一张建档表单（读侧 + 建档）。动作格只有**账号层面**三枚：**设 PIN**、**停用/启用**、**删档**——**「进入编辑」已下线**（它就是 `POST /switch to=<id>`）；坏档那一格是文字「要在这台机器上修好那个文件」，停用档带「已停用」徽标。**没有管理权时不是 303，而是 200 渲染登录页**（2026-10-12：管理员不再是某个档案，浏览器那条路需要自己的凭证；沿用旧的裸 303 形状会让升级之后没有任何人进得去管理页，账号层面整个锁死）。**只有档案会话不算管理权**——登进 dad 也不等于能管这台机器。**AI 不走这条**，要同一份聚合打 `GET /api/v1/status`（同一个 statusRows、两种壳） |
-| POST | `/admin/login` | 无（这一条就是"证明你有管理权"的那一步） | 303 回 `/admin` | **管理员的进门**（2026-10-12）。浏览器表单通路，体是 `application/x-www-form-urlencoded` 的 `{key}`。判据只有 `LAUNCHBAY_ADMIN_TOKEN` 一把：`admin:LAUNCHBAY_ADMIN_TOKEN:*`、`POST /prefs`、`POST /switch` 与 `/api/v1/profiles/self/pin` 同族纪律——**浏览器表单一律 303 拒令牌**，机器建档走 `POST /api/v1/profiles`。key 不对 → 303 `/admin?err=badkey`（不说"这把 key 是管理员的那把"，那等于漏出它的身份）；同一个字段出现两次或表单读不出来 → 422 JSON 外壳。对了 → 发一条 `lb_admin` cookie（**装的是 HMAC 派生值**）并 303 回 `/admin`。表单读不出来与 key 不对是两个形状，别合成一个 303——那会让人以为 key 写错了 |
+| POST | `/admin/login` | 无（这一条就是"证明你有管理权"的那一步） | 303 回 `/admin` | **管理员的进门**（2026-10-12）。浏览器表单通路，体是 `application/x-www-form-urlencoded` 的 `{key}`。判据只有 `LAUNCHBAY_ADMIN_TOKEN` 一把。`POST /prefs`、`POST /switch` 与 `/api/v1/profiles/self/pin` 同族纪律——**浏览器表单一律 303 拒令牌**，机器建档走 `POST /api/v1/profiles`。key 不对 → 303 `/admin?err=badkey`（不说"这把 key 是管理员的那把"，那等于漏出它的身份）；同一个字段出现两次或表单读不出来 → 422 JSON 外壳。对了 → 发一条 `lb_admin` cookie（**装的是 HMAC 派生值**）并 303 回 `/admin`。表单读不出来与 key 不对是两个形状，别合成一个 303——那会让人以为 key 写错了 |
 | POST | `/admin/logout` | 无 | 303 回 `/` | 丢掉管理员身份（2026-10-12）。**只清 `lb_admin`，不动 `lb_profile`**——管理员完全可能同时登着自己的档案在用书签，"退出管理"不该把他从自己的台子里踢出去，那两件事从此分不开 |
 | POST | `/admin` | 管理员**cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 管理页建档，体是 `application/x-www-form-urlencoded` 的 `{title, pin}`：**没有 `admin` 那一格**（2026-10-12，档案不再有管理员属性，勾了也不会有任何后果）；不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）；字段没填对回 `/admin?err=noname`、`badpin` 或 `nametaken`（派生 id 撞并发提交那一种），**数据目录不可写**回 `/admin?err=permission`（与 `/setup` 同一族同一句话），与进门页同一张白名单，不回显原文，无管理权都是 303 回选择页且磁盘不变；**AI 要建档走 `POST /api/v1/profiles`**，别打这条 |
 | GET | `/admin/pin` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 给某个档案设 PIN 的**第一步**：读 `?profile=<id>`，回一张写明后果的确认页。**两步二次确认、零 JavaScript** —— spec §8.8 原写「表单发不出，随 ⑤ 的 JS 落地」，2026-10-09 改判为用两步页面做，于是关掉 JS 时照样成立。目标就是当前会话正在用的那一份 → 303 `/admin?err=selfpin`（改自己的 PIN 要旧 PIN，走 `POST /api/v1/profiles/self/pin`；这条要让开，否则它就是绕过旧 PIN 的后门）；档案不存在 → 303 `/admin?err=notfound` |
@@ -152,7 +156,7 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 
 写入口只有两个：零档案时 `POST /setup` 建档顺手选（那一页只在没有任何人时出现，
 所以「谁该替所有人选语言」这个问题还不存在），之后一律 `POST /admin/language`
-（**仅管理员会话，带令牌一律 303 拒**）。改完**立刻生效**：渲染缓存的 `cacheKey`
+（**仅管理员 cookie，带令牌一律 303 拒**）。改完**立刻生效**：渲染缓存的 `cacheKey`
 带语言这一维，所以不需要手工清缓存——「改完遍历清一遍」是要记得做的事，
 进键是不用记得的事。
 
@@ -335,5 +339,6 @@ app.js 的浮层与命令面板）。**不翻**的是给脚本读的那些——
   `"shared"` 字段，能改的是 name/url/icon/desc/alias/tags/aiNote」——那正是它
   该有的形状。
 - **不许把真实档案目录或真实内网地址提交进仓库。** 文档与夹具只用 `10.` 段示
-  例地址；`.env`、`data/`、`.superpowers/` 都不进仓库。
+  例地址；``data/`、`.superpowers/` 都不进仓库（`.env` 同理：2026-10-12 起 compose 已经不用它了，但
+  谁要是自己又建了一个，也不许进仓库）。
 - 不提供 MCP server：REST + curl 已够用，少一个常驻件。

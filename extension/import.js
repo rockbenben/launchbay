@@ -51,9 +51,10 @@ async function ensureBookmarksPermission() {
   return chrome.permissions.request({ permissions: ['bookmarks'] });
 }
 
-// pickProfile 挑一枚档案作用域的令牌。**`*` 那枚不能用于导入**——服务端
-// 2026-10-10 起拒了它（管理员令牌只管账号），所以这里要挑到一枚真的档案令牌，
-// 没有就直说，而不是发一个必然 403 的请求。
+// pickProfile 挑一枚档案作用域的令牌。**管理员那把裸 key 不进这张表**——它是
+// LAUNCHBAY_ADMIN_TOKEN，不是 name:secret:<档案 id> 那一族，填进任何一行都必然
+// 401/403（服务端只管账号，管不到任何人的书签）。所以这里挑不到就是挑不到，
+// 没有就直说，而不是发一个必然被拒的请求。
 function pickProfile(cfg) {
   const ids = Object.keys(cfg.tokens || {});
   if (cfg.defaultProfile && cfg.tokens[cfg.defaultProfile]) return cfg.defaultProfile;

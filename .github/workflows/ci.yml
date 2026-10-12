@@ -147,14 +147,20 @@ jobs:
         run: docker build -t launchbay:ci .
       - name: 起容器探一次 /healthz
         run: |
-          # **令牌必须给**：二进制拿不到任何令牌时是**拒绝启动**的（配置错误直接退出）。
+          # **管理员 key 必须给**：二进制拿不到它时是**拒绝启动**的（配置错误直接退出）。
           # 那个形状本身是对的——可它挡住的正是这一格：这条 job 存在的意义是"能 build
-          # 不等于能跑"，缺了令牌，前十几格绿了也说明不了镜像起来过。
-          # 这里传一个 CI 专用的假令牌：它只让进程活到 /healthz 应答，不碰任何档案
+          # 不等于能跑"，缺了它，前十几格绿了也说明不了镜像起来过。
+          # 这里传一个 CI 专用的假 key：它只让进程活到 /healthz 应答，不碰任何档案
           #（/data 是空 tmpfs，里面什么都没有）。
+          #
+          # **不传 LAUNCHBAY_WRITE_TOKENS**：档案作用域令牌 2026-10-12 起是可选的
+          # （空 = 这台机器没给扩展/AI 发写权限）。早先这里传的是 `ci:ci-only-token:*`，
+          # 那个 `*` 档案段在新解析器下已经是**硬报错**，于是这一格会静悄悄地变成
+          # "容器起不来"——上面十几格全绿，下一句 curl 失败，像是镜像有问题。
+          # 于是少传一个变量就少一处要跟新模型同步的地方。
           docker run -d --name lb-ci --tmpfs /data:mode=1777 \
             -e LAUNCHBAY_DATA_DIR=/data -e LAUNCHBAY_PORT=7600 \
-            -e LAUNCHBAY_WRITE_TOKENS=ci:ci-only-token:* \
+            -e LAUNCHBAY_ADMIN_TOKEN=ci-only-admin-token \
             -p 7600:7600 launchbay:ci
           # 轮询而不是 sleep 固定秒数：runner 快慢不一，固定等待要么白等、
           # 要么间歇性红。

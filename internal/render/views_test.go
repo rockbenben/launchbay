@@ -953,7 +953,10 @@ func tail(s string, n int) string {
 }
 
 // 引导页的标题与表单文案要能被人读懂（这是给人看的第一屏，不是给 AI 的）。
-// 钉"这个人是管理员"与"建完这一步不能再建第二次"两句：它们是承诺，说了就要做。
+// 钉"建完这一步不能再建第二次"与"管理权不随档案走"两句：它们是承诺，说了就要做。
+//
+// **"这个人是管理员"那句在 2026-10-12 被撤掉了**：管理员是机器级的那把 key，
+// 建出来的档案只是第一个人的书签页。断言跟着换了——钉的是现在该被说的那两句。
 func TestPickerPage_引导页把后果说在页面上(t *testing.T) {
 	s := seeded(t)
 	r := renderer(t, s)
@@ -962,10 +965,15 @@ func TestPickerPage_引导页把后果说在页面上(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(setup.Body)
-	for _, want := range []string{"管理员", "管理页", "建完这一次它就关掉"} {
+	for _, want := range []string{"管理密钥", "管理页", "建完这一次它就关掉"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("引导页缺 %q（它得把后果说清）:\n%.500s", want, body)
 		}
+	}
+	// 反面：这一页**不许**再承诺"建出来的人就是管理员"——那是一条已经删掉的规则，
+	// 而它是新装机器的第一屏，撒谎的代价是让人以为不用那把 key 也能管这台机器。
+	if strings.Contains(body, "这台导航台的管理员") {
+		t.Errorf("引导页还在说「第一份就是管理员」，而管理员已是机器级的一把 key:\n%.500s", body)
 	}
 }
 

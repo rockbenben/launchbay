@@ -6,6 +6,23 @@
 中间那一天里本文件、README §10 与 admin 页面都在指着一条**打不通**的命令
 （实测：`POST /api/v1/profiles/rebuild` 405、`launchbay profile rebuild` 打印 create 的用法）。
 教训写在下面，别让它再来一次：**设计批准 ≠ 已交付**，而文档不会因为实现没跟上就自动闭嘴。
+
+> **2026-10-12：本文里凡带 `admin` 的契约形状全部作废**（档案不再有管理员属性）。
+> 照抄即失败的那几处，正文里已就地改写；其余由这段覆盖：
+>
+> - 请求体是 **`{profile, title, pin}` 三格**，**没有 `admin`**。送 `admin` 来会得到
+>   **422 且点名该字段**（不是静默忽略——沉默会让脚本以为"建成管理员了"）。
+> - 成功响应是 **`{id, title}`**，没有 `admin` 那一格。
+> - CLI 是 `launchbay profile rebuild --id <slug> --title <名字> --pin <4-6位>`，
+>   **没有 `--admin` 旗标**。凭证是 `LAUNCHBAY_ADMIN_TOKEN` 那把机器级 key，
+>   不是从 `LAUNCHBAY_WRITE_TOKENS` 里挑一枚。
+> - 下面"必填字段"那一行、`--admin` 的开关与"省略发 false"那条接线证人、以及
+>   §9 残余风险里"把唯一管理员 rebuild 成 `admin:false`"那一整条**都不存在了**：
+>   管理员与档案无关，删光档案也还管得了，也就不存在"唯一管理员"可以被弄没。
+> - **本文其余部分（锁的形状、分诊、`ErrReadable` / `ErrNotFound` 的判据、
+>   运维读数）一字未改且仍然成立。** 机器可读的契约以 `internal/httpapi/openapi.json`
+>   与 `AGENTS.md` 为准，本文正文不是。
+
 定位：一片小而硬的**写通路**——它不新增子系统，只补一条被支持的坏档出路，并顺手把
 "PIN 判据不许有第二份"这道闸改成能覆盖它的形状。
 触发：P1-④.5 验收结转的死路①（唯一档案的 `profile.json` 读不动 → 进门页零张卡）。那一片
@@ -125,7 +142,7 @@ func hashFormPIN(pin string) (hash string, fe []fieldError)
 请求体（`DisallowUnknownFields` 照旧——写错一个键整批 422）：
 
 ```json
-{ "profile": "mom", "title": "妈妈", "admin": false, "pin": "4321" }
+{ "profile": "mom", "title": "妈妈", "pin": "4321" }
 ```
 
 `by` 走 `X-LB-By` 头，**不进请求体**——与 `/api/v1/revert`、`/api/v1/profiles/pin` 同形
@@ -160,7 +177,7 @@ func hashFormPIN(pin string) (hash string, fe []fieldError)
 `cmd/launchbay/cli.go` 的 `profile` 子命令族加一支，与 `profile create` 同形：
 
 ```
-launchbay profile rebuild --id <slug> --title <名字> --pin <4-6位> [--admin]
+launchbay profile rebuild --id <slug> --title <名字> --pin <4-6位>
 ```
 
 - 只经本机 REST（`POST /api/v1/profiles/rebuild`），不直读磁盘——CLI 的既有纪律。

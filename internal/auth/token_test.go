@@ -40,13 +40,29 @@ func contains(s, sub string) bool {
 
 func TestParseScopesRejects(t *testing.T) {
 	for _, bad := range []string{"a:b", "a:b:c:d", "a::c", ":b:c", "a:b:", "a:b:c,,d:e:f",
-		"a:b:Mom", "a:b:../etc", "   "} {
+		"a:b:Mom", "a:b:../etc"} {
 		if _, err := ParseScopes(bad); err == nil {
 			t.Fatalf("应拒: %q", bad)
 		}
 	}
 	if _, err := ParseScopes("a:b:c,x:b:y"); err == nil {
 		t.Fatal("同一 secret 两个条目要视为配置错误：无法分别吊销")
+	}
+}
+
+// 空与全空白都是**合法配置**（2026-10-12）：这台机器不发档案作用域令牌。
+//
+// 少了这一格，"空值不报错"就只是一句注释——真有人把 `strings.TrimSpace` 的
+// 判断写回去时，没有任何一条测试会红，而症状是每个装机的人都得编一个令牌出来。
+func TestParseScopes空值是合法的(t *testing.T) {
+	for _, empty := range []string{"", "   ", "\t\n "} {
+		scopes, err := ParseScopes(empty)
+		if err != nil {
+			t.Errorf("%q 不该是错误：%v", empty, err)
+		}
+		if len(scopes) != 0 {
+			t.Errorf("%q 应给出空列表，得到 %+v", empty, scopes)
+		}
 	}
 }
 
