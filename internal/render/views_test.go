@@ -639,6 +639,59 @@ func TestCSS_选择器段里没有游离引号(t *testing.T) {
 	}
 }
 
+// 声明里的括号必须配平。本案实测踩过一条：
+// `@media (max-width:700px){ul{grid-template-columns:repeat(2,minmax(0,1fr)}}`
+// ——`repeat(` 少一个右括号，而 `}` 不是右括号。Chrome 靠错误恢复把它救回来了
+// （650px 那一档确实两列），但按 CSS 语法这就是**一条无效声明**，
+// 换引擎不保证有同样的运气。配平判据在每一个 `}` 处检查：括号深度必须为 0。
+func TestCSS_声明里的括号配平(t *testing.T) {
+	for _, f := range []string{"web/base.css", "web/app.css"} {
+		raw, err := webFS.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		css := stripCSSComments(string(raw))
+		paren, brace := 0, 0
+		// 报的是**那一段原文**而不是行号：注释被剥掉之后行号会错位，
+		// 一个对不上号的行号比没有行号更耽误人。
+		report := func(at string, i int) {
+			lo := i - 70
+			if lo < 0 {
+				lo = 0
+			}
+			t.Errorf("%s %s（括号深度 %d、花括号深度 %d）……%s", f, at, paren, brace,
+				strings.Join(strings.Fields(css[lo:i]), " "))
+		}
+		for i := 0; i < len(css); i++ {
+			switch css[i] {
+			case '(':
+				paren++
+			case ')':
+				paren--
+				if paren < 0 {
+					report("右括号多出来了", i)
+					return
+				}
+			case '}':
+				if paren != 0 {
+					report("这条声明的括号没配平，浏览器会把整条丢掉", i)
+					return
+				}
+				brace--
+				if brace < 0 {
+					report("花括号多出来一个", i)
+					return
+				}
+			case '{':
+				brace++
+			}
+		}
+		if paren != 0 || brace != 0 {
+			t.Errorf("%s 文件末尾没收干净：括号 %d、花括号 %d", f, paren, brace)
+		}
+	}
+}
+
 // cssSelectorChunks 返回每个 `{` 之前那段"选择器"（从上一个 `{` 或 `}` 之后算起），
 // 并把属性选择器 `[...]` 里的内容换成占位符——那里的引号是合法的。
 // 它不是 CSS 解析器，只要能把"声明串到了选择器位"这种形状暴露出来就够了。
@@ -717,7 +770,7 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// [data-layout=list] 选、且按视口自适应分列"，而不是"必须是 360px"——
 		// 后者把一个随手可调的像素值抬成了规格，改它就得改这里。
 		// 从前钉的是 `minmax(0,1fr)`（单列满宽），2026-10-11 按实拍改成自适应。
-		"列表形态":    `[data-layout=list] ul{grid-template-columns:repeat(auto-fill,minmax(`,
+		"列表形态":    `[data-layout=list] .rows{grid-template-columns:repeat(auto-fill,minmax(`,
 		"暗亮双主题开关": `[data-theme=light]`,
 		// 钉的是"有一道从透明淡入的入场"这个形状，不是位移那个像素值：
 		// 9px→4px、0.5s→0.14s 都是量出来的调参，钉死了就改不动。
@@ -769,7 +822,10 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 是给磁贴用的，它一样会打到侧栏。侧栏必须显式把 display 覆盖回 block，
 		// 否则浏览器里侧栏变成一堆 190px 宽的格子——这条是实测过的坑，而单测量不到
 		// 它的宽度效果，所以只能用文本在场钉住这条覆盖声明本身。
-		"侧栏列表覆盖全局磁贴栅格": `.gnav ul{display:block`,
+		// 网格**只挂在条目列表那三个类上**：从前它挂在裸 `ul` 上，于是侧栏、⌘K 结果表、
+		// 离线队列、报告清单每一条都要自己逃一次，漏一条就变成一排格子（⌘K 那一处
+		// 的实测症状是方向键按"下一个"走到右边那一格）。侧栏因此不再需要 display 覆盖。
+		"网格只挂在条目列表上": `.tiles,.rows,.profiles{display:grid`,
 		// 把手的开合指示（评审 I-3，Task 7 收宽成 summary 一族）：flex 把 UA 的
 		// display:list-item 换掉了，展开三角随之消失（三角只在 list-item 显示，
 		// Blink/Gecko 都一样），把手只剩 cursor:pointer 一个暗示——家属看不出那行

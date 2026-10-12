@@ -173,9 +173,8 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
 .inline-edit .fld.danger.armed{background:var(--bad);color:var(--on-bad);border-color:var(--bad)}
 /* 批量删除那张确认页要**念出要删的是哪几条**：只报数字的确认回答不了
    "我到底选了哪几条"（/revert 那一页早就学过这件事）。
-   display:block 是必需的：base.css 那条给磁贴用的全局 `ul{display:grid}`
-   会一样打到这里，把名单拍成一排格子。 */
-.del-list{display:block;margin:0;padding:0 0 0 18px;font-size:13px;max-height:40vh;overflow:auto}
+   名单可能很长，所以给它一个上限高度自己滚，而不是把对话框撑出视口。 */
+.del-list{margin:0;padding:0 0 0 18px;font-size:13px;max-height:40vh;overflow:auto}
 .del-list li{margin:2px 0}
 
 /* forced-colors：毛玻璃与阴影一律失效，留下的是边框——所以这里的 border 是
@@ -229,13 +228,16 @@ body[data-multi] main{padding-bottom:96px}
 .qlist b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qlist code{font-size:12px;color:var(--ink2);direction:ltr;min-width:0;
   overflow:hidden;text-overflow:ellipsis}
-.qlist button{flex:0 0 auto}
+/* 名字 + 地址在第一行，撤掉那颗贴在行尾。`.fld` 带着 `width:100%`（那是给表单里
+   整幅铺开的输入框与按钮写的），不显式收回来，这颗"不要这条"会自己占满一整行——
+   三条队列就变成三条横贯页面的大按钮，看着像分隔条而不像"撤掉这一条"。 */
+.qlist button{flex:0 0 auto;width:auto}
 @media (forced-colors:active){.multibar button{border:1px solid CanvasText}}
 
 
-/* base.css 有一条全局 `ul{list-style:none;display:grid}` 是给磁贴用的，
-   它会一并打到报告里的列表上——不显式要回符号，1. 2. 3. 会全变成无编号的缩进块。 */
-.rep-list{margin:6px 0;padding-left:22px;display:block;list-style:revert}
+/* 报告里那些列表要**带回符号**：全局把 list-style 复位了，不显式要回来，
+   1. 2. 3. 会全变成无编号的缩进块。 */
+.rep-list{margin:6px 0;padding-left:22px;list-style:revert}
 ul.rep-list{list-style:disc}
 ol.rep-list{list-style:decimal}
 .rep-list li{display:list-item}

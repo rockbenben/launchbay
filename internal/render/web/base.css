@@ -130,9 +130,9 @@ header .theme{flex:0 0 auto}
 main{max-width:1600px;margin:0 auto;padding:0 16px}
 /* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
    把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
-   注意：base.css 有一条全局 `ul{display:grid;grid-template-columns:auto-fill…}`
-   是给磁贴用的，它一样会打到侧栏——所以 .gnav ul 必须显式覆盖 display，
-   否则侧栏会变成一堆 190px 宽的格子（这条是实测过的坑，不是假设）。 */
+   侧栏的 ul 不需要再显式写 display：网格只挂在条目列表那三个类上（见裸 `ul`
+   那条的注释），从前它挂在裸 `ul` 上，侧栏就得自己逃——那一版这条注释写的就是
+   "必须显式覆盖"。 */
 .shell{display:grid;grid-template-columns:206px minmax(0,1fr);gap:24px;align-items:start;
   max-width:1600px;margin:0 auto;padding:0 16px}
 .shell>main{max-width:none;margin:0}
@@ -167,7 +167,6 @@ details[open]>summary::before{content:"▾"}
 .tech{margin:14px 0;border:1px solid var(--line);border-radius:12px;padding:6px 12px}
 .tech pre{margin:0;white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--ink2)}
 @media (forced-colors:active){.tech{border:1px solid CanvasText}}
-.gnav ul{display:block;list-style:none;margin:0;padding:0}
 .gnav a{display:flex;gap:8px;align-items:center;padding:0 6px;
   border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px}
 /* 深度缩进（2026-10-12）：--d 由 groupNav 在 Go 侧给的整数，一条式子算完，
@@ -269,7 +268,13 @@ section:has(.inline-edit){content-visibility:visible}
 h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;
   display:flex;align-items:center;gap:8px}
 h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
-ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+/* 裸 `ul` 只**复位样式**；网格挂在下面那一条的条目列表类上。
+   从前网格就写在这个裸选择器上，于是每一条"不是条目列表"的 ul 都得自己声明
+   display 才逃得掉——三处漏了：⌘K 的结果表、离线队列表、导入报告的清单。
+   结果表被排成三列之后，方向键按"下一个"走的是**右边那一格**而不是下面那一行
+   （实拍：第 1 行三格 x=390/608/827，按一次下箭头选中从 x=390 那格跳到 x=608）。 */
+ul{list-style:none;margin:0;padding:0}
+.tiles,.rows,.profiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 li{min-width:0}
 /* 卡片本体（spec §8.1：半透明 + blur + 1px 描边，hover 抬 3px、描边转亮蓝、图标微变换）。
    .plain 是"需手动打开"那条的非链接形态：与卡片同一张脸，只是不可点。
@@ -402,7 +407,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    与 `.tags-row{flex:0 0 auto}`，2026-10-11 就加的）在 360px 那一档已经是常态，
    这里不用再动——**收窄分列要一起看的是那两行的实拍**：名字省略变早是可接受的，
    而标签竖成一列不是。判据落在 TestBudget_首屏字节 之外的实拍上，不在这里猜。 */
-[data-layout=list] ul{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+[data-layout=list] .rows{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 /* 磁贴里的排布**分两行**：图标 + 名字 + 编辑把手走第一行，说明与标签走第二行。
    理由不是好看：把手从"hover 才出现的绝对定位"改成"常驻 44px"之后，它在流里
    吃掉 54px，190–234px 宽的磁贴里名字被挤成"群…"（实测改前 19 张卡 3 张截断，
@@ -655,7 +660,7 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 }
 @media (forced-colors:active){.adm th,.adm td{border:1px solid CanvasText}
   fieldset.choices,.act .choice label{border:1px solid CanvasText}}
-@media (max-width:700px){ul{grid-template-columns:repeat(2,minmax(0,1fr)}}
+@media (max-width:700px){.tiles,.rows,.profiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* 窄屏藏描述**只对磁贴**。从前是 `.card i{display:none}` 一刀切，可它那条规则
    的理由只对磁贴成立：≤700px 时磁贴压成两列，一格只有 ~190px，名字 + 描述 + 编辑
    把手挤在一行里，描述只能被挤没。
@@ -664,7 +669,7 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
    「主路由 · 192.168.x.x」，650px 档只剩「主路由」，而描述往往正是"这个地址是哪台
    机器"的那半句。 */
 @media (max-width:700px){.tiles .card i{display:none}}
-@media (max-width:430px){ul{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:430px){.tiles,.rows,.profiles{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){
   body::before{animation:none}
   .card{animation:none}
