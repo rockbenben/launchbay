@@ -647,6 +647,12 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// **文字宽度仍是 190**（`.side` 的 padding-right:16px）——上面 base.css
 		// 那条"190px 定轨"管的是文字，换轨不改字。
 		"侧栏常驻一列": `.shell{display:grid;grid-template-columns:206px minmax(0,1fr)`,
+		// 满幅上限**三处同数**（2026-10-12）：`main`、`.shell`、`header`。顶栏曾
+		// 经压根没有上限，于是 1440 档上它满幅而正文封顶 1180 居中，两边错开一百多
+		// 像素——只有实拍看得出来，所以这里钉的是"三处写着同一个数"这件事本身，
+		// 数字改了连同这条一起改。
+		"正文满幅上限":   `main{max-width:1600px`,
+		"顶栏与正文同上限": `header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;` + "\n" + `  max-width:1600px;`,
 		// 平板断点 1100px（spec §8.2 的第二档）：侧栏在这一档收成抽屉。删掉整个
 		// @media 块在截图上几小时看不出来，这里一行就红。
 		"平板断点 1100px": `@media (max-width:1100px)`,

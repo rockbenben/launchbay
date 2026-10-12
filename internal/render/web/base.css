@@ -65,7 +65,10 @@ body::before{content:"";position:fixed;inset:-120px;z-index:-1;
    而第五个子元素（JS 加的按钮）永远掉到第二行并吃满第一列的宽度——1440 上它是
    一条 980×44 的横条。flex-wrap 让每个控件保住自己的固有宽度，标题那一格
    nowrap + 省略号，宁可截断也不竖排。 */
-header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin-bottom:18px}
+/* 上限与内衬跟正文**同一个数**（见上面 main 那条）：顶栏曾经满幅，于是 1440 档上
+   它与正文错开一百多像素。`flex-wrap` 那套布局一个字没动，只是被装进了同宽的盒子里。 */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;
+  max-width:1600px;margin:0 auto 18px;padding:0 16px}
 header h1{flex:1 1 auto;min-width:0;margin:0;font-size:19px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 顶栏的档案徽标组。**它要参与吃余量**（flex:1 0 auto + 右对齐），不是为了把
@@ -81,14 +84,27 @@ header .theme{flex:0 0 auto}
 .search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
 .search input{min-width:0;flex:1 1 auto}
 .hits{flex:0 0 100%;margin:0;font-size:13px;color:var(--ink2)}
-main{max-width:1180px;margin:0 auto}
+/* 满幅上限（2026-10-12 从 1180 放大到 1600）：这三处**必须同数**——`header`
+   此前压根没有上限，于是顶栏满幅、正文封顶 1180 居中，1440 档上「ben」贴着屏幕
+   左缘而侧栏的内缘在 130px，两边错开一百多像素（实拍才看出来）。
+
+   放大而不是收紧列宽，是因为这一份真实数据（45 组 / 464 条）在 1180 下整页
+   17,156px，而**宽屏上多出来的那点空间本来就在浪费**：主列 950px 恰好卡在
+   "list 只能排 3 列"（floor(960/310)=3）。1600 → 主列 1370 → 4 列，磁贴
+   4 → 6 列，同一份数据整页 12,192px（-29%），而卡片该分到的宽度一点没少——
+   与收列宽不同，这里没有任何名字被更早截断。
+
+   1800 再往上只多给磁贴半列（list 仍是 4 列），收益到头，所以停在 1600。
+   内衬 16px 是**必需的**：上限大于屏幕宽度时（1440 的笔记本）内容会顶到屏幕
+   边缘，卡片贴着边框看起来像排版坏了。 */
+main{max-width:1600px;margin:0 auto;padding:0 16px}
 /* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
    把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
    注意：base.css 有一条全局 `ul{display:grid;grid-template-columns:auto-fill…}`
    是给磁贴用的，它一样会打到侧栏——所以 .gnav ul 必须显式覆盖 display，
    否则侧栏会变成一堆 190px 宽的格子（这条是实测过的坑，不是假设）。 */
 .shell{display:grid;grid-template-columns:206px minmax(0,1fr);gap:24px;align-items:start;
-  max-width:1180px;margin:0 auto}
+  max-width:1600px;margin:0 auto;padding:0 16px}
 .shell>main{max-width:none;margin:0}
 .side{position:sticky;top:12px;align-self:start;min-width:0}
 /* 侧栏与主区之间的那道线（**只在桌面档**，2026-10-11 加）。
