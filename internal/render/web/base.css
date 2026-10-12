@@ -169,7 +169,15 @@ details[open]>summary::before{content:"▾"}
   .side .drawer>.gnav{flex:1 1 auto;min-width:0}
 }
 @media (forced-colors:active){.drawer{border:1px solid CanvasText}.gnav a{border:1px solid CanvasText}}
-section{margin:22px 0}
+section{margin:13px 0}
+/* 节的纵向节奏（2026-10-12 从 22px 收到 13px，h2 的下边距 10 → 8）：这份真实
+   数据有 45 个节，于是"节与节之间那 44px"是四十五次 44px。实测节的开销
+   （margin + 标题行 + 标题下边距）从 77px 降到 59px，四十五节省下约 800px。
+
+   **没有给"稀疏分组"单开一条规则**：那份数据里 2 条以下的分组只有 8 个，
+   给它们单开一条最多省 0.7%，而多一条按分组条目数分支的规则就多一处会漂的
+   判断——真实数据里分组少的时候它一条都省不到。要治"节太多"是列宽与合并那两条，
+   不是这一条。 */
 /* 节标题按**路径深度缩进**（2026-10-12）：一份真实导出四十五个分组、正文三万多
    像素一页，那些标题若一样齐地摆着，眼睛找不到"哪几个是一家的"。侧栏那棵树与
    这里是同一件事的两半——侧栏给的是导航，正文给的是这一页本身。
@@ -197,7 +205,7 @@ section{content-visibility:auto;contain-intrinsic-size:auto 700px}
    "字与字之间有缝"——实拍里「自建服务」「读与收藏」四个字都是散着的。.04em 给拉丁
    分组名（NAS / Tools）留一点空气，中文读起来又不松。字号 13px 与 --ink2 不动：
    标题就该比内容弱，它不是要看的东西，是找东西时的路标。 */
-h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 10px;
+h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;
   display:flex;align-items:center;gap:8px}
 h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
 ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
@@ -303,9 +311,20 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    间隙 10 + 描述」之后还剩得下约 240px 给名字与描述，再窄名字就开始被挤没了。
 
    它与 tiles 的区别**没有因此消失**：tiles 按 190px 分列（窄、要密、说明换到第二
-   行），list 按 360px 分列（宽、每条一行读完）。同一个事实（哪种形态）仍然只有
-   `[data-layout=…]` 这一个入口——.rows 是故意零规则的标记，别在这里加第二处。 */
-[data-layout=list] ul{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+   行），list 按 300px 分列（每条一行读完）。同一个事实（哪种形态）仍然只有
+   `[data-layout=…]` 这一个入口——.rows 是故意零规则的标记，别在这里加第二处。
+
+   **360 → 300（2026-10-12）**：主列实测 950px 宽，360px 下限只能排 2 列
+   （floor(960/370)=2），于是 464 条书签一页拉到 **32,170px**。300px 下限在同
+   一处宽里排 3 列（floor(960/310)=3），高度直接少三分之一——那是这份数据里
+   最大的一块开销，比任何一条"把节标题排版做好"都值。
+
+   代价是名字与描述各自少 60px：上面那段"还剩约 240px 给名字与描述"变成约
+   180px，长标题会更早省略。下面那两条（`[data-layout=list] .card{flex-wrap:wrap}`
+   与 `.tags-row{flex:0 0 auto}`，2026-10-11 就加的）在 360px 那一档已经是常态，
+   这里不用再动——**收窄分列要一起看的是那两行的实拍**：名字省略变早是可接受的，
+   而标签竖成一列不是。判据落在 TestBudget_首屏字节 之外的实拍上，不在这里猜。 */
+[data-layout=list] ul{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 /* 磁贴里的排布**分两行**：图标 + 名字 + 编辑把手走第一行，说明与标签走第二行。
    理由不是好看：把手从"hover 才出现的绝对定位"改成"常驻 44px"之后，它在流里
    吃掉 54px，190–234px 宽的磁贴里名字被挤成"群…"（实测改前 19 张卡 3 张截断，
