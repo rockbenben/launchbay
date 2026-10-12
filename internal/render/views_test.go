@@ -1219,6 +1219,26 @@ func checkCSSContrasts(t *testing.T, path string, vars map[string]string) {
 				path, w.what, strings.TrimSpace(fgRaw), w.bg, cssHex(card), r, w.min, w.why)
 		}
 	}
+
+	// 上面那一族全部按 `--card 压在 --bg 上` 算，而**透明底的东西不是压在卡片上**：
+	// 管理页表格里的 .badge.warn 就在页面本体上，那一格没有 --card 这一层。
+	// 取景按像素量到它压在 `--bg + 极光` 上只有 4.41:1，而按 --card 算是 5.45:1——
+	// 证人算的是那一格里根本不存在的底。极光那层是 background-image，静态读
+	// background-color 永远看不见，所以这里自己合成一次再量。
+	// 只量 --warn：它是透明底上唯一的**小字**彩色件（11px）；--ring/--accent 落在
+	// 页底上按非文本 3:1 判，2026-10-12 实测两套都过，没有需要钉的新谎话。
+	if a1, ok := cssColor(t, vars["--aurora-1"]); ok {
+		page := compositeOver(a1, bg)
+		if w, wok := cssColor(t, vars["--warn"]); wok {
+			r := wcagContrast(w, page)
+			t.Logf("%s：徽标 --warn / 极光页底 = %.2f:1（压 %s）", path, r, cssHex(page))
+			if r < 4.5 {
+				t.Errorf("%s：--warn %s 压在带极光的页底 %s 上只有 %.2f:1，要 ≥4.5:1"+
+					"（管理页表格那枚「数据文件读不了」是透明底，11px 小字）",
+					path, strings.TrimSpace(vars["--warn"]), cssHex(page), r)
+			}
+		}
+	}
 }
 
 // 首字母色块（.ic）：白字压在 hsl(色相 饱和 亮度) 上。色相来自条目名的 fnv 哈希

@@ -21,21 +21,24 @@
 /* 亮档为什么要把 --accent/--ring/--warn 逐条重写（修复轮 1 的 I-2）：这三条不在
    原先那"九个变量"里，不写就沿用 :root 的暗档值——暗档那三个是"压在近黑底上的
    浅色"，翻到白卡片上就全废了。数值由 TestCSS_对比度算得过 按 WCAG 相对亮度算：
-   --warn #a1560b 对白卡片 5.45:1（11px 徽标要 4.5:1；原沿用的 #ff9d6c 只有 2.04:1，
-   连非文本的 3:1 都不过，§12"缺图徽标要可见"在亮档就是空话）；--ring #2f6fd0
+   --warn #94500a 对白卡片 6.16:1（原沿用暗档的 #ff9d6c 只有 2.04:1，连非文本的 3:1
+   都不过，§12"缺图徽标要可见"在亮档就是空话；2026-10-12 又从 #a1560b 压深一档——
+   管理页表格里那枚「数据文件读不了」是**透明底**，压在带极光的页底上按像素量到
+   4.41:1，而证人从前只算它压在 --card 上，那一层底在那一格里根本不存在。极光那层
+   现在也进证人了，见 TestCSS_对比度算得过 末尾）；--ring #2f6fd0
    4.88:1、--accent #2a63bd 5.80:1（都按非文本 3:1 判：焦点环 3px 描边、h2 前 10px
    小方块、卡片 hover 描边；原值分别是 2.35:1 与 3.20:1）。同一组色压在 --bg
    #f6f4ef 上也全在 4.4:1 以上，所以焦点环落在卡片之外照样看得见。 */
 [data-theme=light]{color-scheme:light;--bg:#f6f4ef;--ink:#22201c;--ink2:#5d584e;
   --line:#e3ddd1;--card:#fff;--card-hi:#fff;
-  --accent:#2a63bd;--ring:#2f6fd0;--warn:#a1560b;--bad:#b3261e;
+  --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
   --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 [data-theme=dark]{color-scheme:dark}
 @media (prefers-color-scheme:light){
   :root:not([data-theme]){color-scheme:light;--bg:#f6f4ef;--ink:#22201c;--ink2:#5d584e;
     --line:#e3ddd1;--card:#fff;--card-hi:#fff;
-    --accent:#2a63bd;--ring:#2f6fd0;--warn:#a1560b;--bad:#b3261e;
+    --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
     --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 }
