@@ -55,6 +55,19 @@ func ValidSlug(s string) bool { return slugRE.MatchString(s) }
 // **导出是因为导入这条通路也要用同一份判据**：bookimport 在生成 ops 之前
 // 拿它把过不了这一关的条目**逐条挑出去**（而不是让整批被写路径 422 掉）。
 // 判据拷一份的话，两边迟早漂——漂的那天表现是"网页导不进去，命令行能导"。
+//
+// **`file:` 单独放行**（2026-10-12）：它的地址住在**路径**里而不在主机名里——
+// `file:///D:/Downloads/x.html` 的 Host 恒为空，因为那台"机器"就是本机。按
+// "必须有主机名"这条老判据，它与 `mailto:`、`javascript:` 一起被拒，于是**一个
+// 人存了十年的本地网页收藏整份导不进来**——用户实测撞到的正是这个。
+//
+// 它安全且可用：路径非空就是一条真地址，渲染层按 ExternalScheme 标「需手动打开」
+// （浏览器禁止从 http 页面跳 file:，那条标徽标的判据本来就管着），图标抓取那条
+// 通路对非 http 直接返回空串，压根不会去读本机文件。
+//
+// **其余无主机名的协议仍然拒**：`javascript:` 与 `data:` 带的是脚本与数据，
+// 点一下就在书签页里执行；`mailto:`/`tel:` 是动作不是目的地。放行它们换来的
+// 不是"限制少一点"，是别人能往这一页塞脚本。
 func CheckURL(u string) error {
 	if u == "" {
 		return errors.New("url 为空")
@@ -63,8 +76,15 @@ func CheckURL(u string) error {
 	if err != nil {
 		return fmt.Errorf("url 解析失败 %q: %w", u, err)
 	}
-	// 没有主机名就打不开：mailto:/tel: 这类无 host 的 scheme、"http://"、
-	// "/relative" 都在这条上被拒。这仍是拒绝，不是"取消校验"。
+	// url.Parse 会把 scheme 小写化，所以这里比的是小写串。
+	if parsed.Scheme == "file" {
+		if parsed.Path == "" && parsed.Opaque == "" {
+			return fmt.Errorf("url 缺路径 %q", u)
+		}
+		return nil
+	}
+	// 没有主机名就打不开："http://"、"/relative"、mailto:/tel: 这类无 host 的
+	// scheme 都在这条上被拒。这仍是拒绝，不是"取消校验"。
 	if parsed.Host == "" {
 		return fmt.Errorf("url 缺主机名 %q", u)
 	}

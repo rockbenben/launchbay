@@ -209,20 +209,43 @@ func Test长标题截断后仍然唯一(t *testing.T) {
 
 // 进不来的那条要**逐条点名**，还要说清理由：只给一个总数的话，用户只能回浏览器
 // 里一个文件夹一个文件夹地对。
+//
+// **file: 那一格 2026-10-12 翻了过来**：本地路径从"挑出去"变成"照收"，所以
+// 挑出去的只剩 javascript: 两条与 data: 一条。这一格现在同时钉着两件事——
+// 该挡的挡住了（脚本类地址），不该挡的没挡（本地文件）。
 func Test进不来的条目逐条点名(t *testing.T) {
 	res := convertRealWorld(t)
 	skipped := res.Report.Skipped
-	// javascript:（书签栏）、data:（工具）、file:（工具）、javascript:（子文件夹）
-	if len(skipped) != 4 {
-		t.Fatalf("该挑出去 4 条，实际 %d 条：%+v", len(skipped), skipped)
+	// javascript:（书签栏）、data:（工具）、javascript:（子文件夹）。
+	// **file:///C:/… 不在其中**：本地文件照收。
+	if len(skipped) != 3 {
+		t.Fatalf("该挑出去 3 条（file: 已能收进来），实际 %d 条：%+v", len(skipped), skipped)
 	}
 	for _, s := range skipped {
 		if s.Reason == "" || s.URL == "" {
 			t.Errorf("每条都要有地址与理由，实际 %+v", s)
 		}
+		if strings.HasPrefix(s.URL, "file:") {
+			t.Errorf("本地文件不该被挑出去：%+v", s)
+		}
+	}
+	// 本地文件真的进来了，而且 URL 一个字都没被改写。
+	var kept int
+	for _, g := range res.Bookmarks.Groups {
+		for _, it := range g.Items {
+			if strings.HasPrefix(it.URL, "file:///C:/") {
+				kept++
+				if it.URL != "file:///C:/Users/Administrator/Downloads/" {
+					t.Errorf("本地路径被改写了：%q", it.URL)
+				}
+			}
+		}
+	}
+	if kept != 1 {
+		t.Errorf("那条本地文件该进档案，实际进了 %d 条", kept)
 	}
 	txt := res.Report.Text()
-	for _, want := range []string{"没能进来", "javascript:void(0)", "file:///C:/Users"} {
+	for _, want := range []string{"没能进来", "javascript:void(0)", "data:text/html,hello"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("报告里没有 %q：\n%s", want, txt)
 		}
@@ -242,8 +265,8 @@ func Test挑出去的条目不算对账失败(t *testing.T) {
 		t.Fatalf("三条对账没过（挑出去的条目不该算失败）：\n%s",
 			strings.Join(res.Report.Rec.Failures(), "\n"))
 	}
-	if n := res.Report.SourceCount - res.Report.ResultCount; n != 4 {
-		t.Errorf("源 %d 条、新库 %d 条，差的应该正好是挑出去的 4 条",
+	if n := res.Report.SourceCount - res.Report.ResultCount; n != 3 {
+		t.Errorf("源 %d 条、新库 %d 条，差的应该正好是挑出去的 3 条（file: 已能收进来）",
 			res.Report.SourceCount, res.Report.ResultCount)
 	}
 }
@@ -320,10 +343,11 @@ func Test进不来的判据就是写路径那一份(t *testing.T) {
 	}{
 		"http":           {"https://example.com/", false, "普通网页"},
 		"chrome 带主机名":    {"chrome://extensions/", false, "§6.2 要求原样保留"},
-		"javascript 无主机": {"javascript:void(0)", true, "浏览器里也点不开"},
+		"javascript 无主机": {"javascript:void(0)", true, "点了会在这一页里执行"},
 		"data 无主机":       {"data:text/html,x", true, "同上"},
-		"file 无主机":       {"file:///C:/x", true, "同上"},
-		"mailto 无主机":     {"mailto:a@b.c", true, "同上"},
+		"mailto 无主机":     {"mailto:a@b.c", true, "是动作不是目的地"},
+		"file 有路径":       {"file:///C:/Users/Administrator/Downloads/x.html", false, "本地路径照收（2026-10-12）"},
+		"file 缺路径":       {"file://", true, "没有路径就不是一条地址"},
 		"空":              {"", true, "空地址"},
 	}
 	for name, tc := range cases {

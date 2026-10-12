@@ -175,8 +175,9 @@ func (r *Report) writeSkipped(b *strings.Builder) {
 		for _, s := range r.Skipped {
 			fmt.Fprintf(b, "- %s —— `%s`（%s）\n", s.Name, s.URL, s.Reason)
 		}
-		b.WriteString("\n这些大多是 `javascript:`、`data:`、`file:` 这类没有主机名的地址——" +
-			"浏览器从网页里也点不开，写路径一律拒收。**它们没被改写、也没被藏起来**：源文件里原样还在，" +
+		b.WriteString("\n这些大多是 `javascript:`、`data:` 这类**没有主机名、点了会执行东西**的地址——" +
+			"浏览器从网页里也点不开，写路径一律拒收（`file:` 不在其列：本地路径是能收的，2026-10-12）。" +
+			"**它们没被改写、也没被藏起来**：源文件里原样还在，" +
 			"想在浏览器里用就继续在浏览器里用。\n\n")
 	}
 	if len(r.EmptyGroups) > 0 {

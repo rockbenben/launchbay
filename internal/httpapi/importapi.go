@@ -194,8 +194,8 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 				"而不是某个网页另存的 HTML。"
 		case errors.Is(err, errAllSkipped):
 			notice = "这份文件里的书签读是读出来了，但没有一条能进来——它们的地址都是" +
-				"「javascript:」「data:」「file:」这类没有主机名的地址，浏览器从网页里也点不开。" +
-				"这种书签请继续在浏览器里用。"
+				"「javascript:」「data:」这类没有主机名、点了会执行东西的地址，浏览器从网页里也点不开。" +
+				"这种书签请继续在浏览器里用。（本地文件 `file://` 是能导的，2026-10-12 起。）"
 		case errors.Is(err, errNoStash):
 			notice = "临时存不下这次上传，稍后再试。"
 		}
@@ -365,7 +365,8 @@ func decodeImportOps(raw []map[string]any) ([]ops.Op, error) {
 type importPlanResponse struct {
 	Profile string `json:"profile"`
 	Count   int    `json:"count"`
-	// Skipped 是没能进来的条数（过不了写路径的校验：地址没有主机名之类）。
+	// Skipped 是没能进来的条数（过不了写路径的校验：`model.CheckURL` 拒空、拒解析不了、
+	// 拒缺主机名——**`file:` 不在其列**，本地路径照收）。
 	// 报告里有逐条明细，这个数是给调用方一句话显示用的。
 	Skipped int    `json:"skipped"`
 	Groups  int    `json:"groups"`
@@ -488,8 +489,9 @@ func importAPIError(w http.ResponseWriter, err error) {
 			Code: 422, Detail: "这个文件里没读出书签——请确认它是浏览器「导出书签」出来的那份 .html"})
 	case errors.Is(err, errAllSkipped):
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Code: 422, Detail: "读出了书签，但没有一条能进来——它们的地址都没有主机名" +
-				"（javascript:、data:、file: 这类），这种书签请继续在浏览器里用"})
+			Code: 422, Detail: "读出了书签，但没有一条能进来——它们的地址都是 javascript:、data: " +
+				"这类没有主机名、点了会执行东西的地址，这种书签请继续在浏览器里用；" +
+				"本地文件 file:// 是能导的"})
 	case errors.Is(err, errStashGone):
 		writeJSON(w, http.StatusGone, errorResponse{
 			Code: 410, Detail: "这次的上传已经过期或被用过了，请重新发起"})

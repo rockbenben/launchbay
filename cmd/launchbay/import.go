@@ -73,8 +73,9 @@ func cmdImportBookmarks(args []string, cfg config, out io.Writer) int {
 		// 书签但一条都没能进来（全是 javascript: 这类没有主机名的地址）。
 		// 混成一句会把人引去换一个同样导不进来的文件。
 		if len(res.Report.Skipped) > 0 {
-			fmt.Fprintf(out, "读出了书签，但 %d 条全都没能进来（地址没有主机名，浏览器从网页里也点不开）。"+
-				"这种书签请继续在浏览器里用。\n", len(res.Report.Skipped))
+			fmt.Fprintf(out, "读出了书签，但 %d 条全都没能进来（javascript:、data: 这类没有主机名、"+
+				"点了会执行东西的地址；本地文件 file:// 是能导的）。这种书签请继续在浏览器里用。\n",
+				len(res.Report.Skipped))
 		} else {
 			fmt.Fprintln(out, "这个文件里没有可导入的书签（回收站里的那些有意的没算在内）")
 		}

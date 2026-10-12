@@ -11,7 +11,7 @@ import (
 
 const reportFixture = "# 浏览器书签导入报告\n\n" +
 	"## 结论\n\n条目：文件里 12 条 → 进档案 9 条。另有 3 条**没能进来**（逐条列在下面）。\n\n" +
-	"## 没能进来的\n\n- 本地文件 —— `file:///D:/x.txt`（url 缺主机名 \"file:///D:/x.txt\"）\n- 脚本 —— `javascript:void(0)`\n\n" +
+	"## 没能进来的\n\n- 脚本小工具 —— `javascript:void(0)`（url 缺主机名 \"javascript:void(0)\"）\n\n" +
 	"## 对账\n\n1. 条目数：该进的 9 条，档案里 9 条 —— 过\n2. URL 差集：丢 0 条 —— 过\n"
 
 func Test报告渲染_标记不许漏到页面上(t *testing.T) {
@@ -24,10 +24,10 @@ func Test报告渲染_标记不许漏到页面上(t *testing.T) {
 	for _, want := range []string{
 		`<h3 class="rep-h">结论</h3>`,
 		"<b>没能进来</b>",
-		"<code>file:///D:/x.txt</code>",
+		"<code>javascript:void(0)</code>",
 		`<ul class="rep-list">`, `<ol class="rep-list">`, "<li>",
 		"文件里 12 条 → 进档案 9 条",
-		`"file:///D:/x.txt"`,
+		`"javascript:void(0)"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("渲染结果缺 %q:\n%s", want, got)
@@ -69,7 +69,7 @@ func Test报告渲染_旧行为会被抓住(t *testing.T) {
 	// 在文本内容里会把 " 转成 &#34;。夹具要是先被洗干净，上面那几条"不许出现标记"
 	// 的证人就成了空转。
 	if !strings.Contains(reportFixture, "## 结论") || !strings.Contains(reportFixture, "**没能进来**") ||
-		!strings.Contains(reportFixture, `"file`) {
+		!strings.Contains(reportFixture, `"javascript`) {
 		t.Fatal("夹具本身不带 markdown 标记与裸引号，上面几条证人等于没测")
 	}
 }

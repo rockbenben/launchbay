@@ -267,6 +267,11 @@ func TestOrigin_带端口且形状稳定(t *testing.T) {
 		"https://newzone.top/posts/1":    "https://newzone.top",
 		"http://Host.LAN:80/x":           "http://host.lan:80", // 主机名小写化：同一服务别算成两个 origin
 		"chrome://extensions/":           "",
+		// 本地文件（2026-10-12 起 `file:` 能存进档案了）**永远拿不到图标**：
+		// 那台"机器"是用户自己的电脑，服务跑在 NAS 上——折不出 origin 就不会去读
+		// 任何本机文件。这条钉的是"能存"与"能抓图标"两道判据的分工。
+		"file:///C:/Users/Administrator/Downloads/x.html": "",
+		"file://server/share/x.html":                      "",
 	} {
 		if got := Origin(in); got != want {
 			t.Errorf("Origin(%q) = %q，要 %q", in, got, want)
