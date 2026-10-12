@@ -38,9 +38,9 @@ func checkWritable(dir string) error {
 	f, err := os.CreateTemp(dir, ".healthcheck-*")
 	if err != nil {
 		return fmt.Errorf("容器里的数据目录 %s 不可写：多半是宿主机上挂进去的那个目录不归"+
-			"这个用户（容器以 uid 65534 跑，NAS 上把 ./data 挂成 root 所属正是这个形状）。"+
+			"这个用户（容器以 uid 65534 跑，NAS 上把数据目录挂成 root 所属正是这个形状）。"+
 			"在宿主机上把它交给这个用户即可，例如 sudo chown -R 65534:65534 ./data"+
-			"（目录由 compose 的 LAUNCHBAY_HOST_DATA 决定，默认就是 ./data），然后重启容器: %w",
+			"（chown 的对象是 compose 里 volumes 那一行指向的目录，默认就是 ./data），然后重启容器: %w",
 			dir, err)
 	}
 	name := f.Name()

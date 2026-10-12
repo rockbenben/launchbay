@@ -562,6 +562,20 @@ services:
 
 令牌实际值放 NAS 上 compose 同目录的 `.env`（不进仓库）。没有会话密钥这一项：cookie 不签名（§11）。CLI 子命令在容器内 `docker exec` 运行，读同一 env 里的管理员令牌（§4.5），所以 `LAUNCHBAY_TOKEN_ADMIN` 不只是 AI 在用。
 
+> **2026-10-12 更新，上面那段 YAML 与那句 `.env` 已经不成立了**，照抄会踩空。现状是：
+> - compose **只拉已发布的镜像**，`build:` 与 `pull_policy` 都没有了；构建是 CI 的事
+>   （`.github/workflows/docker.yml`，推 main 或打 `v*` tag 都发）。所以 `LAUNCHBAY_PULL_POLICY`
+>   这个变量不存在，`LAUNCHBAY_TOKEN_AI_DAD` / `LAUNCHBAY_TOKEN_ADMIN` / `LAUNCHBAY_HOST_DATA`
+>   也一并没了。
+> - 令牌就写在 compose 的 `environment` 里，**一行字面量**，密钥是 `change-me-…` 占位，要改直接
+>   改那一行——不需要 `.env`，也没有第二层变量。
+> - 镜像标签是 `:latest`（用的人不该被「记得改版本号」绊住）。代价是 `docker compose up` 不会
+>   回仓库确认，**升级要先 `docker compose pull`**。
+> - volumes 改回短语法 `./data:/data`；Windows 绝对路径要用长语法（README「数据目录的权限」有示例）。
+>
+> 权限模型的其余部分不变：容器仍以非 root（uid 65534）运行，`/data` 挂载、chown 前提、`rebuild`
+> 救坏档那几条都照旧。
+
 升级 = 换镜像 + 重启；数据在 `./data` 卷里不动。回滚 = 换回旧镜像；某档案 JSON 被写坏时**分两种坏**：`bookmarks.json` 坏了用 `revert` 或直接从 `snapshots/` 取（快照只存书签）；**`profile.json` 坏了这两条都救不了**，唯一的出路是 `POST /api/v1/profiles/rebuild`（CLI 是同一条通路的壳：`launchbay profile rebuild --id <slug> --title <名字> --pin <4-6位> [--admin]`，只经本机 REST，不直改磁盘），它只重写那一个文件。**没有**"删掉坏文件再建档"这种走法：`CreateProfile` 会无条件写一份 `bookmarks.json`，把盘上那份还能读的书签一起盖掉（§12）。备份 = 整目录 `data/` 拷走，无外部依赖。
 
 接管 7570 的时机：并行跑 ≥ 一周、人工确认无缺失后，停掉 flare 容器并把 7570 指过来（或在 Nginx Proxy Manager 里把上游换到 7600）。flare 容器保留不删，随时可回。

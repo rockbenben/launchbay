@@ -1,58 +1,67 @@
+# 项目名钉死成 launchbay。不写的话 compose 拿**目录名**当项目名：clone 到
+# `042-launchbay` 就是 `042-launchbay`，clone 到 `launchbay-main` 又是另一个，
+# 同一份文件起出两套互不相认的容器与网络，`down` 也只清得掉自己那半边。
+# 优先级在 `-p` 与 `COMPOSE_PROJECT_NAME` 之后，那两个仍然盖得住它。
+name: launchbay
+
+# 这个文件只负责**拉**已发布的镜像。构建是 CI 的事：打 `v*` tag，
+# `.github/workflows/docker.yml` 构建并推出 amd64 + arm64 两个架构到
+# Docker Hub 与 GHCR。用它的人不需要装 Go，也不需要看 Dockerfile。
 services:
   launchbay:
-    build: .
-    # **两条路都在这一份里**（2026-10-12）：version 标签指向发布的镜像，
-    # pull_policy 决定这一趟去哪儿拿。
-    #   · 默认 build   —— clone 下来的人按 README 编译本机的（NAS 上编译几分钟）；
-    #   · always       —— 直接拉发布镜像，不编译（`LAUNCHBAY_PULL_POLICY=always`）；
-    #   · missing      —— 本地没有就拉，有就用本地的。
-    # 早先这里写的是 `image: launchbay:0.1.0`，于是 **image 这行没有仓库前缀**，
-    # compose 只会去找本地镜像或自己构建，发布到 GHCR 的那个镜像**永远用不到**——
-    # 而 README 另一头正教人 `docker run ghcr.io/rockbenben/launchbay:latest`。
-    # 两条路各说各的，读者得自己猜它们是不是一回事。现在是同一份 compose 两条路。
-    #
-    # 版本号仍然只有这一处：docker.yml 发版时从**这一行** grep（那一步的正则
-    # 跟着放宽成能带仓库前缀），.env 与 README 都只引用它，不再各写一份。
-    image: ghcr.io/rockbenben/launchbay:0.1.0
-    pull_policy: ${LAUNCHBAY_PULL_POLICY:-build}
+    image: ghcr.io/rockbenben/launchbay:latest
     container_name: launchbay
-    # 宿主端口默认 7600（spec §10），可用 LAUNCHBAY_HOST_PORT 覆盖：
-    # 本机 Windows 把 TCP 7532-7631 整段划给了 Hyper-V 动态保留，7600 直接
-    # bind 不上（ports are not available）。容器内端口与 LAUNCHBAY_PORT
-    # 一律不动，healthcheck 探的仍是 7600。
+    # 不写 pull_policy，用默认的 missing。实测（Compose v2.40 / Engine 28.5）：
+    # `up` 看到本机已经有这个标签就直接用，**不会**顺手上仓库确认一遍。
+    # 代价在发新版那一侧：已经在跑的用户要 `docker compose pull` 才拿得到新的。
+    #
+    # 宿主端口默认 7600（spec §10）。本机 Windows 把 TCP 7532-7631 整段划给了
+    # Hyper-V 动态保留，撞上了就在前面加 LAUNCHBAY_HOST_PORT=7601。
+    # 容器内端口与 LAUNCHBAY_PORT 一律不动，healthcheck 探的仍是 7600。
     ports: ["${LAUNCHBAY_HOST_PORT:-7600}:7600"]
-    # 数据落在宿主上的位置由 LAUNCHBAY_HOST_DATA 决定（默认 ./data，见 .env.example）。
-    # 用**长语法**而不是 "./data:/data" 那种短串：短语法里 `D:\somewhere:/data`
-    # 的冒号会被当成分隔符，Windows 盘符路径正是这条的经典翻车点。长语法把
-    # source/target 分成两格，盘符的冒号就没有歧义了。
-    # 容器内路径永远是 /data，不跟着变——healthcheck 与 LAUNCHBAY_DATA_DIR 都认它。
     volumes:
-      - type: bind
-        # **首次拉起之前先 chown**：镜像以 USER 65534 跑（见 Dockerfile），
-        # 宿主上 root 所属的 ./data 挂进去之后建档与写书签会全部失败。
-        # 修法就一条，见 README「数据目录的权限」：
-        #   sudo chown -R 65534:65534 ./data
-        source: ${LAUNCHBAY_HOST_DATA:-./data}
-        target: /data
+      # 数据落在 compose 同目录的 ./data，想放别处就改这一行（示例见 README）。
+      # 容器内永远是 /data——healthcheck 与 LAUNCHBAY_DATA_DIR 都认它。
+      #
+      # **首次拉起之前先 chown**：镜像以 USER 65534 跑，宿主上 root 所属的目录
+      # 挂进去之后建档与写书签会全部失败：
+      #   sudo chown -R 65534:65534 ./data
+      - ./data:/data
     environment:
       LAUNCHBAY_PORT: "7600"
       LAUNCHBAY_DATA_DIR: "/data"
-      # **两枚令牌的档案段要对上你真正建出来的档案 id**：建档只问名字与 PIN，
-      # id 由名字派生（`Dad` → dad，中文名字转不出 slug → home / home-2）。
-      # 拿中文名字建了第一个档案之后，下面那枚 `…:dad` 的作用域对不上任何档案，
-      # 打过去是 403——这是"令牌越界"的 403，不是服务坏了。改这里的 `dad` 即可，
-      # 或用 `launchbay profile create --id dad …` 建一份就叫 dad 的档案。
-      LAUNCHBAY_WRITE_TOKENS: "ai-dad:${LAUNCHBAY_TOKEN_AI_DAD}:dad,admin:${LAUNCHBAY_TOKEN_ADMIN}:*"
+      # **这两行就是全部的令牌配置**，没有 `.env`、没有第二层变量。
+      # 要改就直接改这里，改完 `docker compose up -d` 重起。
+      #
+      # 格式是 `名字:密钥:档案`，逗号分隔。下面两枚的密钥是**占位值**，
+      # 谁都在仓库里看得见：同一局域网里认得这个名字的人能拿 `admin` 那枚
+      # 建档、删档、给别人改 PIN（但**读不到任何人的书签**——那要档案自己的
+      # PIN，而 PIN 只有档案主人知道）。要把这台机器开给局域网以外的人，
+      # 先把这两个 `change-me-…` 换成自己的。
+      #
+      # 档案段 `…:dad` 要对上你真正建出来的档案 id：建档只问名字与 PIN，id 由名字
+      # 派生（`Dad` → dad；**中文名字转不出 slug** → home / home-2）。拿中文名字建了
+      # 第一个档案之后，下面那枚 `…:dad` 的作用域对不上任何档案，打过去是 403
+      # ——那是"令牌越界"的 403，不是服务坏了。把 `dad` 改成实际的档案 id 即可。
+      LAUNCHBAY_WRITE_TOKENS: "ai-dad:change-me-dad-token:dad,admin:change-me-admin-token:*"
       TZ: Asia/Shanghai
     restart: unless-stopped
+    # 静态二进制要的能力一个都没有：7600 是高位端口，不需要 CAP_NET_BIND_SERVICE；
+    # 唯一的写入目标是 /data 那个挂载，靠 uid 65534 的文件权限就够。全丢掉，再加
+    # no-new-privileges 堵住「容器里被塞进一个 setuid 就提权」那条路。
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       # scratch 里没有 shell，所以走 CMD-signal 之外的方式：让二进制自己探。
       # 探的不只是 /healthz：`launchbay healthcheck` 会在 LAUNCHBAY_DATA_DIR
       # 里建删一个临时文件——65534 用户碰到 root 所属的挂载目录（群晖常见）
       # 时，只探 HTTP 会永远误报 healthy（评审 Important #9）。
-      # 前提：宿主 ./data 需对该 uid 可写（chown -R 65534:65534 ./data），
+      # 前提：宿主那个目录需对该 uid 可写（chown -R 65534:65534），
       # 不满足时这里要能看到 unhealthy，而不是装作能写——失败消息里带着
       # 那条 chown 命令，读的人不用再猜是哪一侧的权限。
+      #
+      # **不写 start_interval**：那一条要 Docker Engine 25+（群晖 DSM 7.2 还是
+      # 24.x），为了早几秒变 healthy 去卡掉一批 NAS 用户不值。
       test: ["CMD", "/launchbay", "healthcheck"]
       interval: 30s
       timeout: 3s

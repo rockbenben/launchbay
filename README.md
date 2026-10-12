@@ -44,44 +44,43 @@
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
-cp .env.example .env      # 填两个令牌（见下）
 docker compose up -d
 ```
 
-令牌不想单独搞一个 `.env` 文件也行，**直接在命令上写**（compose 会从宿主环境读）：
+三条命令，不需要 `.env`，不需要装 Go，镜像直接拉。**令牌就写在 `docker-compose.yml` 里**
+（带能直接用的占位值），所以这一趟就能起来；镜像用 `:latest`，**首次** `up` 拉的就是最新一次
+发布——已经跑着的机器要先 `docker compose pull`（原因见下面的「镜像从哪来」）。
 
-```bash
-# Linux / macOS
-LAUNCHBAY_TOKEN_AI_DAD=换成你自己的令牌 \
-LAUNCHBAY_TOKEN_ADMIN=换一枚 \
-docker compose up -d
-```
-
-```powershell
-# Windows PowerShell
-$env:LAUNCHBAY_TOKEN_AI_DAD="换成你自己的令牌"
-$env:LAUNCHBAY_TOKEN_ADMIN="换一枚"
-docker compose up -d
-```
-
-`cp .env.example .env` 那条路也一直有效，两种写法随便挑——`.env` 只是让令牌在多次 `docker compose` 之间留着不丢。
+> **那两个占位密钥是公开的**，写成 `change-me-…` 就是提醒你该换。同一局域网里认得这个名字的
+> 人，能拿管理员令牌建档、删档、给别人改 PIN——但**读不到任何人的书签**，那要档案
+> 自己的 PIN，而 PIN 只有档案主人知道。这台机器本来就设计成只在局域网内用
+> （见下面的「限制」）。要把它开给局域网以外的人，打开 `docker-compose.yml`，把
+> `LAUNCHBAY_WRITE_TOKENS` 那一行里的两个 `change-me-…` 换成自己的，然后重起：
+>
+> ```yaml
+> LAUNCHBAY_WRITE_TOKENS: "ai-dad:你自己的密钥:dad,admin:你自己的密钥:*"
+> ```
+>
+> ```bash
+> docker compose up -d
+> ```
 
 打开 http://localhost:7600 会进**一次性建档页**：给第一个档案起个名字、设 4–6 位 PIN。**没有默认账号密码**——没有 `admin/admin` 可试，你填进去的名字和数字就是你自己的。这个页面只在磁盘上一个档案都没有时有效，建完就永久关闭——所以"这台机器建过档了没有"本身就是一条线索，不会被匿名访问者拿来数你家里有几口人。
 
 同一页上还有一个**界面语言**下拉框（中文 / English）——**装的时候顺手在这里选**，填完 PIN 直接点创建容易把它跳过去。选完立刻生效，之后只有管理员能在管理页改（它属于整台机器，不属于某个档案）。
 
-### 不想在本机编译，就拉发布镜像
+### 镜像从哪来
 
-默认那条路是**本机编译**（NAS 上要几分钟，还要有 Go 工具链）。加一个 `LAUNCHBAY_PULL_POLICY=always` 就改成拉镜像：
+compose 只管**拉**已发布的镜像，构建是 CI 的事：推 main 或打 `v*` tag，
+`.github/workflows/docker.yml` 会构建并推出 amd64 + arm64 两个架构到 Docker Hub 与 GHCR。
+用这台机器的人不需要装 Go，也不用看 `Dockerfile`。
 
-```bash
-LAUNCHBAY_PULL_POLICY=always \
-LAUNCHBAY_TOKEN_AI_DAD=换成你自己的令牌 \
-LAUNCHBAY_TOKEN_ADMIN=换一枚 \
-docker compose up -d
-```
+镜像标签是 `:latest`。**第一次** `up` 时本机没有这个镜像，会去仓库拉最新一次发布；已经跑着的
+机器本机已经有了，`up` 不会回仓库确认，所以要**先 `docker compose pull`** 才换到新版。
 
-镜像名在 `docker-compose.yml` 的 `image:` 那一行（`ghcr.io/rockbenben/launchbay:0.1.0`），版本号**只有那一个来源**——发版流水线也是从同一行取的。`missing` 则表示"本地没有就拉，有就用本地的"。
+发版靠 **git tag**：打一个 `v0.1.0` 推上去，流水线就构建并推出 `0.1.0`、`0.1`、`0` 与
+`latest` 四个标签。这个仓库里没有第二处要改的版本号——`image:` 用的是 `:latest`，所以它不
+参与发版，版本号只来自 tag。
 
 不想 clone 也行——直接拉发布镜像（amd64 与 arm64 都出了，Docker Hub 与 GHCR 同名）：
 
@@ -93,20 +92,23 @@ docker run -d --name launchbay -p 7600:7600 \
   ghcr.io/rockbenben/launchbay:latest
 ```
 
-令牌在 `.env` 里，两条：
+令牌全部收在 `docker-compose.yml` 的**一行** `LAUNCHBAY_WRITE_TOKENS` 里，格式是 `名字:密钥:档案`，逗号分隔，写死的就是能用的值（密钥是 `change-me-…` 占位）：
 
-| 变量 | 给谁用 | 作用域 |
+| 默认值那一段 | 给谁用 | 作用域 |
 |---|---|---|
-| `LAUNCHBAY_TOKEN_ADMIN` | 管理员：建档、删档、给别人设 PIN、停用/启用、跨档案读状态与审计线 | `*`，**只管账号**——它打 `/api/v1/data`、`/api/v1/batch`、`/api/v1/export` 一律 403 |
-| `LAUNCHBAY_TOKEN_AI_DAD` | AI 运行时（成批增删改书签） | 只能动一个档案 |
+| `admin:…:*` | 管理员：建档、删档、给别人设 PIN、停用/启用、跨档案读状态与审计线 | `*`，**只管账号**——它打 `/api/v1/data`、`/api/v1/batch`、`/api/v1/export` 一律 403 |
+| `ai-dad:…:dad` | AI 运行时（成批增删改书签） | 只能动一个档案 |
 
 > **注意档案 id 是从名字派生的，不一定叫 `dad`。** 建档只问名字与 PIN，id 由名字转
 > 来的：名字里有 ASCII 字母数字就取那个 slug（`Dad` → `dad`、`nas box` → `nas-box`），
 > **中文名字转不出东西，一律落到 `home` / `home-2` 基名序列**。所以拿中文名字建了
-> 第一个档案之后，`.env` 里那枚 `…:dad` 的令牌作用域对不上任何档案，打过去是 403。
+> 第一个档案之后，那枚 `…:dad` 的令牌作用域对不上任何档案，打过去是 403。
 > 两种修法：把令牌作用域改成实际的档案 id（推荐），或者第一个档案就用 ASCII 名字。
 
-宿主端口默认 7600；Windows 上 7532–7631 整段被 Hyper-V 动态保留，撞上了就在 `.env` 里加 `LAUNCHBAY_HOST_PORT`（容器内端口不动）。
+宿主端口默认 7600；Windows 上 7532–7631 整段被 Hyper-V 动态保留，撞上了就在命令行前缀 `LAUNCHBAY_HOST_PORT=7601 docker compose up -d`（容器内端口不动）。
+
+项目名与容器名都写死在 compose 里（`launchbay`），所以 `docker compose …` 那几条命令跟
+clone 到哪个目录无关，而 `docker logs launchbay`、`docker exec launchbay …` 也直接能用。
 
 ### 浏览器扩展（可选）
 
@@ -117,10 +119,10 @@ docker run -d --name launchbay -p 7600:7600 \
 3. 点扩展图标进设置页，填三样：
    - **这台机器的地址**——`http://10.0.0.3:7600`，**不带结尾斜杠**
    - **默认档案 id**——右边令牌对应的那一份（见上面那条"id 是从名字派生的"）
-   - **那一枚令牌**——`.env` 里 `LAUNCHBAY_TOKEN_AI_DAD` 的**值本身**，不是 `ai-dad:…:dad` 整串（三段式 `name:secret:profile` 里 `Bearer` 后面只放 `secret` 那段）
+   - **那一枚令牌**——`docker-compose.yml` 里 `LAUNCHBAY_WRITE_TOKENS` 中 `ai-dad:` 后面那一段密钥本身，不是 `ai-dad:…:dad` 整串（三段式 `名字:密钥:档案` 里 `Bearer` 后面只放 `密钥` 那段）
 4. 点**试一下这台机器**验一下
 
-那个「试一下」按钮答 403 不是网络坏了，是**令牌与档案对不上**：它拿默认档案去读一次，403 就说明这枚令牌的作用域是别的档案——回到 `.env` 把 `LAUNCHBAY_TOKEN_AI_DAD` 的作用域段（`…:dad` 里那个 `dad`）改成你实际的档案 id，然后重启容器。
+那个「试一下」按钮答 403 不是网络坏了，是**令牌与档案对不上**：它拿默认档案去读一次，403 就说明这枚令牌的作用域是别的档案——回到 `docker-compose.yml` 把 `LAUNCHBAY_WRITE_TOKENS` 里 `ai-dad:` 那一段的作用域（末尾的 `…:dad`）改成你实际的档案 id，然后 `docker compose up -d` 重起。
 
 装好之后：任意网页右键 → 存到 launchbay；设置页里还能**把浏览器书签树整个导进来**（第一次点才问你要「读书签」权限，设成按需申请——只为右键收藏装它的人，永远不会看到那个提问；导进去之前先给你一份逐条对账报告）。
 
@@ -130,10 +132,29 @@ docker run -d --name launchbay -p 7600:7600 \
 
 ### 数据目录的权限
 
-容器以 **uid 65534** 运行，而 NAS 上 `./data` 默认是 root 所属的——挂上去之后建档、导入、写书签会全部失败。**在宿主机上把那个目录交给这个用户**：
+数据默认落在 `docker-compose.yml` 同目录的 `./data`，容器里永远是 `/data`。想放别处就改
+compose 的 `volumes` 那一行，比如 NAS 上常见的：
+
+```yaml
+    volumes:
+      - /volume1/docker/launchbay:/data
+```
+
+Windows 上如果写绝对路径，`D:` 的冒号会和分隔符打架，改用长语法（`source` / `target`
+分成两格就没有歧义）：
+
+```yaml
+    volumes:
+      - type: bind
+        source: D:/launchbay-data
+        target: /data
+```
+
+容器以 **uid 65534** 运行，而 NAS 上那个目录默认是 root 所属的——挂上去之后建档、导入、
+写书签会全部失败。**在宿主机上把它交给这个用户**（下面以默认的 `./data` 为例）：
 
 ```bash
-sudo chown -R 65534:65534 ./data     # 目录位置由 .env 的 LAUNCHBAY_HOST_DATA 决定
+sudo chown -R 65534:65534 ./data
 ```
 
 不用 `sudo docker run` 或 `--user root` 绕过（那等于让服务以管理员身份写你家每一个文件）。这条不是猜的：探针每次体检都会在数据目录里建删一个临时文件，权限不对时 `docker ps` 直接显示 **unhealthy**，容器日志里那句会告诉你同一个 chown 命令；页面那头也一样——建档表单回一句「数据目录写不进去，请把数据目录交给 uid 65534 之后再重试」。直接跑二进制（不用容器）的话，那句话里的 uid 换成你自己这个系统用户即可。
