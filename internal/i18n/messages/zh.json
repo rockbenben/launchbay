@@ -39,6 +39,7 @@
   "picker.blocked.which": "进不去的档案：",
   "picker.blocked.sep": "、",
   "picker.enter": "进入",
+  "picker.enterNamed": "进入 %s 的书签页",
   "picker.adminLink": "管理这台机器",
   "admin.login.title": "管理这台机器",
   "admin.login.key": "管理密钥",

@@ -229,9 +229,17 @@ type pickerView struct {
 }
 
 type pickerEntry struct {
-	ID     string
-	Title  string
-	Letter string
+	ID string
+	// Icon 是这张卡上画的那张脸（2026-10-12）：**名字不再印在卡上**，
+	// 改画这个人自己常用的那个站点的图标——图标比字好认，而共用一台电脑的
+	// 一家人各自认自己那张，靠的正是"这张是那个图标"。挑法与三取一都在
+	// icon.go 的 faceOf/pieceFor，判据只有一份。
+	//
+	// Title 仍然留着：它进 title（鼠标停上去）与按钮的无障碍名（aria-label），
+	// **不作为可见文字印出来**。一张没有无障碍名的卡对读屏的人等于没有名字，
+	// 而"不显示"说的是"不印出来"，不是"不能被读到"。
+	Icon  iconPiece
+	Title string
 	// NeedsPIN 决定这张卡片要不要给 PIN 输入框（2026-10-12）。
 	//
 	// **它由 httpapi 算，不由这里问 store**：选择页本来就不读 profile.json 的

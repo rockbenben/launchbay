@@ -200,10 +200,31 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	}
 	// 选择页只取名字与 id：条目、URL、分组名一个都不进视图。
 	//
+	// **2026-10-12 例外**：视图里多了一张脸（Icon）。判断本身在 icon.go 的
+	// faceOf，而它要问的是"这份档案最常点的是哪个站"——那答案只能从书签里去
+	// 拿。这里**只带一张脸进模板**：一个图标与它藏在哪条书签后面，不泄露一份
+	// 收藏里有什么（这页是给全家都能看到的进门页）。
+	//
 	// **停用的档案不占一张卡**（2026-10-10）：停用是"输对 PIN 也进不去"，给一张
 	// 点不进去的卡等于骗人点了。而它**仍然占 CountProfiles 的位置**——那是
 	// httpapi 那一层的判据（目录数），所以引导窗口不会因为停用一个人而重开。
 	// 两个数字不一样是刻意的：目录数判"这台机器装好了没有"，这张表判"谁进得来"。
+	//
+	// 代价：这一页因此要为**每份**档案读一次 bookmarks.json（只读文件，不 stat ——
+	// `Current` 会多读一次 mtime，而这一页要的是书签本身）。
+	//
+	// **量过**（两轮交错 A/B，各 60 次，免得机器抖动全砸在一边）：本机 3 份档案、
+	// 书签文件都只有几百字节，选择页 p50 从 17.0/15.0ms 变成 21.2/18.4ms——多出
+	// 的是**每份档案一次文件读**的量级（约 1ms/份），不是解析的量级。Windows 的
+	// Docker bind 挂载每次文件操作约 1ms；Linux 本地盘是零点几毫秒，NAS 上取决于
+	// 它的文件系统（SMB 上会明显更贵——这一格要在真 NAS 上重测，本机测不出来）。
+	//
+	// 为什么不给这张脸加缓存：能当键的 rev 或 mtime 都得先读/先 stat 才拿得到，
+	// 省不掉那一次文件操作；而缓存本身会成为"这一份现在几 rev"的第二处真相，
+	// 错了就是一张永远不换的脸。这里选择每次老实读一次。
+	//
+	// 档案读不出来（坏档）时那一格走首字母色块——点进去之后才有解释页，不在这一
+	// 页重复。
 	var views []pickerEntry
 	listed := make(map[string]bool, len(profiles))
 	for _, p := range profiles {
@@ -211,7 +232,12 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 		if p.Disabled {
 			continue
 		}
-		views = append(views, pickerEntry{ID: p.ID, Title: p.Title, Letter: firstChar(p.Title),
+		b, err := r.s.LoadBookmarks(p.ID)
+		if err != nil {
+			b = nil
+		}
+		views = append(views, pickerEntry{ID: p.ID, Title: p.Title,
+			Icon:     faceOf(p, b, r.tmpl.ix, r.fc),
 			NeedsPIN: auth.HasPin(p.PIN)})
 	}
 	// 进不去的那几份要在这一页说出口（死路①的对策：读不动的档案从前只是被跳过，

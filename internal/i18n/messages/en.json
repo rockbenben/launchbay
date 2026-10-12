@@ -39,6 +39,7 @@
   "picker.blocked.which": "Cannot be opened:",
   "picker.blocked.sep": ", ",
   "picker.enter": "Enter",
+  "picker.enterNamed": "Enter %s’s bookmark page",
   "picker.adminLink": "Manage this machine",
   "admin.login.title": "Manage this machine",
   "admin.login.key": "Admin key",

@@ -76,7 +76,14 @@
         <input type="hidden" name="profile" value="{{.ID}}">
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
-        <span class="pick-name"><span class="ic" aria-hidden="true">{{.Letter}}</span><b>{{.Title}}</b></span>
+        {{/* **卡上不再印名字**（2026-10-12）。原来这里是「首字母色块 + 名字」，
+             现在只画一张脸：这个人自己常用的那个站点的图标（挑法在 icon.go 的
+             faceOf，判据与档案页那张脸同一份）。
+
+             名字没有丢，它在两处：**title**（鼠标停上去）与按钮的 aria-label
+             （读屏念出来）。一张没有无障碍名的卡对读屏的人等于没有名字——而
+             「不显示」说的是「不印出来」，不是「不能被读到」。 */}}
+        <span class="pick-face" title="{{.Title}}">{{template "icon" .Icon}}</span>
         {{/* **不设防的那一份不给 PIN 输入框**（2026-10-12）。给一个空框等于在门口
              摆一个"输什么都行"的假门槛：人会以为该输点什么，输错之后弹回来的
              那句比不问更费解。不给框，意思就只剩一个——这张卡按下去就能进。
@@ -88,7 +95,7 @@
         {{else}}
           <p class="nopass">{{$.T "picker.nopass"}}</p>
         {{end}}
-        <button type="submit">{{$.T "picker.enter"}}</button>
+        <button type="submit" aria-label="{{$.T "picker.enterNamed" .Title}}">{{$.T "picker.enter"}}</button>
       </form>
     </li>
   {{end}}
@@ -102,3 +109,20 @@
 </main>
 </body>
 </html>{{end}}
+{{/* 图标三级兜底在 profile.tmpl 里有一份同名的 define（那里是给条目用的）。
+     这一份是**同一段判据的第二处落点**，不是第二套规则：谁画出那张脸由
+     icon.go 的 pieceFor/faceOf 判完，模板只按 SVG > Img > Letter 端出去。
+
+     它没有做成"两个模板共用一个 define"是因为它们各自 Parse（newExecutor）成
+     两个互不相干的模板集；为了共用五六行而把四个页面的模板并成一个集，是一次
+     远大于这五六行的改动。**要改这段三取一，就两处一起改**——判据仍只有一份，
+     落在 Go 侧那一份。 */}}
+{{define "icon"}}
+{{- if .SVG}}
+{{.SVG}}
+{{- else if .Img}}
+<img class="ic-img" src="{{.Img}}" alt="" aria-hidden="true" width="40" height="40">
+{{- else}}
+<span class="ic" style="--chip-h:{{.ChipHue}}" aria-hidden="true">{{.Letter}}</span>
+{{- end}}
+{{- end}}
