@@ -247,6 +247,13 @@ section[data-depth]{padding-left:calc(min(var(--d,0),4) * 18px)}
    打印时整条关掉：content-visibility 会让离屏内容不进打印流，印出来是一堆空页。
    浏览器自带的 Ctrl+F 不用管——现代引擎会为"跳到命中项"自动渲染对应子树。 */
 section{content-visibility:auto;contain-intrinsic-size:auto 700px}
+/* 例外只有一条：**开着就地编辑器的那一节**。`content-visibility:auto` 带着 paint
+   containment，等于给这一节画了个框——就地编辑的面板是从卡片里长出来的绝对定位块，
+   比"这一节剩下的空间"高时，多出来的那截**不画、也点不到**：rect 一切正常，
+   `elementFromPoint` 交出的是下一节的 h2。浏览器里实拍到的症状是「删掉这条」
+   那颗键在界面上根本不存在，而脚本 .click() 照样删得动，所以功能测试全绿。
+   面板只在人正看着的那一节里长出来，这一节的活儿本来就不在"跳过屏外"的范围里。 */
+section:has(.inline-edit){content-visibility:visible}
 @media print{section{content-visibility:visible}}
 /* 分组标题。**letter-spacing 从 .1em 收到 .04em（2026-10-11）**：.1em 是给
    `text-transform:uppercase` 的拉丁大写标题用的呼吸感，界面切到中文之后它变成

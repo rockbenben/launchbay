@@ -704,6 +704,11 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 四次，删掉 .tech 这一条它照样绿。系统色会盖掉 --ring 描边，没有这条
 		// CanvasText 边框，"技术细节"那块就与正文糊成一片。
 		"细节块的高对比边框": `@media (forced-colors:active){.tech{border:1px solid CanvasText`,
+		// 就地编辑的面板**不能被自己那一节裁掉**：`content-visibility:auto` 带 paint
+		// containment，面板比这一节剩下的空间高时，多出来那截不画也点不到（实测
+		// `elementFromPoint` 交出下一节的 h2）。这条与上面那条 containment 是一对，
+		// 删了它=「删掉这条」那颗键在界面上消失，而功能测试照样全绿。
+		"开着编辑器的那一节退出 containment": `section:has(.inline-edit){content-visibility:visible}`,
 		// 顶栏搜索表单（Task 2）新加的两个控件必须留在 §7.5 那两条 44px 规则的
 		// 名单里。这里**不放逐字串**：逐字串会把选择器顺序也钉住（列表内部重排
 		// 不该红），又钉不住"值在哪条规则里"。结构判据见
