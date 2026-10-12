@@ -1,45 +1,47 @@
 # launchbay
 
-> 你的常用页面，打开就点。
+> English | [简体中文](README.zh.md)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 开源计划 #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+> Your everyday pages — open it, click, done.
 
-[`docker compose up -d`](https://github.com/rockbenben/launchbay#快速开始) → 浏览器打开 http://localhost:7600 · 镜像 ≈ 20MB（实测构建 13MB）
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
 
-![launchbay 档案页：顶栏搜索、侧栏分组、磁贴与单列两种形态](docs/home-1280.webp)
+[`docker compose up -d`](https://github.com/rockbenben/launchbay#快速开始) → open http://localhost:7600 in your browser · image ≈ 20MB (13MB when I actually built it)
 
-把记不住的那些地址放进一页：NAS 管理后台、路由后台、公司 OA、监控面板、常去的网站。
-把它设成浏览器主页，之后每次点开就是它——**一点就到，不用等它慢慢转圈**。
+![launchbay profile page: top-bar search, sidebar groups, tiles and single-column layouts](docs/home-1280.webp)
 
-跑在你自己那台机器上：家里 NAS、树莓派、软路由，或者公司内网的一台服务器都行。数据不出你的局域网。
+Put the addresses you can never remember onto one page: the NAS admin panel, the router admin, the company OA, the monitoring dashboard, the sites you keep going back to.
+Make it your browser home page, and from then on every time you open the browser it is that — **one click, no waiting for it to spin.**
 
-## 你会在意的三件事
+It runs on a machine of your own: a home NAS, a Raspberry Pi, a soft router, or one box on the company intranet. Your data never leaves your LAN.
 
-- **打开不用等。** 整页就是一个网页文件，书签和常用图标直接画在页面里，不用下载图片、不用等脚本跑完才显示——同类里要先跑脚本才把链接显示出来的占大多数；纯静态、不需要脚本的那一类确实也快，可它连编辑界面都没有，只能手改配置文件。实测：本机 25 条书签首屏 LCP 77ms、CLS 0.00，首屏 gzip 后 7.4 KB（未压缩 31.4 KB）；定下的目标是局域网首屏 LCP < 300ms，这条要真浏览器真网络才量得出来，NAS 真机冷启动还没实测（见「限制」）。服务器临时打不开，浏览器里的缓存还能接着看。
-- **各人一份，别人看不见。** 每人一个页面，进门输一个 4–6 位数字。共用一台电脑不串号——**管理员也看不见你的**：他能建档、删档、给你改密码，但读不到你页面上装了什么。这不是靠前端藏，服务端就是分开的：管理员那把密钥去读别人的书签会被直接拒掉（403）。要说清一句：这不是密码学意义上的"防他"——管理员给你设 PIN 时就知道那个 PIN，局域网里改个 cookie 也能冒充谁；这里指的是**没有一条通路**让他读到你的书签。
-- **改坏了能退回去。** 每次批量改动前自动留一份备份，顶栏点「回退」就能看到每一个旧版本长什么样（多少条书签、哪些分组），认出来再点一下就回去——**现在这份也会先存一份**，所以退错了还能再退回来。历史留着不抹。备份就是磁盘上的一个普通文件夹，整个拷走就是全部。
+## The three things you'll actually care about
 
-## 支持范围
+- **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. Most things in this category need a script before they will show you a link at all; the purely static, script-free kind really is fast, but it doesn't even have an edit screen, so you hand-edit a config file. Measured: on this machine, 25 bookmarks, first paint LCP 77ms, CLS 0.00, first paint 7.4 KB gzipped (31.4 KB raw); the target I settled on is LAN first-paint LCP < 300ms, and that one you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits"). If the server is temporarily down, the copy in your browser cache still opens.
+- **One each, nobody else sees it.** One page per person, and you type a 4–6 digit PIN to get in. Sharing one computer doesn't mix people up — **and the admin can't see yours either**: they can create profiles, delete them, set your PIN for you, but they cannot read what is on your page. That isn't done by hiding things in the frontend; the server keeps them apart: an admin key that tries to read somebody else's bookmarks is refused outright (403). To be straight about it, this is not "protecting you from them" in the cryptographic sense — an admin who sets your PIN knows that PIN, and anyone on the LAN can edit a cookie and be somebody else. What I mean is that there is **no route at all** for them to read your bookmarks.
+- **If you break it, you can go back.** Every bulk change takes a backup first; the "Revert" button in the top bar shows you what every older version looked like (how many bookmarks, which groups), and you recognise it and click once to go back — **the current version is saved first too**, so a revert done by mistake can itself be reverted. History is kept, not erased. A backup is just an ordinary folder on disk; copying the whole thing is the whole backup.
 
-| 方面 | 认不认你的 |
+## What this covers
+
+| Aspect | Whether it works for you |
 |---|---|
-| 怎么跑 | `docker compose up -d`，或直接跑一个静态二进制（amd64 / arm64） |
-| 跑在哪 | 家里 NAS、树莓派、软路由，或公司内网的一台机器 |
-| 谁在用 | 一个人、一家人，或一个不想装一堆东西的小团队——每人一份，管理员管账号不管内容 |
-| 浏览器 | 任意现代浏览器，**关掉 JavaScript 全部书签照样看得见、点得动** |
-| 要装什么 | 除了 Docker 本身没有别的：零第三方库、零数据库、构建期不需要 node |
-| 数据在哪 | 一个普通目录 `data/`，备份 = 整目录拷走 |
-| 界面语言 | 中文与英文。**装的时候顺手选**，之后只有管理员能改，改完全机立刻生效 |
+| How you run it | `docker compose up -d`, or run the static binary directly (amd64 / arm64) |
+| Where it runs | A home NAS, a Raspberry Pi, a soft router, or one box on the company intranet |
+| Who uses it | One person, a family, or a small team that doesn't want to install a pile of things — one profile each, and the admin handles accounts, not content |
+| Browsers | Any modern browser, **and with JavaScript switched off every bookmark is still visible and clickable** |
+| What you install | Nothing besides Docker itself: zero third-party libraries, zero database, no node needed at build time |
+| Where the data is | One ordinary directory, `data/`; a backup = copying the whole directory |
+| Interface language | Chinese and English. **Pick it while you set things up**, afterwards only the admin can change it, and it takes effect machine-wide immediately |
 
-## 能做什么
+## What it can do
 
-- **分好组、搜得快**：书签按分组归类，顶栏直接搜名字、地址、标签——填完按回车就出结果（全程不需要 JavaScript）；开着脚本时按 `/` 直接跳到搜索框，或者用 `⌘/Ctrl K` 面板
-- **从浏览器搬进来**：Chrome / Edge / Firefox 导出的书签文件传上来，先给你一份对账报告——哪条进来了、哪条没进来、为什么，都点名；你看过确认了才写进磁盘
-- **看到就随手存**：拖一个 bookmarklet 进书签栏，任何网站上一点就把地址带回来；要你再按一次保存才真正落库
-- **图标离线也有**：两套图标索引（tabler + simple-icons）gzip 后嵌进二进制，装的时候不联网、运行时也不为出图标去请求第三方
-- **也能让脚本和 AI 代劳**：REST 接口 + 按档案作用域的令牌，浏览器扩展、命令行、自动化脚本各拿一把自己的钥匙；令牌越界写别人的档案会得到 403，不是写进去
+- **Grouped properly, quick to search**: bookmarks are filed under groups, and the top bar searches names, addresses and tags directly — type and press Enter and results are there (no JavaScript at any point); with scripts on, press `/` to jump to the search box, or use the `⌘/Ctrl K` panel
+- **Brought in from your browser**: upload the bookmarks file Chrome / Edge / Firefox exported; you get a reconciliation report first — which entry got in, which did not, and why, every one named; nothing is written to disk until you have read it and agreed
+- **See it, save it on the spot**: drag the bookmarklet into your bookmarks bar; one click on any site brings the address back here; you still press save once before it is really written
+- **Icons work offline too**: two icon indexes (tabler + simple-icons) gzipped into the binary, so installing needs no network and nothing at runtime asks a third party just to draw an icon
+- **Scripts and AI can do it for you**: a REST interface plus profile-scoped tokens, so a browser extension, a command line and automation scripts each get their own key; a token that steps outside its scope and writes somebody else's profile gets a 403, not the write
 
-## 快速开始
+## Quick start
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
@@ -47,124 +49,128 @@ cd launchbay
 docker compose up -d
 ```
 
-三条命令，不需要 `.env`，不需要装 Go，镜像直接拉。**只要填一把管理密钥**（compose 里
-`LAUNCHBAY_ADMIN_TOKEN` 那行带着能直接用的默认值，所以这一趟就能起来），镜像用 `:latest`，
-**首次** `up` 拉的就是最新一次发布——已经跑着的机器要先 `docker compose pull`
-（原因见下面的「镜像从哪来」）。
+Three commands, no `.env`, nothing to install Go for, the image is simply pulled. **All you have to fill in is one admin key** (the
+`LAUNCHBAY_ADMIN_TOKEN` line in compose carries a default you can use as it stands, so this round works), the image is `:latest`, and the
+**first** `up` pulls the most recent release — a machine that is already running has to `docker compose pull`
+first (why is under "Where the image comes from" below).
 
-> ### ⚠ 第一件该做的事：把那个默认口令换掉
+> ### ⚠ The first thing to do: change that default key
 >
-> compose 里 `LAUNCHBAY_ADMIN_TOKEN` 写的是 `launchbay123`——**这是个公开的默认值，
-> 源码里就有**。同一局域网里认得这个名字的人，拿它就能建档、删档、**给你改 PIN**
->（改了你登不进自己那份，书签还在盘上但够不着了）。**打开 `docker-compose.yml`
-> 把它换成自己的，然后 `docker compose up -d`。**
+> compose has `LAUNCHBAY_ADMIN_TOKEN` set to `launchbay123` — **that is a published default,
+> it is right there in the source**. Anyone on the same LAN who knows the name can create profiles, delete profiles, and **change your PIN**
+> (change it and you can no longer get into your own profile — the bookmarks are still on disk but out of reach). **Open `docker-compose.yml`,
+> put your own there, then `docker compose up -d`.**
 >
-> 它读不到任何人的书签（那要档案自己的 PIN，而 PIN 只有档案主人知道），所以最坏
-> 情况是有人把你锁在门外，而不是看到你存了什么。这台机器本来就设计成只在局域网内用
-> （见下面的「限制」）。换成自己的就是一行：
+> It cannot read anybody's bookmarks (that would need the profile's own PIN, and only the owner of a profile knows it), so the worst
+> case is somebody locking you out of your own place, not seeing what you saved. This machine was designed for LAN use in the first place
+> (see "Limits" below). Putting your own there is one line:
 >
 > ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "你自己的管理密钥"
+> LAUNCHBAY_ADMIN_TOKEN: "your-own-admin-key"
 > ```
 >
 > ```bash
 > docker compose up -d
 > ```
 
-打开 http://localhost:7600 会进**一次性建档页**：给第一个档案起个名字、设 4–6 位 PIN。**没有默认账号密码**——没有 `admin/admin` 可试，你填进去的名字和数字就是你自己的。这个页面只在磁盘上一个档案都没有时有效，建完就永久关闭——所以"这台机器建过档了没有"本身就是一条线索，不会被匿名访问者拿来数你家里有几口人。
+Opening http://localhost:7600 takes you into the **one-time profile setup page**: give the first profile a name and set a 4–6 digit PIN. **There are no default credentials** — there is no `admin/admin` to try; whatever name and digits you type are yours. This page is only live while not a single profile exists on disk, and it closes for good once you are done — so "has this machine ever had a profile" is itself a fact worth protecting, and cannot be used by an anonymous visitor to count how many people live in your house.
 
-建出来的**就是第一个人的书签页，不是管理员**。管这台机器的是 compose 里那把 `LAUNCHBAY_ADMIN_TOKEN`：打开 `/admin` 输它一次，服务端发一条只属于管理身份的 cookie（30 天），之后管理页就是你的。
+What gets created is **the first person's bookmark page, not an admin**. The thing that manages the machine is the `LAUNCHBAY_ADMIN_TOKEN` from compose: open `/admin`, type it once, and the server hands out a cookie that belongs to the admin identity alone (30 days); after that the admin page is yours.
 
-同一页上还有一个**界面语言**下拉框（中文 / English）——**装的时候顺手在这里选**，填完 PIN 直接点创建容易把它跳过去。选完立刻生效，之后只有管理员能在管理页改（它属于整台机器，不属于某个档案）。
+On the same page there is an **Interface language** dropdown (中文 / English) — **pick it here while you are setting things up**; typing the PIN and hitting Create straight away tends to skip past it. It takes effect immediately, and afterwards only the admin can change it from the admin page (it belongs to the whole machine, not to any profile).
 
-### 镜像从哪来
+### Where the image comes from
 
-compose 只管**拉**已发布的镜像，构建是 CI 的事：推 main 或打 `v*` tag，
-`.github/workflows/docker.yml` 会构建并推出 amd64 + arm64 两个架构到 Docker Hub 与 GHCR。
-用这台机器的人不需要装 Go，也不用看 `Dockerfile`。
+compose only **pulls** the published image; building is CI's job: push main or tag `v*`, and
+`.github/workflows/docker.yml` builds and pushes both amd64 and arm64 to Docker Hub and GHCR.
+Anyone using the machine does not need to install Go, and does not need to read the `Dockerfile`.
 
-镜像标签是 `:latest`。**第一次** `up` 时本机没有这个镜像，会去仓库拉最新一次发布；已经跑着的
-机器本机已经有了，`up` 不会回仓库确认，所以要**先 `docker compose pull`** 才换到新版。
+The image tag is `:latest`. On the **first** `up` the machine has no such image, so it goes to the registry and pulls the most recent
+release; a machine that is already running already has it locally, and `up` does not go back and ask the registry, so you have to
+**`docker compose pull` first** to get the new one.
 
-发版靠 **git tag**：打一个 `v0.1.0` 推上去，流水线就构建并推出 `0.1.0`、`0.1`、`0` 与
-`latest` 四个标签。这个仓库里没有第二处要改的版本号——`image:` 用的是 `:latest`，所以它不
-参与发版，版本号只来自 tag。
+Releasing rides on a **git tag**: tag a `v0.1.0`, push it, and the pipeline builds and pushes four tags —
+`0.1.0`, `0.1`, `0` and `latest`. There is no second version number in this repo to keep in step — `image:` uses `:latest`, so it takes
+no part in releasing, and the version comes only from the tag.
 
-不想 clone 也行——直接拉发布镜像（amd64 与 arm64 都出了，Docker Hub 与 GHCR 同名）：
+Would rather not clone — pull the published image directly (both amd64 and arm64 are built, same name on Docker Hub and GHCR):
 
 ```bash
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
-  -e LAUNCHBAY_ADMIN_TOKEN="换成你自己的管理密钥" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:换成你自己的密钥:dad" -e TZ=Asia/Shanghai \
+  -e LAUNCHBAY_ADMIN_TOKEN="your-own-admin-key" \
+  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:your-own-key:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```
 
-令牌分成**两个变量**，一个必填一个选填：
+Tokens split across **two variables**, one required and one optional:
 
-| 变量 | 要不要填 | 管到哪 |
+| Variable | Required? | What it covers |
 |---|---|---|
-| `LAUNCHBAY_ADMIN_TOKEN` | **必填**，一把裸 key。默认值 `launchbay123` 是公开的，**照上面那段换成自己的** | 账号层面：建档、删档、给别人设 PIN、停用/启用、跨档案看状态与审计线。**只管账号**——打 `/api/v1/data`、`/api/v1/batch`、`/api/v1/export` 一律 403，读不到任何人的书签 |
-| `LAUNCHBAY_WRITE_TOKENS` | **选填**，默认留空 | 档案作用域写令牌 `名字:密钥:档案`。**只有三样东西要它**：浏览器扩展、命令行（`revert` / `import-bookmarks`）、AI 与自动化脚本 |
+| `LAUNCHBAY_ADMIN_TOKEN` | **Required**, a bare key. The default `launchbay123` is public, so **swap it for your own as shown above** | The account layer: creating profiles, deleting them, setting somebody else's PIN, disabling/enabling, cross-profile status and the audit trail. **Accounts only** — hitting `/api/v1/data`, `/api/v1/batch` or `/api/v1/export` is a 403 across the board; it cannot read anybody's bookmarks |
+| `LAUNCHBAY_WRITE_TOKENS` | **Optional**, left empty by default | Profile-scoped write tokens, `name:secret:profile`. **Only three things want it**: the browser extension, the command line (`revert` / `import-bookmarks`), and AI or automation scripts |
 
-> **为什么默认不给令牌？** 书签页、管理页、回退、导入全都走会话 cookie，一个令牌都不需要。
-> 而那三样东西本来就要人主动去装。为了让用不上的每个人都填一个、再把它留成默认值，
-> 等于给每台机器白送一把能写 `dad` 那一份的钥匙（`dad` 是最常见的档案 id）。
-> 要用扩展或 AI 时，把 compose 里那行填上再 `docker compose up -d`：
+> **Why no tokens by default?** The bookmark page, the admin page, revert and import all ride on the session cookie; not one
+> token is needed. And those three things have to be installed by a person on purpose anyway. Making everyone who does not need a
+> token fill one in, and then leaving it as the default, would hand every single machine a free key that can write the
+> `dad` profile (`dad` being the most common profile id). If you want the extension or AI, fill in that line in compose
+> and then `docker compose up -d`:
 >
 > ```yaml
-> LAUNCHBAY_WRITE_TOKENS: "名字:你选的密钥:档案 id"
+> LAUNCHBAY_WRITE_TOKENS: "name:key-you-pick:profile id"
 > ```
 
-浏览器那边进管理页靠的是 `LAUNCHBAY_ADMIN_TOKEN`：打开 `/admin` 输它一次就发一条管理 cookie（30 天）。**档案本身没有"是不是管理员"这个属性**——建出来的每一份都只是一个人的书签页。
+The browser side gets into the admin page with `LAUNCHBAY_ADMIN_TOKEN`: open `/admin`, type it once, and you get an admin cookie (30 days). **A profile itself has no "is it an admin" attribute** — every profile that gets created is just one person's bookmark page.
 
-> **档案 id 是从名字派生的，不一定叫 `dad`**（这条只关于 `LAUNCHBAY_WRITE_TOKENS`）。建档只问名字与 PIN，
-> id 由名字转来的：名字里有 ASCII 字母数字就取那个 slug（`Dad` → `dad`、`nas box` → `nas-box`），
-> **中文名字转不出东西，一律落到 `home` / `home-2` 基名序列**。所以拿中文名字建了
-> 第一个档案之后，令牌里的 `…:dad` 作用域对不上任何档案，打过去是 403。
-> 两种修法：把令牌作用域改成实际的档案 id（推荐），或者第一个档案就用 ASCII 名字。
+> **The profile id is derived from the name and is not necessarily `dad`** (this is only about `LAUNCHBAY_WRITE_TOKENS`). Creating a profile asks only
+> for a name and a PIN; the id comes from the name: if there are ASCII alphanumerics in it, that slug is what you get (`Dad` → `dad`, `nas box` → `nas-box`),
+> and **a Chinese name turns into nothing usable, so it always falls into the `home` / `home-2` base-name sequence**. So after creating the first profile with a
+> Chinese name, the `…:dad` scope in your token matches no profile at all, and you get a 403 when you use it.
+> Two ways to fix it: change the token's scope to the real profile id (recommended), or give the first profile an ASCII name.
 
-宿主端口默认 7600；Windows 上 7532–7631 整段被 Hyper-V 动态保留，撞上了就在命令行前缀 `LAUNCHBAY_HOST_PORT=7601 docker compose up -d`（容器内端口不动）。
+The host port defaults to 7600; on Windows the whole 7532–7631 range is held by Hyper-V for dynamic reservation, so if you land on one of them, prefix the command line with `LAUNCHBAY_HOST_PORT=7601 docker compose up -d` (the port inside the container does not move).
 
-项目名与容器名都写死在 compose 里（`launchbay`），所以 `docker compose …` 那几条命令跟
-clone 到哪个目录无关，而 `docker logs launchbay`、`docker exec launchbay …` 也直接能用。
+The project name and the container name are both hardcoded in compose (`launchbay`), so those `docker compose …`
+commands do not care which directory you cloned into, and `docker logs launchbay`, `docker exec launchbay …` work as written.
 
-### 浏览器扩展（可选）
+### Browser extension (optional)
 
-`extension/` 里是一个 Chrome / Edge 扩展（Manifest V3，右键把当前页面存进你指定的那一份档案，或一次收藏当前窗口的所有标签页）。它不在发行镜像里，要自己装。
+`extension/` holds a Chrome / Edge extension (Manifest V3: right-click the current page to save it into the profile you named, or import every tab of the current window at once). It is not in the released image; install it yourself.
 
-**装之前先有一把令牌**：扩展读不到会话 cookie，它走 REST，所以要一个档案作用域的令牌。先回上面把 `LAUNCHBAY_WRITE_TOKENS` 填上、`docker compose up -d`，再来装扩展。
+**Get a token before installing**: the extension cannot read the session cookie — it goes through REST — so it needs a profile-scoped token. Go back up, fill in `LAUNCHBAY_WRITE_TOKENS`, run `docker compose up -d`, and only then install the extension.
 
-1. 打开 `chrome://extensions`，右上角开**开发者模式**
-2. 点**加载已解压的扩展程序**，选仓库里的 `extension/` 目录
-3. 点扩展图标进设置页，填三样：
-   - **这台机器的地址**——`http://10.0.0.3:7600`，**不带结尾斜杠**
-   - **默认档案 id**——右边令牌对应的那一份（见上面那条"id 是从名字派生的"）
-   - **那一枚令牌**——你自己填进 `LAUNCHBAY_WRITE_TOKENS` 的那段密钥（`名字:密钥:档案` 里
-     `Bearer` 后面只放 `密钥` 那段，不是整串）
-4. 点**试一下这台机器**验一下
+1. Open `chrome://extensions`, turn on **Developer mode** in the top right
+2. Click **Load unpacked**, pick the `extension/` directory from the repo
+3. Click the extension icon for its settings page and fill in three things:
+   - **This machine's address** — `http://10.0.0.3:7600`, **with no trailing slash**
+   - **Default profile id** — the one the token beside it is scoped to (see the note above about how the id is derived from the name)
+   - **The token itself** — the secret you put into `LAUNCHBAY_WRITE_TOKENS` (`name:secret:profile`; only the `secret` part goes after `Bearer`, not the whole string)
+4. Click **Try this machine** (the button says 试一下这台机器 on the page) to check
 
-那个「试一下」按钮答 403 不是网络坏了，是**令牌与档案对不上**：它拿默认档案去读一次，403 就说明这枚令牌的作用域是别的档案——改 `LAUNCHBAY_WRITE_TOKENS` 末尾的档案 id 让它对上你实际的那一份，然后 `docker compose up -d` 重起。
+A 403 from that "Try this machine" button is not a broken network; it means **the token and the profile do not match**: it reads the default profile once, and a 403 means this token is scoped to a different profile — change the profile id at the end of `LAUNCHBAY_WRITE_TOKENS` so it lines up with the profile you actually have, then `docker compose up -d` to restart.
 
-装好之后：任意网页右键 → 存到 launchbay；设置页里还能**把浏览器书签树整个导进来**（第一次点才问你要「读书签」权限，设成按需申请——只为右键收藏装它的人，永远不会看到那个提问；导进去之前先给你一份逐条对账报告）。
+Once it is installed: right-click any page → save to launchbay; the settings page can also **import your whole browser bookmark tree** (only the first click asks you for the bookmarks permission, which is set to optional request — someone who installed this only for the right-click save will never see that prompt; and before anything is imported you get a per-entry reconciliation report).
 
-> 安装时 Chrome 会警告「读取和更改您在所有网站上的数据」：扩展要能在任意网站上响应右键才需要这条，这正是它的用法。它申请的全部权限是 `contextMenus` / `storage` / `tabs` / `notifications`，`bookmarks` 是按需申请的那一项。
-> 令牌只存在这台电脑的 `chrome.storage.local` 里，**不进 sync、不上云**；这个设置页没有导出配置的按钮，正是同一个理由。换档案换令牌，某一台泄露了只吊销那一枚。
-> Firefox 未验证——`extension/` 按 Chrome / Edge 写的。
+> On install Chrome warns "Read and change your data on all sites": the extension needs that to answer a right-click on any
+> site, which is exactly what it is for. Everything it asks for is `contextMenus` / `storage` / `tabs` / `notifications`,
+> with `bookmarks` as the one optional-request item.
+> The token lives only in `chrome.storage.local` on that computer, **never in sync, never in the cloud**; that is also why this
+> settings page has no export-config button. Switching profile means switching token, and if one machine leaks you only revoke that one.
+> Firefox is unverified — `extension/` was written against Chrome / Edge.
 
-### 数据目录的权限
+### Permissions on the data directory
 
-数据默认落在 `docker-compose.yml` 同目录的 `./data`，容器里永远是 `/data`。想放别处就改
-compose 的 `volumes` 那一行，比如 NAS 上常见的：
+By default the data lands in `./data`, next to `docker-compose.yml`, and inside the container it is always `/data`. To put it somewhere else, change
+the `volumes` line in compose — the usual one on a NAS:
 
 ```yaml
     volumes:
       - /volume1/docker/launchbay:/data
 ```
 
-Windows 上如果写绝对路径，`D:` 的冒号会和分隔符打架，改用长语法（`source` / `target`
-分成两格就没有歧义）：
+On Windows, if you write an absolute path, the colon in `D:` fights the separator; use the long syntax instead
+(splitting `source` / `target` into two fields leaves nothing ambiguous):
 
 ```yaml
     volumes:
@@ -173,45 +179,49 @@ Windows 上如果写绝对路径，`D:` 的冒号会和分隔符打架，改用�
         target: /data
 ```
 
-容器以 **uid 65534** 运行，而 NAS 上那个目录默认是 root 所属的——挂上去之后建档、导入、
-写书签会全部失败。**在宿主机上把它交给这个用户**（下面以默认的 `./data` 为例）：
+The container runs as **uid 65534**, while that directory on the NAS is root-owned by default — once it is mounted, creating profiles,
+importing and writing bookmarks all fail. **Hand it to that user from the host** (using the default `./data` below):
 
 ```bash
 sudo chown -R 65534:65534 ./data
 ```
 
-不用 `sudo docker run` 或 `--user root` 绕过（那等于让服务以 **root** 身份写你家每一个文件）。这条不是猜的：探针每次体检都会在数据目录里建删一个临时文件，权限不对时 `docker ps` 直接显示 **unhealthy**，容器日志里那句会告诉你同一个 chown 命令；页面那头也一样——建档表单回一句「数据目录写不进去，请把数据目录交给 uid 65534 之后再重试」。直接跑二进制（不用容器）的话，那句话里的 uid 换成你自己这个系统用户即可。
+Don't get around it with `sudo docker run` or `--user root` (that is the same as letting the service write every file in your
+house as **root**). This one is not a guess: the probe creates and deletes a temporary file in the data directory on every
+health check, and when the permissions are wrong `docker ps` shows **unhealthy** outright, with the line in the container log
+telling you that same chown command. The page side says the same thing — the create-profile form answers with "The data directory is not writable — this program has no permission there. Hand that directory to the user running it (uid 65534 in the container) and try again." If you run the binary directly instead of a container, swap the uid in that sentence for your own system user.
 
-## 怎么用
+## How to use it
 
-| 你要做 | 去哪 |
+| What you want to do | Where |
 |---|---|
-| 建档、删档、给别人设 PIN、停用某个人 | 顶栏「管理」，或 `POST /api/v1/profiles` |
-| 让 AI 或脚本改书签 | `POST /api/v1/batch`，带 `expectedRev` 防覆盖 |
-| 坏档救命（`profile.json` 读不动了） | `POST /api/v1/profiles/rebuild`，或 `launchbay profile rebuild --id <slug> --title <名字> --pin <4-6 位>` |
-| 点数统计（谁在点哪些书签） | `POST /api/v1/usage`，只写当前档案，不参与版本号 |
-| 存一个 URL 顺便取回标题和图标 | `POST /api/v1/resolve`，不写书签，只填缓存 |
-| 改这台机器的界面语言 | 管理页的「界面语言」，或首次建档时顺手选 |
-| 看改动都发生过什么 | `GET /api/v1/history`（只记动作与路径，不记内容） |
+| Create a profile, delete one, set somebody's PIN, disable someone | "Admin" in the top bar, or `POST /api/v1/profiles` |
+| Have AI or a script change bookmarks | `POST /api/v1/batch`, with `expectedRev` so a write does not overwrite |
+| Rescue a broken profile (`profile.json` will not read) | `POST /api/v1/profiles/rebuild`, or `launchbay profile rebuild --id <slug> --title <name> --pin <4-6 digits>` |
+| Count clicks (who is clicking which bookmarks) | `POST /api/v1/usage` — writes only the current profile, and does not take part in the revision number |
+| Save a URL and get its title and icon back | `POST /api/v1/resolve` — writes no bookmarks, only fills the cache |
+| Change this machine's interface language | "Interface language" on the admin page, or pick it while creating the first profile |
+| See what every change actually was | `GET /api/v1/history` (records actions and paths only, never content) |
 
-**完整的端点、请求体形状与错误码见 [AGENTS.md](AGENTS.md)** —— 那是给 AI 读的权威契约，字段名逐个对过路由表，改一处会有一道测试跟着红，所以别在 README 里复述第二份。
+**The complete endpoint list, request body shapes and error codes are in [AGENTS.md](AGENTS.md)** — that is the authoritative contract written for AI,
+every field name checked against the route table one by one, so changing one makes a test go red; which is why there is no second copy of it here in the README.
 
-上面那句「打开不用等」不是形容词：书签和常用图标是服务端直接写进 HTML 的，页面不必先跑脚本才把链接显示出来。**零 JavaScript 是底线，不是上限**：搜索是表单、建档与设 PIN 是原生表单提交，关掉 JavaScript 全部书签照样看得见、点得动——这条判据被测试断言守着。在此之上有一层增强（有 JavaScript 时才出现）：添加浮层、就地改标题与地址、拖拽排序、⌘K 面板、离线可用。两者不冲突：**增强层坏掉时你退回零 JS 那条路，那条路一直在**。
+The "opening it doesn't wait" line above is not an adjective: bookmarks and the icons they use are written straight into the HTML by the server, so the page does not have to run a script before it can show you a link. **Zero JavaScript is the floor, not the ceiling**: search is a form, creating a profile and setting a PIN are native form submissions, and with JavaScript off every bookmark is still visible and clickable — a test assertion guards that. On top of it sits one layer of enhancement (only there when JavaScript is on): the add sheet, editing a title or address in place, drag reordering, the ⌘K palette, working offline. The two do not conflict: **when the enhancement layer breaks, you fall back to the zero-JS route, and that route is always there.**
 
-## 限制
+## Limits
 
-- **只在局域网内用，没有 HTTPS。** 书签内容是明文 JSON 躺在磁盘上。放到公网前请自己在前面加一层 TLS 反代
-- **一个档案的坏 `profile.json` 会锁住那一份。** 书签坏了能用 `revert` 或快照救回来；档案文件坏了这两条都救不了，出路是 `POST /api/v1/profiles/rebuild`（或 `launchbay profile rebuild`）——只重写那一个文件，书签、快照、历史一个字节都不碰
-- **抓图标有冷却**：同一个 origin 失败一次后 24 小时内不再抓，限流是为了防止有人拿这台机器当探测跳板
-- **没有共享清单**：不能把一条书签"共享给全家"，也不能公开一个页面。各存各的就是各存各的
-- **还没在 NAS 真机上验收过。** 三轮验收都跑在 Windows + Docker Desktop。上面「数据目录的权限」和端口占用那几段来自真实使用经验，但没有留实测记录；局域网 LCP < 300ms 这个目标、真机冷启动 LCP、1,000 条书签的滚动帧率、离线缓存命中延迟，四项至今没测过
-- **界面上有几个开关还没有写通路。** 页脚文字、是否在新标签打开这两项目前只能改磁盘上的 `bookmarks.json`，而服务端每次写入都会覆盖它——等于没有正经通路；天气、时钟、搜索引擎这三个开关界面根本不读它们。要改书签本身请走 `POST /api/v1/batch`，形状见 [AGENTS.md](AGENTS.md)
-- **英文只覆盖界面，不覆盖给脚本读的那些句子。** `POST /api/v1/*` 的错误 detail、字段校验失败的原因、以及导入时那份逐条对账报告，仍然是中文。理由是调用方要的是**稳定可对照的文本**，而不是一段会随别人家界面语言变的散文；报告那一段则更像分析结果而不是界面 chrome。书签标题、分组名、地址这些本来就是你自己写的内容，同样不翻
-- **语言是整台机器一个，不分人。** 一家人共用一台导航台，谁的语言也不该由另一个人的档案决定——所以它落在 `data/settings.json`（不进 `profile.json`），只有管理员能改。这是有意的代价：管理员改语言会立刻影响所有人，而管理员本人可能和家人的语言不一样
-- **令牌默认是空的，也就是扩展与命令行默认不可用。** `LAUNCHBAY_WRITE_TOKENS` 不填，这台机器就只有「浏览器里输 PIN」这一条通路——书签、管理、回退、导入全都好使，浏览器扩展、`launchbay revert`、AI 脚本则一律 401。这是有意的：为了让用不到的人不必填，代价是想要的人得先去 compose 里加一行。管理员那把 `LAUNCHBAY_ADMIN_TOKEN` 反过来是必填的，缺了它服务直接拒绝启动
+- **LAN use only, and there is no HTTPS.** The bookmark contents sit on disk as plain JSON. Before putting it on the public internet, put a TLS reverse proxy in front of it yourself
+- **One profile with a broken `profile.json` locks that profile.** If the bookmarks are broken, `revert` or a snapshot brings them back; if the profile file is broken, neither of those saves you and the way out is `POST /api/v1/profiles/rebuild` (or `launchbay profile rebuild`) — it rewrites that one file only and does not touch a single byte of the bookmarks, snapshots or history
+- **Icon fetching has a cooldown**: once an origin has failed, it is not fetched again for 24 hours; the rate limit is there so that nobody can use this machine as a probing springboard
+- **No shared list**: you cannot "share one bookmark with the whole family", and you cannot publish a page. Each keeping their own really is each keeping their own
+- **Not yet signed off on a real NAS.** All three acceptance rounds ran on Windows + Docker Desktop. The permissions and port-conflict sections above come from real use, but I kept no measurements from them; the LAN LCP < 300ms target, cold-start LCP on real hardware, scroll frame rate at 1,000 bookmarks and offline cache-hit latency — none of those four has been measured yet
+- **A few switches on screen have no write path.** The footer text and the open-in-a-new-tab toggle can currently only be changed in `bookmarks.json` on disk, and every server-side write overwrites that file — so in practice there is no real route; the weather, clock and search-engine switches are not even read by the screen. To change the bookmarks themselves, use `POST /api/v1/batch`; the shape is in [AGENTS.md](AGENTS.md)
+- **English covers the screen, not the sentences scripts read.** The error `detail` on `POST /api/v1/*`, the reason a field failed validation, and the per-entry reconciliation report at import time are all still Chinese. The reason is that a caller wants **text that is stable and comparable**, not prose that changes along with somebody else's interface language; the report reads more like an analysis result than interface chrome. Bookmark titles, group names and URLs are content you wrote yourself, so they are not translated either
+- **Language is per machine, not per person.** When a family shares one navigation stand, one person's language should not be decided by another person's profile — so it lives in `data/settings.json` (not in `profile.json`), and only the admin can change it. That is a deliberate cost: an admin changing the language hits everyone immediately, and the admin's own language may well not be the same as the family's
+- **Tokens are empty by default, which means the extension and the command line are off by default.** Leave `LAUNCHBAY_WRITE_TOKENS` empty and this machine has exactly one route — typing a PIN in the browser. Bookmarks, admin, revert and import all work fine; the browser extension, `launchbay revert` and AI scripts get a 401 across the board. This is deliberate: so that people who do not need one do not have to fill one in, at the price that people who do want one have to go and add a line to compose first. The admin's `LAUNCHBAY_ADMIN_TOKEN` is the other way round and is required — without it the service simply refuses to start
 
-## 关于 365 开源计划
+## About the 365 Open Source Plan
 
-[365 开源计划](https://github.com/rockbenben/365opensource) 的第 **#042** 个项目——一个人 + AI，一年 300+ 个开源项目。
+Project **#042** of the [365 Open Source Plan](https://github.com/rockbenben/365opensource) — one person + AI, 300+ open source projects a year.
 
-[提交你的需求 →](https://365.aishort.top/) · [Discord](https://discord.gg/PZTQfJ4GjX) · [Telegram](https://t.me/aishort_top)
+[Submit your request →](https://365.aishort.top/) · [Discord](https://discord.gg/PZTQfJ4GjX) · [Telegram](https://t.me/aishort_top)

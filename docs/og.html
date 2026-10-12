@@ -1,0 +1,148 @@
+<!doctype html>
+<!--
+  launchbay 的 social preview 卡（1200×630）。**改这个文件，不要改 PNG**：
+  改完重新渲染一次就行，命令见文件末尾的注释。
+
+  为什么英文为主、中文为辅：产品本身支持中英双语，而 GitHub 的 social preview
+  会出现在 X / Slack / Discord / 搜索引擎的卡片里——那些地方读的人不一定读得懂
+  中文。主句给英文，中文作为副行跟着，**两句说的是同一件事**，不是两套说辞。
+
+  配色与字重抄自 internal/render/web/base.css 的真实值，不是另起一套"品牌色"——
+  卡片要长得像产品本身，而不是像产品的一张海报。
+
+  重新渲染：
+    node {html-shot}/render.mjs docs/og.html docs/og.png
+    node {html-shot}/render.mjs docs/og.html 'docs/og@2x.png' --dpr 2
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin:0; box-sizing:border-box; }
+  body {
+    position:relative;
+    /* 1200 = 56×2 (padding) + 708 (text) + 40 (gap) + 340 (mock)。这四个数是
+       **算出来的**，不是估的：上一版左边给到 640 而右边 412，加上 padding 与 gap
+       总共 1248，比画布还宽 48px，于是 nowrap 的标题直接压到右栏的磁贴上。
+       英文比中文占横向空间（一个词 5–7 个字母，一个汉字 1 个），所以左边那格
+       必须比纯中文版宽。 */
+    width:1200px; height:630px; overflow:hidden;
+    display:flex; align-items:center; gap:40px; padding:0 56px;
+    background:#0b0e14; color:#e9edf8;
+    font-family: system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+                 "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 极光底：base.css 里 body::before/::after 用的就是这三团光，这里照抄 */
+  .aurora { position:absolute; inset:-160px; z-index:0; pointer-events:none; }
+  .aurora i { position:absolute; display:block; border-radius:50%; filter:blur(90px); }
+  .a1 { width:760px; height:560px; left:-120px;  top:-140px; background:rgba(76,141,255,.30); }
+  .a2 { width:660px; height:520px; right:-140px; top:-80px;  background:rgba(150,80,255,.22); }
+  .a3 { width:700px; height:480px; left:280px;  bottom:-220px; background:rgba(0,200,180,.18); }
+
+  .left, .right { position:relative; z-index:1; }
+  .left { width:708px; min-width:0; }
+  .eyebrow {
+    display:inline-flex; align-items:center; gap:10px;
+    font-size:19px; font-weight:600; letter-spacing:.04em;
+    color:#a7b2cd; background:rgba(255,255,255,.055);
+    border:1px solid rgba(255,255,255,.14); border-radius:999px;
+    padding:8px 16px; margin-bottom:26px;
+  }
+  .eyebrow b { color:#4c8dff; font-weight:700; }
+  .eyebrow .sep { color:#5c687d; }
+
+  /* 字号与文案都是**量出来的**，不是估的（probe：复制那行到 nowrap 的 span 里量宽）：
+     44px 下 "Nobody reads your bookmarks." 是 676px，左边那格 708px，余 32px。
+     44px 下原来那句 "Nobody else sees your bookmarks." 要 746px，溢 38px，
+     于是被折成三行、"bookmarks." 孤零零一只，下面那行中文跟着贴上来。
+     换成 reads 之后两行收得住，且与中文副行是同一件事，不是两套说辞。
+     **不留 nowrap** —— 宁可按词换行，也不要压到右栏的磁贴上（第一版就这么翻的车）。 */
+  h1 { font-size:44px; line-height:1.16; font-weight:800; letter-spacing:-.02em; }
+  h1 .hl { color:#4c8dff; }
+  .zh { margin-top:16px; font-size:23px; line-height:1.5; color:#8f9cb4; }
+  .sub { margin-top:20px; font-size:21px; line-height:1.6; color:#a7b2cd; }
+  .foot {
+    margin-top:28px; padding-top:18px;
+    border-top:1px solid rgba(255,255,255,.14);
+    font-size:19px; color:#6b7688; display:flex; gap:16px; align-items:center;
+  }
+  .foot code { font-family:ui-monospace,Consolas,monospace; color:#8fa3c8; }
+
+  /* 右侧：产品首屏的样子（分磁贴），只画到"看得懂这是什么"为止，不塞真书签。 */
+  .right { width:340px; flex:0 0 auto; }
+  .frame {
+    background:rgba(255,255,255,.055);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:18px; padding:16px 16px 18px;
+    box-shadow:0 24px 60px rgba(0,0,0,.45);
+  }
+  .bar { display:flex; align-items:center; gap:9px; margin-bottom:13px; }
+  .avatar {
+    width:26px; height:26px; border-radius:8px; flex:0 0 auto;
+    background:rgba(76,141,255,.22); border:1px solid rgba(76,141,255,.42);
+    color:#9cc0ff; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .bar .n { font-size:13.5px; font-weight:600; color:#dbe3f5; }
+  .group { margin-bottom:11px; }
+  .group:last-child { margin-bottom:0; }
+  .gtitle {
+    font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:#77839a; margin-bottom:6px;
+  }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .tile {
+    display:flex; align-items:center; gap:7px; min-width:0;
+    background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:8px 9px; height:40px;
+  }
+  .tile .ic {
+    width:21px; height:21px; border-radius:6px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:700; color:#0b0e14;
+  }
+  .tile span { font-size:11.5px; color:#cbd5ea; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+</style>
+</head>
+<body>
+  <div class="aurora"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+
+  <div class="left">
+    <div class="eyebrow">
+      <b>⌂</b> LAN bookmark nav <span class="sep">·</span> 局域网书签导航台
+    </div>
+    <h1>Opens without waiting.<br />Nobody reads <span class="hl">your</span> bookmarks.</h1>
+    <div class="zh">打开不用等，别人的书签看不见。</div>
+    <div class="sub">One HTML file — links are drawn straight into the page.<br />Zero third-party libraries · one static binary · three commands.</div>
+    <div class="foot"><code>git clone</code> → <code>docker compose up -d</code> → open the browser</div>
+  </div>
+
+  <div class="right">
+    <div class="frame">
+      <div class="bar">
+        <div class="avatar">Dad</div>
+        <div class="n">Dad's links</div>
+      </div>
+
+      <div class="group">
+        <div class="gtitle">Everyday</div>
+        <div class="tiles">
+          <div class="tile"><i class="ic" style="background:#4c8dff">群</i><span>群晖 DSM</span></div>
+          <div class="tile"><i class="ic" style="background:#3fb6a8">NAS</i><span>NAS panel</span></div>
+          <div class="tile"><i class="ic" style="background:#a06bff">图</i><span>immich</span></div>
+          <div class="tile"><i class="ic" style="background:#ff9d6c">播</i><span>Podcasts</span></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="gtitle">Dev</div>
+        <div class="tiles">
+          <div class="tile"><i class="ic" style="background:#7f9cf5">码</i><span>GitHub</span></div>
+          <div class="tile"><i class="ic" style="background:#e0a86a">栈</i><span>Stack Overflow</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
