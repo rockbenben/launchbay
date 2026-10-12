@@ -8,11 +8,18 @@
 </head>
 <body>
 <main role="main">
+  <h1>{{.T "broken.h1"}}</h1>
   {{/* 两层文案（spec §12）：第一句是人话，细节收进 details。
        Reason 由 store 给（filepath.Base + 行号），这里不改写、不截断、
-       不拼路径——同一段字节也是 API 503 的 detail，两处共用一份真相。 */}}
-  <h1>{{.T "broken.h1"}}</h1>
-  <p>{{.T "broken.p.a"}} <b>{{.T "broken.p.b" .ProfileID}}</b> <b>{{.T "broken.p.c"}}</b></p>
+       不拼路径——同一段字节也是 API 503 的 detail，两处共用一份真相。
+
+       2026-10-12：这两句从前是**三个碎片拼出来的**（`档案` + `%s 现在打不开，` +
+       `其它档案不受影响。`，中间还夹着两个 <b>）。英文那侧读出来是
+       "Profile dad will not open. Other profiles are unaffected."——动词与主语
+       被拼接拆散、句中多出一个句号，而中文那句以「，」收尾等着被续写。
+       一句话现在是一个键：id 走 %s 进句子内部，两种语言各自说完整的一句。 */}}
+  <p>{{.T "broken.p.a" .ProfileID}}</p>
+  <p>{{.T "broken.p.b"}}</p>
   <p>{{.T "broken.p2"}}</p>
   <details class="tech">
     <summary>{{.T "broken.summary"}}</summary>

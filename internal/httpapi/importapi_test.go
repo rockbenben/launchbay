@@ -297,10 +297,13 @@ func TestImport_进不来的条目被跳过而不是整批失败(t *testing.T) {
 	page := up.Body.String()
 	// 报告页要说清两件事：会进几条、没进几条。只说"会加 N 条"会让人以为
 	// 文件里就这么多书签。
-	if !strings.Contains(page, "会加 <b>2</b> 条书签") {
-		t.Errorf("该说清会加 2 条：\n%.600s", page)
+	// 2026-10-12：这两句从前是碎片拼的，钉的字面量里有 `<b>`；现在一句话一个键，
+	// 数字走参数进句子内部。**整句**钉而不是"包含 2"——从前那条「、 3」的多余空格
+	// 正是碎片接缝造出来的，只钉数字就抓不到它回来。
+	if !strings.Contains(page, "会加 2 条书签、1 个分组。") {
+		t.Errorf("该说清会加 2 条书签、1 个分组（并且顿号后不许有多余空格）：\n%.600s", page)
 	}
-	if !strings.Contains(page, "另有 <b>2</b> 条没能进来") {
+	if !strings.Contains(page, "另有 2 条没能进来") {
 		t.Errorf("该说清有 2 条没能进来：\n%.600s", page)
 	}
 	if !strings.Contains(page, "javascript:void(0)") {

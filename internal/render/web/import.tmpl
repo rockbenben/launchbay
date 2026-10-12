@@ -21,10 +21,15 @@
          `.tech` 是**容器**、换行由 `.tech pre{white-space:pre-wrap}` 给——类要挂
          在外层那个元素上。挂到 <pre> 自己身上时那条规则匹配不上，报告就按默认的
          pre 不换行、横向滚出去，长行右边直接被切掉（浏览器实测才发现）。 */}}
-    <p><b>{{.FileName}}</b>{{.T "import.file.sep"}}{{.T "import.intro.a"}}<b>{{.T "import.intro.n" .Count}}</b>{{.T "import.intro.b"}}<b>{{.T "import.intro.m" .Groups}}</b>{{.T "import.intro.c"}}
+    {{/* 这一句从前由 5 个碎片拼成（intro.a/n/b/m/c），为的是把两个数字各自包进 <b>。
+         代价写在屏上：`intro.b` 的值是「 条书签、」，接上 `<b>3</b>` 就变成
+         「、 3」——全角顿号后面多一个空格，而那是这一族标点自己带的空隙。
+         现在一句话一个键、数字走 %d 进句子内部（与 profile.hits 同一形状），
+         <b> 让位给整句的分量：这一整行本来就是这一页的结论。 */}}
+    <p><b>{{.FileName}}</b>{{.T "import.file.sep"}}{{.T "import.intro" .Count .Groups}}
        {{/* 没能进来的单独说一句：只报"会加几条"会让人以为文件里就这么多书签，
             而少的那些去了哪里只有报告知道。 */}}
-       {{if .Skipped}}{{.T "import.skipped.a"}}<b>{{.T "import.skipped.n" .Skipped}}</b>{{.T "import.skipped.b"}} {{end}}{{.T "import.more"}}</p>
+       {{if .Skipped}}{{.T "import.skipped" .Skipped}} {{end}}{{.T "import.more"}}</p>
     <div class="rep">{{reportHTML .Report}}</div>
     {{/* 令牌是一次性的（过期/用过/不是这个档案都回第一步），所以这一发
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}
@@ -38,7 +43,7 @@
          逐条点名是这一页存在的全部理由——只印一个"跳过了 N 条"的话，
          那 N 条就再也没人知道了（来源文件里它们看着好好的）。报告全文在这一步
          已经不值得了：它答的是"会导入什么"，而人这时候要的是"成了没有"。 */}}
-    <p>{{.T "import.done.a"}}<b>{{.T "import.done.n" .Applied}}</b>{{.T "import.done.b"}}</p>
+    <p>{{.T "import.done" .Applied}}</p>
     {{with .SkippedItems}}
       <p class="explain">{{$.T "import.done.skipped"}}</p>
       <ul class="skipped">

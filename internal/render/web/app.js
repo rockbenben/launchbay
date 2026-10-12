@@ -102,7 +102,7 @@ const APP_I18N = {
     "app.keys.escAll": "Esc 关掉这一页",
     "app.sw.dismiss": "知道了",
     "app.sw.aria": "关掉这条提醒",
-    "app.sw.updated": "书签页面已更新，点刷新用上新的",
+    "app.sw.updated": "书签页面已更新。点刷新用上新的。",
     "app.generic.cancel": "取消",
     "app.generic.save": "存",
     "app.ops.item": "这一条",
