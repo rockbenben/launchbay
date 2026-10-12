@@ -95,6 +95,12 @@ type skippedItem struct {
 	Name, URL, Reason string
 }
 
+// SkippedItem 是 skippedItem 的**对外形状**。它是个别名而不是一个新类型：
+// 报告里的字段与判据都还在这一处，导出只是让"直接导入"那一页也能逐条点名
+// （2026-10-12）。没有它的话，网页上那条路只能显示一个数字，于是用户既不知道
+// 少了几条、也不知道少的是哪几条——而那正是导入唯一会让人后悔的信息。
+type SkippedItem = skippedItem
+
 // skipReason 说这条为什么进不来。空串 = 进得来。
 //
 // **判据只有 model.CheckURL 这一份**：写路径（ops → model.Validate）用它，
@@ -210,6 +216,20 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 				rep.Skipped = append(rep.Skipped, skippedItem{Name: b.Name, URL: b.URL, Reason: reason})
 				continue
 			}
+			// id 是**第二个**筛：写路径按 model.ValidSlug 拒它，而这一层造出来
+			// 的 id 有一道长度预算（itemID 上那段注释）。两层各判一次不是分家——
+			// 两边用的是**同一个判据** model.ValidSlug，区别只在谁来跑它：这里跑，
+			// 失败就是这一条点名跳过；真漏过去了，写路径会拒掉**整批**，而症状是
+			// "有 N 条过不了校验，整批没有写入"——用户看到的是导入失败，却查不出
+			// 是哪一条、为什么。这道筛就是那个"查得出"的地方。
+			id := itemID(gr.ID, b, usedItem)
+			if !model.ValidSlug(id) {
+				rep.Skipped = append(rep.Skipped, skippedItem{
+					Name: b.Name, URL: b.URL,
+					Reason: "没法给它一个合法的 id（文件夹名太长，这条挤不进 id 的长度上限）",
+				})
+				continue
+			}
 			icon, how := g.guess(b.URL, b.Name)
 			// 非 http 的地址**不计入图标缺口**：它在浏览器里点不动，本来就不该
 			// 有图标（§9 特例一）。把它列进"想手动指定"的清单，只会让人去给一个
@@ -218,7 +238,7 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 				gaps.add(b.Name, b.URL, hostOf(b.URL))
 			}
 			gr.Items = append(gr.Items, model.Item{
-				ID:    itemID(gr.ID, b, usedItem),
+				ID:    id,
 				Name:  b.Name,
 				URL:   b.URL,
 				Icon:  icon,
@@ -280,21 +300,45 @@ func folderTitles(fs []folderRef) []string {
 // **唯一性在整个档案内判**（used 是全档案的表，model 的判据同此）：撞了就按
 // `-2`、`-3` 递加，且递加时重新截断——不重新截的话，去重反而会造出一个超长的
 // id，把"本来合法的 id"改成非法的。
+//
+// 预算不足那一档（分组 id 自己就占满 31/32 字节）2026-10-12 补：分号前缀**整个
+// 去掉**。那不是"能少则少"的优化，而是"带前缀必然超长"——超长的 id 会被写路径
+// 整条拒掉（"id 不是 ASCII slug"），于是**那一组里的书签一条都进不来**，
+// 症状是导入走到最后一步回一句"有 N 条过不了校验，整批没有写入"。而这一档
+// 产出的 id 今天本来就一条都不合法，所以改掉它动不到任何一份已经能用的档案。
 func itemID(groupID string, b nbBookmark, used map[string]bool) string {
-	budget := slugMax - len(groupID) - 1
-	if budget < 1 {
-		budget = 1
+	room := slugMax - len(groupID) - 1
+	// 退化档：分组 id 长到连一个字符都塞不下（它自己就顶满 slugMax）。名字 slug
+	// 本身就是全档案唯一的候选（used 是全档案的表），所以前缀可有可无。
+	if room < 1 {
+		return takeID(nameSlug(b, slugMax-4), used)
 	}
-	base := clipSlug(slugify(b.Name), budget)
-	if base == "" {
-		base = clipSlug(slugify(b.URL), budget)
+	return takeID(groupID+"-"+nameSlug(b, room), used)
+}
+
+// nameSlug 从书签上取一段可用的 slug：名字 → URL → `item`。
+//
+// 三段退化都在这里，于是"截多长"只有一个答案要写：调用方给预算，这段自己管
+// 取不到字时退到哪。名字是纯中文、URL 里也没有可用字形时只剩 `item`——它照样
+// 是合法 id，而空 id 会让整条 op 过不了写路径。
+func nameSlug(b nbBookmark, room int) string {
+	if s := clipSlug(slugify(b.Name), room); s != "" {
+		return s
 	}
-	if base == "" {
-		base = clipSlug("item", budget)
+	if s := clipSlug(slugify(b.URL), room); s != "" {
+		return s
 	}
-	id := groupID + "-" + base
+	return clipSlug("item", room)
+}
+
+// takeID 占用一个 id：撞了就按 `-2`、`-3` 递加。
+//
+// 递加时截的是**整个 id**而不是书签名那一段——原来截 base 再拼分组前缀，分组前缀
+// 本身占满预算时那样拼出来的仍然是超长的，而去重反而把一条本来合法的 id 改坏。
+// suffixSlug 自己保证 ≤ slugMax，所以这里不必再截。
+func takeID(id string, used map[string]bool) string {
 	for n := 2; used[id]; n++ {
-		id = groupID + "-" + suffixSlug(base, n)
+		id = suffixSlug(id, n)
 	}
 	used[id] = true
 	return id

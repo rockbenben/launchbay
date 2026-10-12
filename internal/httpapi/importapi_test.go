@@ -12,6 +12,7 @@ import (
 
 	"github.com/rockbenben/launchbay/internal/bookimport"
 	"github.com/rockbenben/launchbay/internal/model"
+	"github.com/rockbenben/launchbay/internal/ops"
 )
 
 // nbFile 是一份最小的、能被 parseNetbook 读懂的浏览器导出。
@@ -45,11 +46,21 @@ func postImport(t *testing.T, h http.Handler, cookie, contentType string, body i
 }
 
 func uploadOf(name string, body []byte) (string, io.Reader) {
+	return uploadGo(name, body, "")
+}
+
+// uploadGo 在上传里**带上那颗按钮**（`go`）。选文件那张表上有两个 submit，
+// 各带一个 value，服务端读的就是这个字段——所以"按了哪一颗"在测试里必须
+// 真的以字段形式出现，否则这条分叉的测试会一直停在"什么按钮都没按"。
+func uploadGo(name string, body []byte, goVal string) (string, io.Reader) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	// filename 必须带 .html：浏览器导出就是这个名，而 accept 也只放它。
 	part, _ := mw.CreateFormFile("bookmarks", name)
 	_, _ = part.Write(body)
+	if goVal != "" {
+		_ = mw.WriteField("go", goVal)
+	}
 	_ = mw.Close()
 	return mw.FormDataContentType(), &buf
 }
@@ -402,4 +413,132 @@ func countItemsOf(b *model.Bookmarks) int {
 		n += len(g.Items)
 	}
 	return n
+}
+
+// 长文件夹名（2026-10-12）：slug 化之后正好占满 31/32 字节的那一档。
+//
+// 这一档曾经让**整个导入失败**：条目 id 是"分组id-书签名"，预算算出来是 0 或
+// 负，于是每一条都拼成 33/34 字节，而写路径按 model.ValidSlug 拒它——症状是
+// 报告说"会加 N 条"，点下去却回一句"有 N 条过不了校验，整批没有写入"。
+// 夹具必须照抄这个形状：一个 40 多字符的 ASCII 文件夹名会被 clipSlug 截到 32。
+const nbLongFolderFile = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<DL><p>
+    <DT><H3>My Very Long Development Tools Folder Name</H3>
+    <DL><p>
+        <DT><A HREF="http://10.0.0.5/">一个工具</A>
+        <DT><A HREF="http://10.0.0.6/">另一个工具</A>
+    </DL><p>
+</DL><p>`
+
+// 端到端地钉"长文件夹名不再整批被拒"：走真的上传 + 真的写入，不只是看 op。
+func TestImport_长文件夹名不再整批被拒(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	cookie := loginCookie(t, h, "dad", "1234")
+	ct, body := uploadGo("bookmarks.html", []byte(nbLongFolderFile), "direct")
+	rec := postImport(t, h, cookie, ct, body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("直接导入该给完成页，得到 %d:\n%.600s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "没写进去") {
+		t.Errorf("长文件夹名不该再整批被拒:\n%.600s", rec.Body.String())
+	}
+	got, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countItemsOf(got); n != 2 {
+		t.Fatalf("两条都该进来，实际 %d 条:\n%+v", n, got.Groups)
+	}
+	for _, g := range got.Groups {
+		for _, it := range g.Items {
+			if !model.ValidSlug(it.ID) {
+				t.Errorf("落盘的 id 不合法：%q", it.ID)
+			}
+		}
+	}
+}
+
+// 「直接导入」那枚按钮：收下文件就写，并说清少了哪几条。
+func TestImport_直接导入一步写进去并点名跳过的那几条(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	cookie := loginCookie(t, h, "dad", "1234")
+	ct, body := uploadGo("bookmarks.html", []byte(nbMixedFile), "direct")
+	rec := postImport(t, h, cookie, ct, body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d:\n%.600s", rec.Code, rec.Body.String())
+	}
+	out := rec.Body.String()
+	// **不许是报告页**：这一路的意义就是没有报告，只有结果。
+	if strings.Contains(out, `action="/import/apply"`) {
+		t.Errorf("直接导入不该再停在报告页上等一次点头:\n%.600s", out)
+	}
+	if !strings.Contains(out, "导入完成") {
+		t.Errorf("该说清写进去几条:\n%.600s", out)
+	}
+	// 少的是哪几条：逐条点名。只有一个数字的话，那几条就再也没人知道了。
+	if !strings.Contains(out, "没能进来") {
+		t.Errorf("有跳过的条目时要点名:\n%.600s", out)
+	}
+	got, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countItemsOf(got); n != 2 {
+		t.Fatalf("两条该真的写进盘上，实际 %d 条", n)
+	}
+}
+
+// 存档前的那一屏要给两颗按钮：少了「直接导入」，想快点导完的人就只能去读报告。
+func TestImport_选文件那一步给直接导入与预览两颗按钮(t *testing.T) {
+	s, h := setupBatch(t)
+	// 档案非空时 /import 渲染的是「不用导了」那一屏，压根没有这两颗按钮。
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	body := get(h, "/import", loginCookie(t, h, "dad", "1234")).Body.String()
+	for _, want := range []string{`value="direct"`, `value="preview"`, "直接导入"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("选文件页缺 %q:\n%.600s", want, body)
+		}
+	}
+}
+
+// 真写不进去时，那句话要**点名是哪一条**（2026-10-12）。
+//
+// 只给"N 条过不了校验"的话，用户手上只有一份他改不动的导出文件，而这个数字
+// 告诉他"文件有问题"却没告诉他"哪一条"——于是下一次导入还是同一句话，他仍然
+// 不知道该怎么办。判据是 ops.Run 报的 OpsIndex，翻译在 bookimport 那边与 Ops
+// 同住一处。
+//
+// 这条用例**故意用一份能写进去的文件**：它钉的是那句话的形状（点名 + 理由），
+// 而"整批被拒"那一支由 TestImport_长文件夹名不再整批被拒 的反面保证——真的整批
+// 被拒时，这半条会自然失效（那一句压根印不出来）。所以这里走的是
+// importOutcomeText 的单测口径：直接把一批 verrs 喂进去。
+func TestImport_写入失败时点名是哪一条(t *testing.T) {
+	srv, _ := setupServer(t)
+	b := &model.Bookmarks{Groups: []model.Group{{
+		ID: "g", Title: "工具", Layout: model.LayoutList,
+		Items: []model.Item{{ID: "a", Name: "第一个", URL: "http://10.0.0.5/"}, {ID: "b", Name: "出问题的那个", URL: "http://10.0.0.6/"}},
+	}}}
+	// ops 的顺序：先全部建组（1 条），再按组加条目。所以 index 2 是第二个条目。
+	out := batchOutcome{verrs: []ops.Error{{OpsIndex: 2, Field: "url", Reason: "id 不是 ASCII slug"}}}
+	got := srv.importOutcomeText(out, b)
+	for _, want := range []string{"出问题的那个", "http://10.0.0.6/", "id 不是 ASCII slug"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("点名那句话里缺 %q：%s", want, got)
+		}
+	}
+	// 没有文档可对照时退回旧句式——宁可少一句点名，也不要指错一条。
+	if got := srv.importOutcomeText(out, nil); !strings.Contains(got, "过不了校验") ||
+		strings.Contains(got, "出问题的那个") {
+		t.Errorf("拿不到文档就该退回计数那句，实际：%s", got)
+	}
 }

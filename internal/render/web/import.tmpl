@@ -33,6 +33,19 @@
       <button type="submit">{{.T "import.apply"}}</button>
       <a class="badge" href="/">{{.T "import.cancel"}}</a>
     </form>
+  {{else if eq .Mode "done"}}
+    {{/* 走完之后的**结论**，不是预览：写进去了几条、有哪些没能进来。
+         逐条点名是这一页存在的全部理由——只印一个"跳过了 N 条"的话，
+         那 N 条就再也没人知道了（来源文件里它们看着好好的）。报告全文在这一步
+         已经不值得了：它答的是"会导入什么"，而人这时候要的是"成了没有"。 */}}
+    <p>{{.T "import.done.a"}}<b>{{.T "import.done.n" .Applied}}</b>{{.T "import.done.b"}}</p>
+    {{with .SkippedItems}}
+      <p class="explain">{{$.T "import.done.skipped"}}</p>
+      <ul class="skipped">
+        {{range .}}<li>{{.Name}} <span class="u"> — {{.URL}}</span>：{{.Reason}}</li>{{end}}
+      </ul>
+    {{end}}
+    <p><a class="badge" href="/">{{.T "common.back.home"}}</a></p>
   {{else if eq .Mode "blocked"}}
     {{/* 这一形状只有一个链接：档案非空 → 导入这条路本来就不通。没有第二句，
          也没有"换个档案试试"——那句话会变成一个新的枚举面。 */}}
@@ -45,7 +58,20 @@
     <form method="post" action="/import" enctype="multipart/form-data" class="act">
       <p><label for="f">{{.T "import.file"}}</label>
         <input id="f" type="file" name="bookmarks" accept=".html,text/html" required></p>
-      <button type="submit">{{.T "import.preview"}}</button>
+      {{/* **两个按钮，同一个表单**（2026-10-12）：`go=direct` 收下文件就写，
+           `go=preview` 给报告等一次点头。
+
+           原来只有后者，于是"导入"这件事在界面上被说成"看这份会导入什么"——
+           一个想快点导完的人得先读一屏报告才知道导入根本没坏。
+
+           **被省掉的只是预览，不是那枚一次性令牌**：直接导入照样走
+           planImport → applyImport → 快照/历史/rev，判据一份。它跳过的是
+           "人读一遍再点头"这一个动作，而不是任何一道闸。
+
+           零 JS：两个 submit 按钮各带 name/value，服务端读 `go` 就分得开。
+           用 JS 换按钮会在关掉脚本时把这条路整个关掉。 */}}
+      <button type="submit" name="go" value="direct">{{.T "import.direct"}}</button>
+      <button type="submit" name="go" value="preview">{{.T "import.preview"}}</button>
       <a class="badge" href="/">{{.T "import.cancelFirst"}}</a>
     </form>
   {{end}}

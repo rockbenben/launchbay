@@ -452,7 +452,7 @@ type createInput struct {
 	PIN   string
 	// NoPass 是**明确**选择不设防（2026-10-12）。它必须是一个独立的布尔而不是
 	// 「pin 恰好是空串」：忘了填与选择不设，长得一模一样，而后者要写进用户的书签里。
-	NoPass   bool
+	NoPass    bool
 	DeriveID  bool
 	FirstOnly bool
 }

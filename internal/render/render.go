@@ -384,13 +384,15 @@ type AdminAction struct {
 //
 // NoStore 与 AdminPage 同理由：这一页点名到具体档案，缓存下来等于把"谁家要
 // 被删"留在共用电脑的缓存里。ETag 带上档案 id，同上（跨档案命中是这里最贵的一类 bug）。
-// ImportView 是浏览器收藏夹导入那三步的视图。
+// ImportView 是浏览器收藏夹导入那几屏的视图。
 //
-// 一个类型带两种形状（Mode）而不是两个页面：这两步是**同一个任务的进度**，
-// 拆成两个类型就要在两处各写一遍"标题/提示/回哪"。判据在 httpapi
-// （能不能导、这份文件读出多少），模板只印——与管理页那两张确认页同一纪律。
+// 一个类型带几种形状（Mode）而不是几个页面：这几屏是**同一个任务的进度**，
+// 拆成几个类型就要在几处各写一遍"标题/提示/回哪"。判据在 httpapi
+// （能不能导、这份文件读出多少、这次写成了没有），模板只印——与管理页那两张
+// 确认页同一纪律。
 type ImportView struct {
-	// Mode 是 "pick"（选文件）或 "report"（看报告 → 确认写入）。
+	// Mode 是 "pick"（选文件，两个按钮）、"report"（看报告 → 确认写入）、
+	// "done"（直接导入之后的结论）或 "blocked"（档案非空，这条路不通）。
 	Mode    string
 	Profile string
 	Heading string
@@ -403,7 +405,16 @@ type ImportView struct {
 	Report   string // bookimport 那份人话报告，原文照贴
 	Token    string // 一次性令牌，确认页带着它
 	FileName string // 上传时的文件名，只为让人确认"选对了文件"
+	// 下面两个只在 done 形状下有值（2026-10-12 的"直接导入"）。
+	Applied int
+	// SkippedItems 逐条点名。**不许拿 Skipped 那个数字代替它**：导入唯一会让人
+	// 后悔的信息就是"少的是哪几条"，只给个数的话那几条就没人知道了。
+	SkippedItems []SkippedEntry
 }
+
+// SkippedEntry 一条没能进档案的书签。它是 render 自己的形状而不是
+// bookimport.SkippedItem：渲染层不认识解析器，知道的只有"这三样要印出来"。
+type SkippedEntry struct{ Name, URL, Reason string }
 
 // ImportPage 渲染导入页。no-store：报告与令牌都在这一次响应的上下文里，
 // 缓存住它等于把"这个人打算导什么"留给下一个共用这台电脑的人。

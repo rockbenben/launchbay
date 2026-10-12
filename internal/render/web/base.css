@@ -523,3 +523,12 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 .rep{margin:14px 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .rep-h{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;color:var(--ink2);text-transform:none}
 .rep p{margin:6px 0;font-size:13px}
+/* 「直接导入」之后那屏的**没能进来的清单**（2026-10-12）。它是导入唯一会让人
+   后悔的信息，所以逐条点名而不是给一个数字。
+
+   地址另起一档颜色：那些地址是用户自己存的（长、有查询参数），跟名字混在
+   同一行会让人读不出哪一段是"叫什么"、哪一段是"去哪"。break-all 是必须的
+   ——一个带长 token 的地址在窄屏上会把整行撑破。 */
+.skipped{margin:8px 0 14px;padding-left:20px;font-size:13px;color:var(--ink2)}
+.skipped li{margin:4px 0}
+.skipped .u{color:var(--ink2);opacity:.8;word-break:break-all}

@@ -59,3 +59,32 @@ func CountItems(b *model.Bookmarks) int {
 	}
 	return n
 }
+
+// EntryOfOpIndex 把 ops.Run 报回来的 `OpsIndex` 翻译成"是哪一条书签"。
+//
+// 它必须与 Ops **住在同一个文件里**：ops 的顺序（先全部建组、再按组加条目）是
+// Ops 的实现细节，把这份顺序抄到 httpapi 那边，两边迟早差一次，而症状是"报了
+// 一个索引却指错了书签"——那比不报更坏。
+//
+// 建组那几条 op 返回 ok=false：它们对应的是分组而不是书签，页面上要说的是
+// "哪个文件夹"，由调用方自己按 index 落在组区间内判断。
+func EntryOfOpIndex(b *model.Bookmarks, i int) (name, url string, ok bool) {
+	if b == nil || i < 0 {
+		return "", "", false
+	}
+	off := len(b.Groups) // 前面的 op 都是建组
+	if i < off {
+		if i < len(b.Groups) {
+			return b.Groups[i].Title, "", false
+		}
+		return "", "", false
+	}
+	j := i - off
+	for _, g := range b.Groups {
+		if j < len(g.Items) {
+			return g.Items[j].Name, g.Items[j].URL, true
+		}
+		j -= len(g.Items)
+	}
+	return "", "", false
+}

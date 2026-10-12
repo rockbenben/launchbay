@@ -12,6 +12,7 @@ import (
 
 	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/bookimport"
+	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
 	"github.com/rockbenben/launchbay/internal/render"
 )
@@ -137,11 +138,14 @@ func (s *Server) handleImportPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleImportUpload 是第二步（POST /import）：收文件、解析、给报告，不写盘。
+// handleImportUpload 是第二步（POST /import）：收文件、解析，然后**按 `go` 分两路**。
 //
-// **解析成功不写盘**：写入发生在 POST /import/apply，中间必须隔一个能让人
-// 读报告的动作。这是 CLI 那条"不许跑 --apply 除非人明确要求"纪律在网页上
+// `go=preview`（默认）：给报告，等人点头——**解析成功不写盘**，写入发生在
+// POST /import/apply。这是 CLI 那条"不许跑 --apply 除非人明确要求"纪律在网页上
 // 的形状。
+//
+// `go=direct`：收下就写（见 directImport）。同一个 multipart 表单里两个 submit
+// 按钮各带一个 value，所以这一分叉不需要任何脚本。
 func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	profile, ok := s.importGuard(w, r)
 	if !ok {
@@ -202,12 +206,68 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if r.FormValue("go") == "direct" {
+		s.directImport(w, r, profile, hdr.Filename, plan)
+		return
+	}
 	s.renderImport(w, r, render.ImportView{
 		Mode: "report", Heading: s.t("import.reportHeading"),
 		Count: plan.Count, Skipped: plan.Skipped, Groups: plan.Groups,
 		Report: plan.Report, Token: plan.Token,
 		FileName: hdr.Filename,
 	})
+}
+
+// directImport 是 `go=direct` 那一支：收下文件就写，不先给报告（2026-10-12）。
+//
+// **它省掉的只是"人读一遍再点头"这个动作，没有省掉任何一道闸**：解析走
+// planImport、写入走 applyImport、落盘走 applyBatch（快照/历史/rev 一次不落），
+// 令牌照样一次性。所以它不是一个新的写路径，而是"少一个页面"——
+// 与 /admin/pin、/revert 那两步页面相比，被拿掉的是第一步，不是那两步。
+//
+// 为什么要有这一支：导入这件事在界面上被说成"看这份会导入什么"，于是想快点
+// 导完的人必须先读一屏报告才知道导入根本没坏。而报告答的是"会导入什么"，
+// 写完之后人真正要的是"成了没有、少了哪几条"——那正是这一屏印的东西。
+func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, fileName string, plan importPlan) {
+	out, err := s.applyImport(plan.Token, profile, profile, "import")
+	if err != nil {
+		// 令牌取不到（过期/被用过）或解析这一趟出了意外：回第一步重来，
+		// 形状与 /import/apply 那条完全一致（importOutcomeText 说得出的话它说得出）。
+		s.renderImport(w, r, render.ImportView{
+			Mode: "pick", Heading: s.t("import.heading"),
+			Notice:  s.t("import.notice.notSaved", s.importPlainOutcome(err)),
+			Explain: s.t("import.explainStep"),
+		})
+		return
+	}
+	switch {
+	case out.missing, out.broken != "", len(out.verrs) > 0, out.snapErr != nil:
+		// 写入没成：把结论说清楚，绝不跳回一个"什么都没变"的首页。
+		s.renderImport(w, r, render.ImportView{
+			Mode: "pick", Heading: s.t("import.heading"),
+			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out, plan.Bookmarks)),
+			Explain: s.t("import.explainStep"),
+		})
+	default:
+		s.renderImport(w, r, render.ImportView{
+			Mode: "done", Heading: s.t("import.done.heading"),
+			Applied: out.resp.Applied, SkippedItems: skipEntries(plan.SkippedItems),
+			FileName: fileName,
+		})
+	}
+}
+
+// importPlainOutcome 把 applyImport 的那个 error（令牌过期之类）翻成一句话。
+// **只这一支用**：applyBatch 的结论走 importOutcomeText（有 sentinel 可分诊），
+// 而 error 这一边没有——令牌是一次性的，说"过期了"等于教人反复点。
+//
+// 别的 error 一律归到"原因不明"那一档，不把内部错误原文印到页面上：那是给
+// stderr 与容器日志看的，而这一屏是给人看的。
+func (s *Server) importPlainOutcome(err error) string {
+	if errors.Is(err, errStashGone) {
+		return "这次的上传已经过期或被用过了，请重新选一次文件。"
+	}
+	return s.t("import.outcome.unknown")
 }
 
 // handleImportApply 是第三步：确认写入。ops 由 bookimport.Ops 生成，落盘走
@@ -231,9 +291,12 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
+		// 第二格传 nil：这条路手上只有令牌，解析结果在暂存里已经被用掉了。
+		// 拿不到 Bookmarks 就退回"有 N 条过不了校验"那句话（宁可少一句点名，
+		// 也不要指错一条）；走「直接导入」那条路拿得到，点名照常。
 		s.renderImport(w, r, render.ImportView{
 			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out)),
+			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out, nil)),
 			Explain: s.t("import.explainStep"),
 		})
 		return
@@ -244,7 +307,7 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 // importOutcomeText 把 applyBatch 的失败结论翻成一句人话。
 // 它是 **Server 的**方法而不是包级函数：它拼的是给人看的结论，而语言是机器级的
 // 设置，只有 Server 读得到 store。理由与 revert 的 choiceLabel 同一处。
-func (s *Server) importOutcomeText(out batchOutcome) string {
+func (s *Server) importOutcomeText(out batchOutcome, b *model.Bookmarks) string {
 	switch {
 	case out.missing:
 		return s.t("import.outcome.missing")
@@ -253,6 +316,23 @@ func (s *Server) importOutcomeText(out batchOutcome) string {
 	case out.conflict != nil:
 		return s.t("import.outcome.conflict")
 	case len(out.verrs) > 0:
+		// **点名是哪一条**（2026-10-12）。只给"N 条过不了校验"的话，用户手上
+		// 只有一份他改不动的 html 导出文件，而这个数字告诉他"文件有问题"却没
+		// 告诉他"哪一条"——于是下一次导入还是同样一句话。
+		//
+		// 判据是 ops.Run 报的 OpsIndex，翻译在 bookimport.EntryOfOpIndex（与 Ops
+		// 同一处，不会与 op 的顺序分家）。b 为 nil（第三步那条路拿得到令牌却拿
+		// 不到解析结果）或者翻不出来时，退回原来那句话——宁可少一句，也不要
+		// 指错一条。
+		if b != nil && len(out.verrs) > 0 {
+			name, url, ok := bookimport.EntryOfOpIndex(b, out.verrs[0].OpsIndex)
+			switch {
+			case ok && url != "":
+				return s.t("import.outcome.invalidNamed", name, url, out.verrs[0].Reason)
+			case name != "":
+				return s.t("import.outcome.invalidGroup", name, out.verrs[0].Reason)
+			}
+		}
 		return s.t("import.outcome.invalid", len(out.verrs))
 	case out.snapErr != nil:
 		return s.t("import.outcome.snapErr")
@@ -430,9 +510,30 @@ type importPlan struct {
 	// Skipped 是**没能进来**的条数。页面与 API 都要单独说它：只说"会加 N 条"
 	// 会让人以为文件里就这么多书签，而少的那些去了哪里只有报告知道。
 	Skipped int
-	Groups  int
-	Report  string
-	Token   string
+	// SkippedItems 是同一批东西的**逐条明细**（2026-10-12）。直接导入那一屏
+	// 印它：报告那一路有全文可看，直接这条路只有这一份清单，所以少的是哪几条
+	// 只能从这里知道。
+	SkippedItems []bookimport.SkippedItem
+	Groups       int
+	Report       string
+	Token        string
+	// Bookmarks 是这次解析出来的文档，**只为把"第 N 条 op 失败"翻译成那条书签
+	// 的名字**（importOutcomeText）。它不进任何响应体，也不进暂存——暂存里存
+	// 的是原始文件，重新解析一次就好。
+	Bookmarks *model.Bookmarks
+}
+
+// skipEntries 把 bookimport 的跳过清单搬成渲染层的形状。搬一次而不是让渲染层
+// 认识解析器——渲染层该知道的只有"这三样要印出来"。
+func skipEntries(in []bookimport.SkippedItem) []render.SkippedEntry {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]render.SkippedEntry, 0, len(in))
+	for _, s := range in {
+		out = append(out, render.SkippedEntry{Name: s.Name, URL: s.URL, Reason: s.Reason})
+	}
+	return out
 }
 
 // planImport 解析 + 建暂存。**它不写盘**——写入在 applyImport，写盘走
@@ -465,11 +566,13 @@ func (s *Server) planImport(profile string, raw []byte) (importPlan, error) {
 		return importPlan{}, errNoStash
 	}
 	return importPlan{
-		Count:   n,
-		Skipped: len(res.Report.Skipped),
-		Groups:  len(res.Bookmarks.Groups),
-		Report:  res.Report.Text(),
-		Token:   token,
+		Count:        n,
+		Skipped:      len(res.Report.Skipped),
+		SkippedItems: res.Report.Skipped,
+		Groups:       len(res.Bookmarks.Groups),
+		Report:       res.Report.Text(),
+		Token:        token,
+		Bookmarks:    res.Bookmarks,
 	}, nil
 }
 
