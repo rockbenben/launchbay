@@ -109,8 +109,13 @@
   <p class="hint">{{.T "profile.import.hint"}}</p>
 {{end}}
 {{range .Bookmarks.Groups}}
+{{/* 节标题按**叶名 + 弱化的父路径**排版（2026-10-12）：导入把嵌套文件夹拍平成
+     "工作 / 项目 A / 会议记录"这样的标题，于是三十个分组的标题全是路径串，
+     而"工作"与"工作 / 项目 A"看上去是两组并列——它们本来是一家的。
+     磁盘上的标题一个字都没改，拆成两半只是为了读起来有层级（exec.go 的
+     pathSplit，判据只有那一份）；title 属性仍挂全名，截断与悬停都不丢信息。 */}}
 <section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}"{{with .Accent}} style="--sec-accent:{{.}}"{{end}}>
-  <h2 id="g-{{.ID}}" data-group="{{.ID}}">{{.Title}}</h2>
+  <h2 id="g-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
   <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
   {{range .Items}}
     <li data-item="{{.ID}}">
@@ -175,10 +180,27 @@
      这个 define 必须与 "profile" 平级：Go 模板不许嵌套 define（同 "icon" 那条约束）。 */}}
 {{define "grouplist"}}
 <ul>
-{{range .Bookmarks.Groups}}
-  {{/* title 挂全名：侧栏 190px 里长分组名会被省略号截断，截断之后必须还有地方
-     能看到完整名字（悬停），否则"截断"就变成"信息丢了"。 */}}
-  <li><a href="#g-{{.ID}}" title="{{.Title}}">{{with .Accent}}<i class="dot" style="--sec-accent:{{.}}" aria-hidden="true"></i>{{end}}<span>{{.Title}}</span><b class="cnt">{{len .Items}}</b></a></li>
+{{/* 侧栏走的是 **Nav 那棵树**，不是 Groups 那个平表（2026-10-12）：一份真实导出
+     三十个文件夹，标题全是"工具 / 同步 / 脚本"这样的串，侧栏于是是三十行长文本，
+     而看不出哪几个是一家的。树由 groupNav 在 Go 侧算好——判据只有 pathSplit 一处，
+     模板不拼路径、不数层级。
+
+     两类格子：真实分组（IsGroup）带锚点、计数与色点；合成父级只有一段标签，
+     不可点、没计数。带 ?q= 时计数天然是命中数（Groups 已被过滤），不需要第二个数。
+
+     深度缩进靠 --d 那一个整数（CSS 里 `--d*12px`），不用嵌套 <ul>：窄屏那条
+     横向分组带用的是同一份数据，嵌套列表在横向排布里没法表达，而一个整数在
+     两种形态里都成立。 */}}
+{{range .Bookmarks.Nav}}
+  {{if .IsGroup}}
+  {{/* 侧栏这一格**只印叶名**（2026-10-12）：缩进已经说明了层级，再把父路径
+       写进文字就是同一件事说两遍——而 206px 的侧栏里两遍都放不下，
+       实测那一行被截成"工作 / 项目… 会议…"（两头各一个省略号）。
+       完整路径仍在 title 里：悬停能看见，截断不等于信息丢了。 */}}
+  <li style="--d:{{.Depth}}"><a href="{{.Href}}" title="{{.Label}}">{{with .Accent}}<i class="dot" style="--sec-accent:{{.}}" aria-hidden="true"></i>{{end}}<span>{{.Leaf}}</span><b class="cnt">{{.Count}}</b></a></li>
+  {{else}}
+  <li class="nav-parent" style="--d:{{.Depth}}"><span>{{.Leaf}}</span></li>
+  {{end}}
 {{end}}
 </ul>
 {{end}}

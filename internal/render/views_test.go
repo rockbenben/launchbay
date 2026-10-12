@@ -22,10 +22,14 @@ func TestProfileStructureAndNoJS(t *testing.T) {
 	body := string(mustRender(t, s, "dad"))
 	for _, want := range []string{
 		`<main`, `role="main"`, // 地标
-		`<h2 id="g-nas" data-group="nas">NAS</h2>`, // 分组标题成结构；data-group 给添加浮层填分组下拉
-		`href="http://10.0.0.3:5000"`,              // 关掉 JS 也能点
-		`dsm 台`,                                    // save() 造的条目标题是 itemID+" 台"
-		`aria-hidden="true"`,                       // 首字母色块是装饰
+		// 分组标题成结构；data-group 给添加浮层填分组下拉。
+		// 2026-10-12：标题按「叶名 + 弱化的父路径」排版，这一份没有父路径，
+		// 所以 sec-leaf 那一格是它自己；父链非空时的形状由
+		// Test节标题_父路径弱化叶名突出 单独钉（同一份拆法，不在同一条里塞两种）。
+		`<h2 id="g-nas" data-group="nas" title="NAS"><span class="sec-leaf">NAS</span></h2>`,
+		`href="http://10.0.0.3:5000"`, // 关掉 JS 也能点
+		`dsm 台`,                       // save() 造的条目标题是 itemID+" 台"
+		`aria-hidden="true"`,          // 首字母色块是装饰
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("缺 %q\n%s", want, body)

@@ -112,11 +112,118 @@ type itemView struct {
 }
 
 type groupView struct {
-	ID     string
-	Title  string
-	Items  []itemView
-	Accent string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
-	Layout string // tiles|list 原样带出，Task 10 的 CSS 靠它
+	ID    string
+	Title string
+	// Leaf 与 Parents 是同一串标题的两半（2026-10-12）：导入把嵌套文件夹拍平成
+	// "父 / 子" 的标题，于是整页上每一节都印着一长串路径——侧栏成了一面读不完的
+	// 墙，正文里"工作 / 项目 A / 会议记录"与"工作 / 项目 A"看上去是两组并列，
+	// 而它们本来是一家的。
+	//
+	// 拆成两半**只是为了好看**：磁盘上的标题一个字都没动（id、寻址、已有档案全不
+	// 受影响），侧栏与节标题按这两半分别排版。判据只有 pathSplit 一处。
+	Leaf    string // 最后一段，节标题里要重的那一半
+	Parents string // 前面的段，弱化显示（空串 = 这一层没有父级）
+	Items   []itemView
+	Accent  string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
+	Layout  string // tiles|list 原样带出，Task 10 的 CSS 靠它
+}
+
+// pathSep 是导入器拍平嵌套文件夹时用的分隔符。它在这里被**认出**，不是为了再去
+// 生成同样的标题——而是把已经是那个形状的标题拆回层级给人看。
+//
+// 一份书签导出动辄三十个文件夹，标题全是"工具 / 同步 / 脚本"这样的串：侧栏三十行
+// 长文本、正文三十个长标题，而**看不出哪几个是一家的**。导入器不可能不做这件事
+// （model 的分组只有 id/title/layout/items，没有父子），所以层级只存在于标题里；
+// 于是渲染层把它**读回来**。
+const pathSep = " / "
+
+// pathSplit 把一条分组标题按分隔符拆成（父链, 叶名）。没有分隔符时父链为空。
+func pathSplit(title string) (parents, leaf string) {
+	i := strings.LastIndex(title, pathSep)
+	if i < 0 {
+		return "", strings.TrimSpace(title)
+	}
+	return strings.TrimSpace(title[:i]), strings.TrimSpace(title[i+len(pathSep):])
+}
+
+// navNode 是侧栏那棵树的一格。
+//
+// **是一棵拍平的树**（带 Depth），不是嵌套结构：窄屏那条横向分组带也要用同一份
+// 数据（.gnav.top 与 ≤700px 的 .gnav 都走 grouplist），嵌套 <ul> 在横向排布里没法
+// 表达，而 Depth 一个整数在两种形态里都成立。
+//
+// Href 为空 = 合成出来的父级（自己不是分组，只是一段路径），因此不可点、也不带计数。
+type navNode struct {
+	Label  string
+	Href   string
+	Count  int
+	Accent string
+	Depth  int
+	// Leaf/Parents 与 groupView 同一份拆法：父级节点自己也要显示成"叶子 + 弱化的
+	// 前缀"，否则"工具 / 同步"这一行在树里又会变回一长串。
+	Leaf    string
+	Parents string
+	IsGroup bool
+}
+
+// groupNav 把分组列表折成一棵拍平的树。
+//
+// 合成父节点与真实分组**必须分得清**：只有真实分组能链到锚点、才有计数与色点。
+// 一段路径恰好也是某个分组标题时（"工具" 与 "工具 / 同步" 同时存在），那一段按
+// **真实分组**画——否则那个分组在侧栏里就没有入口了，而它明明是可进去的。
+func groupNav(groups []groupView) []navNode {
+	if len(groups) == 0 {
+		return nil
+	}
+	// 先知道哪些整串标题是真实分组：合成父节点靠它判断"我该不该可点"。
+	real := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		real[g.Title] = true
+	}
+	var out []navNode
+	seen := map[string]bool{} // 已经画过的那一整串路径
+	for _, g := range groups {
+		full := ""
+		for _, seg := range splitAll(g.Title) {
+			if full == "" {
+				full = seg
+			} else {
+				full += pathSep + seg
+			}
+			if seen[full] {
+				continue
+			}
+			seen[full] = true
+			isGroup := real[full]
+			// 合成父节点的标题就是它自己那一段；真实分组用原标题（两者在拆开之后
+			// 得到的是同一组 Leaf/Parents——差别只在这一串给不给锚点与计数）。
+			title := seg
+			if isGroup {
+				title = full
+			}
+			node := navNode{Label: title, IsGroup: isGroup,
+				Depth: strings.Count(title, pathSep)}
+			node.Parents, node.Leaf = pathSplit(title)
+			if isGroup {
+				node.Href = "#g-" + g.ID
+				node.Count = len(g.Items)
+				node.Accent = g.Accent
+			}
+			out = append(out, node)
+		}
+	}
+	return out
+}
+
+// splitAll 把标题按分隔符全拆开（pathSplit 只拆最后一处，这里要每一段）。
+func splitAll(title string) []string {
+	var out []string
+	for _, seg := range strings.Split(title, pathSep) {
+		if s := strings.TrimSpace(seg); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 type profileData struct {
@@ -124,6 +231,10 @@ type profileData struct {
 	Footer       string
 	OpenInNewTab bool
 	Groups       []groupView
+	// Nav 是侧栏那棵树（groupNav 的拍平结果）。**与 Groups 分开**：Groups 是
+	// "磁盘上有哪几个分组"，Nav 是"给人看的层级"——同一个分组在两处各出现一次，
+	// 判据都在 groupNav 里算一次，模板不再自己拼路径。
+	Nav []navNode
 }
 
 type profileView struct {
@@ -467,6 +578,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		// 都由同一个 groupView.Accent 喂（Task 10 与 P1-④ §7 的色点消费）。
 		gv := groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
 			Accent: validatedAccent(g.Accent)}
+		gv.Parents, gv.Leaf = pathSplit(g.Title)
 		for _, it := range g.Items {
 			p := pieceFor(it, e.ix, e.fc)
 			gv.Items = append(gv.Items, itemView{
@@ -481,6 +593,8 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		}
 		v.Bookmarks.Groups = append(v.Bookmarks.Groups, gv)
 	}
+	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
+	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
 	// ⑤ 的脚本与 rev 由执行器填，不从视图结构体带进来：指纹路径由内容算出，
 	// 而 rev 就在 b 上（渲染这一页读的就是它）。视图结构体要是能带这两个，
 	// 就会多出"调用方忘了填 → 页面静默没有添加按钮"这种形状。

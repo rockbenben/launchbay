@@ -124,6 +124,11 @@ details[open]>summary::before{content:"▾"}
 .gnav ul{display:block;list-style:none;margin:0;padding:0}
 .gnav a{display:flex;gap:8px;align-items:center;padding:0 6px;
   border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px}
+/* 深度缩进（2026-10-12）：--d 由 groupNav 在 Go 侧给的整数，一条式子算完，
+   所以横向那条分组带（≤700px / topbar）与竖排的侧栏用的是同一份数据。
+   12px 是实测的视觉步长：8px 时父子几乎贴在一起（看不出是一家的），
+   16px 时 206px 的侧栏放不下两行缩进。 */
+.gnav li{padding-left:calc(var(--d,0) * 12px)}
 .gnav a:hover{background:var(--card-hi)}
 .gnav .cnt{margin-left:auto;font-weight:400;font-size:12px;color:var(--ink2)}
 /* 侧栏是分组名的第三张脸（前两张：卡片、磁贴）。190px 定轨配 CJK 换行会把
@@ -134,6 +139,16 @@ details[open]>summary::before{content:"▾"}
    没设色的分组根本不发这一格，所以这里不必给"无色"留分支。 */
 .gnav .dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;
   background:var(--sec-accent,var(--accent))}
+/* 合成父级（2026-10-12）：一段路径的中间部分不是分组——它没有锚点、没有条目、
+   所以**不可点**（`.gnav a` 的那一套只给真分组）。它仍然要画出来：删掉它，
+   "工具 / 同步 / 脚本"这一行就悬在半空里，看不出自己属于谁。
+
+   它比真分组弱一号（小字 + 弱化色），因为它是**路标**不是入口——这一条判据
+   就是它不可点这件事的视觉后果，两边一致。 */
+.gnav .nav-parent{font-size:12px;color:var(--ink2);padding:3px 6px}
+/* 父路径前缀（侧栏与节标题共用这一格）：弱化、小字。它说的是"这一条在哪"，
+   不是"这一条叫什么"——眼睛该落在叶名上。 */
+.sec-path{color:var(--ink2);font-weight:400;opacity:.75;margin-right:2px}
 [data-profile-layout=topbar] .shell{grid-template-columns:minmax(0,1fr)}
 .gnav.top{margin:0 0 14px}
 .gnav.top ul{display:flex;gap:6px;overflow-x:auto}
