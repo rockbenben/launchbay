@@ -123,9 +123,13 @@ type groupView struct {
 	// 受影响），侧栏与节标题按这两半分别排版。判据只有 pathSplit 一处。
 	Leaf    string // 最后一段，节标题里要重的那一半
 	Parents string // 前面的段，弱化显示（空串 = 这一层没有父级）
-	Items   []itemView
-	Accent  string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
-	Layout  string // tiles|list 原样带出，Task 10 的 CSS 靠它
+	// Depth 是路径的段数（0 = 顶层分组）。节标题按它缩进，于是**正文也读得出
+	// 层级**：四十五个分组的档案动辄三万多像素一页，那一长串标题若一样齐地摆着，
+	// 眼睛找不到"哪几个是一家的"——它与侧栏那棵树是同一件事的两半。
+	Depth  int
+	Items  []itemView
+	Accent string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
+	Layout string // tiles|list 原样带出，Task 10 的 CSS 靠它
 }
 
 // pathSep 是导入器拍平嵌套文件夹时用的分隔符。它在这里被**认出**，不是为了再去
@@ -579,6 +583,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		gv := groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
 			Accent: validatedAccent(g.Accent)}
 		gv.Parents, gv.Leaf = pathSplit(g.Title)
+		gv.Depth = strings.Count(g.Title, pathSep)
 		for _, it := range g.Items {
 			p := pieceFor(it, e.ix, e.fc)
 			gv.Items = append(gv.Items, itemView{

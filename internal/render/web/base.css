@@ -170,6 +170,14 @@ details[open]>summary::before{content:"▾"}
 }
 @media (forced-colors:active){.drawer{border:1px solid CanvasText}.gnav a{border:1px solid CanvasText}}
 section{margin:22px 0}
+/* 节标题按**路径深度缩进**（2026-10-12）：一份真实导出四十五个分组、正文三万多
+   像素一页，那些标题若一样齐地摆着，眼睛找不到"哪几个是一家的"。侧栏那棵树与
+   这里是同一件事的两半——侧栏给的是导航，正文给的是这一页本身。
+
+   18px 一级，**到四级封顶**：再深就往里挤卡片了（实测最深那一档在真实数据上
+   是"书签栏 / 微信 / 备用&失效 / 平台关闭|链接更换"，四级）。判据仍是
+   exec.go 给的那个 --d 整数，CSS 只负责把它变成缩进。 */
+section[data-depth]{padding-left:calc(min(var(--d,0),4) * 18px)}
 /* content-visibility（spec §8.3「整区保帧率」，2026-10-11 落地）。
    **为什么是现在**：它当年被推着不实现，理由写着"本期 42 条不需要，条目上千再
    评估"。现在评估了——1000 条的真实读数是：服务端渲染 7ms、传输 41ms、浏览器

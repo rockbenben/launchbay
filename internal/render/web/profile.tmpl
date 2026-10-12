@@ -114,7 +114,7 @@
      而"工作"与"工作 / 项目 A"看上去是两组并列——它们本来是一家的。
      磁盘上的标题一个字都没改，拆成两半只是为了读起来有层级（exec.go 的
      pathSplit，判据只有那一份）；title 属性仍挂全名，截断与悬停都不丢信息。 */}}
-<section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}"{{with .Accent}} style="--sec-accent:{{.}}"{{end}}>
+<section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}" data-depth="{{.Depth}}"{{if .Accent}} style="--sec-accent:{{.}};--d:{{.Depth}}"{{else}} style="--d:{{.Depth}}"{{end}}>
   <h2 id="g-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
   <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
   {{range .Items}}
