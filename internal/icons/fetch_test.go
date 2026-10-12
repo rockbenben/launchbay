@@ -71,7 +71,12 @@ func TestFetcher_超时预算是每一跳各自的(t *testing.T) {
 	var hops int
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(150 * time.Millisecond)
+		// 150ms 对 200ms 的预算只留 50ms 余量：在 alpine + QEMU 模拟 + 十三个包
+		// 并行抢 CPU 的构建环境里，调度抖动轻松吃掉这 50ms，于是**测试红了而
+		// 代码没错**（2026-10-12 真在 CI 上红过一次：docker.yml 的「构建并推送」）。
+		// 整个时间轴按**同一个倍数**放大：判别力来自「两跳共 900ms > 预算 600ms」
+		// 这个不等式，放大不改变它的成立，所以只放宽抖动余量、不放宽语义。
+		time.Sleep(450 * time.Millisecond)
 		hops++
 		if hops == 1 {
 			http.Redirect(w, r, srv.URL+"/end", http.StatusFound)
@@ -81,9 +86,9 @@ func TestFetcher_超时预算是每一跳各自的(t *testing.T) {
 		_, _ = w.Write([]byte("<html></html>"))
 	}))
 	defer srv.Close()
-	f := &Fetcher{Timeout: 200 * time.Millisecond, MaxBytes: 4096}
+	f := &Fetcher{Timeout: 600 * time.Millisecond, MaxBytes: 4096}
 	if _, _, err := f.Page(srv.URL); err != nil {
-		t.Errorf("两跳各 150ms、每跳预算 200ms 不该超时，得到 %v", err)
+		t.Errorf("两跳各 450ms、每跳预算 600ms 不该超时，得到 %v", err)
 	}
 }
 
