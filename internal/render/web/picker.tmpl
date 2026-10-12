@@ -20,7 +20,16 @@
          人看到的第一块屏幕。成功之后照样要输 PIN 才进门。 */}}
     <form method="post" action="/setup" class="pick setup">
       <label>{{.T "picker.setup.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
-      <label>{{.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
+      {{/* PIN 改成**选填**（2026-10-12），不设防是同一个动作的另一端。
+           为什么不是"留空就行"：忘了敲一位就回车，会静悄悄地建出一份局域网里
+           谁都能进的书签页，而这个产品最核心的那句承诺正是"各人一份，别人看不见"。
+           多了这一格勾选，换来的是"不设防"永远是一个**被说出来**的决定。
+           `required` 因此摘掉，minlength/maxlength 留着（对空值不生效，只管手滑打短的）。
+           判据只有 httpapi 的 `isNoPass` 一处。 */}}
+      <label>{{.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+                            minlength="4" maxlength="6"></label>
+      <label class="chk"><input type="checkbox" name="nopass" value="1"> {{.T "picker.setup.nopass"}}</label>
+      <p class="hint">{{.T "picker.setup.nopassHint"}}</p>
       <button type="submit">{{.T "picker.setup.submit"}}</button>
       {{/* 「这个人」指不到表单里的任何东西（字段叫「名称」）；「建完这一步就不能
            再建第二次」读起来像"这个按钮只能按一次"。说清是什么在关闭：这个页面。
@@ -68,8 +77,17 @@
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
         <span class="pick-name"><span class="ic" aria-hidden="true">{{.Letter}}</span><b>{{.Title}}</b></span>
-        <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
-                          minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
+        {{/* **不设防的那一份不给 PIN 输入框**（2026-10-12）。给一个空框等于在门口
+             摆一个"输什么都行"的假门槛：人会以为该输点什么，输错之后弹回来的
+             那句比不问更费解。不给框，意思就只剩一个——这张卡按下去就能进。
+             顺带说清代价：局域网里谁都能进这一份，所以页面上要**明写**它不设防，
+             而不是让人从"没有输入框"里自己推断。 */}}
+        {{if .NeedsPIN}}
+          <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+                            minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
+        {{else}}
+          <p class="nopass">{{$.T "picker.nopass"}}</p>
+        {{end}}
         <button type="submit">{{$.T "picker.enter"}}</button>
       </form>
     </li>

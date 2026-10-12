@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -165,20 +166,26 @@ func TestPinJSONPostStillGetsJSONBodyNotRedirect(t *testing.T) {
 // 裸 JSON：无 JS 的家人没有脚本可跑，401 + JSON 体等于把他关在门外
 // （部署验收 Important #2）。一条 cookie 都不许落下——进门失败却发会话，
 // 比回到选择页坏得多。
+//
+// 2026-10-12：空表单不再有专属的一把键。夹具里两份档案都有 PIN，所以"忘了输"
+// 与"输错了"是同一件事的两种写法，都答 `pin`；一份**故意不设 PIN** 的档案
+// 交空表单是**进得来**的，那条走 TestPinForm_不设防的档案空表单就能进。
 func TestPinFormFailuresRedirectBackToPicker(t *testing.T) {
 	_, h := setup(t)
 	for _, tc := range []struct{ name, body, cookie, wantErr string }{
-		{"缺 pin", "profile=dad", "", "missing"},
-		{"空 pin", "profile=dad&pin=", "", "missing"},
+		{"缺 pin 就是没输对", "profile=dad", "", "pin"},
+		{"空 pin 就是没输对", "profile=dad&pin=", "", "pin"},
 		{"PIN 错", "profile=dad&pin=0000", "", "pin"},
 		{"档案不存在", "profile=ghost&pin=1234", "", "profile"},
 		{"slug 非法", "profile=%2B%2B&pin=1234", "", "profile"},
-		// 下面两格是 2026-10-10 改判的证人：空 PIN **一律**答 missing，不看会话。
-		// 原来这里有"会话形态非法"与"非管理员免 PIN 切档"两种分诊——那是代管态的
-		// 两条出路，而免 PIN 直达（`/switch to=<id>`）已经整条删掉了。于是两种会话
-		// （合法的本人会话、被伪造成代管的会话）拿到的是同一个答案。
-		{"带会话的空 pin 也只是缺 pin", "profile=kid&pin=", "lb_profile=dad; lb_home=kid", "missing"},
-		{"伪代管会话不再有出路", "profile=dad&pin=", "lb_profile=kid; lb_home=dad", "missing"},
+		// 下面两格是 2026-10-10 改判的证人：会话成不合法**不影响**这一支的
+		// 答案。原来这里有"会话形态非法"与"非管理员免 PIN 切档"两种分诊——那是
+		// 代管态的两条出路，而免 PIN 直达（`/switch to=<id>`）已经整条删掉了。
+		// 于是两种会话（合法的本人会话、被伪造成代管的会话）拿到同一个答案；
+		// 2026-10-12 允许不设 PIN 之后，这个答案是 `pin` 而不是 `missing`——
+		// 判据只有 auth.VerifyEntry 一处，会话根本不参与。
+		{"带会话的空 pin 也只是没输对", "profile=kid&pin=", "lb_profile=dad; lb_home=kid", "pin"},
+		{"伪代管会话不再有出路", "profile=dad&pin=", "lb_profile=kid; lb_home=dad", "pin"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := postForm(h, "/pin", tc.body, tc.cookie)
@@ -192,6 +199,47 @@ func TestPinFormFailuresRedirectBackToPicker(t *testing.T) {
 				t.Fatalf("失败却落了 cookie: %v", cs)
 			}
 		})
+	}
+}
+
+// 不设 PIN 的档案，空表单就该进得来（2026-10-12）。这是"可以不设"这个承诺的
+// 行为证人：只钉"有 PIN 的档案仍然要输对"是不够的——那条在改动之前就成立，
+// 而这一条是**新**能力，只在盘上那份档案确实没有 PIN 时才成立。
+//
+// 夹具另外建一份 `open`：PinHash 留空。建档走 store 而不是 API/表单，所以这条
+// 只钉"进门"这一段，不掺建档那一段的读法（那条另有证人）。
+func TestPinForm_不设防的档案空表单就能进(t *testing.T) {
+	s, h := setup(t)
+	if _, err := s.CreateProfile(store.NewProfileInput{ID: "open", Title: "客厅那台"}); err != nil {
+		t.Fatal(err)
+	}
+	// 两条都验：字段整格缺席（模板 `{{if .NeedsPIN}}` 那一支）与字段在但留空。
+	// 后者才是**手滑**的样子——选择页该画框就画框，只是这份档案压根不核对。
+	for _, body := range []string{"profile=open", "profile=open&pin="} {
+		rec := postForm(h, "/pin", body, "")
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("%s 想要 303 进档案页，实际 %d %s", body, rec.Code, rec.Body)
+		}
+		if loc := rec.Header().Get("Location"); loc != "/" {
+			t.Fatalf("%s 该 303 回 /（首页按会话渲染成档案页），实际 %q", body, loc)
+		}
+		// 进门要落一条**指向这一份**的会话 cookie。注意它不是唯一一条：同一处
+		// 还会把升级前那条 `lb_home` 清掉（Max-Age=0），所以这里找的是"有
+		// 没有把 lb_profile 设成 open"，不是"一共有几条"。
+		var got []string
+		for _, c := range rec.Result().Cookies() {
+			got = append(got, c.Name+"="+c.Value)
+		}
+		if !slices.Contains(got, "lb_profile=open") {
+			t.Fatalf("进门要落 lb_profile=open，实际 %v", got)
+		}
+	}
+	// 停用优先于"没有 PIN"：一份被管理员停用的不设防档案也不能进——
+	// 「谁都能进」说的是这台机器上的局域网，不是任何人。
+	disableViaStore(t, s, "open", true)
+	rec := postForm(h, "/pin", "profile=open", "")
+	if loc := rec.Header().Get("Location"); loc != "/?err=disabled" {
+		t.Fatalf("停用优先于不设防，实际 %q", loc)
 	}
 }
 

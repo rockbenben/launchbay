@@ -40,6 +40,12 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 		//
 		// 旧脚本送来 admin 会撞 decodeBody 的未知字段闸 → 422 且点名 admin：
 		// 那正是它该收到的答案（"这一格没有了"），而不是静默忽略。
+		//
+		// NoPass 是 2026-10-12 加的：rebuild 出来的档案可以不设 PIN。
+		// 它与 `/admin/pin`、`POST /api/v1/profiles/self/pin` 是同一件事的三个入口，
+		// 所以"能不能清掉一个 PIN"在这里也必须能答 —— 否则就出现"建档能选不设、
+		// 管理员却没法把已有的 PIN 去掉"的缺口。
+		NoPass bool `json:"nopass"`
 	}
 	if err := decodeBody(r, &in); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
@@ -59,7 +65,7 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(in.Title) == "" {
 		errs = append(errs, fieldError{Field: "title", Reason: "不能为空"})
 	}
-	hash, pinErrs := hashFormPIN(in.PIN) // PIN 判据只有一份：建档族共用（createrule_test.go 第三档钉着）
+	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（createrule_test.go 第三档钉着）
 	errs = append(errs, pinErrs...)
 	if len(errs) > 0 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, errs)

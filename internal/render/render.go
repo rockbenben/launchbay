@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/store"
@@ -210,7 +211,8 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 		if p.Disabled {
 			continue
 		}
-		views = append(views, pickerEntry{ID: p.ID, Title: p.Title, Letter: firstChar(p.Title)})
+		views = append(views, pickerEntry{ID: p.ID, Title: p.Title, Letter: firstChar(p.Title),
+			NeedsPIN: auth.HasPin(p.PIN)})
 	}
 	// 进不去的那几份要在这一页说出口（死路①的对策：读不动的档案从前只是被跳过，
 	// 于是"唯一那份坏了"等于一张卡都没有、一句解释都没有的空页面）。

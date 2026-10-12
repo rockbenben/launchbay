@@ -151,7 +151,6 @@ func TestProfileValidate(t *testing.T) {
 	}{
 		{"大写 id", func(p *Profile) { p.ID = "Dad" }},
 		{"空 title", func(p *Profile) { p.Title = "" }},
-		{"空 pin", func(p *Profile) { p.PIN = "" }},
 		{"非法 theme", func(p *Profile) { p.Theme = "pink" }},
 		{"非法 layout", func(p *Profile) { p.Layout = "topbar2" }},
 	}
@@ -163,6 +162,15 @@ func TestProfileValidate(t *testing.T) {
 				t.Fatalf("want reject: %+v", p)
 			}
 		})
+	}
+	// PIN **可以为空**（2026-10-12）：一份档案可以不设 PIN，此后进它不需要口令。
+	// 这一格原先混在上面的拒绝表里——它挡的是"建档写了一半留下空哈希"，顺手把
+	// "故意不设防"也挡了，而那正是这个产品要给的那种档案（公共电视屏、只读平板）。
+	// 所以它翻成了正面用例，判据仍在 auth（见 auth 的 HasPin/VerifyEntry）。
+	noPin := base
+	noPin.PIN = ""
+	if err := noPin.Validate(); err != nil {
+		t.Fatalf("不设 PIN 的档案是合法的: %v", err)
 	}
 }
 

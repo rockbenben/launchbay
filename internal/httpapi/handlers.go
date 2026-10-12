@@ -39,15 +39,20 @@ func isFormPost(r *http.Request) bool {
 
 // pinNotices 是表单通路能说到人话的几种失败。?err= 只当键用：不在表里的
 // 值一个字都不进页面——query 是用户可控的，原样渲染等于开一个反射点。
-// pinNotices 是表单通路能说到人话的几种失败。?err= 只当键用：不在表里的
-// 值一个字都不进页面——query 是用户可控的，原样渲染等于开一个反射点。
 //
 // **值是文案表里的键，不是句子本身**：这句话在两种语言里各有各的说法，
 // 写死在这里就等于中文界面成立而英文界面没得翻。i18n 那一层的守恒测试
 // 保证每把键在两种语言里都有一条对应的文案。
 var pinNotices = map[string]string{
-	"pin":     "notice.pin",
-	"missing": "notice.missing",
+	"pin": "notice.pin",
+	// 「要先输入 PIN」这一格 2026-10-12 删掉了。空表单过去一律答 missing，
+	// 而现在一份**故意不设 PIN** 的档案正是交一张空表单进来的——同一个答案要
+	// 同时表示"你忘了输"和"这一份本来就不用输"，页面就只能挑一个说，说的那个
+	// 一定有一半是假的。有 PIN 的档案交空表单现在答 `pin`（PIN 不对）：那是字面
+	// 事实，而"忘了输"本来就是"PIN 不对"的一种。
+	//
+	// 一把永远发不出来的键比没有更糟：它看起来像在那里守着，而下一个人改判
+	// 分诊时会以为它还有用。
 	"profile": "notice.profile",
 	// 停用（2026-10-10 第二轮改判）。从前这一支故意复用「PIN 不对」，理由是
 	// "单独说已停用等于告诉摸到这台机器的人哪些档案被管理员动过"。那条理由在
@@ -194,19 +199,16 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if in.PIN == "" {
-		// 空 PIN 一律拒（2026-10-10 改判）。原来这一支是"免 PIN 切档"：带着会话
-		// 交一张空表单时，拿 home/active 那一套去放行——那正是代管态，而代管态
-		// 已经不存在了。`/switch to=<id>` 与"只认合法的会话形状"两条一起把这条路
-		// 走死了，于是**会话合法与否已经不影响这一支的答案**，再判它合法，只是让
-		// 一个永远走不到的分支看起来像一条路。
-		if fromForm {
-			redirectPinFail(w, r, "missing")
-			return
-		}
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "缺 PIN"})
-		return
-	}
+	// 这里**没有**"空 PIN 一律拒"这一格（2026-10-12 删的）。
+	//
+	// 它原本挡住的是"管理员免 PIN 直达"那条旧语义：带着会话交一张空表单就放行。
+	// 那条语义 2026-10-10 已随代管态下线，而 `RequireSession` 的合法形状判定
+	// 也早就堵死了它——所以这一格早就是一个走不到的分支，只是还留在那儿。
+	//
+	// 今天它之所以更该删：一份**故意不设 PIN** 的档案，进门时交的就是一张空表单，
+	// 而它必须进得来。判据只有下面那一句 `auth.VerifyEntry`——它先问 `HasPin`，
+	// 对没设 PIN 的档案直接放行，对**任何有 PIN 的档案**（哪怕这次交的是空表单）
+	// 仍然要求输对。一处判据，不在这里复述第二次。
 
 	// 停用的档案：PIN 输对也进不去（2026-10-10）。
 	//
@@ -227,7 +229,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !auth.VerifyPIN(target.PIN, in.PIN) {
+	if !auth.VerifyEntry(target.PIN, in.PIN) {
 		if fromForm {
 			redirectPinFail(w, r, "pin")
 			return
@@ -445,9 +447,12 @@ type createProfileResponse struct {
 // **显式**的一格。FirstOnly 把落点换成 CreateFirstProfile——引导通路的"磁盘为空"
 // 判据与写入必须在 store 的同一次串行化里，handler 不数档案。
 type createInput struct {
-	ID        string
-	Title     string
-	PIN       string
+	ID    string
+	Title string
+	PIN   string
+	// NoPass 是**明确**选择不设防（2026-10-12）。它必须是一个独立的布尔而不是
+	// 「pin 恰好是空串」：忘了填与选择不设，长得一模一样，而后者要写进用户的书签里。
+	NoPass   bool
 	DeriveID  bool
 	FirstOnly bool
 }
@@ -490,7 +495,13 @@ func permDenied(err error) bool { return errors.Is(err, fs.ErrPermission) }
 //
 // 两条失败各回各的文本：格式错说"要 4-6 位数字"（给人看的那句），auth 内部的
 // 哈希错说它自己的原因（这类错不该被粉饰成格式问题，人读了也修不了）。
-func hashFormPIN(pin string) (string, []fieldError) {
+func hashFormPIN(pin string, noPass bool) (string, []fieldError) {
+	if noPass {
+		// 勾了「不设 PIN」就是**明确**选择不设防，与"忘了填"不是同一件事——
+		// 这正是多这一格勾选框的全部理由（见模板里那条注释）。落盘是空串，
+		// 判据在 auth.HasPin。
+		return "", nil
+	}
 	if !auth.ValidPinFormat(pin) {
 		return "", []fieldError{{Field: "pin", Reason: "要 4-6 位数字"}}
 	}
@@ -515,7 +526,7 @@ func (s *Server) createProfile(in createInput) createResult {
 	if strings.TrimSpace(in.Title) == "" {
 		errs = append(errs, fieldError{Field: "title", Reason: "不能为空"})
 	}
-	hash, pinErrs := hashFormPIN(in.PIN) // PIN 判据只有一份：建档族共用（见函数上的注释）
+	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（见函数上的注释）
 	errs = append(errs, pinErrs...)
 	if len(errs) > 0 {
 		return createResult{FieldErrs: errs}
@@ -560,6 +571,11 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 		PIN   string `json:"pin"`
+		// NoPass 是**明确**选择不设防（2026-10-12）。为什么不让「pin 留空就行」：
+		// 忘了敲一位就回车，会静悄悄地建出一份局域网里谁都能进的书签页，
+		// 而这个产品最核心的那句承诺正是"各人一份，别人看不见"。多这一格勾选
+		// 换来的是"不设防"永远是一个**被说出来**的决定。判据见 hashFormPIN。
+		NoPass bool `json:"nopass"`
 	}
 	if err := decodeBody(r, &in); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
@@ -576,7 +592,7 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		s.writeAuthFailure(w, r)
 		return
 	}
-	res := s.createProfile(createInput{ID: in.ID, Title: in.Title, PIN: in.PIN})
+	res := s.createProfile(createInput{ID: in.ID, Title: in.Title, PIN: in.PIN, NoPass: in.NoPass})
 	switch {
 	case len(res.FieldErrs) > 0:
 		writeFieldErrors(w, http.StatusUnprocessableEntity, res.FieldErrs)

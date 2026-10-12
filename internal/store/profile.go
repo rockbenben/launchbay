@@ -33,9 +33,15 @@ func (s *Store) CreateProfile(in NewProfileInput) (*model.Profile, error) {
 	if !model.ValidSlug(in.ID) {
 		return nil, fmt.Errorf("%w: 档案 id %q 必须是 ASCII slug", ErrInvalid, in.ID)
 	}
-	if in.PinHash == "" {
-		return nil, fmt.Errorf("%w: 档案 %q 缺 PIN 哈希", ErrInvalid, in.ID)
-	}
+	// **不再要求 PinHash 非空**（2026-10-12）：一份档案可以不设 PIN，此后 `Profile.PIN`
+	// 是空串、进门不需要任何 PIN。
+	//
+	// 删掉这条的理由与 model.Validate 里那一条相同——哈希的形状归 auth 管，
+	// store 不复述第二次（两处各判一次，就有两处会漂，而这里挡的其实不是坏形状：
+	// 「不设防」在盘上与「忘了写」长得一模一样，这道闸分不出它们，只会把前者也挡了）。
+	//
+	// 半途失败仍然要回收：留下只有 profile.json 的目录会让人在选单里看到一个
+	// 永远进不去的档案——那是 Validate 与下面两次写入的事，不是这一条。
 
 	// 全部校验都排在落盘之前。
 	p := model.Profile{

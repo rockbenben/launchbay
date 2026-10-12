@@ -107,8 +107,35 @@ func revertPath(profile string, to int64) string {
 // LAUNCHBAY_ADMIN_TOKEN。留着这个旗标只会让人以为"建成管理员"是一件事，
 // 而它现在根本不存在。
 const profileUsage = "用法:\n" +
-	"  launchbay profile create  --id <slug> --title <名字> --pin <4-6 位>\n" +
-	"  launchbay profile rebuild --id <slug> --title <名字> --pin <4-6 位>"
+	"  launchbay profile create  --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
+	"  launchbay profile rebuild --id <slug> --title <名字> (--pin <4-6 位> | --nopass)"
+
+// pinFlags 是两个建档子命令共用的 PIN 读法（2026-10-12：PIN **选填**）。
+//
+// `--pin` 与 `--nopass` 恰好必须给一个，两种给错都在这里变成用法错误而不是发出去：
+//
+//   - 两个都不给 → 服务端回 422 名字段 `pin`、理由「要 4-6 位数字」。对敲命令行的人
+//     来说这句话是误导的：我压根没打 PIN，它却说我打错了格式。
+//   - 两个都给 → 服务端按 `nopass` 走，`--pin` 被静默丢掉。一个旗标被静默吞掉，
+//     下一个人会以为那道门锁上了。
+//
+// 所以判据只有这一处，两个子命令共用——它们对"要不要 PIN"这件事的理解不该分家。
+func pinFlags(fs *flag.FlagSet, args []string, out io.Writer) (pin string, nopass bool, code int) {
+	p := fs.String("pin", "", "4-6 位数字")
+	n := fs.Bool("nopass", false, "明确不设 PIN：局域网里能访问这台机器的人都能进这一份")
+	if err := fs.Parse(args); err != nil {
+		return "", false, 2 // flag 自己已经把用法印到 out 了
+	}
+	switch {
+	case *p != "" && *n:
+		fmt.Fprintf(out, "--pin 与 --nopass 只能给一个：前者给这一份锁门，后者明确不锁。\n")
+		return "", false, 2
+	case *p == "" && !*n:
+		fmt.Fprintf(out, "要么给 --pin <4-6 位>，要么给 --nopass（明确不设 PIN）。\n")
+		return "", false, 2
+	}
+	return *p, *n, 0
+}
 
 // profileSub 是 `launchbay profile` 底下的子命令名单。与 runCLI 那份一样，
 // **不许在别处再抄一遍**：两份名单差一个的后果是敲进去的命令静默落进 serve 分支，
@@ -139,9 +166,9 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 	fs.SetOutput(out)
 	id := fs.String("id", "", "档案 id（ASCII slug）")
 	title := fs.String("title", "", "显示名字")
-	pin := fs.String("pin", "", "4-6 位数字")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	pin, nopass, code := pinFlags(fs, args, out)
+	if code != 0 {
+		return code
 	}
 	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
@@ -149,7 +176,7 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
-		"id": *id, "title": *title, "pin": *pin})
+		"id": *id, "title": *title, "pin": pin, "nopass": nopass})
 	raw, code, err := c.do("POST", "/api/v1/profiles", body, map[string]string{"Content-Type": "application/json"})
 	if err != nil {
 		fmt.Fprintf(out, "profile create 失败: %v\n", err)
@@ -158,6 +185,13 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 	if err := mustOK(raw, code, "/api/v1/profiles"); err != nil {
 		fmt.Fprintf(out, "profile create 失败: %v\n", err)
 		return 1
+	}
+	// 不设防的那一份，成功话术必须**说出来**。CLI 的输出多半是被人看或者被
+	// 脚本读的，而"已建档 mom"与"已建档 tv"长得一模一样——差别是这一份从此
+	// 局域网里谁都能进。让建档的那一行自己带出这件事，比让人再去查一次省事。
+	if nopass {
+		fmt.Fprintf(out, "已建档 %s（**不设 PIN**：局域网里谁都能进这一份）\n", *id)
+		return 0
 	}
 	fmt.Fprintf(out, "已建档 %s\n", *id)
 	return 0
@@ -179,9 +213,9 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 	fs.SetOutput(out)
 	id := fs.String("id", "", "要重建的档案 id（ASCII slug，磁盘上必须已存在）")
 	title := fs.String("title", "", "重建后的显示名字")
-	pin := fs.String("pin", "", "4-6 位数字")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	pin, nopass, code := pinFlags(fs, args, out)
+	if code != 0 {
+		return code
 	}
 	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
@@ -189,7 +223,7 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
-		"profile": *id, "title": *title, "pin": *pin,
+		"profile": *id, "title": *title, "pin": pin, "nopass": nopass,
 	})
 	raw, code, err := c.do("POST", "/api/v1/profiles/rebuild", body,
 		map[string]string{"Content-Type": "application/json", "X-LB-By": "cli"})
@@ -206,6 +240,12 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 		Title string `json:"title"`
 	}
 	_ = json.Unmarshal(raw, &resp)
+	// 与 create 同一条理由（见上面那句注释）：重建出来的是不是一份**不设防**的档案，
+	// 从 "已重建 mom（妈妈）" 这行字里看不出来。
+	if nopass {
+		fmt.Fprintf(out, "已重建 %s（%s，**不设 PIN**：局域网里谁都能进这一份）\n", resp.ID, resp.Title)
+		return 0
+	}
 	fmt.Fprintf(out, "已重建 %s（%s）\n", resp.ID, resp.Title)
 	return 0
 }

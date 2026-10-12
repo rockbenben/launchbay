@@ -301,7 +301,7 @@ func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
 		t.Fatalf("落盘: %v", err)
 	}
 	for _, tc := range []struct{ page, want string }{
-		{"/admin/pin?profile=kid", "Set a new PIN"},
+		{"/admin/pin?profile=kid", "Set a PIN for"},
 		{"/admin/delete?profile=kid", "Delete "},
 		{"/admin/disable?profile=kid", "Disable "},
 	} {

@@ -232,6 +232,15 @@ type pickerEntry struct {
 	ID     string
 	Title  string
 	Letter string
+	// NeedsPIN 决定这张卡片要不要给 PIN 输入框（2026-10-12）。
+	//
+	// **它由 httpapi 算，不由这里问 store**：选择页本来就不读 profile.json 的
+	// 那一格（`ListProfiles` 给的就是 Profile，够判），而判据本身是
+	// `auth.HasPin`——渲染层复述一遍就会有两处漂。
+	//
+	// 不设防的档案给一个空输入框，等于在门口摆一个"输什么都行"的假门槛：
+	// 人会以为这里该输点什么，而输错之后弹回来的那句比不问更费解。
+	NeedsPIN bool
 }
 
 // adminLoginView 是"输管理 key"那一页。页面本身极简：一个标题、一条失败提示、

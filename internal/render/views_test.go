@@ -1831,8 +1831,17 @@ func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	// 「建成管理员」那一格钉的字段已不存在（2026-10-12，`AdminRow.Admin` /
 	// `model.Profile.Admin` / 建档请求体的 admin 一起删了），所以断言翻面：
 	// 表单里**不许**再有那个勾选。
-	if strings.Contains(body, `type="checkbox"`) || strings.Contains(body, `能管理全家`) {
+	//
+	// 2026-10-12 又补了一条：建档表单现在有一个 `nopass` 勾选框（不设 PIN），
+	// 所以这里不能再拿"页面里不许出现 checkbox"当判据——那会连合法的那个一起
+	// 咬掉。判据收窄回**被删掉的那一格**：字段名与文案，两个都钉。
+	if strings.Contains(body, `name="admin"`) || strings.Contains(body, `能管理全家`) {
 		t.Errorf("建档表单里不许还有「建成管理员」的勾选（2026-10-12 起管理员是一把机器级 key）:\n%.400s", body)
+	}
+	// PIN 选填的那一格必须在场：不设防是一个**被说出来**的决定，所以它长得
+	// 像一个决定（有勾选框、有说明），而不是"忘了填"（那与空 PIN 长得一样）。
+	if !strings.Contains(body, `name="nopass"`) {
+		t.Errorf("建档表单缺「不设 PIN」那一格:\n%.400s", body)
 	}
 	if !strings.Contains(body, `class="notice"`) {
 		t.Errorf("给了 notice 就该画出来:\n%.400s", body)

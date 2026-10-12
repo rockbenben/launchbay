@@ -11,8 +11,9 @@ import (
 func seededWithContent(t *testing.T) *Store {
 	t.Helper()
 	s := New(t.TempDir())
-	// PinHash 是 CreateProfile 的必填项（P1-①/8 的契约）：简报的测试代码
-	// 漏了它（运行报 invalid: 档案 "dad" 缺 PIN 哈希），这里补上，其余逐字照抄。
+	// PinHash 留着（2026-10-12 起建档**不要求**它，简报的测试代码不写也不会再报
+	// `invalid: 档案 "dad" 缺 PIN 哈希`；这里仍照抄，是为了让这份夹具与它的源头
+	// 逐字一致——将来改夹具时少一处需要一起改的地方）。
 	if _, err := s.CreateProfile(NewProfileInput{ID: "dad", Title: "爸爸", PinHash: "h"}); err != nil {
 		t.Fatal(err)
 	}

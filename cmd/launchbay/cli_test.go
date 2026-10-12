@@ -265,6 +265,56 @@ func TestProfileCreateEndToEnd(t *testing.T) {
 	}
 }
 
+// `--nopass` 是「明确不设 PIN」（2026-10-12）。命令行上这一格更要紧：漏敲
+// `--pin` 与故意不设，如果用同一个形状表达，脚本里那行就会静悄悄地建出一份
+// 局域网里谁都能进的书签页——而脚本往往是在 CI 或者半夜跑的，没人会看见。
+func TestProfileCreateNopass(t *testing.T) {
+	s, srv := newRealServer(t)
+	defer srv.Close()
+	adminKeyEnv(t)
+
+	var buf bytes.Buffer
+	code := runCLI([]string{"profile", "create", "--id", "tv", "--title", "客厅",
+		"--nopass"}, cliCfg(t, srv), &buf)
+	if code != 0 {
+		t.Fatalf("--nopass 该建得出来, code=%d out=%q", code, buf.String())
+	}
+	p, err := s.LoadProfile("tv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.PIN != "" {
+		t.Fatalf("--nopass 建出来的却带 PIN: %q", p.PIN)
+	}
+	// 成功话术必须把这件事说出来：CLI 的输出多半是被人看或者被脚本读的，
+	// 而"已建档 tv"与"已建档 mom"长得一模一样。
+	if !strings.Contains(buf.String(), "不设 PIN") {
+		t.Errorf("建出不设防的那一份，话术里要写明:\n%s", buf.String())
+	}
+
+	// 两种给错都必须是**用法错误 2**，而不是发出去让服务端猜：
+	//   - 两个都不给 → 服务端回 422 说「pin 要 4-6 位数字」，而我压根没打 PIN。
+	//   - 两个都给 → 服务端按 nopass 走，--pin 被静默丢掉，下一个人会以为门锁上了。
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"两个都不给", []string{"profile", "create", "--id", "tv2", "--title", "另一个"}},
+		{"两个都给", []string{"profile", "create", "--id", "tv2", "--title", "另一个",
+			"--pin", "1234", "--nopass"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var b bytes.Buffer
+			if code := runCLI(tc.args, cliCfg(t, srv), &b); code != 2 {
+				t.Fatalf("该是用法错误 2，实际 %d out=%q", code, b.String())
+			}
+			if _, err := s.LoadProfile("tv2"); err == nil {
+				t.Error("用法错误之后却建出了档案")
+			}
+		})
+	}
+}
+
 // —— Step 5：端到端（假服务 = 真 handler + 真 store）——
 // newRealServer 用真的 httpapi handler 当假服务：CLI 的每一次调用都会真的
 // 落到临时目录里的档案上。这样"只经 REST"与"干跑不写盘"都是实测，不是断言愿望。

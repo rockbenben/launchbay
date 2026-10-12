@@ -47,7 +47,7 @@
         "summary": "用 PIN 进门/切档",
         "x-credential": "none",
         "security": [],
-        "description": "公开（凭证就是 PIN 本身）。{profile, pin} 通过后**只写一条**会话 cookie `lb_profile`（并把升级前那条 `lb_home` 作废）。表单提交（urlencoded）成功走 303 回 /，失败走 303 /?err=<码>；JSON 调用走 200 `{active}`。\n\n**cookie 的两种历史形状都要认**（2026-10-10 代管态下线第三轮）：只有 `lb_profile` 是今天的形状；`lb_profile` 与 `lb_home` **相等**是升级前的本人会话，照旧有效——升级不要求任何人重新输 PIN；**不相等**是升级前的代管会话，那枚 cookie 自包含（读的人只看到 `lb_profile`）且代管这件事已下线，所以整枚判非法、清掉回选择页。\n\n**空 PIN 一律 401**（原来那条「管理员可免 PIN 切档」随代管一起没了）；目标档案被停用时答案与「PIN 不对」逐字相同（不新增枚举面）；目标档案的 profile.json 坏了回 200 HTML 解释页。",
+        "description": "公开（凭证就是 PIN 本身）。{profile, pin} 通过后**只写一条**会话 cookie `lb_profile`（并把升级前那条 `lb_home` 作废）。表单提交（urlencoded）成功走 303 回 /，失败走 303 /?err=<码>；JSON 调用走 200 `{active}`。\n\n**cookie 的两种历史形状都要认**（2026-10-10 代管态下线第三轮）：只有 `lb_profile` 是今天的形状；`lb_profile` 与 `lb_home` **相等**是升级前的本人会话，照旧有效——升级不要求任何人重新输 PIN；**不相等**是升级前的代管会话，那枚 cookie 自包含（读的人只看到 `lb_profile`）且代管这件事已下线，所以整枚判非法、清掉回选择页。\n\n**空 PIN 只有一种情况能进门**（2026-10-12）：目标档案**故意不设 PIN**（`Profile.PIN` 是空串）——那时它压根没有要核对的东西，空表单就是它的正确钥匙。有 PIN 的档案交空表单一律 401（表单通路 303 `/?err=pin`，「PIN 不对」——「忘了输」本来就是它的子集，而给两者分开的一句话只会有一半是假的，所以 `?err=missing` 那把键已经删掉）；原来那条「管理员可免 PIN 切档」随代管一起没了；目标档案被停用时答案与「PIN 不对」逐字相同（不新增枚举面）；目标档案的 profile.json 坏了回 200 HTML 解释页。",
         "responses": {
           "200": {
             "description": "JSON 通路成功 {active}；目标档案数据坏了则为 HTML 解释页",
@@ -65,7 +65,7 @@
             }
           },
           "303": {
-            "description": "表单通路：成功回 /，失败回 /?err=<码>（只认固定几个码，不回显输入）"
+            "description": "表单通路：成功回 /，失败回 /?err=<码>（只认 `pin` / `profile` / `disabled` 三个码，不回显输入；**没有 `missing`**——2026-10-12 起空表单与错 PIN 是同一件事）"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -139,7 +139,7 @@
         "summary": "引导建档：只在磁盘零档案时有效（浏览器表单通路；建出来的是第一个人的书签页，不是管理员）",
         "x-credential": "none",
         "security": [],
-        "description": "引导建档，浏览器表单通路（**AI 不走这条**）。体是 `application/x-www-form-urlencoded` 的 `{title, pin, language?}`，不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。\n\n**建出来的是第一个人的书签页，不是管理员**（2026-10-12：管理员是机器级的一把 key，与档案无关）。成功**不发会话**——进门照样要输 PIN。",
+        "description": "引导建档，浏览器表单通路（**AI 不走这条**）。体是 `application/x-www-form-urlencoded` 的 `{title, pin, nopass?, language?}`，不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。\n\n**建出来的是第一个人的书签页，不是管理员**（2026-10-12：管理员是机器级的一把 key，与档案无关）。成功**不发会话**——进门照样要输 PIN。\n\n**`nopass=1` = 明确不设 PIN**（2026-10-12，PIN 由此选填）。为什么不让「pin 留空就行」：忘了敲一位就回车会静悄悄地建出一份局域网里谁都能进的书签页，而这个产品最核心的那句承诺正是「各人一份，别人看不见」。多这一格勾选，换来的是「不设防」永远是一个**被说出来**的决定。**不勾 `nopass` 而 `pin` 为空仍然 303 `/?err=badpin`。**",
         "requestBody": {
           "required": true,
           "content": {
@@ -152,6 +152,10 @@
                   },
                   "pin": {
                     "type": "string"
+                  },
+                  "nopass": {
+                    "type": "string",
+                    "description": "只认 `1`：明确不设 PIN"
                   }
                 }
               }
@@ -362,7 +366,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "管理页建档，体是 `application/x-www-form-urlencoded` 的 `{title, pin}`：**没有 `admin` 那一格**（2026-10-12，档案不再有管理员属性，勾了也不会有任何后果）；不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。字段没填对回 `/admin?err=noname`、`badpin` 或 `nametaken`；**宿主数据目录不可写**回 `/admin?err=permission`。\n\n**AI 要建档走 `POST /api/v1/profiles`**，别打这条。",
+        "description": "管理页建档，体是 `application/x-www-form-urlencoded` 的 `{title, pin, nopass?}`：**没有 `admin` 那一格**（2026-10-12，档案不再有管理员属性，勾了也不会有任何后果）；不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。字段没填对回 `/admin?err=noname`、`badpin` 或 `nametaken`；**宿主数据目录不可写**回 `/admin?err=permission`。\n\n**AI 要建档走 `POST /api/v1/profiles`**，别打这条。\n\n**`nopass=1` = 明确不设 PIN**（2026-10-12，PIN 由此选填；判据与两条建档兄弟同一个 `hashFormPIN`）。不勾而 `pin` 为空照旧 `?err=badpin`。",
         "requestBody": {
           "required": true,
           "content": {
@@ -375,6 +379,10 @@
                   },
                   "pin": {
                     "type": "string"
+                  },
+                  "nopass": {
+                    "type": "string",
+                    "description": "只认 `1`：明确不设 PIN"
                   }
                 }
               }
@@ -489,7 +497,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "体是 `application/x-www-form-urlencoded` 的 `{profile, new}`。**不是第二条 API 面**：校验 → 哈希 → 锁内读写 → 落审计行全部走 `adminPin` 那一个函数，与 `POST /api/v1/profiles/pin` 同一份判据与同一个落点，差别只在怎么读入、怎么答出。成功 303 回 `/admin`；字段没填对 303 回 `/admin/pin?profile=…&err=badpin`；锁内读失败 404/503/500（JSON 外壳）；落盘或审计失败 303 回 `…&err=failed`——**绝不说成功**，因为那时 PIN 已经改了而审计行没落。",
+        "description": "体是 `application/x-www-form-urlencoded` 的 `{profile, new}`。**`new` 留空 = 取消这一份的 PIN**（2026-10-12，与 `POST /api/v1/profiles/pin` 同一个 `adminPin` 落点、同一处 `isNoPass` 判据）。**不是第二条 API 面**：校验 → 哈希 → 锁内读写 → 落审计行全部走 `adminPin` 那一个函数，与 `POST /api/v1/profiles/pin` 同一份判据与同一个落点，差别只在怎么读入、怎么答出。成功 303 回 `/admin`；字段没填对 303 回 `/admin/pin?profile=…&err=badpin`；锁内读失败 404/503/500（JSON 外壳）；落盘或审计失败 303 回 `…&err=failed`——**绝不说成功**，因为那时 PIN 已经改了而审计行没落。",
         "requestBody": {
           "required": true,
           "content": {
@@ -502,7 +510,7 @@
                   },
                   "new": {
                     "type": "string",
-                    "description": "4-6 位数字；哈希与格式判据都在 auth 与 adminPin 里，不在端点"
+                    "description": "4-6 位数字，**留空 = 取消这一份的 PIN**；哈希与格式判据都在 auth 与 adminPin 里，不在端点"
                   }
                 }
               }
@@ -1185,7 +1193,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "仅管理员：管理员令牌（`LAUNCHBAY_ADMIN_TOKEN` 那把裸 key），或管理 cookie `lb_admin`。**档案会话不算**——登进 dad 也不等于能管这台机器（2026-10-12）。与 GET/DELETE /profiles、/profiles/pin 同族，判据都是 require。{id, title, pin}：pin 要 4-6 位数字。**没有 admin 那一格**（2026-10-12，档案不再是管理员）——送来它会得到 422 且点名该字段。**建档不带任何预置内容**——每个档案从零开始、形状一模一样（2026-10-10 模板机制整条拆掉，fromTemplate 与 data/templates/ 都不存在了，文档里再出现就是抄了旧版）。已存在 → 409。成功 201 返回 {id, title}（键序即此）。\n\n落盘失败（宿主上的数据目录不归跑服务的那个用户这一族也在内）一律 500 JSON 外壳，不折成页面那种人话——机器通路读的是 stderr 与容器日志，只有两张浏览器表单才说得出「去宿主机 chown」那句话（见 POST /setup）。",
+        "description": "仅管理员：管理员令牌（`LAUNCHBAY_ADMIN_TOKEN` 那把裸 key），或管理 cookie `lb_admin`。**档案会话不算**——登进 dad 也不等于能管这台机器（2026-10-12）。与 GET/DELETE /profiles、/profiles/pin 同族，判据都是 require。{id, title, pin, nopass}：pin 要 4-6 位数字。**`nopass: true` = 明确不设 PIN**（2026-10-12，PIN 由此选填）；两个都不给（`pin` 为空且没勾 `nopass`）要 422 且点名 `pin`——「忘了敲」与「不要这道门」必须能分开，否则手滑一次就是静悄悄地公开一份书签。**没有 admin 那一格**（2026-10-12，档案不再是管理员）——送来它会得到 422 且点名该字段。**建档不带任何预置内容**——每个档案从零开始、形状一模一样（2026-10-10 模板机制整条拆掉，fromTemplate 与 data/templates/ 都不存在了，文档里再出现就是抄了旧版）。已存在 → 409。成功 201 返回 {id, title}（键序即此）。\n\n落盘失败（宿主上的数据目录不归跑服务的那个用户这一族也在内）一律 500 JSON 外壳，不折成页面那种人话——机器通路读的是 stderr 与容器日志，只有两张浏览器表单才说得出「去宿主机 chown」那句话（见 POST /setup）。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1194,8 +1202,7 @@
                 "type": "object",
                 "required": [
                   "id",
-                  "title",
-                  "pin"
+                  "title"
                 ],
                 "additionalProperties": false,
                 "properties": {
@@ -1209,6 +1216,10 @@
                   "pin": {
                     "type": "string",
                     "description": "4-6 位数字"
+                  },
+                  "nopass": {
+                    "type": "boolean",
+                    "description": "明确不设 PIN：局域网里能访问这台机器的人都能进这一份"
                   }
                 }
               }
@@ -1251,7 +1262,7 @@
             }
           },
           "422": {
-            "description": "字段级错误（id/title/pin）：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
+            "description": "字段级错误（id/title/pin/nopass）：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
           }
         }
       },
@@ -1317,14 +1328,14 @@
     },
     "/api/v1/profiles/self/pin": {
       "post": {
-        "summary": "改自己的 PIN（要旧 PIN，仅会话）",
+        "summary": "改自己的 PIN（仅当这一份现在有 PIN 才要旧 PIN；`new` 留空 = 取消，仅会话）",
         "x-credential": "session",
         "security": [
           {
             "sessionCookie": []
           }
         ],
-        "description": "只认会话，令牌一律拒（拿令牌能改谁的 PIN 等于谁有令牌谁是谁）。{old, new}：目标永远是 lb_profile 当前档案，不接受 ?profile=。旧 PIN 不对 → 403；新 PIN 格式非法 → 422 {code, detail（字段级错误时为空串）, errors[{field, reason}]}。会话指着已删档案 → 404；该档案 profile.json 坏了 → 503。成功 200 {profile, pinChanged}。改自己不产生书签 rev，所以不记历史。",
+        "description": "只认会话，令牌一律拒（拿令牌能改谁的 PIN 等于谁有令牌谁是谁）。{old, new}：目标永远是 lb_profile 当前档案，不接受 ?profile=。\n\n**旧 PIN 只在这一份现在有 PIN 时才要**（2026-10-12）：没有的东西不需要证明，所以一份不设防的档案可以直接给自己设上第一个 PIN（`old` 可以不给；给了也不校验）。有 PIN 的那份不给或给错 `old` 一律 403——家人共用设备，改自己的那一份属于身份变更。\n\n**`new` 留空 = 取消这一份的 PIN**，且此时**仍要 `old`**：撤的是一道已经锁上的门，\"我知道门现在是锁着的\"要被证明一次。取消之后这一份对局域网里所有能访问本机的人开放。新 PIN 格式非法 → 422 {code, detail（字段级错误时为空串）, errors[{field, reason}]}。会话指着已删档案 → 404；该档案 profile.json 坏了 → 503。成功 200 {profile, pinChanged}。改自己不产生书签 rev，所以不记历史。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1332,17 +1343,17 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "old",
                   "new"
                 ],
                 "additionalProperties": false,
                 "properties": {
                   "old": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "**这一份现在有 PIN 时必填**；不设防的那一份可以不给（给了也不校验）"
                   },
                   "new": {
                     "type": "string",
-                    "description": "4-6 位数字"
+                    "description": "4-6 位数字；**留空 = 取消这一份的 PIN**（仍要 `old`）"
                   }
                 }
               }
@@ -1412,7 +1423,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "仅管理员，不要旧 PIN（家人忘了 PIN 的出路）。{profile, new}：目标档案的历史里追加一条 {rev:0, ops:[{op:\"set\", path:\"profile/pin\"}]}——替别人做决定必须留名；rev:0 是有意的，改 PIN 不产生书签 rev。X-LB-By 头可选（缺省 web，非法按 web），记的就是这条历史行的 by。目标不存在 404；目标 profile.json 坏了 503。注意：PIN 已改而历史行没落时回 500——设 PIN 幂等、重试收敛，这条与 batch/revert 的\"历史失败照报 200\"相反，是刻意的，别修成一致。",
+        "description": "仅管理员，不要旧 PIN（家人忘了 PIN 的出路）。{profile, new}：**`new` 留空 = 取消这一份的 PIN**（2026-10-12，判据是 `isNoPass` 一处，与表单同源）。管理员是唯一能给别人去/留这道门的人——一个都不锁的家族里，他得能把门重新锁上；`new` 非空时格式错仍是 422 点名 `new`。目标档案的历史里追加一条 {rev:0, ops:[{op:\"set\", path:\"profile/pin\"}]}——替别人做决定必须留名；rev:0 是有意的，改 PIN 不产生书签 rev。X-LB-By 头可选（缺省 web，非法按 web），记的就是这条历史行的 by。目标不存在 404；目标 profile.json 坏了 503。注意：PIN 已改而历史行没落时回 500——设 PIN 幂等、重试收敛，这条与 batch/revert 的\"历史失败照报 200\"相反，是刻意的，别修成一致。",
         "parameters": [
           {
             "name": "X-LB-By",
@@ -1450,7 +1461,7 @@
                   },
                   "new": {
                     "type": "string",
-                    "description": "4-6 位数字"
+                    "description": "4-6 位数字；**留空 = 取消这一份的 PIN**（2026-10-12）"
                   }
                 }
               }
@@ -1513,7 +1524,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "坏档的唯一出路：某档案的 profile.json 读不动时（本人手误、外部程序写坏、写到一半断电），重新写出这一个文件——bookmarks.json、snapshots/、history.jsonl 的已有内容逐字节不碰。体 `{profile, title, pin}` 三格，**没有 admin**（2026-10-12 随档案的 admin 属性一起删掉；送来它会得到 422 且点名该字段）。判据在 store 锁内，调用方看不到也改不了：读得动 → 409（改 PIN 走 POST /api/v1/profiles/pin，这条端点不是改档用的）；档案目录不在 → 404（**这条通路不建目录**，建档案仍然只有 POST /api/v1/profiles 与 POST /setup）；只有\"内容错\"与\"profile.json 不在\"才允许覆盖，其余读失败（权限、磁盘）原样上报不许盖。theme/layout/createdAt 按默认重建——读不出来就没有\"保留\"这个选项（明写的取舍，spec §12）。200 意味着\"进门页那张卡真的回来了\"：写完在同一把锁内回读过。目标档案的历史追加一行 {rev:0, ops:[{op:\"set\", path:\"profile/rebuild\"}]}（rev:0 = 不产生书签 rev）；X-LB-By 头可选（缺省 web，非法按 web）。审计行写不下去时仍报 200（这条动作不幂等，重试会拿到 409，报 500 等于对一个已经修好的档案说\"没修好\"），缺口进 stderr 与容器日志——别把它\"修\"成与 profiles/pin 的 500 一致。",
+        "description": "坏档的唯一出路：某档案的 profile.json 读不动时（本人手误、外部程序写坏、写到一半断电），重新写出这一个文件——bookmarks.json、snapshots/、history.jsonl 的已有内容逐字节不碰。体 `{profile, title, pin, nopass}` 三格，**没有 admin**（2026-10-12 随档案的 admin 属性一起删掉；送来它会得到 422 且点名该字段）。判据在 store 锁内，调用方看不到也改不了：读得动 → 409（改 PIN 走 POST /api/v1/profiles/pin，这条端点不是改档用的）；档案目录不在 → 404（**这条通路不建目录**，建档案仍然只有 POST /api/v1/profiles 与 POST /setup）；只有\"内容错\"与\"profile.json 不在\"才允许覆盖，其余读失败（权限、磁盘）原样上报不许盖。theme/layout/createdAt 按默认重建——读不出来就没有\"保留\"这个选项（明写的取舍，spec §12）。200 意味着\"进门页那张卡真的回来了\"：写完在同一把锁内回读过。目标档案的历史追加一行 {rev:0, ops:[{op:\"set\", path:\"profile/rebuild\"}]}（rev:0 = 不产生书签 rev）；X-LB-By 头可选（缺省 web，非法按 web）。审计行写不下去时仍报 200（这条动作不幂等，重试会拿到 409，报 500 等于对一个已经修好的档案说\"没修好\"），缺口进 stderr 与容器日志——别把它\"修\"成与 profiles/pin 的 500 一致。\n\n`nopass: true` = 重建出一份**不设防**的档案（2026-10-12）。rebuild 必须能建出这个形状：它是唯一能整份重写 profile.json 的动作，而「本来就没有 PIN」不该只存在于建档那一步。",
         "parameters": [
           {
             "name": "X-LB-By",
@@ -1557,6 +1568,10 @@
                   "pin": {
                     "type": "string",
                     "description": "4-6 位数字"
+                  },
+                  "nopass": {
+                    "type": "boolean",
+                    "description": "明确不设 PIN"
                   }
                 }
               }

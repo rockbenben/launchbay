@@ -137,7 +137,9 @@ func (s *Server) routes() []route {
 		{Method: "GET", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "档案元信息列表（零条目）", H: s.handleListProfiles},
 		{Method: "DELETE", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "删档（连快照，历史保留）", H: s.handleDeleteProfile},
 		{Method: "POST", Pattern: "/api/v1/profiles/self/pin", Cred: credSession,
-			Summary: "改自己的 PIN（要旧 PIN，仅会话）", H: s.handleSelfPin},
+			// 旧 PIN 只在这一份**现在有 PIN** 时才要（2026-10-12）：一份不设防的档案
+			// 可以直接给自己设上第一个 PIN，而 `new` 留空则是取消它（取消仍要旧 PIN）。
+			Summary: "改自己的 PIN（仅当这一份现在有 PIN 才要旧 PIN；`new` 留空 = 取消，仅会话）", H: s.handleSelfPin},
 		{Method: "POST", Pattern: "/api/v1/profiles/pin", Cred: credAdmin,
 			Summary: "管理员给任意档案设 PIN", H: s.handleAdminPin},
 		// 坏档的机器出路（§6.1、§12）。credAdmin 与设 PIN 同族：它重写的是

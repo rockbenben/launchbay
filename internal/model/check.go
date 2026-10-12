@@ -172,9 +172,17 @@ func (p *Profile) Validate() error {
 	if strings.TrimSpace(p.Title) == "" {
 		return fmt.Errorf("%w: profile %q: title 为空", ErrValidation, p.ID)
 	}
-	if p.PIN == "" {
-		return fmt.Errorf("%w: profile %q: pin 哈希为空", ErrValidation, p.ID)
-	}
+	// PIN **可以为空**（2026-10-12）：一份档案可以不设 PIN，此后 `Profile.PIN` 是空串，
+	// 进门不需要任何 PIN。
+	//
+	// 之前这里是一条 `PIN == ""` 就判坏档，那条规则挡的是"建档写了一半留下空哈希"。
+	// 它顺手把"故意不设防"也一起挡住了——而这两件事在形状上长得一模一样，正是这条
+	// 规则误伤的原因。现在它整个删掉：**哈希的形状归 auth 管**（`HasPin` 是"有没有
+	// PIN"的唯一判据，`VerifyPIN` 对拼错的形状恒假），model 不再复述一遍——
+	// 两处各判一次，就有两处会漂。
+	//
+	// 代价要说清：一份 PIN 拼错的档案**进不去**，而唯一出路是管理员用 rebuild
+	// 整份重写（spec §12）。这是真写坏了，不是这条规则能救的。
 	if !allowedTheme[p.Theme] {
 		return fmt.Errorf("%w: profile %q: theme %q 只能是 %s", ErrValidation, p.ID, p.Theme,
 			strings.Join(ThemeValues, "/"))

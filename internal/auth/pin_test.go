@@ -69,3 +69,40 @@ func TestFullWidthPinNeverMatches(t *testing.T) {
 		t.Fatal("全角数字被判通过")
 	}
 }
+
+// 「可以不设 PIN」（2026-10-12）的两层判据。
+//
+// 这一条钉的是**为什么必须分成两个函数**：VerifyPIN 是"这个 PIN 对不对"，
+// VerifyEntry 是"能不能进门"。一份没有 PIN 的档案，进来不需要任何 PIN——不是
+// "空 PIN 也算对"，而是这一份本来就没有要核对的东西。
+//
+// 合并成一个函数的后果今天还看不见（VerifyEntry 的实现在 HasPin 前就短路了），
+// 但它会诱使下一个调用方直接调 VerifyPIN 拿答案——那正是"空 PIN 恒假"的形状。
+func TestEntryVersusVerify(t *testing.T) {
+	h, err := HashPIN("4812")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if HasPin("") {
+		t.Error("空哈希该是「没设 PIN」")
+	}
+	if !HasPin(h) {
+		t.Error("有哈希就该是「设了 PIN」")
+	}
+	// 不设防的那一份：进门不核对，进**任何** PIN 都算过。
+	for _, pin := range []string{"", "1234", "乱七八糟"} {
+		if !VerifyEntry("", pin) {
+			t.Errorf("不设防的档案不该被 %q 挡在门外", pin)
+		}
+	}
+	// 有 PIN 的那一支仍旧严：空串不是万能钥匙。
+	if VerifyEntry(h, "") {
+		t.Error("空 PIN 放行了一份有 PIN 的档案")
+	}
+	if VerifyEntry(h, "4813") {
+		t.Error("错 PIN 通过了")
+	}
+	if !VerifyEntry(h, "4812") {
+		t.Error("自己的 PIN 反而进不去")
+	}
+}

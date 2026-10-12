@@ -419,12 +419,8 @@ func TestRebuild_校验排在落盘之前(t *testing.T) {
 		{"id 不是 slug", "Bad ID", "x"},
 		{"id 越界", "../escape", "x"},
 		{"title 全空", "mom", "   "},
-		{"缺 PIN 哈希", "mom", "妈妈"},
 	} {
 		in := RebuildInput{ID: tc.id, Title: tc.title, PinHash: h}
-		if tc.name == "缺 PIN 哈希" {
-			in.PinHash = ""
-		}
 		if _, err := s.RebuildProfile(in); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s 该 ErrInvalid，得到 %v", tc.name, err)
 		}
@@ -433,6 +429,28 @@ func TestRebuild_校验排在落盘之前(t *testing.T) {
 	if got := dirNames(t, filepath.Join(s.root, "profiles")); len(got) != 1 || got[0] != "mom" {
 		t.Errorf("越界与非法 id 在盘上留下了东西: %v", got)
 	}
+}
+
+// rebuild 也认「不设 PIN」（2026-10-12）：坏档是唯一能把 profile.json 整份重写的
+// 动作，所以它必须能建出**一份不设防的档案**——否则「本来就没有 PIN」这个形状
+// 只在建档那一步存在，坏档修好之后就再也回不去了。
+//
+// 这一格原先混在上面那张拒绝表里（"缺 PIN 哈希 该 ErrInvalid"）。那是 model 层
+// 一条 `PIN == ""` 就判坏档的连带后果：规则本身已经删掉了，判据搬回 auth。
+func TestRebuild_不带PIN哈希重建出不设防的档案(t *testing.T) {
+	s, before := seedBroken(t, "mom")
+	if _, err := s.RebuildProfile(RebuildInput{ID: "mom", Title: "妈妈"}); err != nil {
+		t.Fatalf("空 PIN 哈希该重建成功: %v", err)
+	}
+	p, err := s.LoadProfile("mom")
+	if err != nil {
+		t.Fatalf("重建之后读不出来: %v", err)
+	}
+	if p.PIN != "" {
+		t.Errorf("要的是不设防，盘上却是 %q", p.PIN)
+	}
+	// 书签、快照、历史一个字节都不许动——rebuild 只重写 profile.json。
+	assertRosterUntouched(t, s, "mom", before)
 }
 
 func TestRebuild_并发恰好一路写完(t *testing.T) {

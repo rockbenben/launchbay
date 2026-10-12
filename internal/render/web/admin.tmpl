@@ -98,7 +98,11 @@
        而它现在连字段都不收。 */}}
   <form method="post" action="/admin" class="adm newprofile">
     <label>{{.T "admin.new.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off"></label>
-    <label>{{.T "admin.new.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
+    <label>{{.T "admin.new.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+      minlength="4" maxlength="6"></label>
+    {{/* 与引导页同一件事：PIN 选填，勾了「不设 PIN」才真的不设。判据是
+         httpapi 的 isNoPass，模板只负责把那个意图发出去。 */}}
+    <label class="chk"><input type="checkbox" name="nopass" value="1"> {{.T "picker.setup.nopass"}}</label>
     <button type="submit">{{.T "admin.new.submit"}}</button>
   </form>
   {{/* 退出管理那一枚挪到顶栏了（与「回首页」同一族，见上面 header 里的注释）：

@@ -335,6 +335,21 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
 .pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
   border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+/* 「不设 PIN」那一格勾选框（2026-10-12）。上面那条 `.pick input` 是**通配到所有
+   input** 的族规则，而引导表单正好带 pick 这个类——于是这一格勾选框会吃到文本框的
+   边框、圆角、内衬和 flex:1，被拉成一条又宽又扁的横杠。`.newprofile` 那边当初就是
+   因此把族规则收窄成 [type=text]/[type=password]（见上面那条），这里用同一条补法：
+   点名 [type=checkbox]，把 UA 画的原生勾选框放回原样，只调尺寸、点击感与随主题的
+   勾色。不写 appearance:none——同 `.pick select` 那条一样，原生控件长得像它自己。 */
+.pick input[type=checkbox]{flex:0 0 auto;width:20px;height:20px;margin:0;accent-color:var(--accent);cursor:pointer}
+/* 引导表单里那一格是 label，而 `.setup label` 刚把它摆成了**竖排**（两格竖排那条）。
+   勾选框与它的文字要并排，所以这里把方向掰回行——与 `.newprofile .chk` 同一处置：
+   点击面由 label 的内衬凑，整行文字都是靶子，44px 不由勾选框自己扛。 */
+.setup .chk{flex-direction:row;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+/* 选择页上「不设 PIN，点一下就进」那一句。用 warn 色而不是 ink2：它不是一句提示，
+   是一条**代价**（这一份谁都能进），该和旁边那枚橙色徽标同一档。用 <p> 而不是
+   <label>——它不标定任何控件，挂成 label 会白吃 `.pick label` 那一套排版。 */
+.pick .nopass{margin:0;font-size:13px;color:var(--warn)}
 /* 界面语言那个 <select>（2026-10-12 补）。它此前**不在任何一条族规则里**：UA 按
    自己的默认画——白底黑字、系统默认字号、上下不撑开，落在一页深色卡片里像块
    贴错地方的零件。

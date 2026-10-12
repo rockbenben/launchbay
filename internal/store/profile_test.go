@@ -63,7 +63,8 @@ func TestCreateProfileRejectsAndCleansUp(t *testing.T) {
 		{"id 已存在", NewProfileInput{ID: "dad", Title: "又", PinHash: "h"}, ErrExists},
 		{"id 非法", NewProfileInput{ID: "Dad", Title: "爸", PinHash: "h"}, ErrInvalid},
 		{"title 空", NewProfileInput{ID: "kid", Title: " ", PinHash: "h"}, ErrInvalid},
-		{"pin 空", NewProfileInput{ID: "kid", Title: "娃", PinHash: ""}, ErrInvalid},
+		// 「pin 空」这一格 2026-10-12 从这里挪走了：建档**可以**不设 PIN，
+		// 所以它不再是错误。它翻成了下面 TestCreateProfile_不设PIN也建得出来。
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -82,6 +83,34 @@ func TestCreateProfileRejectsAndCleansUp(t *testing.T) {
 		if len(entries) != 1 {
 			t.Fatalf("profiles 目录该只剩 dad, got %d", len(entries))
 		}
+	}
+}
+
+// 建档**可以**不带 PIN 哈希（2026-10-12）：这是"可以不设"这个承诺的落盘那一端。
+// 只钉"不报错"不够——还得钉盘上真的写出空 PIN，且书签页与目录一样建出来，
+// 否则会留下一份结构齐全、只是进不去的空壳（那正是旧规则要挡的东西，而它没挡对）。
+func TestCreateProfile_不设PIN也建得出来(t *testing.T) {
+	s := New(t.TempDir())
+	p, err := s.CreateProfile(NewProfileInput{ID: "tv", Title: "客厅那台"})
+	if err != nil {
+		t.Fatalf("不设 PIN 的档案该建得出来: %v", err)
+	}
+	if p.PIN != "" {
+		t.Errorf("要的是不设防，建出来却是 %q", p.PIN)
+	}
+	got, err := s.LoadProfile("tv")
+	if err != nil {
+		t.Fatalf("读不回来: %v", err)
+	}
+	if got.PIN != "" {
+		t.Errorf("重读之后 PIN 变成 %q——写盘把它编出来了吗", got.PIN)
+	}
+	b, err := s.LoadBookmarks("tv")
+	if err != nil {
+		t.Fatalf("书签页要一样建出来: %v", err)
+	}
+	if b.Rev != 0 {
+		t.Errorf("新档案的 rev 该是 0，实际 %d", b.Rev)
 	}
 }
 

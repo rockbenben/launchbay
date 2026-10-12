@@ -108,6 +108,7 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 		// **没有 admin 那一格**（2026-10-12）：建出来的就是一个人的书签页。
 		// 管理页也不再有那个勾选框——勾它现在已经没有任何后果，留着会让人
 		// 以为"建成管理员"是一件事，而它已经不存在了。
+		NoPass:   r.FormValue("nopass") == "1",
 		DeriveID: true,
 	})
 	switch {

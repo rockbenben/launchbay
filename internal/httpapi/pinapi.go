@@ -43,6 +43,15 @@ func (s *Server) writeProfileReadFailure(w http.ResponseWriter, id string, err e
 	writeInternalError(w, err)
 }
 
+// isNoPass 是「这次要的就是不设防」那一格判据（2026-10-12）。
+//
+// **只有空串算**：表单那个勾选框发的是 `nopass=1`，值对不上就当没勾——宁可把一个
+// 写错的标记当成没勾（于是仍然要 PIN），也不要把它当成一个明确的选择。
+//
+// 三处用它（建档族、self/pin、admin/pin），所以它住在最小的那个包里；而「这一份
+// 档案到底有没有 PIN」是 auth.HasPin。两者别混：**一个是请求，一个是盘上的档案。**
+func isNoPass(v string) bool { return v == "" }
+
 // handleSelfPin 改自己的 PIN：要旧 PIN，走会话，令牌一律拒。
 //
 // 为什么不记进 history：§4.6 的审计线记的是"谁动了我的书签"，改 PIN
@@ -78,18 +87,29 @@ func (s *Server) handleSelfPin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err // 分诊在锁外做：404 / 503 / 500
 		}
-		if !auth.VerifyPIN(p.PIN, in.Old) {
+		// 旧 PIN：**这一份本来就没有 PIN 时不核对**（2026-10-12）。没有的东西不需要
+		// 证明，所以一份不设防的档案可以直接给自己设上第一个 PIN——而如果这里仍
+		// 要求 old，人就永远关不掉再打开这道门。判据是 `auth.HasPin`，它问的是
+		// 盘上这份档案的形状，与"调用方填了什么"无关。
+		//
+		// `new` 留空 = **取消**这一份的 PIN。它与建档时的 `nopass` 是同一件事的
+		// 另一个方向：能设就能撤，否则"不设防"一旦选了就再也回不来。
+		if auth.HasPin(p.PIN) && !auth.VerifyPIN(p.PIN, in.Old) {
 			badOld = true
 			return nil
 		}
-		if !auth.ValidPinFormat(in.New) {
-			badNew = true
-			return nil
-		}
-		hash, err := auth.HashPIN(in.New)
-		if err != nil {
-			hashErr = err
-			return nil
+		hash := ""
+		if !isNoPass(in.New) {
+			if !auth.ValidPinFormat(in.New) {
+				badNew = true
+				return nil
+			}
+			h, err := auth.HashPIN(in.New)
+			if err != nil {
+				hashErr = err
+				return nil
+			}
+			hash = h
 		}
 		p.PIN = hash
 		saveErr = s.deps.Store.SaveProfile(p)
@@ -141,21 +161,28 @@ func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResul
 		res.FieldErrs = []fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}}
 		return res
 	}
-	if !auth.ValidPinFormat(newPin) {
-		res.FieldErrs = []fieldError{{Field: "new", Reason: "要 4-6 位数字"}}
-		return res
+	// newPin 留空 = **取消**这一份的 PIN（2026-10-12）。管理员是唯一能给别人
+	// 去/留这道门的人——本人自己那边（self/pin）同样能撤，但一个都不设防的家族
+	// 里，管理员得能把门重新锁上。判据是 `isNoPass` 一处，表单与 API 共用。
+	hash := ""
+	if !isNoPass(newPin) {
+		if !auth.ValidPinFormat(newPin) {
+			res.FieldErrs = []fieldError{{Field: "new", Reason: "要 4-6 位数字"}}
+			return res
+		}
+		h, err := auth.HashPIN(newPin)
+		if err != nil {
+			res.FieldErrs = []fieldError{{Field: "new", Reason: err.Error()}}
+			return res
+		}
+		hash = h
 	}
 	actor, _, ok := s.require(r, credAdmin, profile)
 	if !ok {
 		// 权限类拒绝走浏览器那条 303（credAdmin 带 credSession），所以这里
 		// 不能自成一个 FieldErr——它会让页面显示"PIN 格式不对"，而真相是
 		// "你不该看见这一页"。由调用方在 !ok 时直接答。
-		res.FieldErrs = []fieldError{{Field: "cred", Reason: "需要管理员会话"}}
-		return res
-	}
-	hash, err := auth.HashPIN(newPin)
-	if err != nil {
-		res.FieldErrs = []fieldError{{Field: "new", Reason: err.Error()}}
+		res.FieldErrs = []fieldError{{Field: "cred", Reason: "需要管理员 cookie"}}
 		return res
 	}
 	// 读也搬进锁内（评审 Important 1）：以前只有写在里面，LoadProfile 在锁外
@@ -163,7 +190,7 @@ func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResul
 	// 副本把先写的哈希连同它的审计行一起盖回去，幽灵历史行的形状与 self
 	// 路径一模一样。锁内读还顺带挡住"边读边被人改档"的错值（PIN 之外被改
 	// 的字段不会在这一版里丢）。
-	err = s.deps.Store.WithProfileLock(profile, func() error {
+	err := s.deps.Store.WithProfileLock(profile, func() error {
 		p, err := s.deps.Store.LoadProfile(profile)
 		if err != nil {
 			res.ReadErr = err // 分诊在锁外做：404 / 503 / 500
@@ -185,6 +212,12 @@ func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResul
 		})
 		return nil
 	})
+	// WithProfileLock 自己出的错一律记在 ReadErr 里：这是锁本身的问题（多半是
+	// profile 目录没了），而 res 里另外三格各自记着自己那一件事——不分开的话
+	// 一个锁错误会被读成"PIN 没改成"，于是调用方给出成功。
+	if err != nil {
+		res.ReadErr = err
+	}
 	return res
 }
 
