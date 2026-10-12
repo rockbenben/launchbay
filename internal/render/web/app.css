@@ -151,7 +151,7 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
   border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
 .inline-edit input{background:var(--card);font-size:13px}
 .inline-edit label{font-size:12px;color:var(--ink2)}
-'.inline-edit .row{display:flex;gap:8px}
+.inline-edit .row{display:flex;gap:8px}
 .inline-edit .row button{flex:1 1 auto}
 /* 面板贴着卡片左上角长出来。最后一列的磁贴只有 213px 宽，而面板的下限是 300px
    （放得下一条完整 URL）——实测那颗的右边缘落在 1475 而视口是 1440，**35px 悬在

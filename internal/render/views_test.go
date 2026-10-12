@@ -586,11 +586,99 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// 分组标题右端那枚布局切换键：**44×44 是 §7.5 的触摸目标硬线**，
 		// 而它看上去只有 11px 字形（盒子守住 44，与 .pencil 同一处置）。
 		"布局切换键触摸目标": `.layoutbtn{flex:0 0 auto;width:44px;height:44px`,
+		// 这一条是**实测**逼出来的：选择器前多打了一个引号（`'.inline-edit .row{`），
+		// 浏览器把整条规则当无效选择器丢掉，`.row` 退回块级——「存」与「取消」各占
+		// 一整行 278px 宽（实测那一行 96px 高，横排后 48px），「删掉这条」再占一行。
+		// CSS 文件读得进来、构建没错、每一颗按钮都还在、只是排成了两行三行——
+		// 所以除了逐字钉，下面另有一道"选择器段里没有游离引号"的形状闸。
+		"编辑态底部那一行是横排": `.inline-edit .row{display:flex;gap:8px}`,
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css 里没有 %q（%s）", want, name)
 		}
 	}
+}
+
+// 选择器段里不该出现**游离**引号：引号只允许待在属性选择器的方括号里
+// （`td[data-k="条目"]` 是合法写法，本案 base.css 的管理页表格就靠它）。
+// 出现在括号之外就意味着这条规则整条被浏览器丢掉。本案踩过的形状是行首一个
+// 游离的 `'`，它让 `.inline-edit .row{display:flex}` 静默消失。
+//
+// 这道闸自己也要"解析器没吞形状"的证人：正向对照必须证明它真看见了要保护的那条
+// 选择器，否则"一条都没扫到"也会绿。名单按文件给——两个文件各守各的那一条。
+func TestCSS_选择器段里没有游离引号(t *testing.T) {
+	for _, tc := range []struct{ file, guarded string }{
+		{"web/base.css", ".rename label"},
+		{"web/app.css", ".inline-edit .row"},
+	} {
+		raw, err := webFS.ReadFile(tc.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sels := cssSelectorChunks(stripCSSComments(string(raw)))
+		if len(sels) < 40 {
+			t.Fatalf("%s 只切出 %d 段选择器：切法坏了，这道闸此刻是空转的", tc.file, len(sels))
+		}
+		var sawGuarded bool
+		for _, s := range sels {
+			if strings.ContainsAny(s, "'\"") {
+				t.Errorf("%s 的选择器 %q 里混进了方括号外的引号——浏览器会把这一整条规则丢掉", tc.file, s)
+			}
+			if strings.Contains(s, tc.guarded) {
+				sawGuarded = true
+			}
+		}
+		if !sawGuarded {
+			t.Errorf("%s：切出来的 %d 段里没有 %s，这道闸没盯住它要盯的东西", tc.file, len(sels), tc.guarded)
+		}
+	}
+}
+
+// cssSelectorChunks 返回每个 `{` 之前那段"选择器"（从上一个 `{` 或 `}` 之后算起），
+// 并把属性选择器 `[...]` 里的内容换成占位符——那里的引号是合法的。
+// 它不是 CSS 解析器，只要能把"声明串到了选择器位"这种形状暴露出来就够了。
+func cssSelectorChunks(css string) []string {
+	var out []string
+	start := 0
+	for i := 0; i < len(css); i++ {
+		switch css[i] {
+		case '{':
+			sel := strings.TrimSpace(css[start:i])
+			if j := strings.LastIndexByte(sel, '}'); j >= 0 {
+				sel = strings.TrimSpace(sel[j+1:])
+			}
+			if sel != "" {
+				out = append(out, stripAttrBrackets(sel))
+			}
+			start = i + 1
+		case '}':
+			start = i + 1
+		}
+	}
+	return out
+}
+
+// stripAttrBrackets 去掉 `[` … `]` 之间的内容（含嵌套与带引号的值）。
+func stripAttrBrackets(sel string) string {
+	var b strings.Builder
+	depth := 0
+	for _, r := range sel {
+		switch {
+		case r == '[':
+			depth++
+			b.WriteRune(r)
+		case r == ']':
+			if depth > 0 {
+				depth--
+			}
+			if depth == 0 {
+				b.WriteRune(r)
+			}
+		case depth == 0:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // §7.5 与 §8.1 的硬数字由这份 map 逐字钉住。**为什么用文本在场断言而不是
