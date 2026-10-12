@@ -137,14 +137,21 @@ func TestAdmin_数据目录不可写说得出出路(t *testing.T) {
 	s, h := setup(t)
 	chmodNoWrite(t, filepath.Join(s.Root(), "profiles"))
 
-	rec := postForm(h, "/admin", "title=%E5%A6%88%E5%A6%88&pin=5678", dadFormCookie)
+	// **凭证要换成管理员 cookie**：2026-10-12 起档案会话不算管理权，用
+	// dadFormCookie 打这里会先被权限拒掉、回 `/`，而那条 303 与权限类拒绝
+	// 长得一模一样——症状是"Location 是 / 而不是 /admin?err=permission"。
+	//
+	// 这条在 **Windows 上验不到**（`chmodNoWrite` 会先自查并跳过：NTFS 上
+	// 0500 的目录照样写得进去），所以它只在 Linux runner 上真的跑。改这一格
+	// 之后第一次由 CI 的 ubuntu job 抓到。
+	rec := postForm(h, "/admin", "title=%E5%A6%88%E5%A6%88&pin=5678", adminOnlyCookie(t))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("数据目录不可写要 303 回管理页说人话，得到 %d %.200s", rec.Code, rec.Body.String())
 	}
 	if loc := rec.Header().Get("Location"); loc != "/admin?err=permission" {
 		t.Fatalf("Location = %q，要 /admin?err=permission", loc)
 	}
-	page := get(h, "/admin?err=permission", dadFormCookie)
+	page := get(h, "/admin?err=permission", adminOnlyCookie(t))
 	if !strings.Contains(page.Body.String(), noticeOf(i18n.Default, "permission")) {
 		t.Errorf("管理页没印出登记的那句话:\n%.500s", page.Body.String())
 	}
