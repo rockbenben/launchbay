@@ -247,10 +247,24 @@ li{min-width:0}
   transition:transform .16s ease,border-color .16s ease,background .16s ease}
 .card:hover,.pick:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card-hi)}
 .card:hover .ic-svg,.card:hover .ic-img,.card:hover .ic{transform:scale(1.07) rotate(-2deg)}
+/* 按下态（§7.5 五态里的"静止/hover/按下/禁用/开着"那一格）。取景逐族量过：
+   卡片 0/358、把手 0/360、badge 0/182、按钮 0/182、布局键 0/100、复制键 0/48——
+   **整站一条 :active 都没有**。触屏上没有 hover，按下去那一瞬是用户唯一的
+   "我点中了"的机会，而这一站此前是空的。按元素收口写一条（与焦点环同处置），
+   不按容器点名——每加一个表单容器就漏一次是这套写法付过的学费。
+   位移 1px 而不是变色：颜色那一维在两套主题里都是逐对算过对比度的，
+   为一个瞬时状态再造一对配色不划算。 */
+a:active,button:active,input[type=submit]:active{transform:translateY(1px)}
 /* §7.5：所有可交互元素都要有可见焦点环（暗色下用亮环，颜色是算出来的 --ring）。
    .pick 挂在 form 上、form 本身不可聚焦，所以 a/button/input 必须点名——
-   旧版这三样各有规则，重写时只留 .card/.pick 等于把进门表单的焦点环弄丢。 */
-.card:focus-visible,.pick:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+   旧版这三样各有规则，重写时只留 .card/.pick 等于把进门表单的焦点环弄丢。
+   2026-10-12 补两样：**summary 与 select**。取景实测（真按 Tab，不看 el.focus()）
+   量到抽屉把手那一站吃的是 UA 默认的 `outline:auto`，而全站其余各站是 3px 的
+   --ring——同一支键盘走下来两种环；浮层里那颗图标下拉更糟，它原先只被
+   `.pick/.adm/.langsel select:focus-visible` 三条按容器点名，浮层那个容器不在名单里，
+   于是键盘下**完全看不见焦点在哪**。容器点名的写法每加一个容器就要漏一次，
+   所以这里按**元素**收口，那三条容器级的 2px 规则随之删掉（同一族两个环宽）。 */
+.card:focus-visible,.pick:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
 .card>*{min-width:0}
 /* 名字的截断一次覆盖两态：旧版写的是 `li b`，`.card`/`.plain` 都盖得住。改成只选
    .card 之后，"需手动打开"那条（.plain）的长名字会换行而不是省略号——两态在类名
@@ -445,12 +459,15 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    边框、圆角、内衬和 flex:1，被拉成一条又宽又扁的横杠。`.newprofile` 那边当初就是
    因此把族规则收窄成 [type=text]/[type=password]（见上面那条），这里用同一条补法：
    点名 [type=checkbox]，把 UA 画的原生勾选框放回原样，只调尺寸、点击感与随主题的
-   勾色。不写 appearance:none——同 `.pick select` 那条一样，原生控件长得像它自己。 */
-.pick input[type=checkbox]{flex:0 0 auto;width:20px;height:20px;margin:0;accent-color:var(--accent);cursor:pointer}
+   勾色。不写 appearance:none——同 `.pick select` 那条一样，原生控件长得像它自己。
+   2026-10-12：名单加上 `.adm`。管理页那张建档表单里的勾选框量出来是 **13×13**
+   （UA 默认），而进门/引导那张是 20×20——同一个动作两种大小，是因为这条只点了
+   `.pick`。数字仍只写这一处。 */
+.pick input[type=checkbox],.adm input[type=checkbox]{flex:0 0 auto;width:20px;height:20px;margin:0;accent-color:var(--accent);cursor:pointer}
 /* 引导表单里那一格是 label，而 `.setup label` 刚把它摆成了**竖排**（两格竖排那条）。
    勾选框与它的文字要并排，所以这里把方向掰回行——与 `.newprofile .chk` 同一处置：
    点击面由 label 的内衬凑，整行文字都是靶子，44px 不由勾选框自己扛。 */
-.setup .chk{flex-direction:row;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+.setup .chk{padding:4px 0}
 /* 界面语言那个 <select>（2026-10-12 补）。它此前**不在任何一条族规则里**：UA 按
    自己的默认画——白底黑字、系统默认字号、上下不撑开，落在一页深色卡片里像块
    贴错地方的零件。
@@ -470,7 +487,10 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .pick select,.adm select,.langsel select{font:inherit;color:inherit;background:transparent;
   border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto;cursor:pointer}
 .pick select:hover,.adm select:hover,.langsel select:hover{border-color:var(--accent)}
-.pick select:focus-visible,.adm select:focus-visible,.langsel select:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+/* select 的焦点环不在这里——它在 base.css 顶部那条**按元素收口**的
+   `:focus-visible` 联合规则里（2026-10-12）。这里从前另写了一条 2px 的，
+   后果是：名单里没有的容器（浮层那颗图标下拉）拿不到环，而拿到的那三个
+   用的是与全站不一样的环宽。 */
 .langsel{display:flex;align-items:center;gap:10px;margin:16px 0 0;flex-wrap:wrap}
 .langsel label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
 .langsel select{flex:0 0 auto;min-width:148px}
@@ -525,8 +545,12 @@ select,input[type=password],input[type=text],input[type=search],input[type=file]
    导入页的「算了，不导」——它们此前一律只有 20px 高，而 §7.5 的 44px 是管
    触摸目标的，**它是链接不是按钮这一点不构成豁免**。
    .badge 另有 <span> 形态（管理态徽标、「已停用」），那些不收进来——撑高一个
-   纯标签只会让它看起来像个按钮。 */
-.gnav a,summary,a.badge,button.badge,.choice label{min-height:44px}
+   纯标签只会让它看起来像个按钮。
+   2026-10-12 并入 `.chk`（「不设 PIN」那一格勾选）：取景量到它 29px 高、
+   勾选框本体 13-20px，而**能点的那一片就是这行 label**——行高不够，手指就点不中。
+   开第 7 条联合规则会把"六族各一条"那条闸数出七个，所以并进这一条。 */
+.gnav a,summary,a.badge,button.badge,.choice label,.chk{min-height:44px}
+.chk{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;min-width:0}
 /* 上面那条对 inline 元素无效，而 .badge 在 <p>／<td> 这类非 flex 容器里正是
    inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。
    （顶栏与表格里它们本来就是 grid/flex item，不需要这一条。） */
@@ -557,7 +581,7 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
    不认 :has 的浏览器只是退回"只有圆点"，功能不受影响。 */
 .act .choice:has(input:checked) label{border-color:var(--accent);background:var(--card-hi);
   box-shadow:inset 3px 0 0 var(--accent)}
-.act .choice input[type=radio]{width:18px;height:18px;flex:0 0 auto;margin:2px 0 0;accent-color:var(--accent)}
+.act .choice input[type=radio]{width:20px;height:20px;flex:0 0 auto;margin:2px 0 0;accent-color:var(--accent)}
 .act .choice small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
 .adm{width:100%;border-collapse:collapse;font-size:14px}
 .adm th{text-align:left;font-weight:600;color:var(--ink2);padding:6px 8px;

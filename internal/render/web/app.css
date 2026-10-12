@@ -17,6 +17,17 @@
    「知道了」也刷成一颗主操作键，而它不是）。 */
 header .add,.notice .dismiss{min-height:44px}
 header .add{flex:0 0 auto;background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+/* 「＋ 添加」此前**没有 hover 态**（取景逐族量：26 个实例、18 个屏，命中 0 条
+   hover 规则），而它旁边每一枚按钮都有——主操作键反而是全站唯一一颗按之前
+   不回答"你能点我"的控件。这里只加抬升与投影，**不动那对配色**：
+   --accent/--on-accent 在两套主题下各自算过对比度（暗档深字浅底 6.3、亮档白字
+   5.8），拿 --ring 当 hover 填充会把亮档那侧压到 4.88，等于为了反馈吃掉了余量。 */
+header .add:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(4,6,10,.34)}
+/* 浮层里的按钮此前也没有 hover：`button:hover` 那族规则挂在 `.pick`/`.act`/`.adm`
+   这些**服务端表单容器**上，而浮层是 app.js 造的，不在任何容器名单里。
+   `.fld` 同时挂在输入框与按钮上（「保存并继续」那颗就是 button.fld），
+   所以这里按 .fld 收口，与 `.pick select:hover` 同一处置（描边转亮蓝）。 */
+.fld:hover{border-color:var(--accent)}
 /* 浮层是**居中的面板**，不是整屏不透明的接管。旧写法 `inset:0` + `background:var(--bg)`
    让桌面字段拉到 1385px 宽、看起来像换了一页而不是浮起来一层；背板用
    `box-shadow: 0 0 0 100vmax` 造，零 DOM 改动（模板那边"除档案页外零脚本"的
