@@ -106,6 +106,7 @@
   "import.preview": "看这份会导入什么",
   "lang.heading": "界面语言",
   "lang.pick": "语言",
+  "lang.applyNow": "切换语言",
   "lang.submit": "保存语言",
   "lang.hint": "这台导航台的所有页面都用这个语言。改它会立刻影响所有人——各人档案里的书签与 PIN 不受影响。",
   "app.add": "＋ 添加",

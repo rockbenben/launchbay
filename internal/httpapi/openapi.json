@@ -168,6 +168,45 @@
         }
       }
     },
+    "/lang": {
+      "post": {
+        "summary": "引导页上那个语言下拉自己的通路（零档案时可用；按下去页面立刻换语言）",
+        "x-credential": "none",
+        "security": [],
+        "description": "引导页上那个界面语言下拉的落点：**自己的表单、自己的按钮**（2026-10-12）。\n\n它原本在 `POST /setup` 那张表单里，于是「改语言」的生效时机成了「按另一个按钮」——人拨了下拉、页面纹丝不动，连下拉自己的标签都还是原来那种语言，看上去就是坏的。而那是新装机的人看到的第一块屏幕。零 JavaScript：按下去是一次普通 POST，页面用新语言重画。\n\n**只在零档案时开放**（判据与 `POST /setup` 同一份 `CountProfiles`）：语言是站级设置，装完之后只有管理员能改（`POST /admin/language`）。零档案是装机窗口，那一刻这台机器还没有任何档案，也就没有「谁该替所有人选语言」这个问题。\n\n`POST /setup` 的 `language?` 字段**继续收**：那是「一次填完」的形状。两个入口写的是同一个 `store.SetLanguage`，判据只有一份。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "language"
+                ],
+                "properties": {
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "zh",
+                      "en"
+                    ],
+                    "description": "要切到哪种语言；不认识的值说清而不是静默落默认"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "成功 → `Location: /`（零档案时那就是引导页本身，于是「回到刚才那一页」与「换成新语言重画」是同一个跳转）"
+          },
+          "422": {
+            "description": "表单读不出来 / `language` 同名多值：{code, detail, errors[{field, reason}]}"
+          }
+        }
+      }
+    },
     "/prefs": {
       "post": {
         "summary": "改自己的台面偏好（主题/形态，仅会话，表单通路）",

@@ -335,6 +335,26 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
 .pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
   border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+/* 界面语言那个 <select>（2026-10-12 补）。它此前**不在任何一条族规则里**：UA 按
+   自己的默认画——白底黑字、系统默认字号、上下不撑开，落在一页深色卡片里像块
+   贴错地方的零件。`background:transparent` 单独用它无效：select 是替换元素，
+   底色得靠 `color-scheme` 与 appearance 一起收。
+
+   **选择器里必须写全三处容器**：这个 select 搬出建档表单之后住在自己的
+   `.langsel` 表单里，`/admin` 那一份在 `.adm` 里，而建档表单上曾经也有一个
+   （`.pick`，2026-10-12 之前）。写成 `.pick select` 单条时实测量出来 select 只有
+   19px、UA 原生边框、appearance 还是 auto——规则整条没匹配上，而这种"看着没生效"
+   最容易被当成浏览器不支持。`.langsel` 是后来加的容器，所以它也必须在名单里。
+   `appearance:none` 让它与 input 同一张脸。 */
+.pick select,.adm select,.langsel select{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
+  border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto;appearance:none;-webkit-appearance:none;
+  cursor:pointer}
+.pick select:hover,.adm select:hover,.langsel select:hover{border-color:var(--accent)}
+.pick select:focus-visible,.adm select:focus-visible,.langsel select:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.langsel{display:flex;align-items:center;gap:10px;margin:16px 0 0;flex-wrap:wrap}
+.langsel label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
+.langsel select{flex:0 0 auto;min-width:148px}
+.langsel .hint{margin:0;flex:1 1 100%}
 /* 次级按钮**一张脸**：以前 .pick/.search/.theme/.adm/.act 那几族是透明底，
    而 a.badge（回首页、管理、设 PIN…）刚改成半透明卡片底 —— 同一行里出现
    "实心 / 透明 / 半透明"三种按钮，看着像三套系统。这里统一收进半透明卡片底，
@@ -363,7 +383,13 @@ button.danger:hover{background:var(--bad);border-color:var(--bad);opacity:.88}
    提交按钮与文件选择框都是 25px；导入页的输入框要带上 file 才算进输入族。
    同一族的数字写两处，改一处就留下一处谎话。名单由
    TestCSS_搜索控件的44px由哪条规则保证 逐条钉着。 */
-input[type=password],input[type=text],input[type=search],input[type=file]{min-height:44px}
+/* select 是**输入族的一员**（2026-10-12 加的界面语言下拉）：它此前量出来只有 19px 高，
+   落在 spec §7.5 那条 44px 触摸目标下面。
+   **放在名单开头**：这条规则是 44px 的六族之一，另开一条会被
+   TestCSS_搜索控件的44px由哪条规则保证 数出第七条；而 TestCSS_硬规格在场 又逐字钉着
+   `input[type=search],input[type=file]{min-height:44px}` 那一段——加在末尾会把它截断，
+   加在开头则原样保留（它是这条规则的子串），两头都不得罪。 */
+select,input[type=password],input[type=text],input[type=search],input[type=file]{min-height:44px}
 /* 导航族：侧栏分组链接、把手 summary，以及**所有可点的 badge**。
    顶栏「管理」「从浏览器导入」、管理页的「设 PIN / 停用 / 删档 / 回首页」、
    导入页的「算了，不导」——它们此前一律只有 20px 高，而 §7.5 的 44px 是管

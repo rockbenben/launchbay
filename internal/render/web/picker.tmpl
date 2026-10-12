@@ -14,28 +14,30 @@
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
   {{if .Setup}}
     {{/* 引导建档（设计 §3）：只有名字与口令两格。不问 id（由 store 按名字派生）。
-         也不给"要不要当管理员"的选项——**档案本来就不是管理员**（2026-10-12），
-         管这台机器是 docker-compose.yml 里那把 LAUNCHBAY_ADMIN_TOKEN 的事。
-         判据在 httpapi 与 store，不在这里。成功之后照样要输 PIN 才进门。 */}}
+         语言**不在这张表单里**——它在下面自己的表单上（2026-10-12）：绑在一张
+         别的表单里，它的生效时机就成了"按另一个按钮"，人拨完下拉页面纹丝不动，
+         连下拉自己的标签都还是原来那种语言，看上去就是坏的。而这是新装机的
+         人看到的第一块屏幕。成功之后照样要输 PIN 才进门。 */}}
     <form method="post" action="/setup" class="pick setup">
       <label>{{.T "picker.setup.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
       <label>{{.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
-      {{/* 语言跟着建档一起定：这一页只在零档案时出现，而此刻这台机器还没有任何
-           人——没有"谁该替所有人选语言"这个问题。事后由管理页改（仅管理员）。 */}}
-      <label>{{.T "lang.pick"}}
-        <select name="language">
-          {{range .Langs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
-        </select>
-      </label>
-      {{/* 这一格夹在 PIN 与「创建」之间，而人填完 PIN 的下一步就是按按钮——
-           不特意说一句，它基本会被跳过去，之后进管理页看见中文就以为不支持。
-           说清"装好之后还能改"而不是"这是可选的"：可选的东西人不会去看。 */}}
-      <p class="hint">{{.T "lang.hintLater"}}</p>
       <button type="submit">{{.T "picker.setup.submit"}}</button>
       {{/* 「这个人」指不到表单里的任何东西（字段叫「名称」）；「建完这一步就不能
            再建第二次」读起来像"这个按钮只能按一次"。说清是什么在关闭：这个页面。
            动词与管理页的「创建档案」统一成「创建」。 */}}
       <p class="hint">{{.T "picker.setup.hint"}}</p>
+    </form>
+    {{/* 界面语言：**自己的表单、自己的按钮**。零 JS——按下去就是一次普通 POST，
+         页面用新语言重画，所以"生效"是看得见的。按钮上的字按**当前**语言写：
+         第一次看见它写「切换语言」，切完之后同一颗按钮改写「Switch language」。 */}}
+    <form method="post" action="/lang" class="langsel">
+      <label>{{.T "lang.pick"}}
+        <select name="language">
+          {{range .Langs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <button type="submit">{{.T "lang.applyNow"}}</button>
+      <p class="hint">{{.T "lang.hintLater"}}</p>
     </form>
   {{else}}
     {{/* 手里有管理权时给一个进管理页的口子（2026-10-12）。管理员不再挂在任何一份

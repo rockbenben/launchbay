@@ -66,6 +66,72 @@ func (s *Server) handleAdminLanguage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusSeeOther)
 }
 
+// handleSetupLanguage 是**引导页上那个语言下拉自己的通路**：POST /lang。
+//
+// 它存在是因为一个具体的失败形状（2026-10-12 实测）：下拉原本在
+// `POST /setup` 那张表单里，于是"改语言"这个动作的生效时机是**按另一个按钮**。
+// 人拨了下拉、页面纹丝不动、连下拉自己的标签都还是原来那种语言——
+// 看上去就是坏的。而它恰恰是**新装机的人看到的第一块屏幕**。
+//
+// 所以这里给它一张自己的表单与自己的按钮：按下去，页面用新语言重画，
+// 看得见。零 JavaScript——这一族页面的判据是关掉脚本一样好用。
+//
+// **只在零档案时开放**（判据与 /setup 同一份 `CountProfiles`）：语言是站级设置，
+// 装完之后只有管理员能改（`POST /admin/language`）。零档案是装机窗口，那一刻
+// 这台机器还没有任何档案，也就没有"谁该替所有人选语言"这个问题——与
+// /setup 能顺手选语言是同一条理由。
+//
+// `/setup` 的 `language?` 字段**继续收**：它是"一次填完"的形状，脚本与
+// curl 仍然可以一趟发完。两个入口写的是同一个 `store.SetLanguage`，判据只有一份。
+func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
+	if bearer(r) != "" {
+		redirectSetup(w, "permission")
+		return
+	}
+	n, err := s.deps.Store.CountProfiles()
+	if err != nil {
+		writeInternalError(w, err)
+		return
+	}
+	if n != 0 {
+		// 装机窗口已关：与 /setup 回 `/` 不带键同一形状——"这台机器已经建过档了"
+		// 本身就是那条枚举线索（同 /switch 的判据口径）。走 redirectPicker 而不是
+		// redirectSetup(w, "")：后者那个空键不在白名单里，而「不带键」这句话
+		// 是 redirectPicker 本身给的，不该再经 ?err= 走一圈。
+		redirectPicker(w)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	if err := r.ParseForm(); err != nil {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+		return
+	}
+	if k := len(r.Form["language"]); k > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Field: "language", Reason: "同一个字段只能出现一次"}})
+		return
+	}
+	raw := strings.TrimSpace(r.FormValue("language"))
+	if raw == "" {
+		redirectSetup(w, "nolang")
+		return
+	}
+	l := i18n.Lang(raw)
+	if !l.Valid() {
+		redirectSetup(w, "badlang")
+		return
+	}
+	if err := s.deps.Store.SetLanguage(l); err != nil {
+		// 落盘失败绝不说成功：界面还是原来那一种语言，而用户以为自己改了。
+		writeInternalError(w, err)
+		return
+	}
+	// 回 `/` —— 零档案时那就是引导页本身，所以"回到刚才那一页"与
+	// "换成新语言重画"是同一个跳转。
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // t 是**生产用的通用查表**：按这台机器当前的语言翻一句话，可带占位符。
 //
 // 为什么由 httpapi 侧翻好再塞进 view，而不是让模板查表（模板里那六个页面已经是

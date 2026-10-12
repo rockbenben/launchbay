@@ -546,3 +546,99 @@ func TestHome_唯一档案读不出用中性标题(t *testing.T) {
 		t.Error("坏掉一个档案就把引导窗口重开了：进门判据数的必须是目录数，不是读得动的档案数")
 	}
 }
+
+// 引导页的语言下拉：**按它自己的按钮，语言必须立刻变**（2026-10-12）。
+//
+// 这一格钉的是**人的感受**而不是存储：改下拉按下去之后回到这一页，`<html lang>`
+// 必须已经翻过来了。它从前绑在 `POST /setup` 那张表单里，于是"改语言"的生效
+// 时刻是"按另一个按钮"——拨完下拉页面纹丝不动，连下拉自己的标签都还是原来
+// 那种语言，看上去就是坏的，而那是新装机的人看到的第一块屏幕。
+//
+// 正对照：切到**同一种**语言也要重画（不是"变了才重画"）；建完档案之后这条路
+// 必须关掉（语言从此只归管理员），答 303 回选择页且不带键。
+func TestSetup_语言下拉按一下就生效(t *testing.T) {
+	_, h := setupZero(t)
+
+	for _, tc := range []struct{ lang, wantLangAttr, wantButton string }{
+		{"en", "en", "Switch language"},
+		{"zh", "zh-CN", "切换语言"},
+	} {
+		rec := postForm(h, "/lang", "language="+tc.lang, "")
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("切到 %s 要 303，得到 %d", tc.lang, rec.Code)
+		}
+		if loc := rec.Header().Get("Location"); loc != "/" {
+			t.Errorf("回 /（零档案时那就是引导页本身），得到 %q", loc)
+		}
+		body := get(h, "/", "").Body.String()
+		if got := langOfPage(body); got != tc.wantLangAttr {
+			t.Errorf("切到 %s 之后这一页的 html lang 该是 %s，实际 %q", tc.lang, tc.wantLangAttr, got)
+		}
+		// 按钮上的字按**当前**语言写：切完之后同一颗按钮该改写。不改写的话，
+		// 人点完看见的还是上一种语言的按钮，更像坏了。
+		if !strings.Contains(body, tc.wantButton) {
+			t.Errorf("切到 %s 之后那颗按钮该写「%s」", tc.lang, tc.wantButton)
+		}
+	}
+}
+
+// 建完档案之后这条路必须关闭：语言从此是管理员的事，且匿名请求改不动它。
+func TestSetup_语言下拉在装机窗口外不可用(t *testing.T) {
+	_, h := setupZero(t)
+	if rec := postForm(h, "/setup", "title=Dad&pin=1234&language=zh", ""); rec.Code != http.StatusSeeOther {
+		t.Fatalf("建档要 303，得到 %d", rec.Code)
+	}
+	before := langOfPage(get(h, "/", "").Body.String())
+	rec := postForm(h, "/lang", "language=en", "")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("窗口关了之后该 303，得到 %d", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/" {
+		t.Errorf("要回选择页且**不带键**（带键就是一条枚举线索），得到 %q", loc)
+	}
+	if after := langOfPage(get(h, "/", "").Body.String()); after != before {
+		t.Errorf("语言被一个匿名请求改了：%s -> %s", before, after)
+	}
+}
+
+// 形状错的两条：不带值 303 + ?err=nolang，不认识的值 303 + ?err=badlang。
+// **不静默落默认**是它们存在的理由——回一句"好了"而界面没换，是最难查的那种。
+func TestSetup_语言下拉的形状错说人话(t *testing.T) {
+	_, h := setupZero(t)
+	for _, tc := range []struct{ body, want string }{
+		{"", "nolang"},
+		{"language=", "nolang"},
+		{"language=fr", "badlang"},
+		{"language=EN", "badlang"},
+		{"language=zh&language=en", "body"},
+	} {
+		rec := postForm(h, "/lang", tc.body, "")
+		if tc.want == "body" {
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Errorf("%q 要 422（同名多值是「没说清要哪个」），得到 %d", tc.body, rec.Code)
+			}
+			continue
+		}
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("%q 要 303，得到 %d", tc.body, rec.Code)
+			continue
+		}
+		if want := "/?err=" + tc.want; rec.Header().Get("Location") != want {
+			t.Errorf("%q 的 Location = %q，要 %s", tc.body, rec.Header().Get("Location"), want)
+		}
+	}
+}
+
+// langOfPage 取 <html lang="…">，读不出来时给一个一眼看得出是读失败的串。
+func langOfPage(body string) string {
+	i := strings.Index(body, `<html lang="`)
+	if i < 0 {
+		return "<no-html-lang>"
+	}
+	rest := body[i+len(`<html lang="`):]
+	j := strings.Index(rest, `"`)
+	if j < 0 {
+		return "<unterminated>"
+	}
+	return rest[:j]
+}

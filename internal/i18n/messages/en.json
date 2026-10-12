@@ -106,6 +106,7 @@
   "import.preview": "Show what this would import",
   "lang.heading": "Interface language",
   "lang.pick": "Language",
+  "lang.applyNow": "Switch language",
   "lang.submit": "Save language",
   "lang.hint": "Every page on this machine uses this language. Changing it affects everyone immediately; the bookmarks and PINs in each profile are untouched.",
   "app.add": "+ Add",

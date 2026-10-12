@@ -58,6 +58,8 @@ func (s *Server) routes() []route {
 			Summary: "⑥ 的 bookmarklet（零令牌，拖进书签栏即用）", H: s.handleBookmarklet},
 		{Method: "GET", Pattern: "/", Cred: credNone, Summary: "选择页或该档案首屏", H: s.handleRoot},
 		{Method: "POST", Pattern: "/pin", Cred: credNone, Summary: "用 PIN 进门/切档", H: s.handlePin},
+		{Method: "POST", Pattern: "/lang", Cred: credNone,
+			Summary: "引导页上那个语言下拉自己的通路（零档案时可用；按下去页面立刻换语言）", H: s.handleSetupLanguage},
 		{Method: "POST", Pattern: "/setup", Cred: credNone,
 			Summary: "引导建档：只在磁盘零档案时有效（浏览器表单通路；建出来的是第一个人的书签页，不是管理员）", H: s.handleSetup},
 		// 管理员的浏览器通路（2026-10-12）。管理员不再是某个档案，于是"怎么进管理页"
