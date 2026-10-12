@@ -31,7 +31,7 @@
   "profile.import.link": "从浏览器导入收藏夹",
   "profile.import.hint": "把浏览器里「导出书签」存下的那个 .html 传上来，按「直接导入」就写进来；另一个按钮会先给你看一份报告。不导也可以——这个档案一有书签，这句话就自己消失。",
   "profile.external.badge": "需手动打开",
-  "profile.external.title": "这类地址浏览器不允许从网页里点开，要自己复制到地址栏",
+  "profile.external.title": "这类地址浏览器不允许从网页里点开：复制到地址栏，或者把它拖到浏览器的收藏夹栏再从那里点",
   "profile.icon.missing": "图标未匹配",
   "profile.icon.title": "这个图标名在图标库里找不到，先用名字首字的色块",
   "picker.setup.title": "名称",

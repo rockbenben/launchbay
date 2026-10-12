@@ -31,7 +31,7 @@
   "profile.import.link": "Import bookmarks from your browser",
   "profile.import.hint": "Upload the .html file your browser’s “Export bookmarks” produced. “Import now” writes it in straight away; the other button shows you a report first. Skipping it is fine too — this sentence disappears on its own once the profile has any bookmarks.",
   "profile.external.badge": "Open manually",
-  "profile.external.title": "Browsers refuse to open this kind of address from a page, so copy it into the address bar yourself",
+  "profile.external.title": "Browsers refuse to open this kind of address from a page — copy it into the address bar, or drag it to your bookmarks bar and open it from there",
   "profile.icon.missing": "Icon not found",
   "profile.icon.title": "This icon name is not in the icon library, so it falls back to a coloured initial",
   "picker.setup.title": "Name",
