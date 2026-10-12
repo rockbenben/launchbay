@@ -145,7 +145,7 @@ func (r *Report) writeSpecials(b *strings.Builder) {
 	}
 	b.WriteString("## 没照搬的东西（只标出、没有自动改）\n\n")
 	if len(r.NonHTTP) > 0 {
-		fmt.Fprintf(b, "**非 http/https 协议 %d 条**——浏览器里点不动，URL 原样留着，渲染时会给「需手动打开」角标：\n\n", len(r.NonHTTP))
+		fmt.Fprintf(b, "**非 http/https 协议 %d 条**——浏览器里点不动，URL 原样留着，渲染时会给「需手动打开」角标与一枚复制键：\n\n", len(r.NonHTTP))
 		for _, n := range r.NonHTTP {
 			fmt.Fprintf(b, "- %s —— `%s`（%s）\n", n.Name, n.URL, n.Scheme)
 		}

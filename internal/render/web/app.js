@@ -67,6 +67,9 @@ const APP_I18N = {
     "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
     "app.clip.noturl": "剪贴板里那段不像一个网址，手动贴一下。",
     "app.clip.noread": "读不到剪贴板（系统没给这个权限），手动贴一下地址。",
+    "app.copy.aria": "复制「%s」的链接",
+    "app.copy.done": "已复制",
+    "app.copy.fail": "复制不了，已经帮你把地址选中了，按 Ctrl+C",
     "app.edit.aria": "改「%s」",
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
@@ -159,6 +162,9 @@ const APP_I18N = {
     "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
     "app.clip.noturl": "What is on the clipboard does not look like an address. Paste it yourself.",
     "app.clip.noread": "Could not read the clipboard (the system did not grant permission). Paste the address yourself.",
+    "app.copy.aria": "Copy the link for %s",
+    "app.copy.done": "Copied",
+    "app.copy.fail": "Could not copy it — the address is selected now, press Ctrl+C",
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this entry",
     "app.layout.tiles": "Tiles",
@@ -782,6 +788,88 @@ const APP_I18N = {
       showBanner(T('app.applyOps.fail', T(what), e.status === 409 ? T('app.opsConflict') : e.message));
       return false;
     }
+  }
+
+  // §8.1「点了没反应的东西不进界面」的第三处处置（另两处是顶栏「＋ 添加」与就地
+  // 编辑把手）：**复制键由这一段造，模板不渲染它**。模板那边留一枚
+  // `<span class="badge warn ext">`，它有双份身份——关掉 JS 时它仍是那一格唯一一句
+  // 能读懂的话（「浏览器不让页面打开这种地址」是真的），有 JS 时就地换成一颗能按的
+  // 键。判据只有一处：地址取同一个 `<code>` 的 textContent，模板与脚本都不再抄一份
+  // URL（⌘K 搜外部条目时读的是同一处）。
+  //
+  // 为什么不用 navigator.clipboard 就完事：那是 **secure context** 才有的 API，而这
+  // 一页在家里就是 http://192.168.x.x:7600（§11 的前提：只在家里，不上公网）——主力
+  // 部署形态下 navigator.clipboard 直接是 undefined。所以退到 execCommand：它不挑
+  // 协议，虽然早已 deprecated 但桌面浏览器都还认。两条都不成时退到「把地址选中」，
+  // 人按一下 Ctrl+C 也就完事——这一格**永远有一个出路**，不留一颗按了没反应的键。
+  async function copyText(text) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* 非安全上下文或被拒：走下面那条 */ }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+    document.body.append(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  // 图标键。`⧉`（U+29C9 两块相叠的方块）是「复制」在纯文本里最通用的一枚字形，
+  // 同一族里的 `✎`（把手）已经在每一张卡上跑了很久——一枚字形能显示的系统，
+  // 另一枚基本也能；万一不显示，它 44×44 的空盒子仍在，而旁边的地址一字不少。
+  const COPY = '\u29C9';
+  for (const badge of document.querySelectorAll('.plain .badge.warn.ext')) {
+    const plain = badge.parentElement;
+    const code = plain?.querySelector('code');
+    const url = (code?.textContent || '').trim();
+    const name = plain?.querySelector('b')?.textContent?.trim() || T('app.edit.fallbackName');
+    if (!url) continue;
+    const tip = badge.getAttribute('title') || '';
+    let timer = 0;
+    // **这一颗与 .pencil 同一张脸**（44×44 的幽灵键，app.css 的 .copybtn），
+    // 不穿 .badge：实拍过一版带字的徽标，77×44 的框比同排的书签名还响——一个
+    //「今天要点」的键不该比「今天要点的东西」更显眼。base.css 那条「span 是状态、
+    // a/button 是动作」也是同一件事：动作键不留警告脸。「这一行点不动」由它没有
+    // 链接形态、下面那行是纯文本来表达。
+    const btn = el('button', {
+      type: 'button', class: 'copybtn', text: COPY,
+      'aria-label': T('app.copy.aria', name), title: tip,
+      on: {
+        click: async (e) => {
+          e.preventDefault();
+          const said = await copyText(url);
+          // 反馈是**换字形**而不是换文字：图标键上没有文字可换，而一颗不吭声的
+          // 图标键等于按了没反应。✓ 是「成了」，! 是「没成，接着按 Ctrl+C」。
+          btn.textContent = said ? '\u2713' : '!';
+          const saidText = said ? T('app.copy.done') : T('app.copy.fail');
+          btn.title = saidText;
+          btn.setAttribute('aria-label', saidText);
+          if (!said) {
+            // 两条路都不通：把地址选中，让 Ctrl+C 立刻有效——比留一颗假装成功的键好。
+            const r = document.createRange();
+            r.selectNodeContents(code);
+            const sel = getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+          }
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            btn.textContent = COPY;
+            btn.title = tip;
+            btn.setAttribute('aria-label', T('app.copy.aria', name));
+          }, 1600);
+        },
+      },
+    });
+    badge.replaceWith(btn);
   }
 
   for (const li of document.querySelectorAll('li[data-item]')) {

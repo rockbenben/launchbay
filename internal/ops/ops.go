@@ -457,7 +457,7 @@ func warnsForItem(it model.Item) []string {
 		w = append(w, fmt.Sprintf("条目 %s 没有 icon，首屏走首字母兜底", it.ID))
 	}
 	if model.ExternalScheme(it.URL) {
-		w = append(w, fmt.Sprintf("条目 %s 的协议浏览器不会从页面跳过去，界面会标「需手动打开」", it.ID))
+		w = append(w, fmt.Sprintf("条目 %s 的协议浏览器不会从页面跳过去，界面标「需手动打开」并给一枚复制键", it.ID))
 	}
 	return w
 }

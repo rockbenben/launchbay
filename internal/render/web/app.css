@@ -67,6 +67,16 @@ li{position:relative}
   background:transparent;border:1px solid transparent;border-radius:8px;
   color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease}
 .card:hover .pencil,.pencil:hover,.pencil:focus-visible{opacity:1;border-color:var(--line);background:var(--card-hi)}
+/* 不可点地址（chrome:// 、file:// …）那一行的复制键。**与 .pencil 同一张脸**：
+   44×44 的幽灵键、--ink2 的字、悬停才画框——它是「这一条有个动作」，不是
+   「这一条有问题」，所以不穿警告橙。跟着 .pencil 一起静息压到 .34 是有意的：
+   一行里有两枚常驻控件时，它们都该退到书签名后面去。
+   字形 14px 而不是跟着 .pencil 的 13px：⧉ 满框比 ✎ 瘦，同尺寸实拍下来比把手还轻，
+   放大一档才配得上那 44×44。 */
+.copybtn{flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;font-size:14px;
+  background:transparent;border:1px solid transparent;border-radius:8px;
+  color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease,color .16s ease}
+.copybtn:hover,.copybtn:focus-visible{opacity:1;color:var(--ink);border-color:var(--line);background:var(--card-hi)}
 /* 分组标题右端那枚布局切换键（⑤ 层，见 app.js 的同名那一支）。
    **它紧跟在分组名后面，不靠右**（2026-10-11 实拍后改）：先前是 margin-left:auto
    推到最右，于是 13px 的分组名与那枚键之间空出整条标题行——读起来像页面级的

@@ -123,7 +123,15 @@
         <span class="plain">
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          <span class="badge warn" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
+          {{/* 不可点的地址（chrome:// 、file:// …）这一格。
+               badge 上的 ext 是**给 app.js 的钩子**，不是样式：那一颗徽标由模板
+               渲染（关掉 JS 时它仍是唯一一句能读懂的话——「浏览器不让页面打开
+               这种地址」是真的），而**能按的复制键由 app.js 就地把它换成**。
+               模板里不渲染那颗按钮，同 §8.1 那条「点了没反应的东西不进界面」
+               与顶栏「＋ 添加」同一处置（app.js 头部同一句纪律）。
+               判据只有一处：地址取同一个 <code> 的 textContent，与 ⌘K 搜外部
+               条目时读的是同一处，模板与脚本都不再抄一份 URL。 */}}
+          <span class="badge warn ext" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
           <code>{{.URL}}</code>
           {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>

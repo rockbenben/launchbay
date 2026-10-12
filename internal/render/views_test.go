@@ -384,6 +384,12 @@ func TestNonHTTPSchemeMarked(t *testing.T) {
 	if strings.Contains(body, `href="chrome://`) {
 		t.Fatalf("不许给非 http 协议渲染 href:\n%s", body)
 	}
+	// 复制键由 app.js **就地把这枚徽标换成**（§8.1：点了没反应的东西不进界面），
+	// 于是模板这一侧只钉钩子在：它被删掉时 app.js 那一段静默失效、这一格退回成一句
+	// 提醒，而上面那条断言照样全绿。
+	if !strings.Contains(body, `class="badge warn ext"`) {
+		t.Fatalf("外部地址那枚徽标要带 ext 钩子类（app.js 靠它换成复制键）:\n%s", body)
+	}
 }
 
 // 简报缺陷（已修）：断言原文 "onerror=alert" 在任何转义结果里都原样
