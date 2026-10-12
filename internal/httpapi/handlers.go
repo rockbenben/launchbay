@@ -98,6 +98,10 @@ var pinNotices = map[string]string{
 	// 引导建档那一条（setup.go）：**档案已经建成了**，只是语言没写进去。
 	// 它必须说清这一半，否则人会以为什么都没建成，重新建一遍却撞上「窗口已关」。
 	"langfail": "notice.langfail",
+	// 管理 key 不对（adminlogin.go，2026-10-12）。它与 PIN 不对是**同一种拒绝**
+	// 在另一个层次上的形状，所以答一句同样直白的话；不同点只在于 key 不属于
+	// 任何档案——没有"密码被人改了"那种需要澄清的可能。
+	"badkey": "notice.badkey",
 }
 
 // noticeOf 把 ?err= 的键翻成这一页该说的话。**不在表里的键回空串**——
@@ -323,7 +327,8 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			s.handleError(w, err)
 			return
 		}
-		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice}
+		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice,
+			HasAdmin: s.hasAdminCookie(r)}
 		switch {
 		case n == 0:
 			opts.Setup, opts.Heading = true, s.t("picker.heading.none")
@@ -355,7 +360,8 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	// 删了之后，它们永远不会有人传。
 	req := render.PageRequest{
 		ID: sess.Active, Query: r.URL.Query().Get("q"),
-		Add: keepAdd, AddTitle: r.URL.Query().Get("t")}
+		Add: keepAdd, AddTitle: r.URL.Query().Get("t"),
+		HasAdmin: s.hasAdminCookie(r)}
 	page, err := s.deps.Render.ProfilePage(req)
 	if errors.Is(err, store.ErrCorrupt) {
 		reason, _ := s.deps.Store.BrokenReason(sess.Active)
@@ -428,7 +434,9 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 type createProfileResponse struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
-	Admin bool   `json:"admin"`
+	// **没有 admin 字段**（2026-10-12）：档案不再有管理员属性，回答"建出来的是不是
+	// 管理员"这个问题本身就没有意义了。响应少一格是契约变更，openapi.json 与
+	// AGENTS.md 已同步。
 }
 
 // createInput 是建档的全部输入。两条表单通路（引导页、管理页）不问 id，但它们
@@ -440,7 +448,6 @@ type createInput struct {
 	ID        string
 	Title     string
 	PIN       string
-	Admin     bool
 	DeriveID  bool
 	FirstOnly bool
 }
@@ -517,7 +524,7 @@ func (s *Server) createProfile(in createInput) createResult {
 	// 也不应该再包一层 WithProfileLock。
 	// 建档不带任何预置内容：每个档案从零开始，形状一模一样（2026-10-10，
 	// 模板机制整条拆掉之后）。
-	pi := store.NewProfileInput{ID: id, Title: in.Title, PinHash: hash, Admin: in.Admin}
+	pi := store.NewProfileInput{ID: id, Title: in.Title, PinHash: hash}
 	var p *model.Profile
 	var err error
 	if in.FirstOnly {
@@ -553,7 +560,6 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 		PIN   string `json:"pin"`
-		Admin bool   `json:"admin"`
 	}
 	if err := decodeBody(r, &in); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
@@ -570,8 +576,7 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		s.writeAuthFailure(w, r)
 		return
 	}
-	res := s.createProfile(createInput{ID: in.ID, Title: in.Title, PIN: in.PIN,
-		Admin: in.Admin})
+	res := s.createProfile(createInput{ID: in.ID, Title: in.Title, PIN: in.PIN})
 	switch {
 	case len(res.FieldErrs) > 0:
 		writeFieldErrors(w, http.StatusUnprocessableEntity, res.FieldErrs)
@@ -583,7 +588,7 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		// 201 只在成功这一支由这一次 WriteHeader 决定（writeJSON 就是
 		// 它的唯一出路），"删掉状态码"这种回归仍会当场红。
 		writeJSON(w, http.StatusCreated, createProfileResponse{
-			ID: res.Profile.ID, Title: res.Profile.Title, Admin: res.Profile.Admin})
+			ID: res.Profile.ID, Title: res.Profile.Title})
 	}
 }
 

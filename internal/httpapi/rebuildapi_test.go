@@ -99,20 +99,22 @@ func TestRebuild_坏档修得回来且书签快照逐字节不变(t *testing.T) 
 	marksBefore := digestTree(t, s.ProfileDir("kid"))["bookmarks.json"]
 
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok)
+		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("坏档该重建成功，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 	var got struct {
 		ID    string `json:"id"`
 		Title string `json:"title"`
-		Admin bool   `json:"admin"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != "kid" || got.Title != "小满" || got.Admin {
-		t.Errorf("200 的体该是重建后的档案 {kid 小满 false}，得到 %s", rec.Body.String())
+	if got.ID != "kid" || got.Title != "小满" {
+		t.Errorf("200 的体该是重建后的档案 {kid 小满}，得到 %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"admin"`) {
+		t.Errorf("重建的响应体不该再有 admin 那一格（档案已不是管理员）: %s", rec.Body.String())
 	}
 
 	// 书签：一个字节都没动
@@ -127,7 +129,7 @@ func TestRebuild_坏档修得回来且书签快照逐字节不变(t *testing.T) 
 	if err != nil {
 		t.Fatalf("重建之后 profile.json 该读得动：%v", err)
 	}
-	if p.Title != "小满" || p.Admin {
+	if p.Title != "小满" {
 		t.Errorf("重建出来的档案形状不对：%+v", p)
 	}
 	// 坏档登记消失：/status 不再列它。§13 钉的是"响应说成功 = 进门页那张卡真的回来了"
@@ -143,7 +145,7 @@ func TestRebuild_读得动的档案409且没有发生任何写(t *testing.T) {
 	before := digestTree(t, s.ProfileDir("kid"))
 
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"改名试试","pin":"9999","admin":true}`, "", adminTok)
+		`{"profile":"kid","title":"改名试试","pin":"9999"}`, "", adminTok)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("读得动的档案该 409，得到 %d：%s", rec.Code, rec.Body.String())
 	}
@@ -157,7 +159,7 @@ func TestRebuild_读得动的档案409且没有发生任何写(t *testing.T) {
 func TestRebuild_目录不存在时404且不建目录(t *testing.T) {
 	s, h := setupBatch(t)
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"ghost","title":"幽灵","pin":"4321","admin":false}`, "", adminTok)
+		`{"profile":"ghost","title":"幽灵","pin":"4321"}`, "", adminTok)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("目录不在该 404，得到 %d：%s", rec.Code, rec.Body.String())
 	}
@@ -166,25 +168,26 @@ func TestRebuild_目录不存在时404且不建目录(t *testing.T) {
 	}
 }
 
-// admin 必须**显式**给出：省略是 422，不等于 false。
+// 请求体里那个 `admin` 键**现在整个不存在了**（2026-10-12），于是这一格翻面：
+// 送它来是 422 且点名是它，而省掉它就是正常请求。
 //
-// 这一条钉的是 2026-10-09 那条计划里的形状——壳不许替调用方猜。省略与显式
-// false 在落盘结果上一模一样，可对调用方是两件事（"我忘了这一格"与"我就要一个
-// 非管理员档案"），而猜错的后果是静默降级一个人的档案权限。
-func TestRebuild_省略admin是422(t *testing.T) {
+// 翻面而不是删掉，是因为两种口径要分清楚：盘上的 profile.json 里那个 `admin`
+// 必须被**悄悄放过**（否则升级要用户挨个 rebuild），而请求体里送来一个不存在的
+// 字段是一个脚本的误解——422 点名比沉默忽略诚实。
+func TestRebuild_送admin来是422(t *testing.T) {
 	_, h := setupBrokenKid(t)
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok)
+		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok)
 	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("省略 admin 该 422，得到 %d：%s", rec.Code, rec.Body.String())
+		t.Fatalf("带 admin 的 body 该 422，得到 %d：%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"admin"`) {
+	if !fieldErrorsName(rec, "admin") {
 		t.Errorf("422 该点名 admin 那一格，得到：%s", rec.Body.String())
 	}
-	// 显式 false 是合法的，别把这条闸写成"admin 必填且为 true"
+	// 正对照：不带它就是一次正常的重建。
 	if rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok); rec.Code != http.StatusOK {
-		t.Errorf("显式 admin:false 该 200，得到 %d：%s", rec.Code, rec.Body.String())
+		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok); rec.Code != http.StatusOK {
+		t.Errorf("不带 admin 该 200，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -192,7 +195,7 @@ func TestRebuild_省略admin是422(t *testing.T) {
 // 所以它与 profiles/pin 同族（credAdmin），而 `*` 令牌能过。
 func TestRebuild_凭证边界(t *testing.T) {
 	_, h := setupBrokenKid(t)
-	body := `{"profile":"kid","title":"小满","pin":"5678","admin":false}`
+	body := `{"profile":"kid","title":"小满","pin":"5678"}`
 	if rec := post(h, "/api/v1/profiles/rebuild", body, "", kidTok); rec.Code != http.StatusForbidden {
 		t.Errorf("档案作用域令牌打它是 403，得到 %d：%s", rec.Code, rec.Body.String())
 	}
@@ -209,7 +212,7 @@ func TestRebuild_凭证边界(t *testing.T) {
 func TestRebuild_历史追一行profile_rebuild(t *testing.T) {
 	s, h := setupBrokenKid(t)
 	if rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok); rec.Code != http.StatusOK {
+		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok); rec.Code != http.StatusOK {
 		t.Fatalf("重建该成功，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 	entries, err := s.ReadHistory("kid", 0)
@@ -245,7 +248,7 @@ func TestRebuild_半件事目录可以重建(t *testing.T) {
 	}
 	before := digestTree(t, s.ProfileDir("mom"))
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"mom","title":"妈妈","pin":"4321","admin":true}`, "", adminTok)
+		`{"profile":"mom","title":"妈妈","pin":"4321"}`, "", adminTok)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("半件事目录该重建成功，得到 %d：%s", rec.Code, rec.Body.String())
 	}
@@ -265,9 +268,9 @@ func TestRebuild_半件事目录可以重建(t *testing.T) {
 func TestRebuild_字段级错误逐条点名(t *testing.T) {
 	_, h := setupBrokenKid(t)
 	for _, tc := range []struct{ name, body, field string }{
-		{"id 不是 slug", `{"profile":"妈妈","title":"x","pin":"1234","admin":false}`, "profile"},
-		{"标题为空", `{"profile":"kid","title":"  ","pin":"1234","admin":false}`, "title"},
-		{"PIN 三位", `{"profile":"kid","title":"小满","pin":"123","admin":false}`, "pin"},
+		{"id 不是 slug", `{"profile":"妈妈","title":"x","pin":"1234"}`, "profile"},
+		{"标题为空", `{"profile":"kid","title":"  ","pin":"1234"}`, "title"},
+		{"PIN 三位", `{"profile":"kid","title":"小满","pin":"123"}`, "pin"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := post(h, "/api/v1/profiles/rebuild", tc.body, "", adminTok)
@@ -286,7 +289,7 @@ func TestRebuild_字段级错误逐条点名(t *testing.T) {
 func TestRebuild_未知字段拒整条(t *testing.T) {
 	_, h := setupBrokenKid(t)
 	rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false,"theme":"dark"}`, "", adminTok)
+		`{"profile":"kid","title":"小满","pin":"5678","theme":"dark"}`, "", adminTok)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("带未知字段该 422，得到 %d：%s", rec.Code, rec.Body.String())
 	}
@@ -306,7 +309,7 @@ func TestRebuild_坏档时兄弟端点仍无出路(t *testing.T) {
 	}
 	// 而重建这一条走得通——这三行合起来才是"坏档不再死锁"的完整读数。
 	if rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok); rec.Code != http.StatusOK {
+		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok); rec.Code != http.StatusOK {
 		t.Errorf("重建该 200，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 }
@@ -316,7 +319,7 @@ func TestRebuild_坏档时兄弟端点仍无出路(t *testing.T) {
 func TestRebuild_新PIN能进门(t *testing.T) {
 	s, h := setupBrokenKid(t)
 	if rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"4321","admin":false}`, "", adminTok); rec.Code != http.StatusOK {
+		`{"profile":"kid","title":"小满","pin":"4321"}`, "", adminTok); rec.Code != http.StatusOK {
 		t.Fatalf("重建该成功，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 	p, err := s.LoadProfile("kid")
@@ -346,7 +349,7 @@ func TestRebuild_409那一次没有留下任何写(t *testing.T) {
 	before := digestTree(t, s.ProfileDir("dad"))
 	for i := 0; i < 3; i++ {
 		rec := post(h, "/api/v1/profiles/rebuild",
-			`{"profile":"dad","title":"爸爸","pin":"1111","admin":true}`, "", adminTok)
+			`{"profile":"dad","title":"爸爸","pin":"1111"}`, "", adminTok)
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("第 %d 次该 409，得到 %d", i, rec.Code)
 		}
@@ -364,7 +367,7 @@ func TestRebuild_409那一次没有留下任何写(t *testing.T) {
 func TestRebuild_重建出的档案默认theme与layout合法(t *testing.T) {
 	s, h := setupBrokenKid(t)
 	if rec := post(h, "/api/v1/profiles/rebuild",
-		`{"profile":"kid","title":"小满","pin":"5678","admin":false}`, "", adminTok); rec.Code != http.StatusOK {
+		`{"profile":"kid","title":"小满","pin":"5678"}`, "", adminTok); rec.Code != http.StatusOK {
 		t.Fatalf("重建该成功，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 	p, err := s.LoadProfile("kid")

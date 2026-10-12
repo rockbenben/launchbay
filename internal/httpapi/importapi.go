@@ -315,15 +315,17 @@ type importApplyResponse struct {
 // 服务端拿它喂的仍然是同一个 bookimport.Convert——扩展与网页在服务端看来
 // 是同一件事。
 func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
+	// 管理员令牌（LAUNCHBAY_ADMIN_TOKEN）根本不在档案作用域令牌列表里，所以
+	// 它落到下面那次 Authorize 上只会得到"认不出来"的 401——那是错的答案：
+	// 它不是坏了，是**层级不对**。所以这里单独拦一句，给出 403 与出路。
+	if s.deps.AdminToken.Matches(bearer(r)) {
+		writeJSON(w, http.StatusForbidden, errorResponse{
+			Code: 403, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
+		return
+	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "令牌认不出来"})
-		return
-	}
-	if sc.IsAdmin() {
-		// 与 2026-10-10 的管理员边界同一条：`*` 只管账号，写书签要用档案作用域令牌。
-		writeJSON(w, http.StatusForbidden, errorResponse{
-			Code: 403, Detail: "管理员令牌（*）只管账号；写这一份的书签要用作用域正好是它的令牌"})
 		return
 	}
 	if _, _, ok := s.require(r, credScoped, sc.Profile); !ok {

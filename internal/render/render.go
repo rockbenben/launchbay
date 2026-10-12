@@ -40,6 +40,11 @@ type cacheKey struct {
 	// 放在键里而不是"改语言时遍历清一遍缓存"：清缓存是**要记得做**的事，忘了就是一个
 	// "改了不生效、得重启容器"的现象；进键是**不用记得**的事，判据只有一份。
 	lang i18n.Lang
+	// hasAdmin 是"这次请求有没有带着一把真的管理权"（2026-10-12）。它与 lang
+	// 同理必须进键：顶栏那枚「管理」徽标**由它决定画不画**，而它不推进 rev、不改
+	// mtime、不改 profile.json——同一个人在同一个浏览器里先输了 key、又清了 key，
+	// 键却必须变，否则第二个人会拿到带着管理入口的缓存页面。
+	hasAdmin bool
 }
 
 // PageRequest 是渲染一页所需的全部输入。用 struct 而不是三个 string 参数：
@@ -55,6 +60,9 @@ type PageRequest struct {
 	// 下一个人打开首页看到的是别人 bookmarklet 带过来的 URL。
 	Add      string
 	AddTitle string
+	// HasAdmin 只决定顶栏那枚「管理」徽标画不画。判据由调用方（httpapi）算——
+	// 本次请求带的是不是一把真的 lb_admin。进缓存键的理由见 cacheKey 那条。
+	HasAdmin bool
 	// 这里曾经还有两个字段，都随 2026-10-10 的管理员边界改判一起作废了：
 	// Home（"是不是代管态"，曾是缓存键的一维与横幅的判据）与 Others
 	// （徽标下拉里"别人"那几行）。代管态整条下线之后，`sessionLegal` 只认
@@ -113,7 +121,8 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	// 不等于不发 ETag——下面算的就是内容哈希，浏览器 304 那一路一分不损失。
 	lang := r.s.Language()
 	key := cacheKey{profile: req.ID, rev: snap.Rev,
-		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation(), lang: lang}
+		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation(), lang: lang,
+		hasAdmin: req.HasAdmin}
 	if req.Query == "" && req.Add == "" {
 		r.mu.Lock()
 		if p, ok := r.cache[key]; ok {
@@ -135,7 +144,7 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	}
 	hasSnaps := err != nil || len(snaps) > 0
 
-	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps, i18n.Load(lang))
+	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps, req.HasAdmin, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -178,6 +187,9 @@ type PickerOptions struct {
 	Heading string
 	// Setup 为真时这一页画引导建档表单，而不是档案卡列表。
 	Setup bool
+	// HasAdmin 为真时页面顶端给一个进管理页的口子（2026-10-12）。判据在 httpapi
+	// （本次请求带的是不是一把真的管理权），渲染器不判断。
+	HasAdmin bool
 }
 
 func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
@@ -222,7 +234,7 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	}
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
-		Notice: opts.Notice}
+		Notice: opts.Notice, HasAdmin: opts.HasAdmin}
 	body, err := r.tmpl.picker(v, i18n.Load(r.s.Language()))
 	if err != nil {
 		return Page{}, err
@@ -246,9 +258,11 @@ func (r *Renderer) BrokenPage(id, reason string) (Page, error) {
 // struct 带的是 API 的 JSON 标签，模板不该依赖 API 契约（契约一改，页面就跟着
 // 漂，而这两件事本不必同时发生）。
 type AdminRow struct {
-	ID        string
-	Title     string
-	Admin     bool
+	ID    string
+	Title string
+	// **没有 Admin**（2026-10-12）：档案不再有管理员属性，表格里也就没有那一列徽标。
+	// "谁能管这台机器"是**这一页的访问权**，不是**那一行档案的属性**——把它印在
+	// 每一行上只会让人以为每个档案各有各的管理权。
 	Disabled  bool // 停用：数据不动、进不来。徽标与按钮的措辞都由它翻。
 	Rev       int64
 	Modified  string // RFC3339 UTC；空串 = 读不出来（坏档），不编造
@@ -407,6 +421,19 @@ func (r *Renderer) AdminActionPage(v AdminAction) (Page, error) {
 		Profile: AdminSentinel,
 		NoStore: true,
 	}, nil
+}
+
+// AdminLoginPage 是 `GET /admin` 在**没有管理权**时渲染的那一页（2026-10-12）。
+//
+// 它与 AdminPage 共用 AdminSentinel：这一页与管理页同属"管理那一族"，而 ⑥ 的 SW
+// 对 `-admin` 一律不存（见那个常量的注释）——登录页里没有敏感内容，但让同一族
+// 共用一个哨兵名，少一处将来要记住的例外。
+func (r *Renderer) AdminLoginPage(notice string) (Page, error) {
+	body, err := r.tmpl.adminLogin(notice, i18n.Load(r.s.Language()))
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Body: body, Profile: AdminSentinel, NoStore: true}, nil
 }
 
 // ETag 带档案名：内容字节相同时也必须不同名，否则浏览器与 SW

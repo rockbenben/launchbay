@@ -19,11 +19,14 @@ import (
 //
 // 页面上没有条目内容（只有数量与时间，spec §8.8），页面 no-store
 // （AdminPage 的 NoStore——跨档案页面进缓存等于把全家庭名单留给同一台电脑的
-// 下一个人）。坏档案那一行照占一行（聚合只有 statusRows 一份），但**不给
-// 「进入编辑」按钮**——/switch 对读不了的档案不切，死按钮不进界面。
+// 下一个人）。坏档案那一行照占一行（聚合只有 statusRows 一份）。
+//
+// **没有管理权时不是 303 回选择页，而是渲染登录页**（2026-10-12）：管理员不再
+// 是某个档案，于是"进管理页"需要那把 key，而升级完还没有人输过它——沿用旧的
+// 303 形状会让整个账号层面锁死在一个没有人能开的页面上。
 func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := s.require(r, credAdmin, ""); !ok {
-		redirectPicker(w)
+	if !s.hasAdminCookie(r) {
+		s.handleAdminLoginPage(w, r)
 		return
 	}
 	rows, _, _, err := s.statusRows()
@@ -41,7 +44,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		isActive := row.ID == active
 		views = append(views, render.AdminRow{
-			ID: row.ID, Title: row.Title, Admin: row.Admin, Disabled: row.Disabled,
+			ID: row.ID, Title: row.Title, Disabled: row.Disabled,
 			Rev:      row.Rev,
 			Modified: row.Modified, Items: row.Items, Snapshots: row.Snapshots,
 			Broken:    row.Broken,
@@ -66,10 +69,11 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 
 // handleAdminCreate 是管理页的建档表单。判据一条都不新写：权限走现成的
 // require(credAdmin, "")，校验/哈希/落盘走 createProfile（Task 3 抽的唯一落点）。
-// 与引导那条（/setup）共用 DeriveID（两张表单都不问 id），差别在三处：要管理员会话、
-// admin 由勾选决定、撞名要说得出话（引导那条撞车等于"窗口已关"，回 / 不带键）。
+// 与引导那条（/setup）共用 DeriveID（两张表单都不问 id），差别只有两处：撞名要说得出话
+// （引导那条撞车等于"窗口已关"，回 / 不带键），以及**没有 admin 那一格**——
+// 档案不再有管理员属性（2026-10-12）。
 //
-// 浏览器通路不认令牌（/prefs、/switch 同族纪律）：credAdmin 本来会放行 `*` 令牌，
+// 浏览器通路不认令牌（/prefs、/switch 同族纪律）：credAdmin 本来会放行管理员令牌，
 // 让令牌走这条路等于同一个动作两个入口、鉴权各写一半；机器建档有 API 那条。
 func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 	if bearer(r) != "" {
@@ -101,9 +105,9 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 	res := s.createProfile(createInput{
 		Title: r.FormValue("title"),
 		PIN:   r.FormValue("pin"),
-		// 勾选了才是管理员。值 "1" 是 admin.tmpl 那张表单写死的接件：模板改成别的值
-		// 或删掉 value（浏览器会发 "on"），Task 5 的破坏 #6 会红在这里。
-		Admin:    r.FormValue("admin") == "1",
+		// **没有 admin 那一格**（2026-10-12）：建出来的就是一个人的书签页。
+		// 管理页也不再有那个勾选框——勾它现在已经没有任何后果，留着会让人
+		// 以为"建成管理员"是一件事，而它已经不存在了。
 		DeriveID: true,
 	})
 	switch {

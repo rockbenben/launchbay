@@ -313,8 +313,10 @@ func TestBudget_管理页25档也在同一线内(t *testing.T) {
 	r := New(s, ix, fc)
 	rows := make([]AdminRow, 0, 25)
 	for i := 0; i < 25; i++ {
+		// **不带 Admin**（2026-10-12）：`AdminRow.Admin` 删掉了，表格里也就没有
+		// 那一列徽标——"谁能管这台机器"是这一页的访问权，不是每一行档案的属性。
 		rows = append(rows, AdminRow{
-			ID: "dad", Title: fmt.Sprintf("档案 %02d", i), Admin: i == 0, Rev: int64(i),
+			ID: "dad", Title: fmt.Sprintf("档案 %02d", i), Rev: int64(i),
 			Modified: "2026-10-08T00:00:00Z", Items: 25, Snapshots: 3,
 		})
 	}

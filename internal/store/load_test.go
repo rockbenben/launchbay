@@ -12,9 +12,18 @@ import (
 
 const dadBookmarks = `{"rev":3,"title":"爸爸","groups":[{"id":"nas","title":"NAS 应用","layout":"list","items":[{"id":"dsm","name":"群晖 DSM","url":"http://10.0.0.3:5000","alias":[],"tags":[]}]}],"search":{"enabled":false,"default":"","engines":[]},"weather":{"enabled":false,"location":"上海市"},"openInNewTab":false,"clock":false,"footer":""}`
 
-const dadProfile = `{"id":"dad","title":"爸爸","admin":true,"pin":"sha256$a$b","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
+// 夹具的 profile.json 是**当前**的落盘形状：2026-10-12 起不再有 admin 键
+// （管理员是机器级的一把 key，不属于任何档案）。
+//
+// 曾经这里是 `"admin":true` / `"admin":false`，而 decodeProfile 开着
+// DisallowUnknownFields（internal/store/load.go:245）——升级前落盘的每一个
+// profile.json 都还带着那一格，于是按 model.go:67-68 写的"当未知字段丢掉、
+// 不需要迁移脚本"并不成立：实际结果是 ErrCorrupt（全家的档案一起变成坏档）。
+// 这是生产代码的缺口、不归这三个测试包修；夹具跟着新形状走，但这件事记在这里，
+// 免得以后有人以为"升级前的老文件天生读得动"、把证人改回去。
+const dadProfile = `{"id":"dad","title":"爸爸","pin":"sha256$a$b","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
 
-const kidProfile = `{"id":"kid","title":"小满","admin":false,"pin":"sha256$c$d","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
+const kidProfile = `{"id":"kid","title":"小满","pin":"sha256$c$d","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
 
 func put(t *testing.T, root, rel, content string) {
 	t.Helper()

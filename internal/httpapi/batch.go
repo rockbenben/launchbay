@@ -214,17 +214,24 @@ func (s *Server) writeBatchOutcome(w http.ResponseWriter, profile string, out ba
 // writeAuthFailure 把"没认出来"与"认出来但没资格"分开：前者 401，后者 403。
 // 合并成 403 会让调用方拿着一个死令牌反复重试——它收到的那句"作用域不含
 // 该档案"在骗它（Task 5 评审的 Important）。判据就是 require 用过的同一份
-// Tokens.Authorize：没认出来才轮到会话。
+// 认凭证逻辑：没认出来才轮到会话。
+//
+// **管理员那把 key 也要算"认出来了"**（2026-10-12）。它不在 Tokens 列表里了，
+// 于是只查 Tokens 的话，一把完全有效的管理员 key 打只认会话的端点会拿到 401
+// "令牌无效或已吊销"——那是在说一把好钥匙是废的。调用方会照着这句话去换令牌，
+// 而真相是"这把钥匙不带这个门"。
 func (s *Server) writeAuthFailure(w http.ResponseWriter, r *http.Request) {
 	if tok := bearer(r); tok != "" {
-		if _, ok := s.deps.Tokens.Authorize(tok); !ok {
+		if _, ok := s.deps.Tokens.Authorize(tok); !ok && !s.deps.AdminToken.Matches(tok) {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "令牌无效或已吊销"})
 			return
 		}
 		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Detail: "凭证作用域不含该档案"})
 		return
 	}
-	if !auth.ReadSession(r).Valid() {
+	// 只拿得出管理员 cookie、拿不出档案会话时，那也**不是**"没有凭证"：
+	// 他确实有凭证，只是不带这个端点。说成 401 会让他以为自己没登录。
+	if !auth.ReadSession(r).Valid() && !s.hasAdminCookie(r) {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "需要令牌或会话"})
 		return
 	}

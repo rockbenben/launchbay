@@ -13,8 +13,9 @@
        文案由 httpapi 的白名单给，这里只负责说。 */}}
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
   {{if .Setup}}
-    {{/* 引导建档（设计 §3）：只有名字与口令两格。不问 id（由 store 按名字派生），
-         也不给"要不要当管理员"的选项——建出来的这个人就是这台盒子的主人，
+    {{/* 引导建档（设计 §3）：只有名字与口令两格。不问 id（由 store 按名字派生）。
+         也不给"要不要当管理员"的选项——**档案本来就不是管理员**（2026-10-12），
+         管这台机器是 docker-compose.yml 里那把 LAUNCHBAY_ADMIN_TOKEN 的事。
          判据在 httpapi 与 store，不在这里。成功之后照样要输 PIN 才进门。 */}}
     <form method="post" action="/setup" class="pick setup">
       <label>{{.T "picker.setup.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
@@ -37,6 +38,10 @@
       <p class="hint">{{.T "picker.setup.hint"}}</p>
     </form>
   {{else}}
+    {{/* 手里有管理权时给一个进管理页的口子（2026-10-12）。管理员不再挂在任何一份
+         档案上，所以这一页**永远**是选择页——哪怕他此刻没有任何 lb_profile 会话。
+         那一格只在真的带着 lb_admin 时才画：没管理权的人看见它只会去点一个 303。 */}}
+    {{if .HasAdmin}}<p class="plain"><a class="badge" href="/admin">{{.T "picker.adminLink"}}</a></p>{{end}}
     {{if .Blocked}}
       {{/* 死路①的对策：有档案但一份都进不去时，这一页不许只剩一个空的列表。
            主句按单复数中性写（坏一份时说"这几份"就是说谎），坏的是哪几份写在下面那行——

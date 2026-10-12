@@ -287,7 +287,7 @@ func TestCreateProfile首档只成一次(t *testing.T) {
 	s := store.New(t.TempDir())
 	srv := New(newDeps(t, s, nil))
 	ok := srv.createProfile(createInput{DeriveID: true, Title: "Dad", PIN: "9999",
-		FirstOnly: true, Admin: true})
+		FirstOnly: true})
 	if ok.Status != 0 || ok.Profile == nil {
 		t.Fatalf("空盘上的第一档应当建成，得到 status=%d detail=%q", ok.Status, ok.Detail)
 	}

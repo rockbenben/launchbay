@@ -8,6 +8,10 @@ import (
 
 const (
 	CookieProfile = "lb_profile"
+	// CookieAdmin 装的是**派生值**（HMAC，见 AdminToken.DeriveCookie），不是
+	// LAUNCHBAY_ADMIN_TOKEN 本身。浏览器那边的管理员身份与档案会话是**两件事**：
+	// 管理员可能同时登着自己的档案在用书签，也可能只拿着管理权没登任何档案。
+	CookieAdmin = "lb_admin"
 	// CookieHome 是**升级前**那条 cookie 的名字。代管态 2026-10-10 整体下线，
 	// 服务端从此不再发它；它留在代码里只有一个用途——认出"升级前发出去的代管
 	// cookie"并判它非法（见 Session.Valid）。
@@ -60,6 +64,28 @@ func cookieOf(r *http.Request, name string) string {
 		return ""
 	}
 	return c.Value
+}
+
+// ReadAdminCookie 取管理员 cookie 的**原始值**（派生值），合法性由
+// AdminToken.MatchesCookie 判——判据只有那一份，这里不重复"看起来像不像"。
+func ReadAdminCookie(r *http.Request) string {
+	c, err := r.Cookie(CookieAdmin)
+	if err != nil {
+		return ""
+	}
+	return c.Value
+}
+
+// WriteAdminCookie 存派生值。**绝不发原始 key**：cookie 会进 devtools、
+// 进浏览器导出、进同步，而派生值即使泄露也只等于一把管理员 key——与原始
+// key 泄露的后果一样，但至少原始那句不会被复制出去。
+func WriteAdminCookie(w http.ResponseWriter, derived string) {
+	setCookie(w, CookieAdmin, derived, SessionCookieMaxAge)
+}
+
+// ClearAdminCookie 登出管理身份。
+func ClearAdminCookie(w http.ResponseWriter) {
+	setCookie(w, CookieAdmin, "", -1)
 }
 
 // WriteSession 发会话 cookie：**只有一条**。

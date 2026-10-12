@@ -53,10 +53,14 @@ func main() {
 	h := httpapi.New(httpapi.Dependencies{
 		Store:  s,
 		Tokens: cfg.Tokens,
-		Render: render.New(s, ix, fc),
-		Icons:  ix,
-		Fetch:  icons.NewFetcher(),
-		Cache:  fc,
+		// AdminToken 与 Tokens 是两个字段（2026-10-12）。少写这一行不会编译失败、
+		// 测试也不会红（测试有自己那份 newDeps），只会在真机上让每一把管理员 key
+		// 都变成 401——所以这里逐个列出，与注释里那句"新加依赖字段"的教训对着看。
+		AdminToken: cfg.AdminToken,
+		Render:     render.New(s, ix, fc),
+		Icons:      ix,
+		Fetch:      icons.NewFetcher(),
+		Cache:      fc,
 	}).Handler()
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

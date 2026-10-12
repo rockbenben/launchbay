@@ -13,7 +13,7 @@ import (
 // nil 等于用 panic 当测试失败信号。装配走 newDeps 这唯一入口。
 func testDeps(t *testing.T) Dependencies {
 	t.Helper()
-	scopes, err := auth.ParseScopes("admin:tok:*")
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad")
 	if err != nil {
 		t.Fatal(err)
 	}

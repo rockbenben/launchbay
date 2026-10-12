@@ -56,22 +56,24 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 	sess := auth.ReadSession(r)
 	target := sess.Active
 	if tok := bearer(r); tok != "" {
+		if s.deps.AdminToken.Matches(tok) {
+			// 点击计数是**内容**：它写进某个档案的 clicks。管理员令牌只管账号，
+			// 这里必须直说而不是让它落到下面的 require 去拿一个含混的 403。
+			writeJSON(w, http.StatusForbidden, errorResponse{
+				Code: 403, Detail: "管理员令牌只管账号；上报点击要用作用域正好是那个档案的令牌"})
+			return
+		}
 		if sc, ok := s.deps.Tokens.Authorize(tok); ok {
 			claimed := strings.TrimSpace(r.URL.Query().Get("profile"))
 			if claimed != "" && !model.ValidSlug(claimed) {
 				writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "profile 不是 ASCII slug"})
 				return
 			}
-			switch {
-			case sc.IsAdmin():
-				if claimed == "" {
-					writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "管理员令牌要带 ?profile=<id>"})
-					return
-				}
+			// 申报了就是它，没申报就是这枚令牌自己的作用域。申报成别的档案时
+			// 由 require(credScoped) 收口——它只放行 sc.Allows 的那一个。
+			if claimed != "" {
 				target = claimed
-			case claimed != "":
-				target = claimed
-			default:
+			} else {
 				target = sc.Profile
 			}
 		}

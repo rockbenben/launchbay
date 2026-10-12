@@ -30,8 +30,8 @@
     <button type="submit" title="{{.T "profile.theme.title"}}">{{if eq .Profile.Theme "auto"}}{{.T "profile.theme.auto"}}{{else if eq .Profile.Theme "dark"}}{{.T "profile.theme.dark"}}{{else}}{{.T "profile.theme.light"}}{{end}}</button>
   </form>
   <nav aria-label="{{.T "profile.nav.aria"}}">
-    {{/* /admin 在 Task 5 落地了：路由真的存在，这枚徽章才有资格发链接
-         （最终整枝评审的死链纪律）。 */}}
+    {{/* /admin 的路由真的存在（而且现在没管理权时会渲染登录页而不是死链），
+         这枚徽章才有资格发链接。判据那一格由 httpapi 算，见上面的注释。 */}}
     {{/* 档案徽标：**点它回选择页换人**。
 
          2026-10-10 改判：它原来是一个 `<details>` 下拉，列着"别人"并让他们
@@ -53,7 +53,10 @@
       <input type="hidden" name="to" value="picker">
       <button type="submit" class="badge" title="{{.T "profile.switch.title"}}">{{.T "profile.switch"}}</button>
     </form>
-    {{if .Profile.Admin}}<a class="badge" href="/admin">{{.T "profile.admin"}}</a>{{end}}
+    {{/* 管理入口（2026-10-12）：判据从「这个档案是不是管理员」换成「这次请求是不是
+         带着一把真的管理权」（lb_admin）。于是管理员可以**一边用自己的档案看书签、
+         一边仍带着管理权**，两者不再是同一个身份。 */}}
+    {{if .HasAdmin}}<a class="badge" href="/admin">{{.T "profile.admin"}}</a>{{end}}
     {{/* 回退入口：一条零 JS 链接（GET /revert），不需要 JS 也不需要令牌。
          它是"改坏了能退回去"这条承诺在页面上的**唯一**入口——revert 此前只有
          API 与命令行两条通路，页面上一个按钮都没有，而人点不到的东西不算承诺。

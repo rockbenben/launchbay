@@ -23,6 +23,20 @@ func testIndex() *icons.Index {
 	return loadedIX
 }
 
+// 管理员 key 的夹具值。2026-10-12 起它**不在令牌列表里**——那把 key 由
+// LAUNCHBAY_ADMIN_TOKEN 单独装着，档案作用域的令牌列表里一条管理员都没有。
+// 把它放在一个常量里是为了让"测试里凡是当管理员用的地方"一眼能认出同一把钥匙。
+const testAdminKey = "tok-admin"
+
+func testAdminToken(t *testing.T) auth.AdminToken {
+	t.Helper()
+	at, err := auth.ParseAdminToken(testAdminKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return at
+}
+
 // newDeps 是 httpapi 测试的唯一装配点。评审教训：装配散落时"新加一个依赖
 // 字段"会变成逐个测试红的追查，而这里只需要改一行。
 //
@@ -38,7 +52,8 @@ func newDeps(t *testing.T, s *store.Store, sc auth.Scopes) Dependencies {
 	}
 	// Render 与 Cache 必须是同一个 IconCache 对象：resolve Put 之后
 	// Generation 一变，ProfilePage 的缓存键才跟得上（裁定 R3 同源）。
-	return Dependencies{Store: s, Tokens: sc, Render: render.New(s, testIndex(), fc), Icons: testIndex(),
+	return Dependencies{Store: s, Tokens: sc, AdminToken: testAdminToken(t),
+		Render: render.New(s, testIndex(), fc), Icons: testIndex(),
 		Fetch: icons.NewFetcher(), Cache: fc}
 }
 

@@ -98,9 +98,13 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 		//（④.6 的 rebuild 那条路）。
 		redirectAdminErr(w, "notfound")
 		return
-	case row.Admin && row.ID == sessionProfileID(r):
+	case row.ID != "" && row.ID == sessionProfileID(r):
 		// 改自己的 PIN 要**旧 PIN**（家人共用设备，改自己的那一份属于身份变更）。
 		// 管理页这条路不要旧 PIN，所以它必须让开——否则这里就成了绕过旧 PIN 的后门。
+		//
+		// 判据 2026-10-12 变了：管理员不再是某个档案，于是"这是不是我自己"变成
+		// "我此刻是不是正登在某一份里"。没登任何档案的管理员（sessionProfileID
+		// 为空）不受这条限制——他不是在改自己的密码，是在改别人的。
 		redirectAdminErr(w, "selfpin")
 		return
 	}
@@ -221,7 +225,9 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 // 或给出别的判据），那是 §6.1 的改判，不该藏在一个页面的 if 里。
 func (s *Server) deleteBlocked(r *http.Request, row statusProfile) bool {
 	// 不能删自己：正在用这一份的人（会话就挂在它上面）把家删了。
-	return row.ID == sessionProfileID(r)
+	// 空串那格是"没登任何档案"——那是 2026-10-12 之后管理员最常见的样子，
+	// 他没在用谁的台，删谁都合理，所以要显式排除掉。
+	return row.ID != "" && row.ID == sessionProfileID(r)
 }
 
 // handleAdminDeleteForm 是第二步：同一个 Store.DeleteProfile 落点，与 API 那条
@@ -269,9 +275,10 @@ func (s *Server) handleAdminDeleteForm(w http.ResponseWriter, r *http.Request) {
 
 // sessionProfileID 拿当前会话**正在用**的那一份（空串 = 没会话）。
 //
-// 用 Active 而不是 Home：管理员从管理页进来时 Active=Home（自己），
-// 而切进别人档案管理时 Active 是别人。删档要挡的是"把正在用的那份删了"，
-// 那是 Active。
+// 2026-10-12 之前这段注释讲的是"管理员代管"：那时管理员进管理页时 Active 是自己，
+// 切进别人档案管理时 Active 是别人，所以删档要挡的是 Active。代管态 2026-10-10 就
+// 下线了，管理员也不再是某个档案，于是这里的形状变成**最朴素的那种**：登了哪一份就
+// 是哪一份，没登就是空串，而空串那格谁也不挡。
 func sessionProfileID(r *http.Request) string {
 	return auth.ReadSession(r).Active
 }

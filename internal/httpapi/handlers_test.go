@@ -25,13 +25,13 @@ func setupServer(t *testing.T) (*Server, http.Handler) {
 		}
 		return h
 	}
-	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "爸爸", PinHash: hash("1234"), Admin: true}); err != nil {
+	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "爸爸", PinHash: hash("1234")}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CreateProfile(store.NewProfileInput{ID: "kid", Title: "小满", PinHash: hash("5678")}); err != nil {
 		t.Fatal(err)
 	}
-	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad,ai-kid:tok-kid:kid,ai-ghost:tok-ghost:ghost,ai-nobody:tok-nobody:nobody,admin:tok-admin:*")
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad,ai-kid:tok-kid:kid,ai-ghost:tok-ghost:ghost,ai-nobody:tok-nobody:nobody")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,28 +392,32 @@ func TestCreateProfileNeedsAdminToken(t *testing.T) {
 }
 
 // 最终整枝评审 #1：建档的访问判定交回 require（唯一判据），与
-// GET/DELETE /profiles、/profiles/pin 同族——spec §6.1 的"仅管理员"
-// 不是"仅管理员令牌"。钉四种凭证形态各一个结局：管理员会话 201
-// （按裁定放宽，P1-④ 的管理页要靠它建档）、非管理员会话 403、
-// 档案作用域令牌 403、未知令牌 401（writeAuthFailure 的 401/403 分流）。
-// 末尾的按字节断言同时是评审 #2 的证人：201 体键序必须是文档说的
-// id,title,admin——换回 map 会被 Go 排成字母序 admin,id,title，先红这里。
+// GET/DELETE /profiles、/profiles/pin 同族——spec §6.1 的"仅管理员"。
+// 四种凭证形态各一个结局：管理员 key 201、**档案会话 403**（2026-10-12 起
+// "管理员"是机器级的一把 key，登进 dad 不等于有管理权）、档案作用域令牌 403、
+// 未知令牌 401（writeAuthFailure 的 401/403 分流）。
+// 末尾的按字节断言同时是评审 #2 的证人：201 体键序必须是文档说的 id,title——
+// 换回 map 会被 Go 排成字母序，先红这里。
 func TestCreateProfileAccessGoesThroughRequire(t *testing.T) {
 	s, h := setup(t)
-	// (a) 管理员会话（lb_profile=dad，盘上真是 admin）。
-	rec := loginAs(t, h, "dad", "1234")
-	cookie := sessionCookie(t, rec)
-	got := post(h, "/api/v1/profiles", `{"id":"mom","title":"妈妈","pin":"9999"}`, cookie, "")
+	// (a) 管理员 key（LAUNCHBAY_ADMIN_TOKEN 那把）。
+	got := post(h, "/api/v1/profiles", `{"id":"mom","title":"妈妈","pin":"9999"}`, "", testAdminKey)
 	if got.Code != 201 {
-		t.Fatalf("管理员会话建档 want 201（裁定后的新语义）, got %d %s", got.Code, got.Body)
+		t.Fatalf("管理员 key 建档 want 201, got %d %s", got.Code, got.Body)
 	}
-	if want := "{\n  \"id\": \"mom\",\n  \"title\": \"妈妈\",\n  \"admin\": false\n}\n"; got.Body.String() != want {
+	if want := "{\n  \"id\": \"mom\",\n  \"title\": \"妈妈\"\n}\n"; got.Body.String() != want {
 		t.Fatalf("201 体必须按文档键序逐字节为 %q, got %q", want, got.Body.String())
 	}
 	if _, err := s.LoadProfile("mom"); err != nil {
-		t.Fatalf("会话建的档没落盘: %v", err)
+		t.Fatalf("建出来的档没落盘: %v", err)
 	}
-	// (b) 非管理员会话：认出来了但没资格，403 不是 401。
+	// (a2) **登进 dad 不等于有管理权**：那只是"某人正在用的那一份"。
+	// 少这一格的话，"管理员会话也能建档"那条旧承诺会一直躺在注释里。
+	dadCookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	if rec := post(h, "/api/v1/profiles", `{"id":"mom9","title":"九妈","pin":"9999"}`, dadCookie, ""); rec.Code != 403 {
+		t.Fatalf("只有档案会话 want 403, got %d %s", rec.Code, rec.Body)
+	}
+	// (b) 别人的档案会话：同样 403。
 	kidCookie := sessionCookie(t, loginAs(t, h, "kid", "5678"))
 	if rec := post(h, "/api/v1/profiles", `{"id":"mom2","title":"二妈","pin":"9999"}`, kidCookie, ""); rec.Code != 403 {
 		t.Fatalf("非管理员会话 want 403, got %d %s", rec.Code, rec.Body)
@@ -575,28 +579,34 @@ func TestAdminLookupHomeGrantsNothing(t *testing.T) {
 	}
 }
 
-func TestCreateProfileAcceptsAdminKey(t *testing.T) {
+// 旧的 body 里那个 admin 键：**422，且点名是它**。
+//
+// 这与磁盘上的 profile.json 走的是相反的口径，那是有意的：落盘的 `admin` 必须被
+// 悄悄放过（否则升级就要求用户挨个 rebuild），而**请求体**里送来一个已经不存在的
+// 字段，是一个脚本对这台机器的误解——沉默地忽略会让它以为"建成管理员了"，
+// 而实际什么也没发生。422 把字段名点出来，脚本作者一眼知道该删哪一行。
+func TestCreateProfile用管理员key建出普通档案(t *testing.T) {
 	s, h := setup(t)
-	rec := post(h, "/api/v1/profiles", `{"id":"mom","title":"妈妈","pin":"9999","admin":true}`, "", "tok-admin")
+	rec := post(h, "/api/v1/profiles", `{"id":"mom","title":"妈妈","pin":"9999"}`, "", testAdminKey)
 	if rec.Code != 201 {
-		t.Fatalf("admin 键该被接受, got %d %s", rec.Code, rec.Body)
+		t.Fatalf("管理员 key 该被接受, got %d %s", rec.Code, rec.Body)
+	}
+	if strings.Contains(rec.Body.String(), `"admin"`) {
+		t.Errorf("201 的响应体不该再有 admin 那一格: %s", rec.Body)
 	}
 	p, err := s.LoadProfile("mom")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !p.Admin {
-		t.Fatalf("admin:true 没落盘: %+v", p)
+	if !strings.HasPrefix(p.PIN, "sha256$") {
+		t.Errorf("PIN 要经 HashPIN 存成三段式，得到 %q", p.PIN)
 	}
-	if rec := post(h, "/api/v1/profiles", `{"id":"kid2","title":"二小","pin":"8888"}`, "", "tok-admin"); rec.Code != 201 {
-		t.Fatalf("不带 admin 的旧 body 该照样 201, got %d %s", rec.Code, rec.Body)
+	rec = post(h, "/api/v1/profiles", `{"id":"kid2","title":"二小","pin":"8888","admin":true}`, "", testAdminKey)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("带 admin 的 body 该 422，得到 %d %s", rec.Code, rec.Body)
 	}
-	p2, err := s.LoadProfile("kid2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p2.Admin {
-		t.Fatal("admin 缺省该是 false")
+	if !fieldErrorsName(rec, "admin") {
+		t.Errorf("422 要点名 admin 那一格：脚本作者需要知道该删哪一行，实际 %s", rec.Body)
 	}
 }
 
@@ -711,6 +721,32 @@ func TestRealIOErrorGivesGeneric500(t *testing.T) {
 // 遮蔽出两种含义——一个文件里两个同名不同源的东西正是下一个人读错的地方。
 // Task 3 与 Task 4 的测试复用同一条串。
 const dadFormCookie = "lb_profile=dad"
+
+// 管理员 cookie 的夹具。2026-10-12 起管理员与档案会话是**两件独立的事**，于是
+// 测试里必须能分开摆出三种形状：
+//
+//	adminOnlyCookie  拿着管理权，没登任何档案（最常见的形状）
+//	dadFormCookie    登着 dad，**没有**管理权
+//	adminAndDad      两者都有 —— 用来钉 selfpin / deleteBlocked 那两条保护
+//
+// 早先这三者是同一个东西（dad 既是管理员又是在用的人），所以只有 dadFormCookie
+// 一个常量。合成一个之后，"管理员"与"某个人"就再也分不开了——而那正是这次要拆的。
+func adminOnlyCookie(t *testing.T) string {
+	t.Helper()
+	return auth.CookieAdmin + "=" + testAdminToken(t).DeriveCookie()
+}
+
+// authOnly 只取管理员 cookie 那一段（不带任何档案会话）。切档那类测试要自己
+// 拼 `lb_profile=<id>; <这个>`，用它就不会把 `lb_profile` 也带进去。
+func authOnly(t *testing.T) string {
+	t.Helper()
+	return adminOnlyCookie(t)
+}
+
+func adminAndDadCookie(t *testing.T) string {
+	t.Helper()
+	return dadFormCookie + "; " + adminOnlyCookie(t)
+}
 
 // q 是用户可控的 query。没有会话时它必须**一个字都不进页面**：选择页没有
 // 搜索框，把 q 回声进去就等于开一个反射点（与 ?err= 只查表、不解释同一口径）。

@@ -102,9 +102,13 @@ func revertPath(profile string, to int64) string {
 
 // profileUsage 是 `launchbay profile` 的唯一用法文本。两个子命令各有各的必填参数，
 // 共用一行 printf 会逼着其中一个把自己的旗标解释成别人的——所以这里给两份。
+//
+// **没有 --admin**（2026-10-12）：管理员不再是档案的一个属性，而是那把机器级
+// LAUNCHBAY_ADMIN_TOKEN。留着这个旗标只会让人以为"建成管理员"是一件事，
+// 而它现在根本不存在。
 const profileUsage = "用法:\n" +
-	"  launchbay profile create  --id <slug> --title <名字> --pin <4-6 位> [--admin]\n" +
-	"  launchbay profile rebuild --id <slug> --title <名字> --pin <4-6 位> [--admin]"
+	"  launchbay profile create  --id <slug> --title <名字> --pin <4-6 位>\n" +
+	"  launchbay profile rebuild --id <slug> --title <名字> --pin <4-6 位>"
 
 // profileSub 是 `launchbay profile` 底下的子命令名单。与 runCLI 那份一样，
 // **不许在别处再抄一遍**：两份名单差一个的后果是敲进去的命令静默落进 serve 分支，
@@ -136,18 +140,16 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 	id := fs.String("id", "", "档案 id（ASCII slug）")
 	title := fs.String("title", "", "显示名字")
 	pin := fs.String("pin", "", "4-6 位数字")
-	admin := fs.Bool("admin", false, "建成管理员档案")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	c, err := newAdminClient(cfg.Port, cfg.Tokens)
+	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
 		fmt.Fprintf(out, "profile create 失败: %v\n", err)
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
-		"id": *id, "title": *title, "pin": *pin,
-		"admin": *admin})
+		"id": *id, "title": *title, "pin": *pin})
 	raw, code, err := c.do("POST", "/api/v1/profiles", body, map[string]string{"Content-Type": "application/json"})
 	if err != nil {
 		fmt.Fprintf(out, "profile create 失败: %v\n", err)
@@ -164,9 +166,10 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 // cmdProfileRebuild 是 `POST /api/v1/profiles/rebuild` 的壳：重写一份**读不动**的
 // profile.json，书签、快照与历史已有内容一个字节都不碰（spec §6.1、§12）。
 //
-// 它用**管理员令牌**（*），与 profile create 同族——这条端点动的是账号文件而不是
-// 任何人的书签，所以 2026-10-10 那条"`*` 只管账号"的改判把它留在 credAdmin 那一侧。
-// （要改别人的**书签**才需要 `name:secret:<id>` 那种档案作用域令牌，那是 revert 的事。）
+// 它用**管理员 key**（LAUNCHBAY_ADMIN_TOKEN），与 profile create 同族——这条端点动的
+// 是账号文件而不是任何人的书签，所以 2026-10-10 那条"管理员只管账号"的改判把它留在
+// credAdmin 那一侧。（要改别人的**书签**才需要 `name:secret:<id>` 那种档案作用域令牌，
+// 那是 revert 的事。）
 //
 // 只经本机 REST，不直读磁盘：进程内互斥锁罩不住另一个进程，CLI 绕过服务写盘就是
 // 与正在跑的容器抢同一个文件（§4.5）。中文名字在这里是安全的——请求体由 Go 编码，
@@ -177,22 +180,16 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 	id := fs.String("id", "", "要重建的档案 id（ASCII slug，磁盘上必须已存在）")
 	title := fs.String("title", "", "重建后的显示名字")
 	pin := fs.String("pin", "", "4-6 位数字")
-	admin := fs.Bool("admin", false, "重建成管理员档案")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	c, err := newAdminClient(cfg.Port, cfg.Tokens)
+	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
 		fmt.Fprintf(out, "profile rebuild 失败: %v\n", err)
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
 		"profile": *id, "title": *title, "pin": *pin,
-		// **显式**发 admin，哪怕旗标没写：端点那一格必填，省略是 422，而壳不许
-		// 替调用方猜——"忘了 --admin"与"我就要一个非管理员档案"是两件不同的事，
-		// 猜错的后果是静默降级一个人的档案权限。接线证人：把它改成省略，
-		// TestCLIProfileRebuildAlwaysSendsAdmin 必须红。
-		"admin": *admin,
 	})
 	raw, code, err := c.do("POST", "/api/v1/profiles/rebuild", body,
 		map[string]string{"Content-Type": "application/json", "X-LB-By": "cli"})
@@ -207,14 +204,9 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 	var resp struct {
 		ID    string `json:"id"`
 		Title string `json:"title"`
-		Admin bool   `json:"admin"`
 	}
 	_ = json.Unmarshal(raw, &resp)
-	role := "普通档案"
-	if resp.Admin {
-		role = "管理员"
-	}
-	fmt.Fprintf(out, "已重建 %s（%s，%s）\n", resp.ID, resp.Title, role)
+	fmt.Fprintf(out, "已重建 %s（%s）\n", resp.ID, resp.Title)
 	return 0
 }
 

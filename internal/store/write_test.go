@@ -163,7 +163,8 @@ func TestSaveRejectsInvalidBeforeTouchingDisk(t *testing.T) {
 
 func TestSaveProfileCreatesDir(t *testing.T) {
 	s := New(t.TempDir())
-	p := model.Profile{ID: "dad", Title: "爸爸", Admin: true, PIN: "sha256$a$b",
+	// **不带 Admin**（2026-10-12）：`model.Profile.Admin` 与这一处赋值一起没了。
+	p := model.Profile{ID: "dad", Title: "爸爸", PIN: "sha256$a$b",
 		CreatedAt: "2026-10-05T12:00:00+08:00", Theme: "auto", Layout: "sidebar"}
 	if err := s.SaveProfile(&p); err != nil {
 		t.Fatal(err)
@@ -172,8 +173,20 @@ func TestSaveProfileCreatesDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Admin {
+	// 原来的 `if !got.Admin` 随字段一起删掉（钉的字段已不存在，见上）：换成钉
+	// 往返之后**还在的**字段——这条用例的主体是"SaveProfile 建目录 + 能读回来"。
+	if got.ID != "dad" || got.Title != "爸爸" || got.PIN != "sha256$a$b" ||
+		got.CreatedAt != "2026-10-05T12:00:00+08:00" || got.Theme != "auto" || got.Layout != "sidebar" {
 		t.Fatalf("got %+v", got)
+	}
+	// 写出的 profile.json 里**没有 admin 键**（2026-10-12）。§4.3 的键序由 struct
+	// 字段序固定，所以键的有无是这层契约的一部分：档案不再是管理员。
+	raw, err := os.ReadFile(s.ProfilePath("dad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "admin") {
+		t.Fatalf("profile.json 不该含 admin 键:\n%s", raw)
 	}
 }
 

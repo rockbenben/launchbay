@@ -34,12 +34,12 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 		Profile string `json:"profile"`
 		Title   string `json:"title"`
 		PIN     string `json:"pin"`
-		// **指针**：四格都必须出现（§6.1）。裸 bool 分不出"没给"与"给了 false"，
-		// 而这条端点重写整份 profile.json——省略 admin 与显式写 false 在结果上
-		// 完全一样（都按非管理员重建），可对调用方来说是两件不同的事：他可能只是
-		// 忘了这一格。与 POST /api/v1/profiles 不同，那条建档时 admin 省略落成
-		// false 是无害的默认；这里它等于"静默降级档案权限"，得让他自己说一遍。
-		Admin *bool `json:"admin"`
+		// **没有 admin 那一格**（2026-10-12）。它是三格必填的最后一格，删掉之后
+		// 这条端点的必填集就是 profile/title/pin 三格——不需要指针，因为再没有
+		// "给了 false 与没给"要区分的那一格。
+		//
+		// 旧脚本送来 admin 会撞 decodeBody 的未知字段闸 → 422 且点名 admin：
+		// 那正是它该收到的答案（"这一格没有了"），而不是静默忽略。
 	}
 	if err := decodeBody(r, &in); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
@@ -59,9 +59,6 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(in.Title) == "" {
 		errs = append(errs, fieldError{Field: "title", Reason: "不能为空"})
 	}
-	if in.Admin == nil {
-		errs = append(errs, fieldError{Field: "admin", Reason: "必须显式给出 true 或 false，省略不算 false"})
-	}
 	hash, pinErrs := hashFormPIN(in.PIN) // PIN 判据只有一份：建档族共用（createrule_test.go 第三档钉着）
 	errs = append(errs, pinErrs...)
 	if len(errs) > 0 {
@@ -69,7 +66,7 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.deps.Store.RebuildProfile(store.RebuildInput{
-		ID: in.Profile, Title: in.Title, PinHash: hash, Admin: *in.Admin,
+		ID: in.Profile, Title: in.Title, PinHash: hash,
 	})
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -110,6 +107,6 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 		// 成功体与建档同一形状：键序 id, title, admin 由字段序固定（§4.3）。
 		// 200 的含义与 spec §6.1 一致——"那张卡真的回来了"，因为 RebuildProfile
 		// 在同一把锁内回读过，返回的就是盘上那份。
-		writeJSON(w, http.StatusOK, createProfileResponse{ID: p.ID, Title: p.Title, Admin: p.Admin})
+		writeJSON(w, http.StatusOK, createProfileResponse{ID: p.ID, Title: p.Title})
 	}
 }

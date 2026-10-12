@@ -136,10 +136,10 @@
     },
     "/setup": {
       "post": {
-        "summary": "引导建档：只在磁盘零档案时有效（浏览器表单通路，建成即管理员）",
+        "summary": "引导建档：只在磁盘零档案时有效（浏览器表单通路；建出来的是第一个人的书签页，不是管理员）",
         "x-credential": "none",
         "security": [],
-        "description": "浏览器表单通路，AI 不走这条。**唯一判据是 profiles/ 下的目录数为 0**（坏档案也占位，所以「装坏一个」不会把窗口重新打开）。体是 application/x-www-form-urlencoded 的 {title, pin}：不问 id（由名字派生 slug，中文走 home/home-2 基名序列），admin 不由表单决定——固定建成管理员，否则装完机器没人能进管理页加人。\n\n成功与表单错都回 303：成功回 `/`，**不发会话 cookie**（免令牌建档不等于免令牌进入，进门照样要输一次 PIN）；字段没填对回 `/?err=<键>`，键只有 noname、badpin 与 permission 三个，页面那头过 pinNotices 白名单，输入原文一个字都不回显。窗口已关（磁盘上已有档案）回 `/` 且**不带** `?err=`：「这台机器已经建过档了」本身就是枚举线索。表单读不出形状（超上限、同名多值）走 422 JSON 外壳，与 /pin、/prefs 同族；其余落盘失败走 500，与其余端点同口径、不在这里单独枚举。\n\n**permission 是唯一一种说得出出路的落盘失败**：宿主上的数据目录不归跑服务的那个用户（NAS 上把 ./data 挂成 root 所属、容器以 uid 65534 跑，装机的头一个撞的就是它）。那是用户能在宿主机上 chown 一下就修好的具体故障，所以给一句人话而不是 500 JSON；判据是 errors.Is(fs.ErrPermission)，磁盘满与只读文件系统**不算**（那句教的是 chown，chown 治不了被挂成 ro 的卷，教错出路比不说更坏），它们留在 500 里。API 那条壳（POST /api/v1/profiles）**不**跟着折成这句话：机器通路回 500，调用方读 stderr 与容器日志。\n\n这是一次性的免令牌写通路：窗口只开得下一个人（判据与写入同属 store 的一次串行化），建完永久关闭。边界与残余风险见设计 2026-10-08-launchbay-first-run-design.md §3、§11。",
+        "description": "引导建档，浏览器表单通路（**AI 不走这条**）。体是 `application/x-www-form-urlencoded` 的 `{title, pin, language?}`，不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。\n\n**建出来的是第一个人的书签页，不是管理员**（2026-10-12：管理员是机器级的一把 key，与档案无关）。成功**不发会话**——进门照样要输 PIN。",
         "requestBody": {
           "required": true,
           "content": {
@@ -298,7 +298,7 @@
     },
     "/admin": {
       "get": {
-        "summary": "管理页（读侧：档案一览与进入编辑，不含条目内容）",
+        "summary": "管理页（读侧：档案一览与账号操作，不含条目内容）；无管理权时渲染登录页",
         "x-credential": "admin",
         "security": [
           {
@@ -308,17 +308,10 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器通路（GET 导航页），AI 不走这条：* 令牌打它会拿到同一张 HTML 页面，那不是第二条 API 面——要机器可读的同一份跨档案聚合请打 GET /api/v1/status（同一个 statusRows、两种壳）。判据是 credAdmin（在用档案磁盘上带 admin 的会话，或 * 令牌）；非管理员与无会话一律 303 回 /、不带 ?err=，与 API 通路的 401/403 是两种长相（spec §6.1）。页面一行一个档案：id + title + 条目数 + rev + 最近改动（modified，RFC3339 UTC；坏档案读不出来时为空、显示为 —，不编造）+ 快照数。坏档案照占一行并标「数据文件读不了」（spec §12：消失比报 0 更坏），且不给「进入编辑」——/switch 对读不了的档案不切，死按钮不进界面。页面不含任何条目内容（名字/URL/分组标题一律没有，spec §8.8），响应 no-store：跨档案页面被缓存等于把全家庭名单留给同一台电脑的下一个人。设 PIN/建档/删档要发 JSON，表单发不出，这一版不渲染这些动作。",
+        "description": "管理页读侧：一行一个档案 + 条目数 + rev + 最近改动（`modified`，RFC3339 UTC，坏档读不出来为空、显示 `—` 不编造），**不含条目内容**；坏档案照占一行、标「数据文件读不了」。动作格只有**账号层面**三枚：**设 PIN**、**停用/启用**、**删档**——**「进入编辑」已下线**（它就是 `POST /switch to=<id>`）。\n\n**凭证有两种**：管理员令牌（`LAUNCHBAY_ADMIN_TOKEN`）或 `lb_admin` cookie。**只有档案会话不算管理权**——登进 dad 也不等于能管这台机器（2026-10-12：管理员不再是某个档案）。\n\n**没有管理权时不是 403，而是 200 渲染登录页**（`POST /admin/login` 的那张表单）。沿用早先\"权限类拒绝一律 303 回选择页\"的形状会让升级之后没有任何人进得去管理页：档案不再是管理员，而那把 key 还没输过，账号层面整个锁死。",
         "responses": {
           "200": {
-            "description": "管理页 HTML（no-store；不含条目内容）",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "有管理权：管理页 HTML（no-store）。没管理权：登录页 HTML（no-store）"
           },
           "303": {
             "description": "非管理员与无会话：303 回 /（浏览器通路的权限拒绝不吐 403 页面，也不带 ?err=）"
@@ -333,7 +326,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "管理页的建档表单，浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded 的 {title, pin, admin?}：不问 id（由名字派生 slug，中文走 home/home-2 基名序列）；`admin` 只有勾了才是管理员（模板写死 value=1，没勾就建普通档案）。\n\n凭证档位仍是 admin（与 GET /admin 同一份 require 判据），但**这条路拒绝令牌**：带 Bearer 一律 303 回选择页——同一个动作不两个入口、鉴权各写一半，机器建档走 POST /api/v1/profiles。非管理员与无会话同样是 303 回选择页且磁盘不变。字段没填对 → 303 回 /admin?err=键，键只有 noname、badpin、nametaken 与 permission 四个（nametaken 是派生出的 id 撞上并发提交那一种，permission 是宿主上的数据目录不归跑服务的那个用户——NAS 上把 ./data 挂成 root 所属、容器以 uid 65534 跑正是这个形状），管理页那头过同一张白名单（pinNotices），输入原文一个字都不回显；表单读不出形状（超上限、同名多值）→ 422 JSON 外壳并点名是 body/title/pin，与 /pin、/prefs、/setup 同一词汇。设 PIN 与删档**不在这一页**：那两个要二次确认，表单发不出，随 ⑤ 的 JS 落地。\n\nsecurity 只声明 sessionCookie 而 x-credential 仍是 admin：前者说**这条能用什么凭证打通**（令牌打通的那条是 POST /api/v1/profiles），后者说**判据档位**与 GET /admin 同源（require 的管理员分支）。",
+        "description": "管理页建档，体是 `application/x-www-form-urlencoded` 的 `{title, pin}`：**没有 `admin` 那一格**（2026-10-12，档案不再有管理员属性，勾了也不会有任何后果）；不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）。字段没填对回 `/admin?err=noname`、`badpin` 或 `nametaken`；**宿主数据目录不可写**回 `/admin?err=permission`。\n\n**AI 要建档走 `POST /api/v1/profiles`**，别打这条。",
         "requestBody": {
           "required": true,
           "content": {
@@ -364,6 +357,54 @@
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
           }
         }
+      }
+    },
+    "/admin/login": {
+      "post": {
+        "summary": "输管理 key 进管理页（浏览器表单通路；成功后发 lb_admin）",
+        "description": "**管理员的进门**（2026-10-12）。浏览器表单通路，不是第二条 API 面。\n\n体是 `application/x-www-form-urlencoded` 的 `{key}`，key 就是 `LAUNCHBAY_ADMIN_TOKEN` 那把裸 key。判据只有它一个。\n\n- 对了 → 发一条 `lb_admin` cookie（**装的是 HMAC 派生值，不是 key 本身**：原始 key 只在那一次 POST 里出现过）并 303 回 `/admin`。\n- key 不对 → 303 `/admin?err=badkey`。不说\"这把 key 是管理员的那把\"，那等于漏出它的身份。\n- 同一个字段出现两次，或表单读不出来 → **422 JSON 外壳**。这两件与\"key 不对\"是三个形状：合成一个 303 会让人以为 key 写错了。",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "LAUNCHBAY_ADMIN_TOKEN 的值"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "key 对 → `Location: /admin`；不对 → `Location: /admin?err=badkey`"
+          },
+          "422": {
+            "description": "表单读不出来 / 同名字段多值（JSON 外壳）"
+          }
+        },
+        "x-credential": "none"
+      }
+    },
+    "/admin/logout": {
+      "post": {
+        "summary": "丢掉管理员身份（清 lb_admin，档案会话不动）",
+        "description": "**只清 `lb_admin`，不动 `lb_profile`**——管理员完全可能同时登着自己的档案在用书签，\"退出管理\"不该把他从自己的台子里踢出去（2026-10-12）。",
+        "security": [],
+        "responses": {
+          "303": {
+            "description": "`Location: /`"
+          }
+        },
+        "x-credential": "none"
       }
     },
     "/admin/pin": {
@@ -988,9 +1029,6 @@
                           "title": {
                             "type": "string"
                           },
-                          "admin": {
-                            "type": "boolean"
-                          },
                           "rev": {
                             "type": "integer",
                             "format": "int64"
@@ -1085,9 +1123,6 @@
                           "title": {
                             "type": "string"
                           },
-                          "admin": {
-                            "type": "boolean"
-                          },
                           "createdAt": {
                             "type": "string"
                           }
@@ -1142,10 +1177,6 @@
                   "pin": {
                     "type": "string",
                     "description": "4-6 位数字"
-                  },
-                  "admin": {
-                    "type": "boolean",
-                    "description": "true 建成管理员档案，缺省 false"
                   }
                 }
               }
@@ -1165,9 +1196,6 @@
                     },
                     "title": {
                       "type": "string"
-                    },
-                    "admin": {
-                      "type": "boolean"
                     }
                   }
                 }
@@ -1482,8 +1510,7 @@
                 "required": [
                   "profile",
                   "title",
-                  "pin",
-                  "admin"
+                  "pin"
                 ],
                 "additionalProperties": false,
                 "properties": {
@@ -1498,10 +1525,6 @@
                   "pin": {
                     "type": "string",
                     "description": "4-6 位数字"
-                  },
-                  "admin": {
-                    "type": "boolean",
-                    "description": "是否管理员。**必须显式给出**：省略是 422，不等于 false"
                   }
                 }
               }
@@ -1521,9 +1544,6 @@
                     },
                     "title": {
                       "type": "string"
-                    },
-                    "admin": {
-                      "type": "boolean"
                     }
                   }
                 }
@@ -1988,7 +2008,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "env 里配置的服务令牌。作用域是一个档案 id（只能动那一个）或 *（管理员）。"
+        "description": "两类凭证都走 `Authorization: Bearer <值>`：**管理员**是 `LAUNCHBAY_ADMIN_TOKEN` 那把裸 key（只管账号，不碰任何人的书签）；**档案作用域令牌**是 `LAUNCHBAY_WRITE_TOKENS` 列表里的 `name:secret:profile` 之一，Bearer 后面只放 `secret` 那段。两类都写在这里是因为它们是同一个请求头。"
       },
       "sessionCookie": {
         "type": "apiKey",

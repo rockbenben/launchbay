@@ -128,9 +128,8 @@ func TestSelfPinNeedsOldPinAndSession(t *testing.T) {
 
 func TestAdminPinGoesIntoTargetHistory(t *testing.T) {
 	s, h := setupBatch(t)
-	rec := loginAs(t, h, "dad", "1234")
-	cookie := sessionCookie(t, rec)
-	// dad 是管理员：给 kid 设 PIN，不带旧 PIN。
+	cookie := adminOnlyCookie(t)
+	// 管理员（机器级那把 key）：给 kid 设 PIN，不带旧 PIN。
 	if got := post(h, "/api/v1/profiles/pin", `{"profile":"kid","new":"8765"}`, cookie, ""); got.Code != 200 {
 		t.Fatalf("管理员设 PIN 该 200, got %d %s", got.Code, got.Body)
 	}
@@ -141,9 +140,10 @@ func TestAdminPinGoesIntoTargetHistory(t *testing.T) {
 	if !auth.VerifyPIN(p.PIN, "8765") {
 		t.Fatal("kid 的 PIN 没被设上")
 	}
-	// 目标档案的历史里该有一条，actor 是 dad。
+	// 目标档案的历史里该有一条，actor 是那个常量 `admin`（2026-10-12 起
+	// 管理员不再是某个档案，"谁做的"与"动的是哪一份"分成两栏记）。
 	hist, _ := s.ReadHistory("kid", 0)
-	if len(hist) != 1 || hist[0].Actor != "dad" || hist[0].Profile != "kid" {
+	if len(hist) != 1 || hist[0].Actor != adminActor || hist[0].Profile != "kid" {
 		t.Fatalf("管理员设 PIN 要在目标档案留名: %+v", hist)
 	}
 	// 行的形状也是契约：rev:0 标记"这不是书签改动"（界面按这条渲染），
@@ -184,7 +184,7 @@ func TestPinChangeDoesNotTouchRevOrSnapshots(t *testing.T) {
 	}
 	// 管理员给别人设 PIN 同样不是书签写入（此前只有 self 路径有证人；
 	// 管理员那条历史行的 Rev:0 只是"暗示"不动 rev，钉不住实际写入）。
-	dadCookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	dadCookie := adminOnlyCookie(t)
 	if got := post(h, "/api/v1/profiles/pin", `{"profile":"kid","new":"2468"}`, dadCookie, ""); got.Code != 200 {
 		t.Fatalf("管理员设 PIN 该 200, got %d %s", got.Code, got.Body)
 	}
@@ -208,7 +208,7 @@ func TestPinEndpointsBrokenProfileIs503(t *testing.T) {
 	brokenDoc := "{\n  \"id\": \"kid\",\n  \"title\":\n"
 	// 会话在文件坏掉之前拿到：坏档登不了门，但已经登过的门不许因此变成 500。
 	cookie := sessionCookie(t, loginAs(t, h, "kid", "5678"))
-	adminCookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	adminCookie := adminOnlyCookie(t)
 	if err := os.WriteFile(s.ProfilePath("kid"), []byte(brokenDoc), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestPinEndpointsBrokenProfileIs503(t *testing.T) {
 func TestPinEndpointsMissingProfileIs404(t *testing.T) {
 	s, h := setupBatch(t)
 	cookie := sessionCookie(t, loginAs(t, h, "kid", "5678"))
-	adminCookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	adminCookie := adminOnlyCookie(t)
 	if err := s.DeleteProfile("kid"); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestPinEndpointsMissingProfileIs404(t *testing.T) {
 // mutex 保证读在释放之后，所以这一格不会因为机器慢而假红，最坏是漏检。
 func TestAdminPinReadsInsideProfileLock(t *testing.T) {
 	s, h := setupBatch(t)
-	adminCookie := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	adminCookie := adminOnlyCookie(t)
 	brokenDoc := "{\n  \"id\": \"kid\",\n  \"title\":\n"
 	done := make(chan *httptest.ResponseRecorder, 1)
 	err := s.WithProfileLock("kid", func() error {

@@ -10,11 +10,12 @@ import (
 
 // RebuildInput 是"只重写 profile.json"所需的最小信息。刻意没有 Theme/Layout：
 // 那两个读不出来就按默认重建——不假装能从半截 JSON 里抢救出来（设计 §8）。
+//
+// 也没有 Admin：档案不再有管理员属性，重建出来只是一份普通档案（2026-10-12）。
 type RebuildInput struct {
 	ID      string
 	Title   string
 	PinHash string
-	Admin   bool
 }
 
 // RebuildProfile 修一份读不动的 profile.json：书签、快照、历史已有内容一个字不碰。
@@ -50,7 +51,7 @@ func (s *Store) RebuildProfile(in RebuildInput) (*model.Profile, error) {
 		return nil, err
 	}
 	p := &model.Profile{
-		ID: in.ID, Title: in.Title, Admin: in.Admin, PIN: in.PinHash,
+		ID: in.ID, Title: in.Title, PIN: in.PinHash,
 		CreatedAt: time.Now().Format(time.RFC3339), Theme: "auto", Layout: "sidebar",
 	}
 	var got *model.Profile

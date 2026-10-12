@@ -14,15 +14,22 @@ import (
 // 豁免表**每一行的合法性都来自 handler 真拒令牌**，不来自表自己。而"真拒"只能
 // 靠行为钉 —— 所以那里每加一行，这里就得有一支跟着红或绿。
 
-// adminScene 用夹具里现成的 dad（管理员）/ kid 两个档案，返回管理员会话 cookie。
+// adminScene 用夹具里现成的 dad / kid 两个档案，返回**管理员 + 登在 dad 那一份**的
+// cookie 串。
+//
+// 两条 cookie 都要（2026-10-12）：管理员与档案会话是两件独立的事，而这一族测试钉的
+// 恰好是**两者同时在场**时的行为——selfpin / deleteBlocked 那道"别动你正在用的那一份"
+// 只有在管理员**自己也在用某一份**时才拦得住。只给 lb_admin 的话，那两道闸在所有
+// 用例里都会形同虚设，而它们正是这一族最要紧的两条保护。
 //
 // **不复用 setupServer 建一遍档案**：那份夹具已经建好了，自己再 POST 一次建档
-// 既要令牌（401）又要担心把 dad 建成第二个管理员，而"夹具只有一份"正是
+// 既要令牌（401）又要担心多出一份档案，而"夹具只有 dad 与 kid"正是
 // setupServer 注释里说的那句意思。
 func adminScene(t *testing.T) (*Server, http.Handler, string) {
 	t.Helper()
 	srv, h := setupServer(t)
-	return srv, h, sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	sess := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	return srv, h, sess + "; " + adminOnlyCookie(t)
 }
 
 // adminPageGet 打一个管理页 GET，并断言它**真的出了页面**。
@@ -129,44 +136,38 @@ func TestAdmin_删档的形状闸在POST上也拦(t *testing.T) {
 	})
 }
 
-// 「不能删掉最后一个管理员」在**表单通路**上不可达，而这一支钉的就是这个事实。
+// 「这台机器再没有人能建档」这个缺口**整条不存在了**（2026-10-12）。
 //
-// require(credAdmin) 判的是 `activeIsAdmin`（只看 lb_profile 指向的档案）。
-// 于是能进管理页的人本身就是一个管理员，他能删的目标里"唯一的管理员"只有两种可能：
-// 他正在用的这一份（被 self 拦），或另一个管理员（那就不是最后一个）。
+// 早先这里钉的是一个不可达：管理员是某个档案，所以"最后一个管理员"要靠 self
+// 那道闸才够不着，而 API 那条机器通路是故意放行的——于是"删光所有人之后这台机器
+// 没人能管"是一个真实存在的状态，只是被设计成"人的手滑碰不到"。
 //
-// **为什么要钉这条不可达**：哪天有人把 self 那一道删掉（"管理员删自己的档案应该
-// 允许吧"），本例会红并指向这里；否则会留下一个删掉之后**这台机器再没有人能建档**
-// 的缺口，而代码里看上去还有一道闸在管这件事（它其实已经不在管了）。
-func TestAdmin_最后管理员这一道在表单通路上够不着(t *testing.T) {
-	_, h, dad := adminScene(t)
-
-	// 切进 kid（管理员免 PIN 直达）后，Active=kid 非管理员 —— 管理页当场不可达。
-	// 这是"那道闸够不着"的**机制**，不是巧合：权限只看 Active。
-	if rec := postForm(h, "/switch", "to=kid", dad); rec.Code != http.StatusSeeOther {
-		t.Fatalf("/switch 该 303，实际 %d", rec.Code)
+// 现在管理员是 docker-compose.yml 里那把 key，与档案无关，于是**删多少份档案都
+// 不影响这台机器还能不能管**。这一条钉的就是新形状：把 dad 与 kid 都删掉之后，
+// 管理员 cookie 仍然打得开管理页。
+func TestAdmin_删光档案也不影响这台机器还能管(t *testing.T) {
+	srv, h, admin := adminScene(t)
+	for _, id := range []string{"kid"} {
+		if rec := postForm(h, "/admin/delete", "profile="+id, admin); rec.Code != http.StatusSeeOther {
+			t.Fatalf("删 %s 该 303，实际 %d %s", id, rec.Code, rec.Body)
+		}
 	}
-	switched := auth.CookieProfile + "=kid; " + auth.CookieHome + "=dad"
-	if rec := get(h, "/admin", switched); rec.Code != http.StatusSeeOther {
-		t.Fatalf("管理态下 Active 是 kid（非管理员），/admin 该 303，实际 %d", rec.Code)
+	// dad 是"我正在用的那一份"，删它要先把那份会话放下——这正是 self 那道闸。
+	if rec := postForm(h, "/admin/delete", "profile=dad", admin); !strings.Contains(rec.Header().Get("Location"), "err=self") {
+		t.Fatalf("删自己该 self，实际 %q", rec.Header().Get("Location"))
 	}
-
-	// 而唯一能进管理页的那位管理员，删自己被 self 拦下 —— 于是"最后一个管理员"
-	// 这个状态永远到不了任何一次删档请求。
-	if rec := postForm(h, "/admin/delete", "profile=dad", dad); !strings.Contains(rec.Header().Get("Location"), "err=self") {
-		t.Fatalf("删自己该是 self，实际 %q", rec.Header().Get("Location"))
+	// 放下会话之后再删：这一次没有任何档案了。
+	noProfile := adminOnlyCookie(t)
+	if rec := postForm(h, "/admin/delete", "profile=dad", noProfile); rec.Code != http.StatusSeeOther {
+		t.Fatalf("没登任何档案时删 dad 该 303，实际 %d %s", rec.Code, rec.Body)
 	}
-
-	// 真有一条机器通路能删掉最后一个管理员：`DELETE /api/v1/profiles` 带 `*` 令牌。
-	// **这是有意的**：令牌是机器凭证，`*` 的含义就是"什么都能做"，而"防手滑"是页面
-	// 壳的职责。这条断言把"表单侧够不着 / API 侧照做"这个分工钉住——哪天有人给 API
-	// 也加上这道闸，它会红并提醒你这是一次 §6.1 的改判。
-	if rec := post(h, "/api/v1/profiles",
-		`{"id":"mom","title":"妈妈","pin":"4321","admin":true}`, "", "tok-admin"); rec.Code != 201 {
-		t.Fatalf("建 mom 失败 %d: %s", rec.Code, rec.Body.String())
+	if n, _ := srv.deps.Store.CountProfiles(); n != 0 {
+		t.Fatalf("磁盘上还剩 %d 份档案，这一族的前提是「全删光」", n)
 	}
-	if rec := post(h, "/api/v1/profiles?profile=mom", "", "", "tok-admin"); rec.Code != 405 {
-		t.Logf("DELETE 走不到这条分支（%d），跳过分工断言", rec.Code)
+	// **零档案，管理员仍然进得去**——这就是 2026-10-12 那次改判的整个理由。
+	body := adminPageGet(t, h, "/admin", noProfile)
+	if !strings.Contains(*body, "zero") && !strings.Contains(*body, "管理") {
+		t.Errorf("零档案时管理页该照常渲染:\n%.300s", *body)
 	}
 }
 
@@ -175,9 +176,8 @@ func TestAdmin_最后管理员这一道在表单通路上够不着(t *testing.T)
 // 这条是实测抓到的：第一版给每一行都渲了「删档」链接，于是自己那一行点下去
 // 撞 303 —— 一个死按钮。它比没有更费人：人先以为自己能删，再被拒。
 //
-// 判据钉的是"链接在不在"，且要覆盖**管理态**：管理员切进别人档案之后，回管理页
-// 给**自己家**设 PIN 是合法的（self 闸看的是 active，不是 admin 标记），那时
-// 链接必须回来——所以这一支正反两面都写死。
+// 判据钉的是"链接在不在"，且要覆盖**管理员自己登在别人那一份**：那时他不是
+// 任何人正在用的那一份，给自己家设 PIN 是合法的，链接必须回来——正反两面都写死。
 func TestAdmin_管理页不给死按钮(t *testing.T) {
 	_, h, dad := adminScene(t)
 
@@ -200,19 +200,30 @@ func TestAdmin_管理页不给死按钮(t *testing.T) {
 		}
 	})
 
-	t.Run("管理态下 /admin 本来就不可达——所以 selfpin 永不误伤", func(t *testing.T) {
-		// 第一版这里写的是"管理态下给自己家的入口要回来"。它**前提就是错的**：
-		// credAdmin 判的是 activeIsAdmin（只看 lb_profile 指向的档案），切进 kid
-		// 之后 active 不是管理员，管理页当场 303 —— 那一行根本不会出现在页面上。
+	t.Run("管理员登在别人那一份时，自己家的入口要回来", func(t *testing.T) {
+		// 早先这里写的是"管理态下 /admin 不可达，所以 selfpin 永不误伤"，而它的
+		// **前提就是错的**：credAdmin 当年判的是"active 那个档案是不是管理员"，
+		// 于是切进 kid 之后管理页当场 303。
 		//
-		// 顺带把一件原本含糊的事钉死：**管理员改自己家的 PIN 走不了管理页**，
-		// 非管理态下自己是 active 被 selfpin 拦、管理态下管理页不可达。出路是
-		// `POST /api/v1/profiles/self/pin`（要旧 PIN）——那才是"改自己的"该有的
-		// 通道，selfpin 拦的正是它旁边那条捷径。
+		// 2026-10-12 之后管理员与档案会话分开，于是这一格**变得可达**了：
+		// 管理员可以正登着 kid 的书签，同时手里还有那把 key。回到管理页给
+		// 自己家（dad）设 PIN 是合法的——他不是在改自己的密码。
 		postForm(h, "/switch", "to=kid", dad)
-		switched := auth.CookieProfile + "=kid; " + auth.CookieHome + "=dad"
-		if rec := get(h, "/admin", switched); rec.Code != http.StatusSeeOther {
-			t.Fatalf("active 是 kid（非管理员），/admin 该 303，实际 %d", rec.Code)
+		// 切档只动 lb_profile，lb_admin 原样留着——这正是"两件独立的事"。
+		asKid := auth.CookieProfile + "=kid; " + authOnly(t)
+		body := adminPageGet(t, h, "/admin", asKid)
+		if !strings.Contains(*body, "admin/pin?profile=dad") {
+			t.Error("管理员登在 kid 那一份时，自己家 dad 那行该给得出「设 PIN」")
+		}
+		if !strings.Contains(*body, "admin/delete?profile=dad") {
+			t.Error("同样该给得出「删档」——他此刻没在用 dad")
+		}
+		// 而他正在用的 kid 那一行，两个入口都必须不给（selfpin / self）。
+		if strings.Contains(*body, "admin/pin?profile=kid") {
+			t.Error("kid 那行给了「设 PIN」——点下去会被 selfpin 拦，是死按钮")
+		}
+		if strings.Contains(*body, "admin/delete?profile=kid") {
+			t.Error("kid 那行给了「删档」——点下去会被 self 拦，是死按钮")
 		}
 	})
 }

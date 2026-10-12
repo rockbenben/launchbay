@@ -13,13 +13,19 @@ import (
 // 这支是多语言的**行为**证人，不是文案证人。文案对不对由 i18n 包的守恒测试管；
 // 这里管的是"改了语言之后，页面真的变了"与"没权限的人改不了"。
 
-// langScene 给一个登录着 dad（管理员）的场景，外加一个登录着 kid 的 cookie。
+// langScene 给一个**带着管理员权**的场景（只有 lb_admin，没有档案会话），
+// 外加一个登着 kid 的档案会话 cookie——用来钉"改语言要管理权，不是要某人的会话"。
+//
+// 2026-10-12 起管理员是机器级的一把 key，所以这里给的是 adminOnlyCookie 而不是
+// 早先那条 dad 会话：那一格测试它到底在测哪件事。
 func langScene(t *testing.T) (*Server, http.Handler, string, string) {
 	t.Helper()
 	srv, h := setupServer(t)
 	return srv, h,
-		sessionCookie(t, loginAs(t, h, "dad", "1234")),
-		sessionCookie(t, loginAs(t, h, "kid", "1234"))
+		adminOnlyCookie(t),
+		// kid 的 PIN 是 5678（setupServer 那份夹具），不是 1234——登录失败的话
+		// sessionCookie 交回空串，于是后面每一格都在拿"没有会话"当"页面不对"。
+		sessionCookie(t, loginAs(t, h, "kid", "5678"))
 }
 
 // postLangForm 是 postForm 的带令牌版本：这条端点「带令牌一律 303 拒」本身
@@ -42,12 +48,14 @@ func postLangForm(t *testing.T, h http.Handler, path, body, cookie, bearer strin
 // 改完立刻生效：**不重启、不清缓存**。缓存键带语言这一维就是为了这一条——
 // 而它是最容易做成"改了要重启才生效"的形状，那种现象会被当成 bug 而不是设计。
 func TestAdminLanguage_改完立刻生效且不用重启(t *testing.T) {
-	srv, h, admin, _ := langScene(t)
+	srv, h, admin, kid := langScene(t)
 
 	if got := srv.deps.Store.Language(); got != i18n.Zh {
 		t.Fatalf("前置状态不对：没设过语言应当是中文，拿到 %q", got)
 	}
-	zhPage := get(h, "/", admin).Body.String()
+	// 档案页要**档案会话**，管理员 cookie 不带任何一份——那正是 2026-10-12
+	// 之后两者分开的样子，这一格顺带钉住了它（用 admin 去打 / 只会拿到选择页）。
+	zhPage := get(h, "/", kid).Body.String()
 	if !strings.Contains(zhPage, "换档案") {
 		t.Fatalf("改之前应当是中文界面（顶栏那枚「换档案」在）")
 	}
@@ -64,7 +72,8 @@ func TestAdminLanguage_改完立刻生效且不用重启(t *testing.T) {
 	}
 
 	// 同一个进程、同一份依赖，立刻就是英文——没有重启，没有手动清缓存。
-	enPage := get(h, "/", admin).Body.String()
+	// 用的还是 **kid 那份档案会话**（管理员 cookie 不带任何档案，打 / 只会拿到选择页）。
+	enPage := get(h, "/", kid).Body.String()
 	if !strings.Contains(enPage, "Switch profile") {
 		t.Errorf("改完之后应当立刻是英文界面（顶栏那枚 Switch profile 在），实际页面没变")
 	}
@@ -287,7 +296,7 @@ func Test语言_站级设置作用到每一个档案(t *testing.T) {
 // 所以模板那六处 {{.T}} 的证人管不到它们。这里各自点一句，是这三个文件唯一的
 // 界面语言证人。
 func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
-	srv, h, admin, _ := langScene(t)
+	srv, h, admin, kid := langScene(t)
 	if err := srv.deps.Store.SetLanguage(i18n.En); err != nil {
 		t.Fatalf("落盘: %v", err)
 	}
@@ -295,7 +304,6 @@ func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
 		{"/admin/pin?profile=kid", "Set a new PIN"},
 		{"/admin/delete?profile=kid", "Delete "},
 		{"/admin/disable?profile=kid", "Disable "},
-		{"/revert", "to an earlier version?"},
 	} {
 		rec := get(h, tc.page, admin)
 		if rec.Code != http.StatusOK {
@@ -305,6 +313,14 @@ func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), tc.want) {
 			t.Errorf("GET %s 没有英文标题 %q", tc.page, tc.want)
 		}
+	}
+	// /revert 单独一格：它是 credSession（目标从会话推导），**管理员 cookie 不带
+	// 任何档案**，所以要拿档案会话去打。这正是"管理员管账号、不碰内容"在页面上的样子。
+	rec := get(h, "/revert", kid)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET /revert 该 200，实际 %d（Location=%q）", rec.Code, rec.Header().Get("Location"))
+	} else if !strings.Contains(rec.Body.String(), "to an earlier version?") {
+		t.Errorf("GET /revert 没有英文标题 %q", "to an earlier version?")
 	}
 }
 

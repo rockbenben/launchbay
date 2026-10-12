@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -23,7 +24,6 @@ func TestStatusIsAdminOnlyAndAggregates(t *testing.T) {
 		Profiles []struct {
 			ID            string `json:"id"`
 			Title         string `json:"title"`
-			Admin         bool   `json:"admin"`
 			Rev           int64  `json:"rev"`
 			Items         int    `json:"items"`
 			IconUnmatched int    `json:"iconUnmatched"`
@@ -47,8 +47,13 @@ func TestStatusIsAdminOnlyAndAggregates(t *testing.T) {
 	if out.Totals.Items != 2 {
 		t.Fatalf("条目合计不对: %+v", out.Totals)
 	}
-	if out.Profiles[0].ID != "dad" || out.Profiles[0].Snapshots != 1 || !out.Profiles[0].Admin {
+	if out.Profiles[0].ID != "dad" || out.Profiles[0].Snapshots != 1 {
 		t.Fatalf("dad 的汇总不对: %+v", out.Profiles[0])
+	}
+	// 汇总行里**没有 admin 那一格**（2026-10-12）：档案不再是管理员，跨档案聚合
+	// 就不该回答"哪一个是"。响应少一格是契约变更，openapi.json 已同步。
+	if strings.Contains(rec.Body.String(), `"admin"`) {
+		t.Errorf("/status 的响应体不该再有 admin 字段: %s", rec.Body.String())
 	}
 	// 档案作用域令牌与匿名都要拒：这是跨档案聚合信息（spec §6.1）。
 	if rec := getBearer(h, "/api/v1/status", dadTok); rec.Code != 403 {
@@ -57,9 +62,13 @@ func TestStatusIsAdminOnlyAndAggregates(t *testing.T) {
 	if rec := get(h, "/api/v1/status", ""); rec.Code != 401 {
 		t.Fatalf("匿名该 401, got %d", rec.Code)
 	}
-	// 管理员会话也放行（它是磁盘上确认过的管理员）。
-	if rec := get(h, "/api/v1/status", "lb_profile=dad"); rec.Code != 200 {
-		t.Fatalf("管理员会话该 200, got %d", rec.Code)
+	// 管理员 cookie 也放行——而**只有档案会话**（哪怕登的是 dad 自己）不行。
+	// 这一对是 2026-10-12 的整个边界：管理员是机器级的一把 key，与哪一份无关。
+	if rec := get(h, "/api/v1/status", "lb_profile=dad"); rec.Code != http.StatusForbidden {
+		t.Fatalf("只有档案会话该 403（那是「某人正在用的那一份」，不是管理权）, got %d", rec.Code)
+	}
+	if rec := get(h, "/api/v1/status", adminOnlyCookie(t)); rec.Code != 200 {
+		t.Fatalf("管理员 cookie 该 200, got %d", rec.Code)
 	}
 }
 

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
@@ -27,7 +27,7 @@ func TestAdmin_管理员拿到页面且不含条目内容(t *testing.T) {
 	}}}); err != nil {
 		t.Fatal(err)
 	}
-	rec := get(h, "/admin", dadFormCookie)
+	rec := get(h, "/admin", adminOnlyCookie(t))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("管理员会话该拿 200，得到 %d: %s", rec.Code, rec.Body)
 	}
@@ -53,19 +53,75 @@ func TestAdmin_管理员拿到页面且不含条目内容(t *testing.T) {
 	}
 }
 
-func TestAdmin_非管理员与无会话都303回选择页(t *testing.T) {
+// 没有管理权时 `/admin` **渲染登录页**（200），不是 303 回选择页——2026-10-12。
+//
+// 这不是"漏了权限检查"，是形状变了：管理员不再挂在任何档案上，于是浏览器那条路
+// 需要自己的凭证，而第一次拿到它的入口就是这一个页面。早先这里是裸 303，升级之后
+// 没有任何人进得去管理页（档案不再是管理员，而 key 还没输过）。
+//
+// 两个形状都要钉：**只有档案会话**（登着别人那份）与**完全没有任何 cookie**，
+// 拿到的都该是这一页；而登着自己的档案也**不等于**有管理权。
+func TestAdmin_没有管理权时给的是登录页(t *testing.T) {
 	_, h := setupBatch(t)
-	for name, ck := range map[string]string{"非管理员会话": kidFormCookie, "没有会话": ""} {
+	for name, ck := range map[string]string{
+		"只有别人的档案会话":   kidFormCookie,
+		"只有自己的档案会话":   dadFormCookie,
+		"没有任何 cookie": "",
+	} {
 		rec := get(h, "/admin", ck)
-		if rec.Code != http.StatusSeeOther {
-			t.Errorf("%s：得到 %d，要 303（浏览器通道的拒不吐 403 页面）", name, rec.Code)
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s：得到 %d，要 200（登录页）", name, rec.Code)
+			continue
 		}
-		if loc := rec.Header().Get("Location"); loc != "/" {
-			t.Errorf("%s：Location = %q，要 /", name, loc)
+		body := rec.Body.String()
+		if !strings.Contains(body, `action="/admin/login"`) {
+			t.Errorf("%s：这一页该是一张提交到 /admin/login 的表单:\n%.300s", name, body)
 		}
-		if rec.Body.Len() != 0 {
-			t.Errorf("%s：拒的一路不该带页面体: %s", name, rec.Body)
+		// 登录页绝不列任何档案：谁都能打开它，而它不该回答"这台机器上有谁"。
+		if strings.Contains(body, "爸爸") || strings.Contains(body, "小满") {
+			t.Errorf("%s：登录页漏出了档案名", name)
 		}
+		// 它也没有 ETag 与缓存（与 admin 页同族的 no-store）。
+		if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
+			t.Errorf("%s：登录页要 no-store，实际 %q", name, cc)
+		}
+	}
+}
+
+// 正对照：拿对了 key 就该进得去，而且管理页**不列条目内容**。
+func TestAdmin_管理页只有对的那把key进得去(t *testing.T) {
+	_, h := setupBatch(t)
+	// 错的 key 不发 cookie：失败那一趟只有一个 303 + 一个键，磁盘不动。
+	rec := postForm(h, "/admin/login", "key=nope", "")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("key 不对要 303，实际 %d %s", rec.Code, rec.Body)
+	}
+	if cs := rec.Result().Cookies(); len(cs) != 0 {
+		t.Fatalf("key 不对却发了 cookie: %v", cs)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/admin?err=badkey" {
+		t.Fatalf("Location = %q，要 /admin?err=badkey", loc)
+	}
+	// 对的 key：发一条 lb_admin，且**发的是派生值不是 key 本身**。
+	rec = postForm(h, "/admin/login", "key="+testAdminKey, "")
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin" {
+		t.Fatalf("key 对要 303 回 /admin，得到 %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	var adminCookie string
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == auth.CookieAdmin {
+			adminCookie = c.Value
+		}
+	}
+	if adminCookie == "" {
+		t.Fatal("没发 lb_admin cookie")
+	}
+	if adminCookie == testAdminKey {
+		t.Fatal("cookie 里装的是原始 key：它会进 devtools、进浏览器导出")
+	}
+	body := adminPageGet(t, h, "/admin", auth.CookieAdmin+"="+adminCookie)
+	if !strings.Contains(*body, "爸爸") || !strings.Contains(*body, "小满") {
+		t.Errorf("对的那把 key 该拿到管理页:\n%.300s", *body)
 	}
 }
 
@@ -76,7 +132,7 @@ func TestAdmin_坏档案占一行且没有死按钮(t *testing.T) {
 	if err := os.WriteFile(s.BookmarksPath("kid"), []byte("{坏"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rec := get(h, "/admin", dadFormCookie)
+	rec := get(h, "/admin", adminOnlyCookie(t))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("得到 %d: %s", rec.Code, rec.Body)
 	}
@@ -102,7 +158,7 @@ func TestAdmin_坏profile档案也占一行(t *testing.T) {
 	if err := os.WriteFile(s.ProfilePath("kid"), []byte("{坏"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rec := get(h, "/admin", dadFormCookie)
+	rec := get(h, "/admin", adminOnlyCookie(t))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("得到 %d: %s", rec.Code, rec.Body)
 	}
@@ -161,7 +217,7 @@ func TestAdmin_与status同一份聚合(t *testing.T) {
 	if !distinguishable {
 		t.Fatal("每个档案的 items 都等于 rev：这一条分不出「条目」格和「rev」格")
 	}
-	page := get(h, "/admin", dadFormCookie).Body.String()
+	page := get(h, "/admin", adminOnlyCookie(t)).Body.String()
 	for _, p := range out.Profiles {
 		if p.Modified == "" {
 			t.Errorf("%s 的 status 行没有 modified：页面就没法报最近改动时间", p.ID)
@@ -196,7 +252,7 @@ func TestAdmin_与status同一份聚合(t *testing.T) {
 // （本期这几页 no-store，今天不可达，但形状要先定，见 render.AdminSentinel）。
 func TestAdmin_档案头不是任何可建的档案id(t *testing.T) {
 	_, h := setupBatch(t)
-	rec := get(h, "/admin", dadFormCookie)
+	rec := get(h, "/admin", adminOnlyCookie(t))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("管理员该拿 200，得到 %d", rec.Code)
 	}
@@ -282,9 +338,9 @@ func flattenTags(s string) string {
 
 // 管理页的建档表单（设计 §4）。行为侧证人：判据全走 createProfile，这里只验外壳接线。
 func TestAdmin_表单建出普通档案(t *testing.T) {
-	s, h := setupBatch(t) // dad=admin 会话可用，kid 是普通档案
+	s, h := setupBatch(t)
 	before := dirCount(t, s)
-	rec := postForm(h, "/admin", "title=%E5%A6%88%E5%A6%88&pin=5678", dadFormCookie)
+	rec := postForm(h, "/admin", "title=%E5%A6%88%E5%A6%88&pin=5678", adminOnlyCookie(t))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("建档成功要 303，得到 %d: %s", rec.Code, rec.Body.String())
 	}
@@ -299,39 +355,29 @@ func TestAdmin_表单建出普通档案(t *testing.T) {
 	if err != nil {
 		t.Fatalf("新档案没落在预期位置: %v", err)
 	}
-	if p.Admin {
-		t.Error("不勾「能管理全家」就建成管理员了——勾和没勾得是两个答案")
-	}
 	if !strings.HasPrefix(p.PIN, "sha256$") {
 		t.Errorf("PIN 要经 HashPIN 存成三段式，得到 %q", p.PIN)
 	}
 }
 
-// 勾选的那一格是模板与 handler 之间的**接件**：模板写 value="1"，handler 比 == "1"。
-// 测试从模板里取那个值再原样发出去，两个方向都被钉住：模板改值（浏览器就会发别的值）
-// 或 handler 改比较，这一条都会红——写死 "admin=1" 的测试只对一半漂移敏感（复扫实测）。
-func TestAdmin_勾选才建管理员(t *testing.T) {
-	s, h := setupBatch(t)
-	v := adminCheckboxValue(t)
-	body := "title=nas&pin=5678&admin=" + url.QueryEscape(v)
-	if rec := postForm(h, "/admin", body, dadFormCookie); rec.Code != http.StatusSeeOther {
-		t.Fatalf("得到 %d: %s", rec.Code, rec.Body.String())
+// 建档表单**没有**「能管理全家」那一格（2026-10-12）：档案不再有管理员属性，
+// 那个勾选框勾了也不会有任何后果，留着只会让人以为"建成管理员"是一件事。
+// 这一条钉的是"它不在模板里"——用扫描而不是行为断言，因为行为上"勾了建出来的
+// 还是普通档案"与"根本没有那个框"要分两处才知道，而退化最容易发生在后者。
+func TestAdmin_建档表单没有管理员勾选(t *testing.T) {
+	raw := readGoFile(t, "../render/web/admin.tmpl")
+	formStart := strings.Index(raw, `action="/admin"`)
+	if formStart < 0 {
+		t.Fatal("admin.tmpl 里找不到建档表单")
 	}
-	p, err := s.LoadProfile("nas")
-	if err != nil {
-		t.Fatal(err)
+	// 这一格表单到 </form> 为止。
+	rest := raw[formStart:]
+	end := strings.Index(rest, "</form>")
+	if end < 0 {
+		t.Fatal("建档表单没有闭合")
 	}
-	if !p.Admin {
-		t.Errorf("模板勾上发的值是 %q，handler 却没建成管理员——接件断了一边", v)
-	}
-	// 反向：不发那个值就不是管理员（"勾与不勾是两个答案"的另一半）。
-	if rec := postForm(h, "/admin", "title=noswitch&pin=5678", dadFormCookie); rec.Code != http.StatusSeeOther {
-		t.Fatalf("不勾的提交要 303，得到 %d", rec.Code)
-	}
-	if p2, err := s.LoadProfile("noswitch"); err != nil {
-		t.Fatal(err)
-	} else if p2.Admin {
-		t.Error("不勾也建成了管理员")
+	if in := rest[:end]; strings.Contains(in, `name="admin"`) {
+		t.Errorf("建档表单里还有 admin 勾选框，而档案已不是管理员:\n%.400s", in)
 	}
 }
 
@@ -399,7 +445,7 @@ func TestAdmin_字段错回带键的303(t *testing.T) {
 		"title=&pin=":     "noname", // 两格都没填对：先说名字那一格
 		"title=%E7%88%B8": "badpin", // 没给 pin
 	} {
-		rec := postForm(h, "/admin", body, dadFormCookie)
+		rec := postForm(h, "/admin", body, adminOnlyCookie(t))
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("%q 要 303，得到 %d", body, rec.Code)
 		}
@@ -417,7 +463,7 @@ func TestAdmin_形状错走JSON外壳(t *testing.T) {
 		{"title=a&title=b&pin=1234", "title"},
 		{"title=%E7%88%B8&pin=1234&pin=5678", "pin"},
 	} {
-		rec := postForm(h, "/admin", tc.form, dadFormCookie)
+		rec := postForm(h, "/admin", tc.form, adminOnlyCookie(t))
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("%.40q 要 422 JSON 外壳，得到 %d", tc.form, rec.Code)
 		}
@@ -430,7 +476,7 @@ func TestAdmin_形状错走JSON外壳(t *testing.T) {
 		}
 	}
 	// 正对照：合格提交走 303，不是 422。
-	if rec := postForm(h, "/admin", "title=%E5%A6%88&pin=5678", dadFormCookie); rec.Code != http.StatusSeeOther {
+	if rec := postForm(h, "/admin", "title=%E5%A6%88&pin=5678", adminOnlyCookie(t)); rec.Code != http.StatusSeeOther {
 		t.Errorf("合格提交要 303，得到 %d", rec.Code)
 	}
 	if got := dirCount(t, s); got != before+1 {
@@ -452,13 +498,13 @@ func TestAdmin_提示在场(t *testing.T) {
 			t.Errorf("pinNotices 缺键 %q：管理页会说不出那句失败", key)
 			continue
 		}
-		rec := get(h, "/admin?err="+key, dadFormCookie)
+		rec := get(h, "/admin?err="+key, adminOnlyCookie(t))
 		if !strings.Contains(rec.Body.String(), noticeOf(i18n.Default, key)) {
 			t.Errorf("管理页说不出登记的失败 %q:\n%.400s", key, rec.Body.String())
 		}
 	}
 	// 未登记的键一个字都不进页面（与进门页同一套白名单纪律）。
-	rec2 := get(h, "/admin?err=%E4%B8%8D%E6%98%AF%E9%94%AE", dadFormCookie)
+	rec2 := get(h, "/admin?err=%E4%B8%8D%E6%98%AF%E9%94%AE", adminOnlyCookie(t))
 	if strings.Contains(rec2.Body.String(), "不是键") {
 		t.Error("未登记的 ?err= 被复读进管理页了（反射点）")
 	}
@@ -485,7 +531,7 @@ func TestAdmin_并发同名不吐500(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			rec := postForm(h, "/admin", "title=%E5%90%8C%E5%90%8D&pin=5678", dadFormCookie)
+			rec := postForm(h, "/admin", "title=%E5%90%8C%E5%90%8D&pin=5678", adminOnlyCookie(t))
 			codes[i] = rec.Code
 			locs[i] = rec.Header().Get("Location")
 		}(i)
@@ -524,47 +570,50 @@ func TestAdmin_并发同名不吐500(t *testing.T) {
 	}
 }
 
-// 死路②（P1-④.5 验收结转的那处）：零档案时 `/admin` 注册着但永远 303。这不是故障，
-// 是单门纪律——建档只有一道门（/setup 表单或 POST /api/v1/profiles），而 /admin 的前提
-// 是管理员会话，零档案时不可能有。此前它只有验收当天一次手测，这里钉成证人。
-func TestAdmin_零档案时这一面不可达(t *testing.T) {
+// 零档案时 `/admin` **照样可达**（2026-10-12）——这正是那次改判的落点。
+//
+// 早先这里是"注册着但永远 303"，理由是"管理员是某个档案，零档案时不可能有"。
+// 管理员改成机器级的一把 key 之后这个理由不成立了：零档案时装机的人**正要**用
+// 管理页加人，而那把 key 就在 docker-compose.yml 里写着。于是这一支改成钉反面：
+// 零档案时管理页进得去、且建档表单立刻可用。
+func TestAdmin_零档案时这一面照样可达(t *testing.T) {
 	s, h := setupZero(t)
-	// 无会话的 GET：裸 303 回选择页。Location 精确等于 "/"——带 ?err= 就是假话，
-	// 权限类拒绝不解释（§6.1）。
-	rec := get(h, "/admin", "")
+	// 没有管理权：给登录页（不是 303）。这一支的正对照在
+	// TestAdmin_没有管理权时给的是登录页。
+	if rec := get(h, "/admin", ""); rec.Code != http.StatusOK {
+		t.Fatalf("零档案时 GET /admin 要 200 登录页，得到 %d", rec.Code)
+	}
+	// 有管理权：真的管理页，而且建档表单立刻能用。
+	rec := postForm(h, "/admin/login", "key="+testAdminKey, "")
 	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("零档案时 GET /admin 要 303，得到 %d", rec.Code)
+		t.Fatalf("零档案时登录要 303，得到 %d %s", rec.Code, rec.Body)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/" {
-		t.Errorf("GET /admin 的出路要恰好 \"/\"（不带键），得到 %q", loc)
+	cookie := adminOnlyCookie(t)
+	body := adminPageGet(t, h, "/admin", cookie)
+	if !strings.Contains(*body, `action="/admin"`) {
+		t.Errorf("零档案的管理页该带建档表单:\n%.300s", *body)
 	}
-	// 带 `*` 令牌的 POST：浏览器通路不认令牌，同一条裸 303，磁盘一个档案都不多。
+	rec = postForm(h, "/admin", "title=%E5%A6%88&pin=5678", cookie)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin" {
+		t.Fatalf("零档案时管理页建档要 303 回 /admin，得到 %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if n := dirCount(t, s); n != 1 {
+		t.Errorf("建完该有 1 个档案目录，得到 %d", n)
+	}
+	// 浏览器表单通路仍然不认令牌：同一把 key 打 POST /admin 是裸 303，磁盘不变。
 	rec = post(h, "/admin", `{"title":"x","pin":"1234"}`, "", adminTok)
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Errorf("带令牌的 POST /admin 要 303 回 \"/\"，得到 %d %q",
 			rec.Code, rec.Header().Get("Location"))
 	}
-	if n := dirCount(t, s); n != 0 {
-		t.Errorf("磁盘上多了 %d 个档案目录，要 0——这条通路在零档案时什么都做不成", n)
+	if n := dirCount(t, s); n != 1 {
+		t.Errorf("令牌那一路在磁盘上留下了东西：%d 个档案目录，要 1", n)
 	}
-	// 正对照 ①：同一把令牌打 API 那条是活的。拒它的是"这是浏览器表单通路"，不是鉴权
-	// 失败——少了这条，上面两断言会把"令牌本身不可用"也一起钉成应有行为。
-	rec = getBearer(h, "/api/v1/profiles", adminTok)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"profiles": []`) {
-		t.Errorf("管理员令牌打 GET /api/v1/profiles 要 200 空表，得到 %d %.200s", rec.Code, rec.Body)
-	}
-	// 正对照 ②：建成第一个档案之后这一面真的可达——否则"永远 303"连它自己一起钉死了。
-	if rec := postForm(h, "/setup", "title=%E7%88%B8&pin=1234", ""); rec.Code != http.StatusSeeOther {
-		t.Fatalf("引导建档该 303，得到 %d", rec.Code)
-	}
-	cookie := sessionCookie(t, postForm(h, "/pin", "profile=home&pin=1234", ""))
-	rec = postForm(h, "/admin", "title=%E5%A6%88&pin=5678", cookie)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin" {
-		t.Fatalf("有管理员会话之后 POST /admin 要 303 回 /admin，得到 %d %q",
-			rec.Code, rec.Header().Get("Location"))
-	}
-	if n := dirCount(t, s); n != 2 {
-		t.Errorf("管理页建档之后磁盘上要有 2 个档案，得到 %d", n)
+	// 正对照：同一把 key 打 API 那条是活的。拒它的是"这是浏览器表单通路"，不是
+	// 鉴权失败——少了这条，上面那条断言会把"令牌本身不可用"也一起钉成应有行为。
+	if rec := getBearer(h, "/api/v1/profiles", adminTok); rec.Code != http.StatusOK ||
+		!strings.Contains(rec.Body.String(), `"id": "home"`) {
+		t.Errorf("管理员令牌打 GET /api/v1/profiles 要 200 且看得到刚建的那份 home（中文名派生的基名），得到 %d %.200s", rec.Code, rec.Body)
 	}
 }
 
@@ -575,7 +624,7 @@ func TestAdmin_坏档那一格不给做不到的承诺(t *testing.T) {
 	if err := s.WriteFileAtomic(s.ProfilePath("kid"), []byte("坏得读不了")); err != nil {
 		t.Fatal(err)
 	}
-	rec := get(h, "/admin", dadFormCookie)
+	rec := get(h, "/admin", adminOnlyCookie(t))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("管理员会话该拿 200，得到 %d", rec.Code)
 	}

@@ -15,7 +15,13 @@ import (
 type Dependencies struct {
 	Store  *store.Store
 	Tokens auth.Scopes
-	Render *render.Renderer
+	// AdminToken 是机器级管理员那把裸 key（LAUNCHBAY_ADMIN_TOKEN）。它与 Tokens
+	// 是**两个字段而不是一个列表里的两项**：管理员不属于任何档案，把它塞进
+	// 档案作用域令牌列表就要给 Scope 开一个 `*` 特例（见 internal/auth）。
+	// 真实服务必须非 nil（装配点读不到就退出）；`New(Dependencies{})` 仍要能
+	// 构造——契约测试靠它枚举路由，那种情况下没有管理员可认，全是 401/403。
+	AdminToken auth.AdminToken
+	Render     *render.Renderer
 	// Icons 是内嵌的双层图标索引：搜索端点、写路径的图标名闸门、渲染层
 	// 与 /status 的缺图统计都读它。真实服务必须非 nil（装配点读不到就退出），
 	// 但 `New(Dependencies{})` 仍要能构造——契约测试靠它枚举路由。

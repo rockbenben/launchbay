@@ -18,81 +18,72 @@ import (
 // `cmdProfile` 认的只有 `create`——敲 rebuild 得到的是 create 的用法与退出码 2。
 // 下面这些钉的是"它现在真的能跑，而且接线的每一格都对"。
 
-// TestCLIProfileRebuildAlwaysSendsAdmin 是那条最容易写错的接线：
-// **省略 --admin 旗标时也必须显式发 admin:false**。
+// 2026-10-12：管理员从**档案属性**变成一把机器级的 key（LAUNCHBAY_ADMIN_TOKEN），
+// 于是 `--admin` 旗标与请求体里的 admin 那一格**整个不存在了**——建档请求体从四格
+// 变三格，重建请求体也一样。
 //
-// 端点那一格是必填的（省略 = 422），而壳若"旗标没写就不发"，每一次不带 --admin
-// 的调用都会撞 422，且错在调用方完全看不见的地方。判据是**请求体里真的有那一格**，
-// 不是"重建成功了"——后者在 --admin 写出来时同样绿。
-func TestCLIProfileRebuildAlwaysSendsAdmin(t *testing.T) {
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
-	var bodies []map[string]any
-	var paths, bys []string
+// 被这一条接替的是原来的两条：
+// TestCLIProfileRebuildAlwaysSendsAdmin（钉"省略 --admin 时也必须显式发 admin:false"，
+// 因为那一格曾在必填）与 TestCLIProfileRebuildSendsAdminTrueWhenFlagGiven。
+// 它们的意图——**壳不许替调用方猜**——没有丢，只是换了形状：现在连"猜"的地方都没有了，
+// 于是判据翻面成"body 里不许出现 admin"。删掉的两条里还有路径、X-LB-By 与那三格字段，
+// 那些判据在这里一并留着（否则它们会跟着测试一起消失）。
+func TestCLIProfileBodiesCarryNoAdminKey(t *testing.T) {
+	adminKeyEnv(t)
+	type sent struct {
+		path, by, auth, raw string
+	}
+	var got []sent
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		paths = append(paths, r.URL.Path)
-		bys = append(bys, r.Header.Get("X-LB-By"))
 		raw, _ := io.ReadAll(r.Body)
-		var m map[string]any
-		if err := json.Unmarshal(raw, &m); err != nil {
-			t.Errorf("CLI 发出的体不是合法 JSON: %v (%q)", err, raw)
+		if !json.Valid(raw) {
+			t.Errorf("CLI 发出的体不是合法 JSON: %q", raw)
 		}
-		bodies = append(bodies, m)
+		got = append(got, sent{path: r.URL.Path, by: r.Header.Get("X-LB-By"),
+			auth: r.Header.Get("Authorization"), raw: string(raw)})
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"kid","title":"小满","admin":false}`))
+		_, _ = w.Write([]byte(`{"id":"mom","title":"妈妈"}`))
 	}))
 	defer srv.Close()
 
-	// 故意**不写** --admin：这一支就是"省略旗标"
-	var buf bytes.Buffer
-	if code := runCLI([]string{"profile", "rebuild", "--id", "kid", "--title", "小满",
-		"--pin", "5678"}, cliCfg(t, srv), &buf); code != 0 {
-		t.Fatalf("该退出 0，实际 %d out=%q", code, buf.String())
-	}
-	if len(bodies) != 1 {
-		t.Fatalf("该发一次请求，实际 %d 次", len(bodies))
-	}
-	if paths[0] != "/api/v1/profiles/rebuild" {
-		t.Errorf("打错了路径: %q", paths[0])
-	}
-	if bys[0] != "cli" {
-		t.Errorf("X-LB-By 该是 cli（重建要写审计行，缺了它会被记成 web），实际 %q", bys[0])
-	}
-	got := bodies[0]
-	for k, want := range map[string]string{"profile": "kid", "title": "小满", "pin": "5678"} {
-		if got[k] != want {
-			t.Errorf("body[%q] = %v，要 %q", k, got[k], want)
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"create", []string{"profile", "create", "--id", "mom", "--title", "妈妈", "--pin", "1234"},
+			"已建档 mom"},
+		{"rebuild", []string{"profile", "rebuild", "--id", "kid", "--title", "小满", "--pin", "5678"},
+			"已重建 mom"},
+	} {
+		var buf bytes.Buffer
+		if code := runCLI(tc.args, cliCfg(t, srv), &buf); code != 0 {
+			t.Fatalf("%s：该退出 0，实际 %d out=%q", tc.name, code, buf.String())
+		}
+		if !strings.Contains(buf.String(), tc.want) {
+			t.Errorf("%s：输出该含 %q，实际 %q", tc.name, tc.want, buf.String())
 		}
 	}
-	v, ok := got["admin"]
-	if !ok {
-		t.Fatalf("body 里没有 admin 那一格（省略旗标时也必须显式发）: %v", got)
+	if len(got) != 2 {
+		t.Fatalf("该各发一次请求，实际 %d 次", len(got))
 	}
-	if v != false {
-		t.Errorf("不带 --admin 时 admin 该是 false，实际 %v", v)
+	if got[0].path != "/api/v1/profiles" || got[1].path != "/api/v1/profiles/rebuild" {
+		t.Errorf("打错了路径: %q / %q", got[0].path, got[1].path)
 	}
-}
-
-// --admin 写出来时它该是 true：两条合起来才是"这一格接对了"，而不是只钉默认值。
-func TestCLIProfileRebuildSendsAdminTrueWhenFlagGiven(t *testing.T) {
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
-	var body map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(raw, &body)
-		_, _ = w.Write([]byte(`{"id":"mom","title":"妈妈","admin":true}`))
-	}))
-	defer srv.Close()
-
-	var buf bytes.Buffer
-	if code := runCLI([]string{"profile", "rebuild", "--id", "mom", "--title", "妈妈",
-		"--pin", "4321", "--admin"}, cliCfg(t, srv), &buf); code != 0 {
-		t.Fatalf("该退出 0，实际 %d out=%q", code, buf.String())
+	// 重建要写审计行，缺了 X-LB-By 会被记成 web（原 TestCLIProfileRebuildAlwaysSendsAdmin 钉的）。
+	if got[1].by != "cli" {
+		t.Errorf("X-LB-By 该是 cli，实际 %q", got[1].by)
 	}
-	if body["admin"] != true {
-		t.Errorf("--admin 写出来时该发 true，实际 %v", body["admin"])
-	}
-	if !strings.Contains(buf.String(), "管理员") {
-		t.Errorf("成功输出该说清这是管理员档案: %q", buf.String())
+	for i, s := range got {
+		// 钉的就是这一条：body 里**不许**有 admin。留着它等于把一个已删除的字段
+		// 重新写进服务端——服务端会当未知字段拒（422）或更糟：哪天字段回来了，
+		// 这条壳会替调用方偷偷发一个 false 出去。
+		if strings.Contains(s.raw, "admin") {
+			t.Errorf("%s：body 里不该再有 admin 那一格: %s", []string{"create", "rebuild"}[i], s.raw)
+		}
+		if !strings.Contains(s.auth, testAdminKey) {
+			t.Errorf("该带那把管理员 key 而不是档案作用域令牌: %q", s.auth)
+		}
 	}
 }
 
@@ -101,7 +92,7 @@ func TestCLIProfileRebuildSendsAdminTrueWhenFlagGiven(t *testing.T) {
 func TestCLIProfileRebuildEndToEnd(t *testing.T) {
 	s, srv := newRealServer(t)
 	defer srv.Close()
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
+	adminKeyEnv(t)
 
 	// 先给 dad 一点书签（重建不许碰它们），再把 profile.json 写坏。
 	if err := os.WriteFile(s.ProfilePath("dad"), []byte("{\n  \"id\": \"dad\",\n  \"title\":\n"), 0o644); err != nil {
@@ -110,8 +101,9 @@ func TestCLIProfileRebuildEndToEnd(t *testing.T) {
 	marksBefore := shaFile(t, s.BookmarksPath("dad"))
 
 	var buf bytes.Buffer
+	// **不带 --admin**（2026-10-12）：那个旗标已删，flag 会拒绝它。
 	code := runCLI([]string{"profile", "rebuild", "--id", "dad", "--title", "爸爸",
-		"--pin", "4321", "--admin"}, cliCfg(t, srv), &buf)
+		"--pin", "4321"}, cliCfg(t, srv), &buf)
 	if code != 0 {
 		t.Fatalf("坏档该重建成功, code=%d out=%q", code, buf.String())
 	}
@@ -122,7 +114,9 @@ func TestCLIProfileRebuildEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("重建之后该读得动: %v", err)
 	}
-	if p.Title != "爸爸" || !p.Admin {
+	// 原来的 `|| !p.Admin` 随 `model.Profile.Admin` 一起删掉（钉的字段已不存在），
+	// 重建出的形状由还在的字段说。
+	if p.Title != "爸爸" || p.PIN == "" {
 		t.Errorf("重建出的档案形状不对: %+v", p)
 	}
 	if got := shaFile(t, s.BookmarksPath("dad")); got != marksBefore {
@@ -145,7 +139,7 @@ func TestCLIProfileRebuildEndToEnd(t *testing.T) {
 func TestCLIProfileRebuildSurfacesConflict(t *testing.T) {
 	_, srv := newRealServer(t)
 	defer srv.Close()
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
+	adminKeyEnv(t)
 
 	var buf bytes.Buffer
 	// dad 是好的（夹具里没写坏），所以重建它必然 409
@@ -163,7 +157,7 @@ func TestCLIProfileRebuildSurfacesConflict(t *testing.T) {
 func TestCLIProfileRebuildSurfacesNotFound(t *testing.T) {
 	_, srv := newRealServer(t)
 	defer srv.Close()
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
+	adminKeyEnv(t)
 
 	var buf bytes.Buffer
 	code := runCLI([]string{"profile", "rebuild", "--id", "ghost", "--title", "幽灵",

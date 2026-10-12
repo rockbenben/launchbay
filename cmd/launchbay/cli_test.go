@@ -121,12 +121,26 @@ func cliCfg(t *testing.T, srv *httptest.Server) config {
 	return cfg
 }
 
+// adminKeyEnv 摆好 CLI 侧那两格凭证（2026-10-12）：档案作用域令牌留在
+// LAUNCHBAY_WRITE_TOKENS，管理员是**独立的一把** LAUNCHBAY_ADMIN_TOKEN。
+// 少了第二格 loadConfig 直接拒绝启动（"这台机器就没有人能建档"），
+// 留着 * 那一格则是明确报错——所以每个端到端用例都要走这个 helper。
+func adminKeyEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "ai-dad:tok-dad:dad")
+	t.Setenv("LAUNCHBAY_ADMIN_TOKEN", testAdminKey)
+}
+
+// testAdminKey 是这些端到端用例里那把管理员 key。newRealServer 用同一个值装配
+// httpapi 的 AdminToken，否则 CLI 发出的 Bearer 与服务端认的那把对不上。
+const testAdminKey = "tok-admin"
+
 // 端到端跑真 runCLI → cmdRevert → newAdminClient → c.do，假服务当证人。
 // 重点是 X-LB-By: cli：丢了它，每一次 CLI revert 都会被历史悄悄记成 web——
 // 这个头就是 spec 缺口裁定为"人在终端跑 CLI"专门引入的渠道。
 // 顺带钉 query 转义：--profile 值带空格不许拼出多一个参数。
 func TestCLIRevertEndToEnd(t *testing.T) {
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "ai-dad:tok-dad:dad,admin:tok-admin:*")
+	adminKeyEnv(t)
 	var methods, paths, queries, bys, auths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		methods = append(methods, r.Method)
@@ -152,9 +166,11 @@ func TestCLIRevertEndToEnd(t *testing.T) {
 	if bys[0] != "cli" {
 		t.Fatalf("X-LB-By: cli 丢了，CLI 渠道会被记成 web: %q", bys[0])
 	}
-	// **该用的是作用域为 dad 的那枚令牌**（2026-10-10 改判）：管理员令牌（*）只管
+	// **该用的是作用域为 dad 的那枚令牌**（2026-10-10 改判）：管理员 key 只管
 	// 账号层面，写书签一律要档案作用域令牌。这条断言是那条边界在机器那一面的
-	// 证人——把它改回 tok-admin，等于把 CLI 改回用管理员令牌写任何人的书签。
+	// 证人——把它改回那把管理员 key，等于把 CLI 改回用管理员凭证写任何人的书签。
+	// （2026-10-12 起管理员不再是"列表里作用域为 * 的那一条"，而是独立的一把 key，
+	// 但这条边界一个字没变。）
 	if auths[0] != "Bearer tok-dad" {
 		t.Fatalf("该用作用域为 dad 的令牌而不是管理员令牌: %q", auths[0])
 	}
@@ -175,7 +191,7 @@ func TestCLIRevertEndToEnd(t *testing.T) {
 func TestCLIRevertServerErrorExitsOneNoLocalWrite(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "ai-dad:tok-dad:dad,admin:tok-admin:*")
+	adminKeyEnv(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"code":503,"detail":"服务正在维护，恢复已取消"}`))
@@ -206,10 +222,12 @@ func TestCLIRevertServerErrorExitsOneNoLocalWrite(t *testing.T) {
 func TestProfileCreateEndToEnd(t *testing.T) {
 	s, srv := newRealServer(t)
 	defer srv.Close()
-	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "admin:tok-admin:*")
+	adminKeyEnv(t)
 	var buf bytes.Buffer
+	// **不带 --admin**（2026-10-12）：那个旗标随档案的 admin 属性一起删掉了，
+	// 留着它 flag 会当场报错退出 2。它现在仍是"用法错误"，由下面那半条钉。
 	code := runCLI([]string{"profile", "create", "--id", "mom", "--title", "妈妈",
-		"--pin", "1234", "--admin"}, cliCfg(t, srv), &buf)
+		"--pin", "1234"}, cliCfg(t, srv), &buf)
 	if code != 0 {
 		t.Fatalf("建档该成功, code=%d out=%q", code, buf.String())
 	}
@@ -220,8 +238,17 @@ func TestProfileCreateEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !p.Admin {
-		t.Fatal("--admin 没落成管理员档案")
+	// 原来这里是 `if !p.Admin`——`model.Profile.Admin` 2026-10-12 已删（钉的字段不存在），
+	// 换成钉**还在的**那些，免得这条用例只剩下"建出来了"这一句。
+	if p.ID != "mom" || p.Title != "妈妈" || p.PIN == "" {
+		t.Fatalf("建出来的档案形状不对: %+v", p)
+	}
+	raw, err := os.ReadFile(s.ProfilePath("mom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "admin") {
+		t.Fatalf("建出来的 profile.json 不该含 admin 键（2026-10-12）:\n%s", raw)
 	}
 	b, err := s.LoadBookmarks("mom")
 	if err != nil {
@@ -229,6 +256,12 @@ func TestProfileCreateEndToEnd(t *testing.T) {
 	}
 	if len(b.Groups) != 0 {
 		t.Fatalf("建出来的档案不该带任何预置分组，实际 %+v", b.Groups)
+	}
+	// 被删掉的旗标必须**真的是用法错误**：flag 会拒绝它，于是退出 2 而不是建出一个档案。
+	var badBuf bytes.Buffer
+	if code := runCLI([]string{"profile", "create", "--id", "kid", "--title", "娃",
+		"--pin", "1234", "--admin"}, cliCfg(t, srv), &badBuf); code != 2 {
+		t.Fatalf("--admin 已删，该是用法错误 2，实际 %d out=%q", code, badBuf.String())
 	}
 }
 
@@ -245,9 +278,10 @@ func newRealServer(t *testing.T) (*store.Store, *httptest.Server) {
 		}
 		return h
 	}
-	// dad：管理员档案，带一个非空的清单——建档/导入门槛那几条用例要的就是"这个档案不是空的"。
+	// dad：夹具档案，带一个非空的清单——建档/导入门槛那几条用例要的就是"这个档案不是空的"。
+	// 不带 Admin（2026-10-12）：`NewProfileInput.Admin` 已删，档案不再有管理员属性。
 	if _, err := s.CreateProfile(store.NewProfileInput{
-		ID: "dad", Title: "爸爸", PinHash: hash("1234"), Admin: true}); err != nil {
+		ID: "dad", Title: "爸爸", PinHash: hash("1234")}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveBookmarks("dad", &model.Bookmarks{Rev: 1, Title: "发射台", Groups: []model.Group{{
@@ -257,7 +291,13 @@ func newRealServer(t *testing.T) (*store.Store, *httptest.Server) {
 	}}}); err != nil {
 		t.Fatal(err)
 	}
-	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad,admin:tok-admin:*")
+	// 档案作用域令牌 + **那把管理员 key**（2026-10-12：管理员不在列表里了，
+	// 它是独立的 AdminToken，装配点按同一个 httpapi.Dependencies 接进去）。
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminKey, err := auth.ParseAdminToken(testAdminKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +308,8 @@ func newRealServer(t *testing.T) (*store.Store, *httptest.Server) {
 		t.Fatal(err)
 	}
 	return s, httptest.NewServer(httpapi.New(httpapi.Dependencies{
-		Store: s, Tokens: scopes, Render: render.New(s, e2eIconIndex(), fc), Icons: e2eIconIndex(),
+		Store: s, Tokens: scopes, AdminToken: adminKey,
+		Render: render.New(s, e2eIconIndex(), fc), Icons: e2eIconIndex(),
 		Fetch: icons.NewFetcher(), Cache: fc}).Handler())
 }
 

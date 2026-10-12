@@ -7,6 +7,10 @@ name: launchbay
 # 这个文件只负责**拉**已发布的镜像。构建是 CI 的事：打 `v*` tag，
 # `.github/workflows/docker.yml` 构建并推出 amd64 + arm64 两个架构到
 # Docker Hub 与 GHCR。用它的人不需要装 Go，也不需要看 Dockerfile。
+#
+# **升级提醒（2026-10-12）**：管理员从"令牌列表里档案段写 * 的那一条"变成上面那把
+# `LAUNCHBAY_ADMIN_TOKEN`。从旧版升上来要改的就是这一处——旧的那条留着会启动失败
+# （报错里会指名让你换到哪个变量），磁盘上的档案与书签不受影响。
 services:
   launchbay:
     image: ghcr.io/rockbenben/launchbay:latest
@@ -33,17 +37,19 @@ services:
       # **这两行就是全部的令牌配置**，没有 `.env`、没有第二层变量。
       # 要改就直接改这里，改完 `docker compose up -d` 重起。
       #
-      # 格式是 `名字:密钥:档案`，逗号分隔。下面两枚的密钥是**占位值**，
-      # 谁都在仓库里看得见：同一局域网里认得这个名字的人能拿 `admin` 那枚
-      # 建档、删档、给别人改 PIN（但**读不到任何人的书签**——那要档案自己的
-      # PIN，而 PIN 只有档案主人知道）。要把这台机器开给局域网以外的人，
-      # 先把这两个 `change-me-…` 换成自己的。
+      # 管理员是一把**裸 key**（2026-10-12）——它不属于任何档案，于是浏览器那边
+      # 进管理页靠的是 `/admin/login` 输它，而不是"登进某个管理员档案"。
+      # 它**只管账号**（建档/删档/设 PIN/停用/看跨档案状态），**读不到任何人的书签**。
+      # 默认值是公开的：同一局域网里认得这个名字的人能拿它建档、删档、给别人改 PIN。
+      # 要把这台机器开给局域网以外的人，先把它换成自己的。
+      LAUNCHBAY_ADMIN_TOKEN: "change-me-admin-token"
       #
-      # 档案段 `…:dad` 要对上你真正建出来的档案 id：建档只问名字与 PIN，id 由名字
-      # 派生（`Dad` → dad；**中文名字转不出 slug** → home / home-2）。拿中文名字建了
-      # 第一个档案之后，下面那枚 `…:dad` 的作用域对不上任何档案，打过去是 403
-      # ——那是"令牌越界"的 403，不是服务坏了。把 `dad` 改成实际的档案 id 即可。
-      LAUNCHBAY_WRITE_TOKENS: "ai-dad:change-me-dad-token:dad,admin:change-me-admin-token:*"
+      # 档案作用域令牌：每条三段式 `名字:密钥:档案`，逗号分隔。
+      # 档案段是**具体档案 id** 时，这把令牌只管那一份的读与写。
+      # 拿中文名字建档时 id 派生不出 slug，会落到 `home` / `home-2`——那时下面那枚
+      # `…:dad` 对不上任何档案，打过去是 403（"令牌越界"，不是服务坏了），把 `dad`
+      # 改成实际的档案 id 即可。
+      LAUNCHBAY_WRITE_TOKENS: "ai-dad:change-me-dad-token:dad"
       TZ: Asia/Shanghai
     restart: unless-stopped
     # 静态二进制要的能力一个都没有：7600 是高位端口，不需要 CAP_NET_BIND_SERVICE；

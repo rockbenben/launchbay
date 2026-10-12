@@ -10,11 +10,12 @@ import (
 	"github.com/rockbenben/launchbay/internal/model"
 )
 
+// NewProfileInput 没有 Admin（2026-10-12）：档案不再有"是不是管理员"这个属性。
+// 建出来的每一份都只是一个人的书签页，管这台机器是另一把 key 的事。
 type NewProfileInput struct {
 	ID      string
 	Title   string
 	PinHash string
-	Admin   bool
 }
 
 // CreateProfile 建目录 + profile.json + bookmarks.json（rev 0）。
@@ -38,7 +39,7 @@ func (s *Store) CreateProfile(in NewProfileInput) (*model.Profile, error) {
 
 	// 全部校验都排在落盘之前。
 	p := model.Profile{
-		ID: in.ID, Title: in.Title, Admin: in.Admin, PIN: in.PinHash,
+		ID: in.ID, Title: in.Title, PIN: in.PinHash,
 		CreatedAt: time.Now().Format(time.RFC3339), Theme: "auto", Layout: "sidebar",
 	}
 	if err := p.Validate(); err != nil {

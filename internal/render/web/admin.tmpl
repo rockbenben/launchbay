@@ -30,7 +30,8 @@
     {{range .Rows}}
       <tr>
         <td data-k="{{$.T "admin.col.profile"}}"><b>{{if .Title}}{{.Title}}{{else}}{{.ID}}{{end}}</b>{{if .Title}} <code>{{.ID}}</code>{{end}}
-          {{if .Admin}}<span class="badge">{{$.T "admin.badge.admin"}}</span>{{end}}
+          {{/* 「管理员」那一枚徽标 2026-10-12 删掉了：档案不再有管理员属性，
+         「谁能管这台机器」是**这一页的访问权**，不是那一行档案的属性。 */}}
           {{/* 停用与坏档是两种不同的"进不来"：坏档是数据读不出来（得修文件），
                停用是有人把它关上了（启回来就好）。同色会让管理员分不清该做什么，
                所以一个用中性徽标、一个用 warn 色的 .badge 本色。 */}}
@@ -81,15 +82,19 @@
     {{end}}
     </tbody>
   </table>
-  {{/* 建档表单：两格 + 一个勾选。id 不问（由名字派生，判据在 store），PIN 存哈希。
-       勾选的后果写在同一行——"能管理全家"是能看与改所有人的书签，不是个装饰，
-       也不藏进 tooltip。不设二次确认：与管理页读侧同一档敏感度的动作，
-       做错了有快照与历史线可退（spec §11 的"不顺手看到、不误改"这一档）。 */}}
+  {{/* 建档表单：两格。id 不问（由名字派生，判据在 store），PIN 存哈希。
+       **没有第三个勾选**（2026-10-12）：档案不再是管理员，所以"建成管理员"
+       这个动作已经不存在了。留着那个勾选框会让人以为勾了就能管这台机器，
+       而它现在连字段都不收。 */}}
   <form method="post" action="/admin" class="adm newprofile">
     <label>{{.T "admin.new.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off"></label>
     <label>{{.T "admin.new.pin"}} <input name="pin" type="password" inputmode="numeric" minlength="4" maxlength="6" required autocomplete="off"></label>
-    <label class="chk"><input type="checkbox" name="admin" value="1"> {{.T "admin.new.admin"}}</label>
     <button type="submit">{{.T "admin.new.submit"}}</button>
+  </form>
+  {{/* 退出管理：只清 lb_admin，**不动 lb_profile**。管理员可能同时登着自己那份
+       在用书签，"退出管理"不该把他从自己的台子里踢出去。 */}}
+  <form method="post" action="/admin/logout" class="adm logout">
+    <button type="submit" class="plain">{{.T "admin.logout"}}</button>
   </form>
   {{/* 界面语言：**站级**设置，不是某个档案的。所有页面都用它，所以它不进
        profile.json、不走 /prefs——那两条都是"只改我自己"的通路，而语言改了

@@ -97,7 +97,7 @@ func chmodNoWrite(t *testing.T, dir string) {
 // 猜"500 是什么意思"；给他一句"去宿主机把目录交给 65534"才是能接着往下走的答案。
 func TestSetup_数据目录不可写说得出出路(t *testing.T) {
 	dir := t.TempDir()
-	scopes, err := auth.ParseScopes("admin:tok-admin:*")
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestAdmin_数据目录不可写说得出出路(t *testing.T) {
 // 的标准长相。把机器通路也折成一句话，等于把一个人类形状塞进协议里。
 func Test建档API_权限失败仍是500(t *testing.T) {
 	dir := t.TempDir()
-	scopes, err := auth.ParseScopes("admin:tok-admin:*")
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad")
 	if err != nil {
 		t.Fatal(err)
 	}

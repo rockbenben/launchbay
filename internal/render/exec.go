@@ -92,9 +92,12 @@ type executor struct {
 	// importT 同理单独挂着：导入那三步（选文件/看报告/确认）带着上传报告，
 	// 它出错时不该被误读成"管理页的确认页坏了"。
 	importT *template.Template
-	cssT    template.CSS
-	ix      *icons.Index
-	fc      *store.IconCache
+	// adminLoginT 单独挂着：它是**没有管理权时**的那一页，形状与 adminT 相反
+	// （一张输入框 vs 一张表）。共用会让"渲染坏了管理页还是登录页"看不出来。
+	adminLoginT *template.Template
+	cssT        template.CSS
+	ix          *icons.Index
+	fc          *store.IconCache
 }
 
 type itemView struct {
@@ -169,6 +172,10 @@ type profileView struct {
 	// 要靠手滑把 snapshots/ 全写坏才会出现，比"新建之后一条没改"窄得多，不值得
 	// 为它在每次渲染里多读一遍全部快照。
 	HasSnapshots bool
+	// HasAdmin 与上面那格同一形状：它是**判据**，所以是位置参数而不是视图字段。
+	// 含义 2026-10-12 变了——从"这个档案是不是管理员"变成"这次请求有没有带着
+	// 一把真的管理权"，于是同一个人可以一边用自己那份书签、一边仍带着管理权。
+	HasAdmin bool
 }
 
 // themeAttr 把 theme 枚举里的 "auto" 归一成空串。
@@ -211,6 +218,10 @@ type pickerView struct {
 	Notice       string
 	Heading      string
 	Setup        bool
+	// HasAdmin 只决定要不要画那个进管理页的口子（2026-10-12）。判据在 httpapi
+	// （这次请求有没有一把真的 lb_admin），模板不判断——没管理权的人看见那个
+	// 格子只会去点一个 303。
+	HasAdmin bool
 	// Blocked 与 .Entries 是同一件事的两半：读得动的给卡，读不动的在这一页点名并
 	// 说明为什么进不去（死路①）。只能给 id——标题就住在读不动的那个文件里，编一个是假话。
 	// 模板不许自己数档案：判据在 httpapi 与 store。
@@ -221,6 +232,15 @@ type pickerEntry struct {
 	ID     string
 	Title  string
 	Letter string
+}
+
+// adminLoginView 是"输管理 key"那一页。页面本身极简：一个标题、一条失败提示、
+// 一个 password 输入框、一句 key 在哪儿的说明。**它不知道 key 对不对**，那是
+// httpapi 判完 303 回来的事。
+type adminLoginView struct {
+	i18nView
+	Notice string
+	CSS    template.CSS
 }
 
 type brokenView struct {
@@ -274,6 +294,7 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 		adminT:       parse("admin.tmpl"),
 		adminActionT: parse("adminaction.tmpl"),
 		importT:      parse("import.tmpl"),
+		adminLoginT:  parse("adminlogin.tmpl"),
 		cssT:         css,
 		ix:           ix,
 		fc:           fc,
@@ -414,11 +435,11 @@ func shortTime(lang, s string) string {
 // 这句话本身。这里不再补一次 `home.ID != p.ID`：同一句话写两遍，第二遍永远
 // 不可能被单独改坏（删掉它测试照样绿），留着等于一条没有证人的保险丝。
 // 权限判断（谁是管理员）不在这里、更不在模板：模板只 {{with}} 一次。
-func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps bool, cat *i18n.Catalog) ([]byte, error) {
+func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, cat *i18n.Catalog) ([]byte, error) {
 	fb, hits, total := matches(query, b)
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
-		i18nView: newI18nView(cat),
-		Query:    strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
+		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
+		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
 	for _, g := range fb.Groups {
 		// 分组色只在这里算一次（唯一真相）：条目身上只带 --chip-h，
@@ -483,6 +504,17 @@ func (e *executor) admin(rows []AdminRow, notice string, cat *i18n.Catalog) ([]b
 		i18nView: newI18nView(cat),
 		Rows:     rows, Notice: notice, CSS: e.cssT, Count: len(rows)}); err != nil {
 		return nil, fmt.Errorf("渲染管理页: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// adminLogin 渲染"输管理 key"那一页。判据只有 Notice 一格（httpapi 白名单给的），
+// 模板不自己判断该不该说失败。
+func (e *executor) adminLogin(notice string, cat *i18n.Catalog) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := e.adminLoginT.ExecuteTemplate(&buf, "adminLogin", adminLoginView{
+		i18nView: newI18nView(cat), Notice: notice, CSS: e.cssT}); err != nil {
+		return nil, fmt.Errorf("渲染管理页登录: %w", err)
 	}
 	return buf.Bytes(), nil
 }

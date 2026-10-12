@@ -185,11 +185,13 @@ func dirNames(t *testing.T, dir string) []string {
 func TestRebuild_坏档重建后书签快照历史一字不动(t *testing.T) {
 	s, before := seedBroken(t, "mom")
 	h := authHash(t)
-	p, err := s.RebuildProfile(RebuildInput{ID: "mom", Title: "妈妈", PinHash: h, Admin: true})
+	p, err := s.RebuildProfile(RebuildInput{ID: "mom", Title: "妈妈", PinHash: h})
 	if err != nil {
 		t.Fatalf("坏档 rebuild 该成功: %v", err)
 	}
-	if p.Title != "妈妈" || !p.Admin || p.PIN != h {
+	// 原来的 `!p.Admin` 那一断言随字段一起删掉（钉的字段已不存在，见 RebuildInput
+	// 上那条注释）：重建出来只是一份普通档案，"回显与递进来的一致"由还在的字段说。
+	if p.Title != "妈妈" || p.PIN != h {
 		t.Errorf("回显与递进来的不一致: %+v", p)
 	}
 	// 这一条必须排在**任何其它读之前**检查：清登记走的也是 loadProfile 里那条
@@ -213,6 +215,15 @@ func TestRebuild_坏档重建后书签快照历史一字不动(t *testing.T) {
 	}
 	if _, err := time.Parse(time.RFC3339, got.CreatedAt); err != nil {
 		t.Errorf("createdAt 该是 RFC3339（不是空串、不是别的形状）: %q", got.CreatedAt)
+	}
+	// 重写出来的 profile.json 里**不许**有 admin 键（2026-10-12）：那一格曾经回答
+	// "重建出来的档案是不是管理员"，如今那件事根本不存在，写出去就是骗下一次读的人。
+	raw, err := os.ReadFile(s.ProfilePath("mom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "admin") {
+		t.Errorf("重建写出的 profile.json 不该含 admin 键:\n%s", raw)
 	}
 }
 
@@ -433,7 +444,9 @@ func TestRebuild_并发恰好一路写完(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_, errs[i] = s.RebuildProfile(RebuildInput{ID: "mom", Title: "妈妈", PinHash: h, Admin: i%2 == 0})
+			// 不带 Admin（2026-10-12）：那一格随 RebuildInput.Admin 一起删掉了，
+			// 各路的差别只剩"抢锁的时机"，而这正是这条用例要量的东西。
+			_, errs[i] = s.RebuildProfile(RebuildInput{ID: "mom", Title: "妈妈", PinHash: h})
 		}(i)
 	}
 	wg.Wait()

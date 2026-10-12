@@ -405,7 +405,7 @@ func TestEscapesUserData(t *testing.T) {
 // 档案名与内容都可控，模板不许把 id 拼进可执行上下文。
 //
 // 简报缺陷（已修）：seeded 夹具建的档案都不带 Admin，断言永远绿不了，
-// 这里直接建一个 admin 一个非 admin。
+// 这里直接建两份形状一样的档案（**管理员不再是档案的属性**，见下）。
 //
 // 最终整枝评审（死链收口）：/admin 路由当时还不存在，首屏发的锚点点了就是
 // 404 JSON，所以那条钉禁止 href="/admin"。Task 5 落地了 GET /admin，这条
@@ -414,24 +414,39 @@ func TestEscapesUserData(t *testing.T) {
 // href="/switch" 那条**保留**：/switch 只收 POST 表单，GET 链接打过去是 405，
 // 跟当初打 404 一样是坏出路。换档案的出路由同一条通路上的
 // TestProfilePage_顶栏有换档案的表单出路 钉（那是 form，不是 href）。
+//
+// 2026-10-12：判据从「这个档案是不是管理员」换成 `PageRequest.HasAdmin`
+// （本次请求带的是不是一把真的 lb_admin）。两条档案现在**形状完全一样**，
+// 区别只在 PageRequest 那一格——这正是新契约：管理员可以一边用自己的档案
+// 看书签、一边仍带着管理权，两者不再是同一个身份。
 func TestAdminEntryOnlyForAdmin(t *testing.T) {
 	s := store.New(t.TempDir())
-	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "管理员台", PinHash: "h", Admin: true}); err != nil {
+	// 不带 Admin（2026-10-12）：`NewProfileInput.Admin` 与 `model.Profile.Admin` 都删了。
+	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "带管理权的那台", PinHash: "h"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateProfile(store.NewProfileInput{ID: "mom", Title: "普通人台", PinHash: "h"}); err != nil {
+	if _, err := s.CreateProfile(store.NewProfileInput{ID: "mom", Title: "没管理权的那台", PinHash: "h"}); err != nil {
 		t.Fatal(err)
 	}
 	save(t, s, "dad", "爸爸的台", "dsm")
 	save(t, s, "mom", "妈妈的台", "emby")
 	r := renderer(t, s)
-	dadPage, _ := r.ProfilePage(PageRequest{ID: "dad"})
+	dadPage, _ := r.ProfilePage(PageRequest{ID: "dad", HasAdmin: true})
 	momPage, _ := r.ProfilePage(PageRequest{ID: "mom"})
 	if !strings.Contains(string(dadPage.Body), ">管理<") {
-		t.Fatal("管理员档案要能看到管理标记")
+		t.Fatal("带着管理权的那次请求要能看到管理标记")
 	}
 	if strings.Contains(string(momPage.Body), ">管理<") {
-		t.Fatal("非管理员不该有管理标记")
+		t.Fatal("没带管理权就不该有管理标记")
+	}
+	// 同一份档案、同一批书签，HasAdmin 一翻就该翻面——钉的是"判据在这一格"，
+	// 而不只是"某个档案恰好有那个标记"。
+	dadNoAdmin, err := r.ProfilePage(PageRequest{ID: "dad"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(dadNoAdmin.Body), ">管理<") {
+		t.Fatal("同一份档案不带管理权时也不该有管理标记：判据是这次请求，不是档案的属性")
 	}
 	if !strings.Contains(string(dadPage.Body), `href="/admin"`) {
 		t.Error("管理员要能在页面上走到管理页——路由已经存在")
@@ -1787,19 +1802,29 @@ func TestBrokenPage_没有磁盘路径(t *testing.T) {
 
 // 管理页的建档表单与提示（形状层面；行为在 httpapi 那侧）。notice 两支都要钉：
 // 给了要画出来（失败不吭声的表单等于没告诉管理员刚才没建上），没给不许画空元素。
+//
+// 2026-10-12：建档表单**只剩两格**（名字 + PIN）。原来那三格里的「能管理全家」
+// 勾选随 admin 属性一起删掉了——管理员是那把机器级的 LAUNCHBAY_ADMIN_TOKEN，
+// 而建档请求体现在连 admin 这一格都不收。留着勾选框会让人以为勾了就能管这台机器。
+// 所以这一条现在钉的是**它不在**：钉过的字段不存在，见下。
 func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	ix, fc, s := assets(t)
 	r := New(s, ix, fc)
-	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸", Admin: true}}, "PIN 要 4-6 位数字。")
+	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "PIN 要 4-6 位数字。")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(page.Body)
-	for _, want := range []string{`action="/admin"`, `name="title"`, `name="pin"`,
-		`type="checkbox"`, `value="1"`, `能管理全家`} {
+	for _, want := range []string{`action="/admin"`, `name="title"`, `name="pin"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("管理页建档形状缺 %q:\n%.400s", want, body)
 		}
+	}
+	// 「建成管理员」那一格钉的字段已不存在（2026-10-12，`AdminRow.Admin` /
+	// `model.Profile.Admin` / 建档请求体的 admin 一起删了），所以断言翻面：
+	// 表单里**不许**再有那个勾选。
+	if strings.Contains(body, `type="checkbox"`) || strings.Contains(body, `能管理全家`) {
+		t.Errorf("建档表单里不许还有「建成管理员」的勾选（2026-10-12 起管理员是一把机器级 key）:\n%.400s", body)
 	}
 	if !strings.Contains(body, `class="notice"`) {
 		t.Errorf("给了 notice 就该画出来:\n%.400s", body)
@@ -1811,17 +1836,17 @@ func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	if cl := formClasses(t, body, "/admin"); !cl["adm"] || !cl["newprofile"] {
 		t.Errorf("建档表单的 class 要同时含 adm（按钮族的 44px 由它接）与 newprofile，得到 %v", cl)
 	}
-	// 勾选的后果必须写在同一行里，不藏进 tooltip 或 title 属性（设计 §6）。
+	// 管理员的边界必须**在这一页上**说清（设计 §6）：他进得来这一页，但看不见、
+	// 也改不了任何人的书签。
 	//
-	// 这一句原本钉的是「可以看与改所有人的书签」——**那是 2026-10-10 边界改判前的旧承诺**，
-	// 与同一页的 admin.count（「看不到任何人存了什么」）本来就自相矛盾，也与 routes.go
-	// 的 require 相反（管理员会话对别人的内容端点一律拒）。改判时漏改了文案也漏改了这条
-	// 证人，于是它把一句做不到的承诺钉住了——测试也会骗人。
-	if !strings.Contains(body, `看不见也改不了别人的书签`) {
-		t.Error("勾选那行没说清管理员**看不见也改不了**别人的书签：勾了它的人会以为能读别人的东西")
+	// 这一句原本钉的是勾选那一行——**2026-10-12 那个勾选随 admin 属性一起删掉了**，
+	// 所以判据落到同一页唯一还讲这件事的地方：admin.count（「看不到任何人存了什么」）。
+	// 保留的理由与上面那条一样：这一页是唯一会出现"管理员"这个身份的地方。
+	if !strings.Contains(body, `看不到任何人存了什么`) {
+		t.Error("这一页没说清管理员**看不到**任何人的书签：能管这台机器不等于能读别人的东西")
 	}
 	if strings.Contains(body, `可以看与改所有人的书签`) {
-		t.Error("勾选那行还在承诺 2026-10-10 已下线的能力（管理员只管账号，不碰内容）")
+		t.Error("这一页还在承诺 2026-10-10 已下线的能力（管理员只管账号，不碰内容）")
 	}
 	// 「正在创建口令」这一格不许让浏览器提示保存密码——这条纪律在进门页两形状上
 	// 早就钉着了，缺的是覆盖面：管理页这张表单是同一条族里的第三格，两席复审都抓到

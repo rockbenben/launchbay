@@ -194,7 +194,7 @@ func TestHistorySessionVisibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	kid := "lb_profile=kid"
-	dad := "lb_profile=dad"
+	dad := adminOnlyCookie(t)
 	for _, tc := range []struct {
 		name, qs, cookie string
 		want             int
@@ -202,8 +202,11 @@ func TestHistorySessionVisibility(t *testing.T) {
 		{"kid 不申报（要全家庭）该拒", "", kid, 403},
 		{"kid 报自己", "?profile=kid", kid, 200},
 		{"kid 报别人", "?profile=dad", kid, 403},
-		{"dad 不申报（管理员聚合）放行", "", dad, 200},
+		// 2026-10-12：全家庭聚合是**管理权**给的，不是"登进 dad 就能看全家审计"。
+		// 那一条曾是一条真实的越权路径（admin 会话 → 别人不必有的视野）。
+		{"管理员不申报（跨档案聚合）放行", "", dad, 200},
 		{"匿名不申报该 401", "", "", 401},
+		{"只有档案会话不申报该 403", "", "lb_profile=dad", 403},
 	} {
 		rec := get(h, "/api/v1/history"+tc.qs, tc.cookie)
 		if rec.Code != tc.want {

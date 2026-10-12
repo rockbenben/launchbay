@@ -11,11 +11,15 @@ import (
 
 func TestCreateProfileWritesTwoFiles(t *testing.T) {
 	s := New(t.TempDir())
-	p, err := s.CreateProfile(NewProfileInput{ID: "dad", Title: "爸爸", PinHash: "sha256$a$b", Admin: true})
+	// **不带 Admin**（2026-10-12）：档案不再有"是不是管理员"这个属性，`NewProfileInput`
+	// 上那一格连同 `model.Profile.Admin` 一起删掉了——建出来的每一份都只是一个人的书签页。
+	p, err := s.CreateProfile(NewProfileInput{ID: "dad", Title: "爸爸", PinHash: "sha256$a$b"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.ID != "dad" || !p.Admin || p.CreatedAt == "" {
+	// 原来的 `!p.Admin` 那一断言随字段一起删掉（钉的字段已不存在，见上）：
+	// 换成钉**还在的**那些字段，免得这条用例只剩"建了两个文件"。
+	if p.ID != "dad" || p.Title != "爸爸" || p.PIN != "sha256$a$b" || p.CreatedAt == "" {
 		t.Fatalf("got %+v", p)
 	}
 	for _, path := range []string{s.ProfilePath("dad"), s.BookmarksPath("dad")} {
@@ -33,6 +37,16 @@ func TestCreateProfileWritesTwoFiles(t *testing.T) {
 	raw, _ := os.ReadFile(s.BookmarksPath("dad"))
 	if !strings.Contains(string(raw), `"groups": []`) {
 		t.Fatalf("groups 要写成空数组而不是 null:\n%s", raw)
+	}
+	// profile.json 的写出形状：**不含 admin 键**（2026-10-12）。这一条替代了旧版
+	// "写出的 JSON 里含 `"admin": true`" 的断言——档案不再有管理员属性，
+	// 而 §4.3 的写出契约由 struct 字段序固定，所以键的**有无**本身就是判据。
+	profRaw, err := os.ReadFile(s.ProfilePath("dad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(profRaw), "admin") {
+		t.Fatalf("profile.json 不该再有 admin 键:\n%s", profRaw)
 	}
 }
 

@@ -239,13 +239,34 @@ func DecodeBookmarks(path string, data []byte) (*model.Bookmarks, error) {
 	return &b, nil
 }
 
+// decodeProfile 拒未知键，但**对 `admin` 这一格开后门**（2026-10-12）。
+//
+// 为什么必须是后门而不是顺手把 DisallowUnknownFields 去掉：`profile.json` 上
+// 出现一个不认识的键，通常是手改坏了或者写到一半，严格解码把它判成坏档是**对的**
+// ——那正是 rebuild 那条通路的判据来源。拿掉严格性等于坏档再也发现不了。
+//
+// 但档案的 `admin` 字段是这次改判**主动删掉**的（管理员成了机器级的一把 key）。
+// 升级前落盘的每一个 profile.json 都带着 `"admin": true|false`，而删掉这一格的人
+// 不会挨个去改用户的盘——于是那一瞬间全机器的档案一起变成坏档，谁都进不去，
+// 只能逐个走 `POST /api/v1/profiles/rebuild`。那是把一次干净的模型简化变成
+// 一次需要人工抢救的升级。
+//
+// 所以这里显式**只**放过 `admin`：别的未知键仍然判坏档。
+type profileJSON struct {
+	model.Profile
+	// Admin 是升级前那一格。它被**记下来却不用**——下一次写盘时它自然消失，
+	// 档案自己就迁移完了。指针只是为了在 JSON 里占一个位置让解码器认得它。
+	Admin *bool `json:"admin"`
+}
+
 func decodeProfile(path string, data []byte) (*model.Profile, error) {
-	var p model.Profile
+	var raw profileJSON
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&p); err != nil {
+	if err := dec.Decode(&raw); err != nil {
 		return nil, describeJSONErr(path, data, err)
 	}
+	p := raw.Profile
 	if err := p.Validate(); err != nil {
 		// 与 LoadBookmarks 的校验分支对称：ErrCorrupt 与 model.ErrValidation
 		// 都要能被 errors.Is 分出来（%v 会断链，这里用 Join+%w 同时保住两个

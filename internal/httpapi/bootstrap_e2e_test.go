@@ -20,7 +20,7 @@ import (
 func setupZero(t *testing.T) (*store.Store, http.Handler) {
 	t.Helper()
 	s := store.New(t.TempDir())
-	scopes, err := auth.ParseScopes("admin:tok-admin:*")
+	scopes, err := auth.ParseScopes("ai-dad:tok-dad:dad")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,11 @@ func dirCount(t *testing.T, s *store.Store) int {
 }
 
 // 引导建档：设计 §3、§9 的 2/3/4/5 条。
-func TestSetup_零档案建成管理员(t *testing.T) {
+//
+// **第一个档案不再是管理员**（2026-10-12）：管理员是 docker-compose.yml 里那把
+// LAUNCHBAY_ADMIN_TOKEN，与档案无关。建出来的就是第一个人的书签页，而"装完没人
+// 能加人"那个老问题也不再成立——管理人一直在机器上，不在任何一份档案上。
+func TestSetup_零档案建出普通档案(t *testing.T) {
 	s, h := setupZero(t)
 	rec := postForm(h, "/setup", "title=%E7%88%B8%E7%88%B8&pin=1234", "") // 爸爸
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
@@ -105,9 +109,6 @@ func TestSetup_零档案建成管理员(t *testing.T) {
 	p, err := s.LoadProfile("home") // 中文名 → 基名序列（Task 1）
 	if err != nil {
 		t.Fatalf("引导建档没落盘: %v", err)
-	}
-	if !p.Admin {
-		t.Error("引导建成的第一个档案必须是管理员，否则没人能进管理页加人")
 	}
 	if !strings.HasPrefix(p.PIN, "sha256$") {
 		t.Errorf("PIN 要经 HashPIN 存成三段式，得到 %q", p.PIN)

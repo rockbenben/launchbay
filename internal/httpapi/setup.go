@@ -47,9 +47,10 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	res := s.createProfile(createInput{
 		Title: r.FormValue("title"),
 		PIN:   r.FormValue("pin"),
-		// 表单里没有 admin 这一格，也不许有：引导建成的这个就是这台盒子的主人，
-		// 否则零档案装完后没人能进管理页加第二个人。
-		Admin:     true,
+		// 建出来的就是**第一个人的书签页**，不是这台盒子的管理员（2026-10-12）。
+		// 管这台机器是另一把 key 的事——LAUNCHBAY_ADMIN_TOKEN，写在 compose 里。
+		// 所以这一趟不需要"必须有个管理员"的照顾：零档案装完后，想加第二个人
+		// 就在管理页拿那把 key 进，而想改自己的书签照旧输 PIN。
 		DeriveID:  true,
 		FirstOnly: true,
 	})

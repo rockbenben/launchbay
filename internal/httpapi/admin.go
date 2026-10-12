@@ -20,7 +20,6 @@ import (
 type statusProfile struct {
 	ID            string `json:"id"`
 	Title         string `json:"title"`
-	Admin         bool   `json:"admin"`
 	Disabled      bool   `json:"disabled"` // 停用：数据不动、进不来，仍占 CountProfiles
 	Rev           int64  `json:"rev"`
 	Modified      string `json:"modified"` // RFC3339 UTC；坏档/读不出来 = 空串，不编造
@@ -43,10 +42,11 @@ type statusResponse struct {
 	Totals         statusTotals    `json:"totals"`
 }
 
+// profileMeta **没有 admin 字段**（2026-10-12）：档案不再有管理员属性，
+// "列档案"里就不该有一格回答"这个是不是管理员"。
 type profileMeta struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
-	Admin     bool   `json:"admin"`
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -111,7 +111,7 @@ func (s *Server) statusRows() ([]statusProfile, []string, statusTotals, error) {
 	tot := statusTotals{Profiles: len(ids)}
 	for _, id := range ids {
 		p, listed := byID[id]
-		row := statusProfile{ID: id, Title: p.Title, Admin: p.Admin, Disabled: p.Disabled}
+		row := statusProfile{ID: id, Title: p.Title, Disabled: p.Disabled}
 		if listed {
 			snap, err := s.deps.Store.Current(id)
 			switch {
@@ -196,7 +196,7 @@ func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]profileMeta, 0, len(profiles))
 	for _, p := range profiles {
-		out = append(out, profileMeta{ID: p.ID, Title: p.Title, Admin: p.Admin, CreatedAt: p.CreatedAt})
+		out = append(out, profileMeta{ID: p.ID, Title: p.Title, CreatedAt: p.CreatedAt})
 	}
 	writeJSON(w, http.StatusOK, listProfilesResponse{Profiles: out})
 }

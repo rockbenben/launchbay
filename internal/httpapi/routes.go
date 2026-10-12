@@ -59,7 +59,18 @@ func (s *Server) routes() []route {
 		{Method: "GET", Pattern: "/", Cred: credNone, Summary: "选择页或该档案首屏", H: s.handleRoot},
 		{Method: "POST", Pattern: "/pin", Cred: credNone, Summary: "用 PIN 进门/切档", H: s.handlePin},
 		{Method: "POST", Pattern: "/setup", Cred: credNone,
-			Summary: "引导建档：只在磁盘零档案时有效（浏览器表单通路，建成即管理员）", H: s.handleSetup},
+			Summary: "引导建档：只在磁盘零档案时有效（浏览器表单通路；建出来的是第一个人的书签页，不是管理员）", H: s.handleSetup},
+		// 管理员的浏览器通路（2026-10-12）。管理员不再是某个档案，于是"怎么进管理页"
+		// 需要一条**自己的**门：POST 一次 key，服务端发一条 lb_admin cookie（装的是
+		// 派生值，不是 key 本身）。
+		//
+		// 两条都是 credNone：**未登录不是权限类拒绝**，那正是这一页要处理的形状。
+		// GET /admin 因此改成"没管理权就渲染登录页"而不是 303 回选择页——否则升级
+		// 之后没有任何人进得去管理页（档案不再是管理员，而 key 还没输过）。
+		{Method: "POST", Pattern: "/admin/login", Cred: credNone,
+			Summary: "输管理 key 进管理页（浏览器表单通路；成功后发 lb_admin）", H: s.handleAdminLogin},
+		{Method: "POST", Pattern: "/admin/logout", Cred: credNone,
+			Summary: "丢掉管理员身份（清 lb_admin，档案会话不动）", H: s.handleAdminLogout},
 		{Method: "POST", Pattern: "/prefs", Cred: credSession,
 			Summary: "改自己的台面偏好（主题/形态，仅会话，表单通路）", H: s.handlePrefs},
 		{Method: "POST", Pattern: "/switch", Cred: credSession,
@@ -91,7 +102,7 @@ func (s *Server) routes() []route {
 		{Method: "POST", Pattern: "/revert", Cred: credSession,
 			Summary: "确认回退（第二步；与 POST /api/v1/revert 同一落点）", H: s.handleRevertForm},
 		{Method: "GET", Pattern: "/admin", Cred: credAdmin,
-			Summary: "管理页（读侧：档案一览与进入编辑，不含条目内容）", H: s.handleAdminPage},
+			Summary: "管理页（读侧：档案一览与账号操作，不含条目内容）；无管理权时渲染登录页", H: s.handleAdminPage},
 		{Method: "POST", Pattern: "/admin", Cred: credAdmin,
 			Summary: "管理页建档（浏览器表单通路；机器建档走 POST /api/v1/profiles）", H: s.handleAdminCreate},
 		// 界面语言是**站级**设置（data/settings.json），不是某个档案的字段：它改了会立刻
@@ -158,12 +169,14 @@ func bearer(r *http.Request) string {
 
 // require 回答"这把凭证能不能动 profileID"，返回要写进 history 的 actor。
 //
-// 四条规则都来自 spec §6.1：
-//   - 令牌作用域是具体档案时 profile 必须等于它；`*` 才是管理员令牌。
-//   - 会话的权限只看 lb_profile；跨档案要求当前在用的那个档案（Active）
-//     在磁盘上真是管理员（回查磁盘，不信 cookie 形状；lb_home 不参与判定）。
-//   - credScoped 却不申报档案，一律拒：见函数体开头那条。
-//   - 不符一律拒绝，**不回落到某个默认档案**。
+// 2026-10-12 起是**三条互斥的路**，判据只有这一份：
+//   - 管理员令牌（LAUNCHBAY_ADMIN_TOKEN 那把裸 key）→ 只放行 credAdmin；
+//   - 档案作用域令牌（name:secret:<id>）→ 只放行 credScoped，档案必须等于它的作用域；
+//   - 档案会话（lb_profile）→ credNone / credScoped / credSession，看当前在用哪一份。
+//
+// 管理员 cookie（lb_admin，管理页用的第二条管理员通路）单独在下面判：它只放行
+// credAdmin，**永远进不了 credScoped**——"管理员读不到别人书签"那条边界在两条
+// 管理员通路上都成立。
 func (s *Server) require(r *http.Request, want cred, profileID string) (string, auth.Scope, bool) {
 	// "不申报档案"不是"不受限"：credScoped 的含义是"只能动我有资格的那一个
 	// 档案"，而下面的跨档案检查是靠 profileID 非空才跑的。留空等于让调用方
@@ -175,25 +188,29 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 		return "", auth.Scope{}, false
 	}
 	if tok := bearer(r); tok != "" {
-		sc, ok := s.deps.Tokens.Authorize(tok)
-		if !ok || want == credSession {
-			// 令牌不许走只认会话的端点：改自己 PIN 用令牌等于"谁有令牌
-			// 谁能改谁"，那正是 §6.1 把 self/pin 划给会话的理由。
+		// 令牌不许走只认会话的端点：改自己 PIN 用令牌等于"谁有令牌
+		// 谁能改谁"，那正是 §6.1 把 self/pin 划给会话的理由。
+		if want == credSession {
 			return "", auth.Scope{}, false
 		}
-		if want == credAdmin && !sc.IsAdmin() {
-			return "", sc, false
+		// **管理员令牌只管账号，不管内容**（2026-10-10 改判，2026-10-12 换了形状）。
+		// 以前 `*` 能过 credScoped，于是管理员令牌对任何人的书签都能读写——而
+		// "管理员看得见、改得动全家书签"正是本设计要拿掉的形状（与 Nextcloud /
+		// Linkding 一致）。现在它只进 credAdmin 那一族（建档/删档/改 PIN/
+		// status/审计聚合），写书签必须用档案作用域令牌 `name:secret:dad`。
+		if s.deps.AdminToken.Matches(tok) {
+			if want != credAdmin {
+				return "", auth.Scope{}, false
+			}
+			return adminActor, auth.Scope{}, true
 		}
-		// **`*` 令牌只管账号，不管内容**（2026-10-10 改判）。以前 `*` 能过
-		// credScoped，于是管理员令牌对任何人的书签都能读写——而"管理员看得见、
-		// 改得动全家书签"正是本设计要拿掉的形状（与 Nextcloud / Linkding 一致）。
-		// 现在 `*` 只进 credAdmin 那一族（建档/删档/改 PIN/status/审计聚合），
-		// 写书签必须用档案作用域令牌 `name:secret:dad`。
-		if sc.IsAdmin() && want != credAdmin {
-			return "", sc, false
+		sc, ok := s.deps.Tokens.Authorize(tok)
+		// 档案作用域令牌过不了 credAdmin，哪怕它申报的就是自己的档案。
+		if !ok || want == credAdmin {
+			return "", auth.Scope{}, false
 		}
 		if !sc.Allows(profileID) {
-			return "", sc, false
+			return "", auth.Scope{}, false
 		}
 		return sc.Name, sc, true
 	}
@@ -205,21 +222,36 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 	//
 	// 判在 credNone 之前：否则 `GET /` 会照样把别人的台渲染出来（它不走下面
 	// 的权限分支）。判据只有 Session.Valid 这一份，端点层不各自再写一遍。
-	if !sess.Valid() {
+	//
+	// 手上只有管理员 cookie、没有任何档案会话，这也算"有身份"——管理员完全
+	// 可能没登任何档案就想去看一眼状态。
+	adminOK := s.hasAdminCookie(r)
+	if !sess.Valid() && !adminOK {
 		return "", auth.Scope{}, false
+	}
+	if want == credAdmin {
+		// 管理员 cookie 与档案会话是**两件独立的事**：管理员可能同时登着自己
+		// 的档案在用书签，也可能只拿着管理权。而"是不是管理员"从此只由那把 key
+		// 回答——早先这里是回磁盘看这个档案的 admin 是不是 true，那个属性已经
+		// 连同"第一个档案自动是管理员"一起删掉了。
+		if !adminOK {
+			return "", auth.Scope{}, false
+		}
+		return adminActor, auth.Scope{}, true
 	}
 	if want == credNone {
-		return sess.Active, auth.Scope{}, true
+		if sess.Valid() {
+			return sess.Active, auth.Scope{}, true
+		}
+		return adminActor, auth.Scope{}, true
 	}
-	if want == credAdmin && !s.activeIsAdmin(sess) {
+	if !sess.Valid() {
+		// 只有管理员 cookie、没有档案会话：剩下唯一可能落到的 cred 是
+		// credScoped，而它要的是某个具体档案——没有会话就没有"自己那一份"，
+		// 所以这里必拒。这条同时就是"管理员读不到任何人的书签"的落点。
 		return "", auth.Scope{}, false
 	}
-	// profileID 能留空走到这里的只有 credAdmin 的聚合读（credScoped 的空申报
-	// 在函数开头就拒了），所以这里把空 profile 当"没有具体目标"，而不是
-	// "目标是所有档案"。
-	// **内容端点跨档案一律拒，管理员也不例外**（2026-10-10 改判）。原来这一行是
-	// `profileID != sess.Active && !s.activeIsAdmin(sess)`——管理员的会话能读写
-	// 任何人的书签，而 §8.9 还专门给这个形状配了一条"正在管理 X 的书签"的横幅。
+	// **内容端点跨档案一律拒，管理员也不例外**（2026-10-10 改判）。
 	//
 	// **只对 credScoped 生效**是这条的关键：管理员管的是**账号**（建档/删档/
 	// 改 PIN/停用/看条数与 rev），那些端点是 credAdmin，跨档案当然放行——把这一行
@@ -227,7 +259,7 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 	// 那正是本人拍板要保留的那条出路。
 	//
 	// 判据只有这一处，端点层不各自再写一遍管理员特例。
-	if want == credScoped && profileID != "" && profileID != sess.Active {
+	if want == credScoped && profileID != sess.Active {
 		return "", auth.Scope{}, false
 	}
 	// actor 只进审计线，且只可能是 Active：代管态不存在之后，"当初是谁验证
@@ -236,22 +268,13 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 	return sess.Active, auth.Scope{}, true
 }
 
-// activeIsAdmin 回答"当前在用的这个档案能不能跨档案动别人的数据"。
-//
-// 只看 `lb_profile` 指向的档案（spec §6.1：权限永远只看它；§11：伪造 cookie 拿不到
-// 单 cookie 时代拿不到的任何东西）。
-//
-// 这条与 `Session.Valid` 是**两个问题**，不许合并成一次查表：
-//   - Valid 问"这份 cookie 是不是合法形状"——纯形状，不查磁盘；
-//   - activeIsAdmin 问"这把凭证能不能动别人"——只看 Active，且要回磁盘确认那个
-//     档案真是管理员。
-//
-// 把两者揉成一次"查 home 那一栏"的表，等于让 kid 伪一条 `lb_home=dad` 就拿到 dad
-// 的写权限（Task 4 评审的 Critical 就是这么来的）。
-func (s *Server) activeIsAdmin(sess auth.Session) bool {
-	if !sess.Valid() {
-		return false
-	}
-	p, err := s.deps.Store.LoadProfile(sess.Active)
-	return err == nil && p.Admin
+// adminActor 是管理员动作在审计线里的 actor。管理员不再是某个档案（2026-10-12
+// 删掉了档案上的 admin 属性），于是这里是一个常量而不是某人的 id——`profile`
+// 那一栏照样记"这次动的是哪一份"，两栏分工不变。
+const adminActor = "admin"
+
+// hasAdminCookie 是"这次请求带的是不是一把真管理权"的**唯一判据**。
+// 它不回磁盘、不看 cookie 形状之外的东西：派生值对不上就是没有管理员。
+func (s *Server) hasAdminCookie(r *http.Request) bool {
+	return s.deps.AdminToken.MatchesCookie(auth.ReadAdminCookie(r))
 }

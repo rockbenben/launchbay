@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	adminTok  = "tok-admin"  // setup(): admin:tok-admin:*（只管账号，改判后过不了 credScoped）
+	adminTok  = testAdminKey // LAUNCHBAY_ADMIN_TOKEN 那把裸 key（只管账号，改判后过不了 credScoped）
 	nobodyTok = "tok-nobody" // setup(): ai-nobody:tok-nobody:nobody —— 同上，给 resolve 那条 404 用
 	ghostTok  = "tok-ghost"  // setup(): ai-ghost:tok-ghost:ghost —— 作用域对但盘上没有，用来打 404
 	dadTok    = "tok-dad"    // setup(): ai-dad:tok-dad:dad

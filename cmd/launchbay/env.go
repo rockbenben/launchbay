@@ -8,9 +8,10 @@ import (
 )
 
 type config struct {
-	Port    string
-	DataDir string
-	Tokens  auth.Scopes
+	Port       string
+	DataDir    string
+	Tokens     auth.Scopes
+	AdminToken auth.AdminToken
 }
 
 func loadConfig() (config, error) {
@@ -20,6 +21,11 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("LAUNCHBAY_WRITE_TOKENS: %w", err)
 	}
 	c.Tokens = scopes
+	admin, err := auth.ParseAdminToken(os.Getenv("LAUNCHBAY_ADMIN_TOKEN"))
+	if err != nil {
+		return config{}, fmt.Errorf("LAUNCHBAY_ADMIN_TOKEN: %w", err)
+	}
+	c.AdminToken = admin
 	return c, nil
 }
 

@@ -60,7 +60,12 @@ type Bookmarks struct {
 type Profile struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
-	Admin bool   `json:"admin"`
+	// **这里没有 admin 字段**（2026-10-12）。管理员是机器级的一把 key
+	// （LAUNCHBAY_ADMIN_TOKEN），不属于任何档案，于是"这个档案是不是管理员"
+	// 这个问题不再有答案，也不该有。
+	//
+	// 升级前落盘的 profile.json 里那个 `"admin": true` 会被 encoding/json 当
+	// 未知字段丢掉——不需要迁移脚本，重新写盘之后它自然消失。
 	// Disabled 是"停用"，不是"删掉"（2026-10-10）：停用的档案数据一个字节不动、
 	// 仍占 CountProfiles 的位置（引导窗口不会重开），但输对 PIN 也进不去。
 	// 删档不可逆——`revert` 救不了它，快照跟着档案一起没了；而"某人暂时不用了"

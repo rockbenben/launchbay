@@ -18,7 +18,7 @@ func setupRender(t *testing.T) (http.Handler, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "爸爸", PinHash: hash, Admin: true}); err != nil {
+	if _, err := s.CreateProfile(store.NewProfileInput{ID: "dad", Title: "爸爸", PinHash: hash}); err != nil {
 		t.Fatal(err)
 	}
 	b := store.EmptyBookmarks()
@@ -29,7 +29,7 @@ func setupRender(t *testing.T) (http.Handler, *store.Store) {
 	if err := s.SaveBookmarks("dad", b); err != nil {
 		t.Fatal(err)
 	}
-	sc, err := auth.ParseScopes("admin:tok-admin:*")
+	sc, err := auth.ParseScopes("ai-dad:tok-dad:dad")
 	if err != nil {
 		t.Fatal(err)
 	}

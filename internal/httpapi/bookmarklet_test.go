@@ -103,9 +103,10 @@ func TestBookmarklet_端点零令牌且认Host(t *testing.T) {
 // 的按钮"没人天生知道。
 func TestBookmarklet_管理页上有入口和用法(t *testing.T) {
 	_, h := setupServer(t)
-	dad := sessionCookie(t, loginAs(t, h, "dad", "1234"))
+	// 管理页现在要管理权（2026-10-12）：管理员是机器级的一把 key，登进 dad 不算。
+	admin := adminOnlyCookie(t)
 
-	rec := get(h, "/admin", dad)
+	rec := get(h, "/admin", admin)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("/admin 该 200，实际 %d", rec.Code)
 	}
