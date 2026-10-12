@@ -263,9 +263,11 @@ func TestRun_写路径认图标名(t *testing.T) {
 		// nil 只出现在"这条测试不关心图标"的场合。写清楚，别让人误以为
 		// 服务可以不带索引启动。
 		//
-		// 图标名取形状合法的 `tabler:...`：这条证的是"存在性闸门关了"，取值
-		// 只能是**形状合法、只是索引里没有**的名字。用 `mdi:whatever` 会被
-		// 收尾的 model.Validate 按前缀拒掉（红错原因），证不到"不查存在性"。
+		// 图标名取 `tabler:...`：这条证的是"存在性闸门关了"，取值只能是
+		// **索引里没有**的名字。2026-10-12 之前这里还有一条反向理由——用
+		// `mdi:whatever` 会被收尾的 model.Validate 按前缀拒掉（红错原因），
+		// 证不到"不查存在性"；那道前缀校验现在整条删了（见 check.go 末尾），
+		// 所以两种写法现在都证得到同一件事。tabler: 仍是更贴近真实缺图的那一个。
 		_, errs, _ := Run(baseBookmarks(), []Op{{
 			Op: "set", Path: "groups/nas/items/dsm/icon", Value: json.RawMessage(`"tabler:whatever-not-in-index"`),
 		}}, nil)

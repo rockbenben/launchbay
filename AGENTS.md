@@ -350,6 +350,16 @@ app.js 的浮层与命令面板）。**不翻**的是给脚本读的那些——
 判定的语义值。上面 batch 示例里的 `simple-icons:portainer` 是真条目，可直接
 作为"这名字存在"的依据。
 
+**但这条严格只挂在写侧**（2026-10-12 改判）：`internal/model` 里那道
+"前缀必须是 tabler/simple-icons"的校验**整条删掉了**，因为 `model.Validate`
+同时跑在读路径上，于是磁盘上一个不认识的图标名拥有让一个人**全部书签打不开**
+的权力（症状：整档 503「数据文件读不了」）。这台机器的前身（NAS 上的 flare）
+图标名整份是 `mdi:` 前缀，恢复旧文件的人撞的就是这一枪。现在读侧对 icon
+一个字都不验，渲染层自己兜底（`icon.go` 的 `pieceFor`：索引查不到 → 首字母色块
++「图标未匹配」徽标，计入 `GET /api/v1/status` 的 `iconUnmatched`）。这与
+坑 #3 摘掉 `search.default` 致命校验是同一条判据：**一个界面上不存在的功能
+不该有毁掉别人台子的权力**。
+
 `GET /icons/{name}` 是另一回事：那是 `POST /api/v1/resolve` 抓回来的 favicon
 缓存（`<16 位小写十六进制>.<png/ico/svg/webp/gif>`），resolve 返回的 `favicon`
 字段就是这个路径。它是给浏览器 `<img src>` 用的图片 URL，**不要**把它的值写

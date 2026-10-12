@@ -11,13 +11,7 @@ import (
 // ErrValidation 让调用方能区分"形状合法但内容不合法"与"文件读不了"。
 var ErrValidation = errors.New("数据不合法")
 
-var (
-	slugRE   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
-	iconName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-)
-
-// 运行时只带这两套（spec §5）。MDI 只在导入器里当别名源，不进运行时。
-var allowedIconPrefixes = map[string]bool{"tabler": true, "simple-icons": true}
+var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 
 // ThemeValues / LayoutValues 是这两组枚举的**唯一来源**，按界面要呈现的顺序写。
 // 判据（下面的 map 与 Valid*）和面向人的那句话（"只能是 auto|dark|light"）都
@@ -109,26 +103,31 @@ func ExternalScheme(raw string) bool {
 	}
 }
 
-// checkIcon 只验形状与前缀。**名字存在性不在这里查**：model.Validate 同时
-// 跑在读路径（SaveBookmarks 与 LoadBookmarks/decodeProfile 都调它），把索引
-// 绑进来等于让"图标快照与磁盘不同步"把档案打成坏档（spec §6.2）。存在性由
-// ops 写路径的 IconSet 闸门负责（internal/ops#checkIconName）。
-func checkIcon(icon string) error {
-	if icon == "" || icon == "auto" {
-		return nil
-	}
-	prefix, name, ok := strings.Cut(icon, ":")
-	if !ok {
-		return fmt.Errorf("icon %q 要写成 <prefix>:<name>", icon)
-	}
-	if !allowedIconPrefixes[prefix] {
-		return fmt.Errorf("icon 前缀 %q 不在运行时双层内（tabler / simple-icons）", prefix)
-	}
-	if !iconName.MatchString(name) {
-		return fmt.Errorf("icon 名 %q 形状非法", name)
-	}
-	return nil
-}
+// 图标名**不在这里验**（2026-10-12 整条删掉了 checkIcon，判据挪去写路径那一处）。
+//
+// 从前它验"形状与前缀"：`mdi:download` 这种不在 tabler/simple-icons 两层里的前缀
+// 会让 `Validate` 报错，而 Validate 同时挂在**读路径**上（LoadBookmarks 与
+// decodeProfile 都调它）——于是磁盘上一个不认识的图标名拥有毁掉一个人全部书签的
+// 权力：整档 503「数据文件读不了」，页面上只剩"去修那个文件"。这不是假想：
+// 这台机器的**前身**（NAS 上那套 flare）图标名整份都是 `mdi:` 前缀，谁把手边那份
+// 文件恢复回来，谁就撞这一枪。
+//
+// 同一件事 §6.2 已经判过一次（坑 #3：`search.default` 写错让全档案进坏档页，摘的
+// 就是校验），图标前缀是那条判据的漏网之鱼——原先那段注释说"存在性不在这里查"
+// 是对的，而**前缀**恰好是存在性的近亲：它同样只有"索引里有没有"这一个含义。
+//
+// 现在读侧对 icon 一个字都不验，渲染层自己兜底（icon.go 的 pieceFor：索引查不到
+// → 首字母色块 + 「图标未匹配」徽标，并计入 GET /api/v1/status 的 iconUnmatched）。
+// 写侧照旧严格：ops 的 checkIconName 要求非 ""/"auto" 的名字**必须在索引里**
+// （internal/ops/ops.go），那比"前缀对不对"强得多，且只作用在真要落盘的那批操作上。
+//
+// 运行时只带 tabler 与 simple-icons 两套（spec §5），MDI 只在导入器里当别名源
+// （bookimport/aliases.go）——那条边界由**索引里有什么**与 ops 的存在性闸门共同守，
+// 不再由读路径的校验守。
+//
+// 少了这道校验有没有注入面？没有：icon 这个字符串从不进 markup——索引命中就画内联
+// SVG（SVG 来自内嵌索引，不是用户字节），没命中就画首字母，缓存 favicon 的路径由
+// store 的内容哈希拼（`<16 hex>.<ext>`），三取一没有一条拼用户串。
 
 func (b *Bookmarks) Validate() error {
 	seenGroup := map[string]bool{}
@@ -165,9 +164,7 @@ func (b *Bookmarks) Validate() error {
 			if err := CheckURL(it.URL); err != nil {
 				return fmt.Errorf("%w: group %q/item %q: %v", ErrValidation, g.ID, it.ID, err)
 			}
-			if err := checkIcon(it.Icon); err != nil {
-				return fmt.Errorf("%w: group %q/item %q: %v", ErrValidation, g.ID, it.ID, err)
-			}
+			// icon 不验——见文件末尾那段"图标名不在这里验"的理由。
 		}
 	}
 	// Search / Weather / Clock / Title 这四个字段**不在这里校验**。

@@ -254,8 +254,8 @@ func TestFamilyFacingCorruptReasonsUseBaseName(t *testing.T) {
 	}
 }
 
-// Task 3 review：error message 要点出位置——name 缺失与 icon 形状非法
-// 都要同时带 group id 与 item id，不能只有 url 分支被钉住。
+// Task 3 review：error message 要点出位置——name 缺失与 url 非法两条分支
+// 都要同时带 group id 与 item id，不能只有其中一条被钉住。
 func TestValidationErrorsNameLocation(t *testing.T) {
 	// (a) name 为空：报错要同时含 group id(nas) 与 item id(dsm)
 	root := fixtureRoot(t)
@@ -270,18 +270,33 @@ func TestValidationErrorsNameLocation(t *testing.T) {
 		t.Fatalf("name 缺失的报错要同时点出 group id 与 item id: %s", msg)
 	}
 
-	// (b) icon 形状非法：同样要含 group id 与 item id
+	// (b) url 非法：同样要含 group id 与 item id。（这一格从前钉的是 icon 形状非法，
+	// 2026-10-12 图标校验整条从读路径拿掉了——见下面 (c) 与 check.go 末尾的理由。）
 	root2 := fixtureRoot(t)
 	put(t, root2, "profiles/dad/bookmarks.json", strings.Replace(dadBookmarks,
-		`"url":"http://10.0.0.3:5000"`,
-		`"icon":"tabler:Bad Name","url":"http://10.0.0.3:5000"`, 1))
+		`"url":"http://10.0.0.3:5000"`, `"url":"/relative/path"`, 1))
 	_, err = New(root2).LoadBookmarks("dad")
 	if !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("icon 非法要归到 ErrCorrupt, got %v", err)
+		t.Fatalf("url 非法要归到 ErrCorrupt, got %v", err)
 	}
 	msg = err.Error()
 	if !strings.Contains(msg, "nas") || !strings.Contains(msg, "dsm") {
-		t.Fatalf("icon 非法的报错要同时点出 group id 与 item id: %s", msg)
+		t.Fatalf("url 非法的报错要同时点出 group id 与 item id: %s", msg)
+	}
+
+	// (c) **图标名再离谱也不许把整份档案打成坏档**：读路径对 icon 一个字都不验，
+	// 因为校验失败的代价是"这个人所有的书签都打不开"，而图标名在界面上没有
+	// "错"这个出口（查不到就画首字母加「图标未匹配」）。前身 flare 的图标名整份
+	// 是 `mdi:` 前缀——恢复旧文件的人不该因此进坏档页。写侧仍由 ops 拒非法名。
+	root3 := fixtureRoot(t)
+	put(t, root3, "profiles/dad/bookmarks.json", strings.Replace(dadBookmarks,
+		`"url":"http://10.0.0.3:5000"`, `"icon":"mdi:download","url":"http://10.0.0.3:5000"`, 1))
+	b, err := New(root3).LoadBookmarks("dad")
+	if err != nil {
+		t.Fatalf("不认识的图标名不许让整份档案读不了: %v", err)
+	}
+	if b == nil || len(b.Groups) == 0 || len(b.Groups[0].Items) == 0 {
+		t.Fatalf("要原样读出那份档案，得到 %+v", b)
 	}
 }
 

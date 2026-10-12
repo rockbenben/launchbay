@@ -27,8 +27,8 @@ func TestGoodDataPasses(t *testing.T) {
 // model.Validate 必须放过——否则一次图标库刷新就能把家里人的档案打成坏档。
 //
 // 名字取 ASCII slug 形状（`^[a-z0-9]+(-[a-z0-9]+)*$`），不是随手编的中文：
-// checkIcon 本就要卡形状非法，拿一个形状就违例的名字当证人，会被以"形状非法"
-// 拒掉（红错原因），证不到"model 不认索引"。必须是**形状合法、只是索引里没有**。
+// 从前这里还有一句"checkIcon 本就要卡形状非法"——那道校验 2026-10-12 整条删了
+// （理由见 check.go 末尾），形状与存在性现在都只由写路径的索引判，比形状严。
 func TestValidate_索引外的图标名照样合法(t *testing.T) {
 	b := goodBookmarks()
 	b.Groups[0].Items[0].Icon = "tabler:not-a-real-icon-name"
@@ -64,9 +64,14 @@ func TestRejects(t *testing.T) {
 		{"url 解析失败", func(b *Bookmarks) { b.Groups[0].Items[0].URL = "://10.0.0.3" }, "解析失败"},
 		{"缺 name", func(b *Bookmarks) { b.Groups[0].Items[0].Name = "" }, "name"},
 		{"缺 group title", func(b *Bookmarks) { b.Groups[0].Title = " " }, "title"},
-		{"运行时不许 MDI 图标名", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "mdi:download" }, "icon"},
-		{"未知图标前缀", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "fa6-brands:github" }, "icon"},
-		{"图标缺前缀", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "github" }, "icon"},
+		// 这三条 2026-10-12 从"该报错"翻成"**不许**报错"，与上面 search 那两条同判据：
+		// 校验失败的实际代价是**整份档案读不出来**，而图标名在界面上根本没有
+		// "错"这个出口——渲染层查不到就画首字母加「图标未匹配」。前身 flare 的
+		// 图标名整份是 `mdi:` 前缀，谁恢复旧文件谁进坏档页，那是校验在越权。
+		// 写侧仍严格：ops 的 checkIconName 要求名字在索引里（internal/ops/ops_test.go）。
+		{"MDI 图标名不许毁掉整份档案", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "mdi:download" }, ""},
+		{"未知图标前缀不许毁掉整份档案", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "fa6-brands:github" }, ""},
+		{"图标缺前缀不许毁掉整份档案", func(b *Bookmarks) { b.Groups[0].Items[0].Icon = "github" }, ""},
 		// 这两条从"该报错"翻成"**不许**报错"，形状留着当反向证人：
 		// search/weather/clock 没有任何渲染消费者，它们坏着也不能让整份档案读不出来
 		// （校验失败的代价是坏档，而收益是零）。哪天 search 长出界面，这两条
