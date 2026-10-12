@@ -478,6 +478,46 @@ func (r *Renderer) AdminLoginPage(notice string) (Page, error) {
 	return Page{Body: body, Profile: AdminSentinel, NoStore: true}, nil
 }
 
+// HistoryRow 是改动历史页上的一行 = **一次动作**（一批 ops 落进同一个 rev，
+// 或一个不产生 rev 的账号类动作）。
+//
+// 句子都在调用方查好表再递进来（与 AdminAction 同一纪律）：这一行的短句要把
+// 路径里的 id 换成"那条书签叫什么"，而只有拿着书签与快照的那一侧算得出。
+// At 是唯一留给模板侧格式化的字段——时间的写法只有 exec.go 那一份（shortTime）。
+type HistoryRow struct {
+	At      string
+	Channel string // 渠道名，已经翻好（「网页」「浏览器扩展」）
+	Actor   string // 「由 管理员」那一句；经手人就是这一份自己时留空、不画
+	Rev     int64  // 0 = 这次动作不产生书签版本（改 PIN、停用、重建那一族）
+	Count   int    // 这一次一共几处改动（**可能多于 Ops 的长度**，那是截断后的）
+	Ops     []string
+	More    string // 「…另外还有 N 处没列出来」，空串 = 没截断
+}
+
+// HistoryView 是改动历史页的输入。行**按时间从新到旧**递进来（ReadHistory 就是
+// 这个顺序），分哪几天由执行器算——"今天/昨天"是显示的事，而它离不开语言。
+type HistoryView struct {
+	// Profile 只用于 X-LB-Profile：这一页点名到具体的人，缓存与离线桶都要按它分。
+	Profile string
+	Heading string
+	Explain string
+	Notice  string
+	// Foot 是截断结论（"只列最近 100 次 · 一共 342 次"），空串不画。
+	Foot string
+	Rows []HistoryRow
+}
+
+// HistoryPage 渲染改动历史。no-store 与不给 ETag 同 ImportPage：这一页写的是
+// "谁在什么时候动过这个人的书签"，把它留在共用这台电脑的下一个人的缓存里，
+// 就是这一整个产品要防的那件事。
+func (r *Renderer) HistoryPage(v HistoryView) (Page, error) {
+	body, err := r.tmpl.history(v, i18n.Load(r.s.Language()))
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Body: body, NoStore: true, Profile: v.Profile}, nil
+}
+
 // ETag 带档案名：内容字节相同时也必须不同名，否则浏览器与 SW
 // 会跨档案命中——那是本设计里最贵的一类 bug。
 func makeETag(profile string, body []byte) string {

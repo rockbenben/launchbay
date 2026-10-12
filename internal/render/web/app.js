@@ -62,6 +62,7 @@ const APP_I18N = {
     "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
     "app.cmdk.aria": "命令面板",
     "app.cmdk.clipboard": "把剪贴板里的网址存进来",
+    "app.cmdk.history": "看这一份的改动历史",
     "app.cmdk.kind": "动作",
     "app.cmdk.none": "没有叫「%s」的书签，也没有对得上的动作。",
     "app.cmdk.empty": "这里还没有可列的东西。",
@@ -169,6 +170,7 @@ const APP_I18N = {
     "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
     "app.cmdk.aria": "Command palette",
     "app.cmdk.clipboard": "Save the address on the clipboard",
+    "app.cmdk.history": "See this profile’s change history",
     "app.cmdk.kind": "action",
     "app.cmdk.none": "No bookmark named “%s”, and no matching action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
@@ -713,7 +715,11 @@ const APP_I18N = {
     //
     // 从前这里还有第二条「看这个档案的改动历史」，它做的事是导航到
     // /api/v1/history——把人甩进一屏 JSON。那是接口不是界面，先撤掉。
+    // 2026-10-13 这一格回来了，去的是 /history：那一屏现在有自己的脸
+    // （审计线一直在写，缺的一直是屏）。它不进 `navigator.clipboard` 那一档判断，
+    // 因为这一页不需要浏览器给任何权限。
     const actions = [];
+    actions.push({ kind: 'action', label: T('app.cmdk.history'), run: () => { location.href = '/history'; } });
     if (navigator.clipboard?.readText) {
       actions.push({ kind: 'action', label: T('app.cmdk.clipboard'), run: addClipboard });
     }

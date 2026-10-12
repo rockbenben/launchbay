@@ -103,6 +103,12 @@ func (s *Server) routes() []route {
 			Summary: "回退到某一版的确认页（第一步；浏览器表单通路）", H: s.handleRevertPage},
 		{Method: "POST", Pattern: "/revert", Cred: credSession,
 			Summary: "确认回退（第二步；与 POST /api/v1/revert 同一落点）", H: s.handleRevertForm},
+		// 改动历史那一屏（2026-10-13）：审计行从写通路落地那天起就在写，
+		// `GET /api/v1/history` 也一直读得出来，缺的是屏——于是 spec §2 那句
+		// "改动有历史可查"在界面上是空的。准入与 /revert 同一族（selfProfileOnly）：
+		// 档案从会话推导、不接受申报，所以管理员进得了这一页也只能看自己那一份。
+		{Method: "GET", Pattern: "/history", Cred: credSession,
+			Summary: "这一份的改动历史（浏览器通路；只列动作，不列内容）", H: s.handleHistoryPage},
 		{Method: "GET", Pattern: "/admin", Cred: credAdmin,
 			Summary: "管理页（读侧：档案一览与账号操作，不含条目内容）；无管理权时渲染登录页", H: s.handleAdminPage},
 		{Method: "POST", Pattern: "/admin", Cred: credAdmin,

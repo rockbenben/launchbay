@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 	"time"
 
@@ -92,6 +93,9 @@ type executor struct {
 	// importT 同理单独挂着：导入那三步（选文件/看报告/确认）带着上传报告，
 	// 它出错时不该被误读成"管理页的确认页坏了"。
 	importT *template.Template
+	// historyT 单独挂着，理由与 importT 同一条：每一页各自带着自己的数据形状，
+	// 共用一个模板集会把"渲染坏了的是哪一页"变成要猜的事。
+	historyT *template.Template
 	// adminLoginT 单独挂着：它是**没有管理权时**的那一页，形状与 adminT 相反
 	// （一张输入框 vs 一张表）。共用会让"渲染坏了管理页还是登录页"看不出来。
 	adminLoginT *template.Template
@@ -420,9 +424,11 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	}
 	// CSS 是我们自己的静态文件，不是用户数据：用 template.CSS 内联进
 	// <style> 换一次 RTT（spec §11 已记录 style-src 'unsafe-inline' 的取舍）。
-	css := template.CSS(safeCSS(stripCSSComments(string(raw)))) // shortTime 给管理页那一格「最近改动」用；模板的函数名单只有这一份，
-	// 别在 httpapi 那头再格式化一次（同一件事两处做 = 两处会漂移）。
-	funcs := template.FuncMap{"shortTime": shortTime, "reportHTML": reportHTML}
+	css := template.CSS(safeCSS(stripCSSComments(string(raw))))
+	// shortTime 给管理页那一格「最近改动」、clockTime 给改动历史的每一行。
+	// 模板的函数名单只有这一份，别在 httpapi 那头再格式化一次——
+	// 同一件事两处做，两处就会漂移。
+	funcs := template.FuncMap{"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML}
 	parse := func(name string) *template.Template {
 		data, err := webFS.ReadFile("web/" + name)
 		if err != nil {
@@ -438,10 +444,32 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 		adminActionT: parse("adminaction.tmpl"),
 		importT:      parse("import.tmpl"),
 		adminLoginT:  parse("adminlogin.tmpl"),
+		historyT:     parse("history.tmpl"),
 		cssT:         css,
 		ix:           ix,
 		fc:           fc,
 	}
+}
+
+// history 渲染改动历史。切到哪一天在这里算（那一节的标题要读语言），
+// 而每一行的短句在调用方已经查好表——见 render.HistoryRow 那条。
+func (e *executor) history(v HistoryView, cat *i18n.Catalog) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := e.historyT.ExecuteTemplate(&buf, "history", historyView{
+		HistoryView: v, Days: historyDays(v.Rows, cat),
+		CSS: e.cssT, i18nView: newI18nView(cat)}); err != nil {
+		return nil, fmt.Errorf("渲染改动历史页: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+type historyView struct {
+	HistoryView
+	// Days 由执行器算，调用方填不了：它是"这些行落在哪几天"，判据里写着本机
+	// 时区与界面语言——与 adminView.Count 同一处置（判据在这一层，模板只印）。
+	Days []historyDay
+	i18nView
+	CSS template.CSS
 }
 
 // importPage 渲染浏览器收藏夹导入那三步。判据全在 ImportView 里，模板只印。
@@ -567,6 +595,112 @@ func shortTime(lang, s string) string {
 		return t.Format("2 Jan, 15:04")
 	}
 	return t.Format("1月2日 15:04")
+}
+
+// clockTime 只给"几点几分"，不给日期。
+//
+// 改动历史的一行**已经**被那一节的标题说清了是哪天（「今天」「昨天」「10月9日」），
+// 行首再印一遍日期就是一行里两处说同一件事，而那一行本来就很窄。
+// 解不出时间时返回空串而不是原文：这一格里塞一段 `2026-10-13T09:00:00Z` 会把
+// 整行挤掉，而那件事已经由 historyDays 那一节用「时间不明」说过了——同一句
+// 解释不需要在两处各印一半。
+func clockTime(lang, s string) string {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return ""
+	}
+	return t.Local().Format("15:04")
+}
+
+// historyDay 是页上的一节：一天。
+type historyDay struct {
+	Label string
+	Rows  []HistoryRow
+}
+
+// historyDays 把行切成"一天一节"，**节按日期从新到旧**，同一节内的行保持递进来的顺序。
+//
+// 不按"相邻同一天"切（那是这一条第一版的写法）：审计线的顺序是**追加顺序**，
+// 不是时间顺序。一次恢复旧备份、一台走偏的时钟、一行 upgrade 前留下的旧数据，
+// 都会让同一个日子在页面上出现两次——取景实拍到的正是这个形状：这台机器上
+// 「今天」被切成两节，中间夹着一节 10 月 11 日，而那一页从头到尾没有一行是
+// 重复的。节标题重复两次比少一节更坏：人会以为自己漏看了什么。
+//
+// 也不给行按时间重排：那一天的先后靠的是"上面那条更近"，而行与行之间真实
+// 差别的只有分钟，追加顺序就是它。解不出时间的行**不丢**，单独一节、排最后——
+// 这一页存在的全部意义是"一行都没漏"（与导入报告"## 没能进来"逐条点名、
+// 回退页"另有 N 份快照读不出来"同一条纪律）。
+func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
+	lang := string(cat.Lang())
+	now := time.Now().Local()
+	type bucket struct {
+		day   time.Time // 那一天的零点，只用来排序
+		label string
+		rows  []HistoryRow
+	}
+	var dated []*bucket
+	var undated *bucket
+	seen := map[string]*bucket{}
+	for _, r := range rows {
+		t, err := time.Parse(time.RFC3339, r.At)
+		if err != nil {
+			if undated == nil {
+				undated = &bucket{label: cat.T("history.day.unknown")}
+			}
+			undated.rows = append(undated.rows, r)
+			continue
+		}
+		lt := t.Local()
+		y, m, d := lt.Date()
+		key := fmt.Sprintf("%04d-%02d-%02d", y, m, d)
+		if b, ok := seen[key]; ok {
+			b.rows = append(b.rows, r)
+			continue
+		}
+		b := &bucket{day: time.Date(y, m, d, 0, 0, 0, 0, lt.Location()), rows: []HistoryRow{r}}
+		switch {
+		case sameDay(lt, now):
+			b.label = cat.T("history.day.today")
+		case sameDay(lt, now.AddDate(0, 0, -1)):
+			b.label = cat.T("history.day.yesterday")
+		default:
+			// 日期本身就是那一节的标题，不再包一层句子：`10月4日` 与 `4 Oct`
+			// 已经是两种语言各自的样子，而语言包里放一条 `%s` 只会多一处空壳。
+			b.label = dayDate(lang, lt, now.Year())
+		}
+		seen[key] = b
+		dated = append(dated, b)
+	}
+	sort.SliceStable(dated, func(i, j int) bool { return dated[i].day.After(dated[j].day) })
+	out := make([]historyDay, 0, len(dated)+1)
+	for _, b := range dated {
+		out = append(out, historyDay{Label: b.label, Rows: b.rows})
+	}
+	if undated != nil {
+		out = append(out, historyDay{Label: undated.label, Rows: undated.rows})
+	}
+	return out
+}
+
+// dayDate 是一天的标题里那个日期。跨年时要带年份：只写「2 Jan」的人读到
+// 去年的时间那一节，会以为那是今年一月——而"哪一月的哪一天"正是这一节唯一的职责。
+func dayDate(lang string, t time.Time, thisYear int) string {
+	if t.Year() == thisYear {
+		if lang == string(i18n.En) {
+			return t.Format("2 Jan")
+		}
+		return t.Format("1月2日")
+	}
+	if lang == string(i18n.En) {
+		return t.Format("2 Jan 2006")
+	}
+	return t.Format("2006年1月2日")
+}
+
+func sameDay(a, b time.Time) bool {
+	y1, m1, d1 := a.Date()
+	y2, m2, d2 := b.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
 // profile 的 query 是服务端过滤的输入（spec §8.1）：判据只在 filter.go 那一份，

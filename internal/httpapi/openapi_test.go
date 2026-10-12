@@ -69,7 +69,7 @@ var tokensRefusedByForm = map[string]bool{
 	"POST /admin/delete":  true,
 	"GET /admin/disable":  true,
 	"POST /admin/disable": true,
-	// 回退那两条（2026-10-11）：判据同上——revertGuard 第一件事就是
+	// 回退那两条（2026-10-11）：判据同上——selfProfileOnly 第一件事就是
 	// `if bearer(r) != "" { redirectPicker(w) }`。行为证人见
 	// TestRevertPage_令牌与无会话都拒且不写盘。
 	"GET /revert":  true,

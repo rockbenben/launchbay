@@ -826,6 +826,12 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 离线队列、报告清单每一条都要自己逃一次，漏一条就变成一排格子（⌘K 那一处
 		// 的实测症状是方向键按"下一个"走到右边那一格）。侧栏因此不再需要 display 覆盖。
 		"网格只挂在条目列表上": `.tiles,.rows,.profiles{display:grid`,
+		// 改动历史那一页（2026-10-13）：卡片里那一簇短句要**自己占一行**，
+		// 而 `.plain` 是个 flex 容器——少了这条覆盖，那一簇会挤到上面那两枚
+		// 徽标旁边排成一行。钉它的理由与 `.tech` 那次同一条：类挂在对的元素上、
+		// 规则却在别的文件里（或压根没有），页面上就是没样式，而浏览器不在 CI 里。
+		"历史页的短句独占一行":  `.hist .ops{flex:1 0 100%`,
+		"历史页的卡片之间有间距": `.hist{display:grid`,
 		// 把手的开合指示（评审 I-3，Task 7 收宽成 summary 一族）：flex 把 UA 的
 		// display:list-item 换掉了，展开三角随之消失（三角只在 list-item 显示，
 		// Blink/Gecko 都一样），把手只剩 cursor:pointer 一个暗示——家属看不出那行

@@ -719,3 +719,22 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 .skipped{margin:8px 0 14px;padding-left:20px;font-size:13px;color:var(--ink2)}
 .skipped li{margin:4px 0}
 .skipped .u{color:var(--ink2);opacity:.8;word-break:break-all}
+/* 改动历史（2026-10-13 那一页）：一行一次动作。卡片那一脸借现成的 `.plain`
+   （首页"需手动打开"那条用的就是它），这一族只补两件它没有的东西——
+   卡片之间的间距，和卡片里面那一段"具体动了哪几条"。
+
+   `.ops` 住在 `.plain` 里面，而 `.plain` 是 flex 容器：不给 `flex:1 0 100%`
+   它会和上面那两枚徽标挤在同一行（`.plain code` 那条走的是同一个办法）。
+   行首符号要自己找回来：全局那条 `ul{list-style:none}` 是给磁贴栅格复位用的，
+   它不该替这一页决定"一份清单要不要有项目符号"。 */
+.hist{display:grid;gap:8px}
+.hist .ops{flex:1 0 100%;margin:6px 0 0;padding-left:18px;list-style:disc;
+  font-size:13px;color:var(--ink2)}
+.hist .ops li{margin:2px 0}
+/* 那一行的元信息**不许被省略号吃掉**。320 档实拍：`02:47 · 浏览器扩展 · 由 dp-dad 经手`
+   被 `.plain b` 的 nowrap+ellipsis 截成 `02:47 · 浏览器扩展 · 由 d…`——丢的正好是
+   "哪把钥匙动的手"那一截，而它是这一行剩下的唯一新信息。
+   条目名不在这条风险里：它在 `.ops` 那一簇里，那一簇本来就会换行。
+   只放开 `.hist` 里面这一支：`.plain b` 那条截断是首页"需手动打开"那张卡要的
+   （一整串地址印成两行会把卡片撑歪），动它等于改别的页。 */
+.hist .plain>b{white-space:normal}

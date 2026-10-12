@@ -1,0 +1,66 @@
+{{define "history"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Heading}} · launchbay</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<header>
+  <h1>{{.Heading}}</h1>
+  <nav aria-label="{{.T "common.back.aria"}}">
+    <a class="badge" href="/">{{.T "common.back.home"}}</a>
+    {{/* 回退放在这一页：历史回答"谁动过"，回退回答"能不能退回去"，
+         而人往往是读完这一页才想去退的。它是同一句承诺的另一半。 */}}
+    <a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>
+  </nav>
+</header>
+<main role="main">
+  {{/* 提示放在最前：与选择页/管理页/导入页同一纪律——读屏的人不该先听完
+       一屏说明才知道刚才那一步没成。这一页目前只有 ?err= 一种提示。 */}}
+  {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
+  {{/* 那一行说明用 .hint（12px 弱化）而不是 .explain：这一页没有不可逆动作，
+       它说的是"这一页记什么、不记什么"。用 .explain 那一族（确认页把**后果**
+       写在按钮之前）会把一句背景说明排成 320 档上的头八行——取景实拍到的正是
+       这个形状，而列表被推到第二屏之外。 */}}
+  <p class="hint">{{.Explain}}</p>
+
+  {{if .Days}}
+    {{range .Days}}
+    {{/* 一节一天。裸 <section> 与它里面那个 h2 都是现成的（全局那条
+         `section{margin:…}` 与 `h2::before` 的那个色点），这一页不新开一族。 */}}
+    <section>
+      <h2>{{.Label}}</h2>
+      <ul class="hist">
+        {{range .Rows}}
+        {{/* .plain 是"与卡片同一张脸、只是不可点"那一族（首页"需手动打开"那条
+             用的就是它）。历史行确实不可点：这一页没有"点开看那次改了什么"
+             的第二层——历史里没记内容，画一个点开什么都没有的东西等于许诺。 */}}
+        <li class="plain">
+          {{/* 时刻只到分：日期已经被这一节的标题说过了，一行里说两遍是挤。 */}}
+          <b>{{with clockTime $.Lang .At}}{{.}} · {{end}}{{.Channel}}{{with .Actor}} · {{.}}{{end}}</b>
+          {{/* 单复数在**数量**上分支，不在语言上分支：两种语言各有各的
+               "一处改动 / 1 edit"，模板里不许出现 `{{if eq .Lang ...}}`。 */}}
+          {{if .Count}}{{if eq .Count 1}}<span class="badge">{{$.T "history.row.count.one"}}</span>{{else}}<span class="badge">{{$.T "history.row.count" .Count}}</span>{{end}}{{end}}
+          {{if .Rev}}<span class="badge">{{$.T "history.row.rev" .Rev}}</span>{{else}}<span class="badge">{{$.T "history.row.noRev"}}</span>{{end}}
+          {{if .Ops}}<ul class="ops">
+            {{range .Ops}}<li>{{.}}</li>{{end}}
+            {{/* 截断要说出来，还要说清少的是几条。**只印一个"等等"不算**：
+                 一次改 30 条的人要知道的是没列出来的那 24 条还在不在。 */}}
+            {{with .More}}<li>{{.}}</li>{{end}}
+          </ul>{{end}}
+        </li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+    {{with .Foot}}<p class="hint">{{.}}</p>{{end}}
+  {{else}}
+    {{/* 零行的那一支也要说清"为什么没有"：新建这一份之后还没人动过它的书签。
+         空一块地方会让人以为这一页坏了。 */}}
+    <p class="hint">{{.T "history.empty"}}</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

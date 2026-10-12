@@ -95,6 +95,61 @@ func ParsePath(path string) (target, error) {
 	return target{}, fmt.Errorf("路径 %q 段数太多", path)
 }
 
+// Shape 是路径分解后**给读者看**的那一份。
+//
+// 为什么不直接把 target 导出：它是写侧的内部枚举与私有字段，导出就等于让显示层
+// 能拿 kind 去猜写侧的分支（一处按 `kindItemField` 判断，文法就分家了）。
+// 而历史页需要的只是"哪一段是分组 id、哪一段是条目 id、最后那段是字段名"。
+//
+// 走 ParsePath 而不是自己再切一遍 '/'：文法必须只有一份。写侧将来加一种形状，
+// 这里要么跟着多一个 Kind 值，要么落进 Unknown——**不会**出现"显示层自己猜出
+// 一个写侧不认的形状"那种看起来能用、实际指着不存在的东西。
+type Shape struct {
+	Kind    string // Groups / Group / GroupField / Items / Item / ItemField / Unknown
+	GroupID string
+	ItemID  string
+	Field   string
+}
+
+const (
+	ShapeGroups     = "Groups"     // groups —— 组表本身
+	ShapeGroup      = "Group"      // groups/<gid>
+	ShapeGroupField = "GroupField" // groups/<gid>/<field>
+	ShapeItems      = "Items"      // groups/<gid>/items
+	ShapeItem       = "Item"       // groups/<gid>/items/<iid>
+	ShapeItemField  = "ItemField"  // groups/<gid>/items/<iid>/<field>
+	// ShapeUnknown 是"这条路径不在文法里"。历史行里真会出现它：账号类动作
+	// 记的是 profile/pin、profile/rebuild、snapshots/<rev>（§4.6），它们动的不是
+	// 书签树，本来就不归这套文法管。
+	ShapeUnknown = "Unknown"
+)
+
+// ShapeOf 把一条历史里的路径拆成 Shape。解不开不报错，返回 ShapeUnknown，
+// 由调用方按"这是另一种动作"渲染——历史页要能渲染**整条审计线**，
+// 而其中任何一行都不该让这一页 500。
+func ShapeOf(path string) Shape {
+	t, err := ParsePath(path)
+	if err != nil {
+		return Shape{Kind: ShapeUnknown}
+	}
+	k := ShapeUnknown
+	switch t.kind {
+	case kindGroups:
+		k = ShapeGroups
+	case kindGroup:
+		k = ShapeGroup
+	case kindGroupField:
+		k = ShapeGroupField
+	case kindItems:
+		k = ShapeItems
+	case kindItem:
+		k = ShapeItem
+	case kindItemField:
+		k = ShapeItemField
+	}
+	return Shape{Kind: k, GroupID: t.groupID, ItemID: t.itemID, Field: t.field}
+}
+
 func idErr(s string) error {
 	if !model.ValidSlug(s) {
 		return fmt.Errorf("id %q 不是 ASCII slug", s)

@@ -23,11 +23,16 @@ import (
 // 令牌一律 303 回 `/`：CLI 与机器那条走 `/api/v1/revert`，浏览器表单与机器
 // 各写一半鉴权，两处迟早差一次。
 
-// revertGuard 是这两页共有的准入。返回的 id 是**服务端**从会话读出来的那一份，
+// selfProfileOnly 是"只认会话、目标从会话推导、带令牌一律 303"这一族共有的准入
+// （回退那两页与改动历史那一页）。返回的 id 是**服务端**从会话读出来的那一份，
 // 不是任何人能填的东西。
 //
-// 返回 false 表示已经答完了，调用方直接 return。
-func (s *Server) revertGuard(w http.ResponseWriter, r *http.Request) (string, bool) {
+// 名字里不写 revert：判据不归某一页所有。把它叫 selfProfileOnly 而历史页也调它，
+// 下一个人读到的就是"历史页借了回退的门"，于是他会去猜这两页是不是共用别的什么
+// ——而这里共用的只有准入这一件事。
+//
+// 返回 false 表示已经答完了（303 已经写出去），调用方直接 return。
+func (s *Server) selfProfileOnly(w http.ResponseWriter, r *http.Request) (string, bool) {
 	if bearer(r) != "" {
 		redirectPicker(w)
 		return "", false
@@ -169,7 +174,7 @@ func (s *Server) currentLine(id string) (string, error) {
 
 // handleRevertPage 是第一步：把可选的版本列出来，让人**认出**要退哪一版。
 func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
-	id, ok := s.revertGuard(w, r)
+	id, ok := s.selfProfileOnly(w, r)
 	if !ok {
 		return
 	}
@@ -257,7 +262,7 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 // handleRevertForm 是第二步：**不自写落盘判据**，走 revertLocked——与
 // POST /api/v1/revert 同一个。差别只在怎么读入、怎么答出。
 func (s *Server) handleRevertForm(w http.ResponseWriter, r *http.Request) {
-	id, ok := s.revertGuard(w, r)
+	id, ok := s.selfProfileOnly(w, r)
 	if !ok {
 		return
 	}
