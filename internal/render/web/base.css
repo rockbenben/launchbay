@@ -92,8 +92,14 @@ header h1{flex:0 1 auto;min-width:0;margin:0;font-size:19px;
   background:var(--card);padding:8px 12px}
 .rename[open]>summary{margin-bottom:4px}
 .rename form{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
-.rename label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);flex:0 0 auto;white-space:nowrap}
-.rename input{flex:1 1 220px;min-width:0}
+/* 标签与那一格**都要能缩**：320 档把浮层打开后整页 `scrollWidth=325`、真的能横滚
+   5px——`flex:0 0 auto` + `white-space:nowrap` 让这一行的宽度由"文字 + 输入框的
+   220px 基准"共同决定，它不参与收缩。改成可缩可换行之后 320 档 `scrollWidth=320`、
+   滚不动了，而输入框从固定的 177px 变成随宽度走的 136→230px（320→414 四档实测）。
+   顺带清掉一个坑：**关着的** `<details>` 里 Chrome 仍然给内容算布局，那条 label 在
+   390 档量到右边缘 430——没人看得见也量得到，别拿它当缺陷（这一条踩过一次）。 */
+.rename label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);flex:1 1 220px;min-width:0}
+.rename input{flex:1 1 120px;min-width:0}
 .rename .hint{flex:1 0 100%;margin:0;font-size:12px}
 /* 顶栏的档案徽标组。**它要参与吃余量**（flex:1 0 auto + 右对齐），不是为了把
    徽标推远，而是为了**换行时仍然靠右**：窄屏上顶栏会折行，折下来的那一行没有 h1
@@ -284,8 +290,11 @@ li{min-width:0}
    "我点中了"的机会，而这一站此前是空的。按元素收口写一条（与焦点环同处置），
    不按容器点名——每加一个表单容器就漏一次是这套写法付过的学费。
    位移 1px 而不是变色：颜色那一维在两套主题里都是逐对算过对比度的，
-   为一个瞬时状态再造一对配色不划算。 */
-a:active,button:active,input[type=submit]:active{transform:translateY(1px)}
+   为一个瞬时状态再造一对配色不划算。
+   `summary:active` 是补上的那一族：抽屉的把手与顶栏「改名」都是 `<summary>`，
+   它既不是 a 也不是 button，所以此前按下去**什么反馈都没有**——逐族对账量到
+   summary 一族 66 个实例的按下态命中 0。 */
+a:active,button:active,input[type=submit]:active,summary:active{transform:translateY(1px)}
 /* §7.5：所有可交互元素都要有可见焦点环（暗色下用亮环，颜色是算出来的 --ring）。
    .pick 挂在 form 上、form 本身不可聚焦，所以 a/button/input 必须点名——
    旧版这三样各有规则，重写时只留 .card/.pick 等于把进门表单的焦点环弄丢。
@@ -539,10 +548,12 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    一张族都没进——量出来 24px 高、灰底、圆角与字号全是浏览器默认的，
    与它左边那颗 44px 的下拉并排时像两个不同的产品拼在一起。它并进来而不是
    自己开一条 min-height：一个硬数字一族只写一遍（见上面按钮族的注释与
-   TestCSS_搜索控件的44px由哪条规则保证 数出来的六族）。 */
-.pick button,.search button,.theme button,.adm button,.act button,.langsel button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
+   TestCSS_搜索控件的44px由哪条规则保证 数出来的六族）。
+   `.rename button` 是顶栏「改名」那一格的提交键：它住在 `<details>` 里，
+   一张族都没进，量出来比它旁边那格输入框矮一截。同上一条并进来，不另开数字。 */
+.pick button,.search button,.theme button,.adm button,.act button,.langsel button,.rename button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
   border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
-.pick button:hover,.search button:hover,.theme button:hover,.adm button:hover,.act button:hover,.langsel button:hover{background:var(--card-hi);border-color:var(--accent)}
+.pick button:hover,.search button:hover,.theme button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.rename button:hover{background:var(--card-hi);border-color:var(--accent)}
 /* danger 是"这一步不可逆"的**视觉区分**，不是安全措施（§11 刻意不做防护）。
    它与 --warn 分开是因为 --warn 已经表示"坏档读不出来"；让删档与坏档同色，
    等于在一张同时出现这两者的表里把"这里坏了"与"点这里会删东西"画成一样。

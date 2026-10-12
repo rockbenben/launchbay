@@ -216,7 +216,9 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	//
 	// `.langsel button`（2026-10-12）：界面语言那颗按钮住在自己的表单里，
 	// 同样一张族都没进——实测 24px，与它左边 44px 的下拉并排时像两个产品。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add"} {
+	// `.rename button`（同日第二批）：顶栏「改名」那一格的提交键，实测 21px 高，
+	// 同一条毛病——住在自己的容器里就没进过任何族名单。
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {
@@ -578,6 +580,9 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 	css := string(raw)
 	for name, want := range map[string]string{
 		"把手触摸目标 44px": `.pencil{flex:0 0 auto;width:44px;height:44px`,
+		// 多选那条贴在**视口下沿**，而联合规则 `button:active{transform:translateY(1px)}`
+		// 把它往下推 1px——那一族的按下位移要明确豁免，否则按任意一颗都让整条抖一下。
+		"多选条按下不位移": `.multibar button:active{transform:none`,
 		// **不许写回 inset:0**：那会把编辑态的高度钉成卡片的高度，而表单装不下。
 		"编辑态按内容定高": `.inline-edit{position:absolute;top:0;left:0`,
 		// 磁贴只有 190px 宽，没有下限就放不下一条完整 URL；列表行接近整幅宽，
@@ -731,10 +736,15 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 守着。替代它们的是下面那条**导入页的触摸目标**——那一族过去不在名单里，
 		// 于是提交按钮与文件选择框都是 25px，同样是浏览器实测才发现的。
 		// 2026-10-12：按钮族末尾多了 `.langsel`（界面语言那颗「切换语言」住自己的
-		// 表单，同样一张族都没进，量出来 24px）。**逐字串跟着改了**——改选择器却不改
+		// 表单，同样一张族都没进，量出来 24px），同日第二批又多了 `.rename`
+		// （顶栏改名的提交键，21px）。**逐字串跟着改了**——改选择器却不改
 		// 这条钉，下一个人加容器时它会红，而红的是"你得看看这条钉说的是哪一族"。
-		"确认/导入页的按钮入按钮族": `.adm button,.act button,.langsel button{`,
-		"文件选择框入输入族":     `input[type=search],input[type=file]{min-height:44px}`,
+		"确认/导入页的按钮入按钮族": `.adm button,.act button,.langsel button,.rename button{`,
+		// 顶栏「改名」的浮层在 320 档打开后整页能横滚 5px（`scrollWidth=325`），因为
+		// 那一行 `flex:0 0 auto` + `white-space:nowrap` 不参与收缩。钉的是"可缩 +
+		// min-width:0"这一形状还在：改回不缩，320 档就回到那个能横滚的样子。
+		"改名的标签与输入框要能缩": `.rename label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);flex:1 1 220px;min-width:0}`,
+		"文件选择框入输入族":    `input[type=search],input[type=file]{min-height:44px}`,
 		// 侧栏外壳（Task 6，spec §8.2）的 190px 常驻列是硬规格：grid-template-columns
 		// 的第一个值就是它。逐字串截到 minmax(0,1fr)，不钉后面的 gap/margin 顺序。
 		// 首列 190 → 206px 是 2026-10-11 给侧栏那根分隔线腾的内衬，
@@ -2234,10 +2244,10 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := stripCSSComments(string(raw))
-	// 锚点跟着 2026-10-12 按钮族末尾那个 `.langsel` 一起改了（见 硬规格在场 那条
-	// 逐字串的注释）。这里找的是**这条规则自身的位置**，所以锚在它的最后一段
-	// 选择器上：`.act button,` 已不再是末端，`.langsel button{` 才是。
-	joint := strings.Index(css, ".langsel button{")
+	// 锚点跟着按钮族**末尾那一段**走：先是 `.langsel`，同日第二批又追加了 `.rename`
+	// （见 硬规格在场 那条逐字串的注释）。这里找的是这条规则自身的位置，所以锚在
+	// 它的最后一段选择器上：`.langsel button{` 已不再是末端，`.rename button{` 才是。
+	joint := strings.Index(css, ".rename button{")
 	danger := strings.Index(css, "button.danger{")
 	if joint < 0 || danger < 0 {
 		t.Fatalf("找不到要对比的两条规则（joint=%d danger=%d）：改名可以，但要连这条证人一起改", joint, danger)

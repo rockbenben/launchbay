@@ -174,10 +174,16 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
 .del-list li{margin:2px 0}
 
 /* forced-colors：毛玻璃与阴影一律失效，留下的是边框——所以这里的 border 是
-   承重的，不是装饰。 */
+   承重的，不是装饰。
+   强制颜色档实拍量到的一件事：**危险键与次级键长得一模一样**。
+   实心红被系统色替掉，「删掉这 2 条」与「取消」都只剩一圈 1px 黑框，强度差整个消失，
+   只剩标签在说哪一颗会删东西。颜色不是唯一载体这条判据（§7.5）在这里的落点就是
+   给危险那一族多描一道环——用 outline 而不是加粗 border，因为 border 宽度被
+   `.fld` 钉成 1px，改它会连带动到所有输入框的形状。 */
 @media (forced-colors:active){
   .fld,.pencil,.cmdk-list li.sel{border:1px solid CanvasText}
   .sheet-status.bad{color:LinkText}
+  button.danger{outline:2px solid CanvasText;outline-offset:1px}
 }
 @media (prefers-reduced-motion:no-preference){
   .sheet{animation:sheet-in .12s ease-out}
@@ -201,6 +207,11 @@ body[data-multi] main{padding-bottom:96px}
 .multibar button{width:auto;min-width:44px;padding:6px 12px;font-size:13px;
   border:1px solid var(--line);border-radius:8px;background:var(--bg);
   color:var(--ink);cursor:pointer}
+/* 条子贴在视口下沿，而联合规则 `button:active{transform:translateY(1px)}` 把它
+   **往下**推——于是那一条的阴影与描边被裁掉一像素，按下五颗里的任意一颗都会让
+   整条看起来抖了一下。这一族的按下反馈改由描边与底色承担（按住时描边转亮蓝），
+   位移明确豁免：一族一种按下的写法，这里选的是"不许抖出屏幕"。 */
+.multibar button:active{transform:none;border-color:var(--accent)}
 /* 顶栏提醒的关闭出口。它必须存在：一条说得出结果、却说不出下一步的横幅，
    挂在页面最顶上又关不掉，比没有更烦（实测从前一次会话里同时挂着两条）。 */
 .notice .dismiss{margin-left:10px;font:inherit;font-size:12px;color:var(--ink);
