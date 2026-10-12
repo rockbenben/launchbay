@@ -1,7 +1,20 @@
 services:
   launchbay:
     build: .
-    image: launchbay:0.1.0
+    # **两条路都在这一份里**（2026-10-12）：version 标签指向发布的镜像，
+    # pull_policy 决定这一趟去哪儿拿。
+    #   · 默认 build   —— clone 下来的人按 README 编译本机的（NAS 上编译几分钟）；
+    #   · always       —— 直接拉发布镜像，不编译（`LAUNCHBAY_PULL_POLICY=always`）；
+    #   · missing      —— 本地没有就拉，有就用本地的。
+    # 早先这里写的是 `image: launchbay:0.1.0`，于是 **image 这行没有仓库前缀**，
+    # compose 只会去找本地镜像或自己构建，发布到 GHCR 的那个镜像**永远用不到**——
+    # 而 README 另一头正教人 `docker run ghcr.io/rockbenben/launchbay:latest`。
+    # 两条路各说各的，读者得自己猜它们是不是一回事。现在是同一份 compose 两条路。
+    #
+    # 版本号仍然只有这一处：docker.yml 发版时从**这一行** grep（那一步的正则
+    # 跟着放宽成能带仓库前缀），.env 与 README 都只引用它，不再各写一份。
+    image: ghcr.io/rockbenben/launchbay:0.1.0
+    pull_policy: ${LAUNCHBAY_PULL_POLICY:-build}
     container_name: launchbay
     # 宿主端口默认 7600（spec §10），可用 LAUNCHBAY_HOST_PORT 覆盖：
     # 本机 Windows 把 TCP 7532-7631 整段划给了 Hyper-V 动态保留，7600 直接

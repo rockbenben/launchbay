@@ -45,10 +45,16 @@ jobs:
       #
       # 取不到就报错，不静默退化成"只有 latest"——那样每次发版都往 latest 上盖，
       # 而没人能从 latest 知道它对应哪个版本。
+      #
+      # 下面那个 ^[[:space:]]*（行首锚定）不是可有可无的：grep 扫的是整个文件，
+      # **包括注释**。docker-compose.yml 里有一行注释正是在讲"从前这行长什么样"，
+      # 而那句话的写法和真配置逐字相同——于是取版本号那一步会读到**两个**版本，
+      # version= 被写成多行，GITHUB_OUTPUT 当场格式错误，整轮发版停在取版本号那一步。
+      # 真配置行以缩进的 image: 开头，注释行以 # 开头，锚一下就把两者分开了。
       - name: 取版本号
         id: ver
         run: |
-          VERSION=$(grep -oE 'image: launchbay:[0-9]+\.[0-9]+\.[0-9]+' docker-compose.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          VERSION=$(grep -oE '^[[:space:]]*image: (launchbay|ghcr\.io/[^/]+/launchbay):[0-9]+\.[0-9]+\.[0-9]+' docker-compose.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           if [ -z "$VERSION" ]; then
             echo "::error::docker-compose.yml 里没有 image: launchbay:<版本>，版本号无从谈起——先改那里，别在这里编一个"
             exit 1

@@ -48,9 +48,40 @@ cp .env.example .env      # 填两个令牌（见下）
 docker compose up -d
 ```
 
+令牌不想单独搞一个 `.env` 文件也行，**直接在命令上写**（compose 会从宿主环境读）：
+
+```bash
+# Linux / macOS
+LAUNCHBAY_TOKEN_AI_DAD=换成你自己的令牌 \
+LAUNCHBAY_TOKEN_ADMIN=换一枚 \
+docker compose up -d
+```
+
+```powershell
+# Windows PowerShell
+$env:LAUNCHBAY_TOKEN_AI_DAD="换成你自己的令牌"
+$env:LAUNCHBAY_TOKEN_ADMIN="换一枚"
+docker compose up -d
+```
+
+`cp .env.example .env` 那条路也一直有效，两种写法随便挑——`.env` 只是让令牌在多次 `docker compose` 之间留着不丢。
+
 打开 http://localhost:7600 会进**一次性建档页**：给第一个档案起个名字、设 4–6 位 PIN。**没有默认账号密码**——没有 `admin/admin` 可试，你填进去的名字和数字就是你自己的。这个页面只在磁盘上一个档案都没有时有效，建完就永久关闭——所以"这台机器建过档了没有"本身就是一条线索，不会被匿名访问者拿来数你家里有几口人。
 
 同一页上还有一个**界面语言**下拉框（中文 / English）——**装的时候顺手在这里选**，填完 PIN 直接点创建容易把它跳过去。选完立刻生效，之后只有管理员能在管理页改（它属于整台机器，不属于某个档案）。
+
+### 不想在本机编译，就拉发布镜像
+
+默认那条路是**本机编译**（NAS 上要几分钟，还要有 Go 工具链）。加一个 `LAUNCHBAY_PULL_POLICY=always` 就改成拉镜像：
+
+```bash
+LAUNCHBAY_PULL_POLICY=always \
+LAUNCHBAY_TOKEN_AI_DAD=换成你自己的令牌 \
+LAUNCHBAY_TOKEN_ADMIN=换一枚 \
+docker compose up -d
+```
+
+镜像名在 `docker-compose.yml` 的 `image:` 那一行（`ghcr.io/rockbenben/launchbay:0.1.0`），版本号**只有那一个来源**——发版流水线也是从同一行取的。`missing` 则表示"本地没有就拉，有就用本地的"。
 
 不想 clone 也行——直接拉发布镜像（amd64 与 arm64 都出了，Docker Hub 与 GHCR 同名）：
 
