@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "存到 launchbay",
+  "name": "__MSG_extName__",
   "version": "0.1.0",
-  "description": "右键把当前页面存进家里的 launchbay，或一次收藏当前窗口的所有标签页；也能把浏览器书签树整个导进来。",
+  "description": "__MSG_extDescription__",
+  "default_locale": "zh_CN",
   "permissions": [
     "contextMenus",
     "storage",
@@ -17,7 +18,8 @@
     "https://*/*"
   ],
   "background": {
-    "service_worker": "bg.js"
+    "service_worker": "bg.js",
+    "type": "module"
   },
   "options_page": "options.html",
   "icons": {

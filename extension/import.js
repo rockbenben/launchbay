@@ -12,6 +12,8 @@
 // 为什么在扩展里拼 Netscape HTML 而不是发 JSON：服务端那条 `bookimport.Convert`
 // 吃的就是 Netscape 格式，而所有浏览器的导出也都是这个格式。在扩展里拼一份发过去，
 // 服务端**一行都不用改**，它与"手动导出文件再上传"走的是同一个 Convert。
+import { t, httpErr } from './i18n.js';
+
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -24,7 +26,7 @@ function nodeToHtml(node) {
   }
   const kids = (node.children || []).filter((c) => c.url || (c.children || []).length);
   if (!kids.length) return '';
-  let out = `<DT><H3>${esc(node.title || '未命名')}</H3>\n<DL><p>\n`;
+  let out = `<DT><H3>${esc(node.title || t('unnamedFolder'))}</H3>\n<DL><p>\n`;
   for (const k of kids) out += nodeToHtml(k);
   return out + '</DL><p>\n';
 }
@@ -34,7 +36,7 @@ function nodeToHtml(node) {
 // 浏览器那几个内置根文件夹（书签栏／其他书签／手机书签）**按它们自己的标题**进
 // 输出，不按 id 硬编码成某个名字：标题是浏览器按当前语言给的，认它比认 id 准
 // （Chrome 固定 id 1/2/3，Firefox 的树根完全是另一套）。
-function buildNetscape(tree) {
+export function buildNetscape(tree) {
   let body = '';
   for (const root of tree) {
     for (const child of (root.children || [])) body += nodeToHtml(child);
@@ -45,7 +47,7 @@ function buildNetscape(tree) {
 }
 
 // ensurePermission 必须在用户手势里调用，否则 Chrome 直接拒绝。
-async function ensureBookmarksPermission() {
+export async function ensureBookmarksPermission() {
   const have = await chrome.permissions.contains({ permissions: ['bookmarks'] });
   if (have) return true;
   return chrome.permissions.request({ permissions: ['bookmarks'] });
@@ -61,37 +63,48 @@ function pickProfile(cfg) {
   return ids[0] || '';
 }
 
+// detailOf：错误响应里能读出来的那句话。服务端回的是 JSON 外壳，但**不是每一发
+// 都是 JSON**（网关、静态页、半截响应都可能是别的），所以认不出来就原样带出来。
+async function detailOf(res) {
+  const text = await res.text();
+  try { return JSON.parse(text).detail || text; } catch { return text; }
+}
+
+// post：两次请求都是**人在看着这一页等回答**，所以连"fetch 根本没成"都要变成
+// 一句人话——地址少个端口时 Chrome 给的是一句英文的 "Failed to fetch"，
+// 那与"没反应"之间只差一次网络。
+async function post(url, opts) {
+  try {
+    return await fetch(url, opts);
+  } catch (e) {
+    throw new Error(t('netFail', e.message));
+  }
+}
+
 // askPlan 走第一步：发原始 HTML 换一份"会写什么"的报告。不写盘。
-async function askPlan(cfg, html) {
+export async function askPlan(cfg, html) {
   const id = pickProfile(cfg);
-  if (!id) throw new Error('还没有一枚档案作用域的令牌——先在上面填一枚。');
-  const r = await fetch(cfg.base + '/api/v1/import', {
+  if (!id) throw new Error(t('noProfileToken'));
+  const r = await post(cfg.base + '/api/v1/import', {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + cfg.tokens[id], 'Content-Type': 'text/html; charset=utf-8' },
+    headers: {
+      Authorization: 'Bearer ' + cfg.tokens[id],
+      'Content-Type': 'text/html; charset=utf-8',
+    },
     body: html,
   });
-  const text = await r.text();
-  if (!r.ok) {
-    let detail = text;
-    try { detail = JSON.parse(text).detail || text; } catch { /* 不是 JSON 就原样带出来 */ }
-    throw new Error('HTTP ' + r.status + '：' + detail);
-  }
+  if (!r.ok) throw new Error(httpErr(r, await detailOf(r), id));
   // 服务端回的 profile 就是令牌作用域那个；本地这枚 id 只用于第二步取同一枚令牌。
-  return { ...JSON.parse(text), localProfile: id };
+  return { ...JSON.parse(await r.text()), localProfile: id };
 }
 
 // applyPlan 走第二步：确认写入。
-async function applyPlan(cfg, plan) {
-  const r = await fetch(cfg.base + '/api/v1/import/apply', {
+export async function applyPlan(cfg, plan) {
+  const r = await post(cfg.base + '/api/v1/import/apply', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + cfg.tokens[plan.localProfile], 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: plan.token }),
   });
-  const text = await r.text();
-  if (!r.ok) {
-    let detail = text;
-    try { detail = JSON.parse(text).detail || text; } catch { /* 同上 */ }
-    throw new Error('HTTP ' + r.status + '：' + detail);
-  }
-  return JSON.parse(text);
+  if (!r.ok) throw new Error(httpErr(r, await detailOf(r), plan.localProfile));
+  return JSON.parse(await r.text());
 }

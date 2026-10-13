@@ -88,12 +88,20 @@ jobs:
       # 加一步 setup-node，等于给 CI 凭空添一次下载和一个会随 runner 漂的版本
       # 约束。本案写的是 ES2020 那一档的老实语法，任何近几年的 node 都判得动。
       #
-      # 四个文件按浏览器里的真实角色本该分两批判（profile.tmpl 用
-      # `<script type="module">`，sw.js 是 register('/sw.js') 的传统 Service
-      # Worker，extension/bg.js 是 MV3 默认类型），但今天这四份都没有模块专属
-      # 语法，一道闸就够。**将来 app.js 用上 import 或顶层 await 时，按脚本解析
-      # 会误报**，那时再给它单开一条 --input-type=module——别在今天就为还不存在
-      # 的语法多写一条命令。
+      # 六个文件按浏览器里的真实角色分两批判：主站那两份（app.js 由 profile.tmpl 用
+      # `<script type="module">` 引，sw.js 是 register('/sw.js') 的传统 Service
+      # Worker）今天都不含模块专属语法，按脚本解析就够；扩展那四份**是** ES module
+      # （manifest 的 background 写了 type:module，options.html 用
+      # `<script type="module">`），必须按模块解析。
+      #
+      # 按模块解析只有 stdin 这一种写法：`--input-type=module` 配文件路径会被 node
+      # 直接拒（ERR_INPUT_TYPE_NOT_ALLOWED）。**本机 Node 24 实测过这一条**；
+      # `node --check <path>` 那种自动识别只在较新的 node 上对 `import` 放行，
+      # 别把这两行换回去。runner 镜像的 node 版本跟着镜像漂，真漂到不认这一步，
+      # 红的是这一步——那正该红的地方（改语法或改解析方式），而不是悄悄少检四份文件。
+      #
+      # **将来 app.js 用上 import 或顶层 await 时，按脚本解析会误报**，那时把它也
+      # 挪进 stdin 那一组——别在今天就为还不存在的语法多写一条命令。
       #
       # **只在 ubuntu 上跑**，理由与下面两个守卫同源：它判的是"仓库里有没有
       # 坏掉的文件"，与平台无关。.gitattributes 钉了 eol=lf，而 JS 两种换行
@@ -107,8 +115,9 @@ jobs:
         run: |
           node --check internal/render/web/app.js
           node --check internal/render/web/sw.js
-          node --check extension/bg.js
-          node --check extension/options.js
+          for f in i18n import bg options; do
+            node --input-type=module --check < "extension/$f.js"
+          done
       # 守卫**先编译再执行，不走 go run**：go run 会把守卫自己的退出码换成它
       # 自己的 1，于是"发现泄漏"与"守卫没跑成"（配置错、go 命令不在）并成同一档，
       # 红的原因只能去猜。退出码是这两条守卫对 CI 唯一的输出语言，就不能把它

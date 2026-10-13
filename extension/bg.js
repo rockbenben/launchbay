@@ -14,6 +14,13 @@
 // 它开的 host_permissions 只到 http/https：chrome:// 与 file:// 这类地址
 // 右键收藏得到，但服务端会原样存下来并在界面上标「需手动打开」（§9 特例一）——
 // 扩展不做 URL 白名单，替用户偷偷删书签不是它该做的事。
+//
+// 这里**一句中文都不写**：每一句人都要读到的话都住在 `_locales/*/messages.json`
+// （internal/i18n/extcatalog_test.go 钉着两份语言一一对应）。服务端答的那些
+// detail / reason 是**给脚本读的协议话**，不进通知——除非那句话本身就是唯一
+// 说得清原因的东西（见 httpErr 的 422 那一格）。
+
+import { t, httpErr } from './i18n.js';
 
 const CFG_KEY = 'lb-config';
 const DEFAULTS = { base: '', tokens: {}, defaultProfile: '' };
@@ -28,26 +35,37 @@ function currentProfile(c) {
   return p && c.tokens[p] ? p : Object.keys(c.tokens)[0] || '';
 }
 
-// api 打这台机器。**每一处失败都要变成人话**：扩展弹一下就没了，报错写在
-// console 里的话，点了没反应的人根本不会去看那里。
-async function api(c, path, body, profile) {
-  const res = await fetch(c.base + path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + (c.tokens[profile] || ''),
-    },
-    body: JSON.stringify(body),
-  });
+// send 打这台机器。**每一处失败都要变成人话**：扩展弹一下就没了，报错写在
+// console 里的话，点了没反应的人根本不会去看那里。`body` 不给就是 GET。
+// 状态码那一段的判据在 i18n.js 的 httpErr——三处通路共用一张表。
+async function send(c, path, body, profile) {
+  const opts = body === undefined
+    ? { method: 'GET' }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+  opts.headers = { Authorization: 'Bearer ' + (c.tokens[profile] || ''), ...(opts.headers || {}) };
+  let res;
+  try {
+    res = await fetch(c.base + path, opts);
+  } catch (e) {
+    // 地址写错、机器没起、端口没开，拿到的都是 "Failed to fetch" 这一句英文——
+    // 而那是这条流水线上**最常被读到的一句**，贴原文等于让人去猜。
+    throw new Error(t('netFail', e.message));
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     // batch 的 422 说的是"ops 校验未过，整批未写入"，那是协议话；真正的原因
     // 在 errors[0].reason。与 app.js 那侧同一条口径。
     const first = Array.isArray(data.errors) && data.errors[0];
-    const why = (first && (first.reason || first.field)) || data.detail || `HTTP ${res.status}`;
-    throw new Error(why);
+    throw new Error(httpErr(res, (first && (first.reason || first.field)) || data.detail, profile));
   }
   return data;
+}
+
+// readData 是 GET /api/v1/data。**它必须看状态码**：以前这里直接 .json()，
+// 于是一次 401 会让下面那句"这个档案一个分组都没有"上了屏——说的是一句假故障，
+// 而真正的原因（令牌不对）就在这条请求里被丢掉了。
+async function readData(c, profile) {
+  return send(c, '/api/v1/data?profile=' + encodeURIComponent(profile), undefined, profile);
 }
 
 // ── 反馈：成功走角标，失败走通知 ────────────────────────────────────────────
@@ -62,16 +80,17 @@ async function tellOK(text) {
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);
 }
 
-async function tellFail(message, profile) {
-  // 角标仍然亮一下，但只放一个符号——它是"出事了"的信号，不是消息本体。
+// tellNote：一整句读得完的话。`!` 那个角标在这里说的是"什么都没写进去"，
+// 不只是"出事了"——"这一窗本来就没有新东西"也归它管。
+async function tellNote(title, message, profile) {
   await chrome.action.setBadgeText({ text: '!' });
   await chrome.action.setBadgeBackgroundColor({ color: '#b3261e' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 6000);
-  const body = profile ? `${message}\n（当前要存的档案：${profile}）` : message;
+  const body = profile ? `${message}\n${t('failProfile', profile)}` : message;
   try {
     await chrome.notifications.notify({
       id: 'lb-fail',
-      title: '没存进 launchbay',
+      title,
       message: body,
       iconUrl: 'icons/32.png',
       priority: 2,
@@ -79,7 +98,7 @@ async function tellFail(message, profile) {
   } catch {
     // 系统通知被关掉（专注模式、Windows 的"通知已关闭"）是常态而不是异常：
     // 那时候至少把句子留在控制台，别让"点了没反应"变成三件事叠在一起。
-    console.error('launchbay 扩展：', message);
+    console.error('launchbay:', title, message);
   }
 }
 
@@ -87,16 +106,21 @@ chrome.notifications?.onClicked?.addListener((id) => {
   if (id === 'lb-fail') chrome.runtime.openOptionsPage();
 });
 
+// saveOne 的三种结果：`null` = 存进去了；`{dup:true}` = 这一条本来就在这份里，
+// 一个字都没写；`{why}` = 这一条没存进去，why 是能整句读得完的人话。
+// "已经在里面了"为什么不归到失败那一档：批量那一窗里，一个早就存过的主页
+// 不该把后面十一个标签页一起停下来——而让服务端来回一句"item id 重复"再把它
+// 翻译成人话，比在这儿看一眼已经拿到手的数据贵。
 async function saveOne(page, profile) {
   const c = await cfg();
-  if (!c.base) return '还没配这台机器的地址（扩展设置页第一格）';
-  if (!profile || !c.tokens[profile]) return '这个档案还没有令牌';
+  if (!c.base) return { why: t('noBase') };
+  if (!profile || !c.tokens[profile]) return { why: t('noToken') };
   // 先 resolve 一次：它把标题、描述、建议分组与图标候选都填好，而服务端据此
   // 拒掉/收下每一条。**不要在扩展里自己造分组** —— 那是服务端那份映射的职责，
   // 两处各判一次就会分家。
   let picked = {};
   try {
-    const r = await api(c, '/api/v1/resolve', { url: page.url, profile }, profile);
+    const r = await send(c, '/api/v1/resolve', { url: page.url, profile }, profile);
     picked = {
       name: r.title || page.title || page.url,
       desc: r.desc || '',
@@ -112,19 +136,19 @@ async function saveOne(page, profile) {
     picked = { name: page.title || page.url, desc: '', icon: '', group: '' };
   }
 
-  const cur = await (await fetch(c.base + '/api/v1/data?profile=' + encodeURIComponent(profile),
-    { headers: { Authorization: 'Bearer ' + c.tokens[profile] } })).json();
+  const cur = await readData(c, profile);
 
   const groups = (cur && cur.data && cur.data.groups) || [];
+  if (groups.some((g) => (g.items || []).some((it) => it.url === page.url))) return { dup: true };
   const wanted = groups.find((g) => g.id === picked.group);
   const gid = (wanted && wanted.id) || (groups[0] && groups[0].id) || '';
-  if (!gid) return '这个档案一个分组都没有，先在页面上建一个分组再收藏';
+  if (!gid) return { why: t('noGroup') };
 
   const value = { id: idFor(page.url, picked.name), name: picked.name, url: page.url };
   if (picked.desc) value.desc = picked.desc;
   if (picked.icon) value.icon = picked.icon;
 
-  await api(c, '/api/v1/batch', {
+  await send(c, '/api/v1/batch', {
     profile, expectedRev: cur.rev, by: 'extension',
     ops: [{ op: 'add', path: 'groups/' + gid + '/items', value }],
   }, profile);
@@ -151,8 +175,8 @@ function idFor(url, name) {
 // 动词也统一成「存」：批量那条从前写「收藏这个窗口的所有标签页」，
 // 与单条的「存到 launchbay」是同一个动作的两套词。
 const MENUS = [
-  { id: 'lb-save', title: '存到 launchbay', contexts: ['page', 'link'] },
-  { id: 'lb-save-window', title: '把这一窗的标签页全存进去', contexts: ['page'] },
+  { id: 'lb-save', title: t('menuSave'), contexts: ['page', 'link'] },
+  { id: 'lb-save-window', title: t('menuSaveWindow'), contexts: ['page'] },
 ];
 
 async function refreshMenus() {
@@ -170,14 +194,15 @@ refreshMenus();
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const c = await cfg();
   const profile = currentProfile(c);
+  const fail = (message) => tellNote(t('failTitle'), message, profile);
   if (info.menuItemId === 'lb-save') {
     const page = info.linkUrl ? { url: info.linkUrl, title: info.linkUrl } : { url: tab.url, title: tab.title };
     try {
-      const err = await saveOne(page, profile);
-      if (err) throw new Error(err);
-      await tellOK('已存');
+      const r = await saveOne(page, profile);
+      if (r) throw new Error(r.why || t('alreadySaved'));
+      await tellOK(t('badgeSaved'));
     } catch (e) {
-      await tellFail(e.message, profile);
+      await fail(e.message);
     }
     return;
   }
@@ -185,24 +210,32 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // 批量：**一条一条存**，且第一条失败就把后面全停下来。
     // 全塞进一批的话，一条坏的就让这一批全不落——而用户看到的是"收藏了 12 个，
     // 回来发现一个都没存上"，比停在第 7 条难查得多。
-    const tabs = (await chrome.tabs.query({ currentWindow: true })).filter((t) => t.url && /^https?:/.test(t.url));
-    let ok = 0, firstErr = null;
-    for (const t of tabs) {
+    // 「本来就在这份里」的那几条**不算失败、跳过接着存**（见 saveOne 的三态）。
+    const pages = (await chrome.tabs.query({ currentWindow: true })).filter((p) => p.url && /^https?:/.test(p.url));
+    let ok = 0, dup = 0, firstErr = null;
+    for (const p of pages) {
       try {
-        const err = await saveOne({ url: t.url, title: t.title }, profile);
-        if (err) { firstErr = firstErr || err; break; }
-        ok++;
+        const r = await saveOne({ url: p.url, title: p.title }, profile);
+        if (!r) { ok++; continue; }
+        if (r.dup) { dup++; continue; }
+        firstErr = firstErr || r.why;
+        break;
       } catch (e) { firstErr = firstErr || e.message; break; }
     }
-    const left = tabs.length - ok;
+    const left = pages.length - ok - dup;
     if (!firstErr) {
-      await tellOK('已存' + (ok > 99 ? '99+' : ok));
+      // 全是重复的那种"什么都没发生"必须说出来：角标亮一个 0 会被读成坏了，
+      // 而它其实是最正常的一种结果（这一窗刚存过）。
+      // 角标只有那么宽：三位以上收在 99+，与主站那一族一致。
+      if (ok) { await tellOK(t('badgeSavedN', ok > 99 ? '99+' : ok)); return; }
+      await tellNote(t('failTitle'), t('nothingNew', pages.length), profile);
       return;
     }
     // "停在第 7 条"这句话必须连"后面还有 5 条没存"一起说：只报已存数会让人
-    // 以为这一窗就是 7 个标签页。
-    await tellFail(
-      `存到第 ${ok} 条时停了：${firstErr}\n这一窗共 ${tabs.length} 个网页，还有 ${left} 个没存。`,
-      profile);
+    // 以为这一窗就是 7 个标签页。已经存过的那几条也要点一句，否则那 5 条里
+    // 有 2 条是"本来就有的"，剩下的数目对不上。
+    const lines = [t('stoppedAt', ok, firstErr), t('windowTotals', pages.length, left)];
+    if (dup) lines.push(t('skippedDup', dup));
+    await fail(lines.join('\n'));
   }
 });

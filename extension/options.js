@@ -2,10 +2,31 @@
 //
 // 它把令牌放在 chrome.storage.local（**不是 sync**）：sync 跟着浏览器账号上云，
 // 而那是这台机器的写权限。这一页里没有任何"导出配置"按钮，也正是同一个理由。
+//
+// 页面上**一句中文都不写**：每一句都住在 `_locales/*/messages.json`，按浏览器
+// 界面语言取（`i18n.js` 的 `t`）。`bg.js` 与这一页共用同一批 key——同一件事在
+// 同一条流水线上不该有两种说法。
+import { t } from './i18n.js';
+import { ensureBookmarksPermission, buildNetscape, askPlan, applyPlan } from './import.js';
+
 const KEY = 'lb-config';
 
 const rows = document.getElementById('rows');
 const msg = document.getElementById('msg');
+
+// applyI18n：页面的话**全部来自目录**，HTML 里不另留一份中文兜底——留了就等于
+// 同一条句子有两处可改，而这两处一定会分家（主站那边的模板同样是 `{{.T "key"}}`，
+// 兜底不住）。`data-i18n-rich` 那三节带 <b> 与 <code>，它们才用 innerHTML：
+// 填进去的是仓库里的静态文本，没有一个字节来自用户输入或来自那台机器，
+// 而允许的标签集合由 internal/i18n/extcatalog_test.go 钉死。
+function applyI18n() {
+  // lang 也一起改：读屏软件按它选发音，页面翻成英文而 lang 还是 zh-CN，
+  // 那些英文句子就会被按中文音节念出来。
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+  document.title = t('pageTitle');
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-rich]')) el.innerHTML = t(el.dataset.i18nRich);
+}
 
 async function load() {
   const got = await chrome.storage.local.get(KEY);
@@ -22,7 +43,7 @@ function renderRows(c) {
   for (const id of ids) rows.append(tokenRow(id, c.tokens[id] || ''));
   const add = document.createElement('button');
   add.type = 'button';
-  add.textContent = '＋ 再加一枚（另一个档案）';
+  add.textContent = t('addRow');
   // **追加一行，不重建整表**。旧写法是 `renderRows({tokens:{}})`，于是点一下
   // "再加一枚"会把已经填好的那几行连字带行全部清空——用户看到的是"我刚才填的
   // 令牌没了"，而这一页没有任何撤销。空表重建还会顺手塞一行 'dad'，
@@ -38,24 +59,25 @@ function tokenRow(id, token) {
   const name = document.createElement('input');
   name.type = 'text';
   name.value = id;
-  name.placeholder = 'dad';
-  name.setAttribute('aria-label', '档案 id');
-  name.style.flex = '0 0 9em';
+  // placeholder 用的是列头那同一句：窄窗口那一档列头撤掉了（见 options.html 的
+  // @media 520），这一格得自己说得出自己是什么，而不能靠上面那行小字。
+  name.placeholder = t('colId');
+  name.setAttribute('aria-label', t('colId'));
   const tok = document.createElement('input');
   tok.type = 'password';
   tok.value = token;
-  tok.placeholder = '这一枚档案作用域的令牌';
-  tok.setAttribute('aria-label', (id || '这个档案') + ' 的令牌');
+  tok.placeholder = t('tokenPlaceholder');
+  tok.setAttribute('aria-label', t('tokenAria', id || t('thisProfile')));
   tok.autocomplete = 'off';
   tok.dataset.profile = id;
   const del = document.createElement('button');
   del.type = 'button';
-  del.textContent = '删掉这一枚';
+  del.textContent = t('deleteRow');
   // 删掉就是**从待保存的表里移除**：save() 只从现存 DOM 收集，所以点完再保存才生效
   // （和"填了不保存不算数"是同一条规矩）。旧代码在这里往 dataset 上写一个
   // `__del__<id>` 的标记，而 save() 遍历的是 `rows.querySelectorAll` —— 那一行
   // 早就被 row.remove() 摘掉了，标记没人看得见：半套机制，删了。
-  del.onclick = () => { row.remove(); say('这一枚要在下一次点「存设置」时才真的去掉。', ''); };
+  del.onclick = () => { row.remove(); say(t('rowRemovedNote'), ''); };
   row.append(name, tok, del);
   return row;
 }
@@ -79,7 +101,7 @@ async function save() {
     tokens,
   };
   await chrome.storage.local.set({ [KEY]: c });
-  say('已保存。', 'ok');
+  say(t('saved'), 'ok');
 }
 
 function say(text, cls) {
@@ -93,21 +115,23 @@ function say(text, cls) {
 // 红色的"权限不够"，把人对着一个假故障查半天。
 async function test() {
   const c = await collect();
-  if (!c.base) return say('先填地址。', 'bad');
+  if (!c.base) return say(t('needBase'), 'bad');
   const id = c.defaultProfile || Object.keys(c.tokens)[0];
   const token = c.tokens[id];
-  if (!id || !token) return say('先填一枚档案作用域的令牌（档案 id 和它的令牌要在同一行）。', 'bad');
+  if (!id || !token) return say(t('needToken'), 'bad');
   try {
     const r = await fetch(c.base + '/api/v1/data?profile=' + encodeURIComponent(id), {
       headers: { Authorization: 'Bearer ' + token },
     });
-    if (r.ok) return say(`连上了，这枚令牌能开「${id}」这一份。`, 'ok');
-    if (r.status === 403) return say(`连上了，但这枚令牌管不到「${id}」——它的作用域是别的档案。把 id 改成令牌对应的那一份，或换一枚令牌。`, 'bad');
-    if (r.status === 401) return say('这台机器不认这枚令牌：多半是少复制了字符，或者机器那边换过令牌。', 'bad');
-    if (r.status === 404) return say(`这台机器上没有叫「${id}」的档案。`, 'bad');
-    return say('这台机器答了 HTTP ' + r.status + '，地址或档案可能不对。', 'bad');
+    // 401/404 这两句与 bg.js 的通知**共用同一批 key**：同一件事在同一条流水线上
+    // 不该有两种说法（那儿是"点了没反应"，这儿是"点了，看看答什么"）。
+    if (r.ok) return say(t('testOK', id), 'ok');
+    if (r.status === 403) return say(t('test403', id), 'bad');
+    if (r.status === 401) return say(t('err401'), 'bad');
+    if (r.status === 404) return say(t('err404', id), 'bad');
+    return say(t('testOther', r.status), 'bad');
   } catch (e) {
-    return say('连不上：' + e.message + '（地址里含端口吗？例如 http://10.0.0.3:7600）', 'bad');
+    return say(t('netFail', e.message), 'bad');
   }
 }
 
@@ -138,12 +162,12 @@ function bmReset() {
 // 这个 click 处理里——这也是为什么这一段不能在页面加载时就跑。
 async function importBookmarks() {
   const c = await collect();
-  if (!c.base) return say('先填地址。', 'bad');
-  say('正在读书签…');
+  if (!c.base) return say(t('needBase'), 'bad');
+  say(t('reading'));
   try {
     if (!(await ensureBookmarksPermission())) {
       bmReset();
-      return say('没有拿到「读书签」这个权限，导不了。（你可以只走网页那条路：手动导出 .html 再上传。）', 'bad');
+      return say(t('noPerm'), 'bad');
     }
     const tree = await chrome.bookmarks.getTree();
     const html = buildNetscape(tree);
@@ -158,11 +182,11 @@ async function importBookmarks() {
     bmCancel.hidden = false;
     // 跳过的条数**必须在这里说一句**：只报"读到 N 条"会让人以为文件里就
     // 这么多书签，而少的那几条去了哪里只有下面那份报告知道。
-    const missed = bmPlan.skipped ? `，另有 ${bmPlan.skipped} 条没能进来（报告里逐条列了原因）` : '';
-    say(`读到 ${bmPlan.count} 条书签、${bmPlan.groups} 个分组${missed}。先看下面那份报告，确认了才写进去。`, 'ok');
+    const missed = bmPlan.skipped ? t('missed', bmPlan.skipped) : '';
+    say(t('planSummary', bmPlan.count, bmPlan.groups, missed), 'ok');
   } catch (e) {
     bmReset();
-    say('没导成：' + e.message, 'bad');
+    say(t('importFail', e.message), 'bad');
   }
 }
 
@@ -173,17 +197,18 @@ async function applyBookmarks() {
   bmApply.disabled = true;
   try {
     const r = await applyPlan(c, bmPlan);
-    const warn = (r.warnings || []).length ? '（' + r.warnings.join('；') + '）' : '';
+    const warn = (r.warnings || []).length ? t('warnClause', r.warnings.join(t('warnSep'))) : '';
     bmReset();
-    say(`已导入 ${r.applied} 条，rev 现在是 ${r.rev}${warn}`, 'ok');
+    say(t('applied', r.applied, r.rev, warn), 'ok');
   } catch (e) {
     bmApply.disabled = false;
-    say('没写进去：' + e.message, 'bad');
+    say(t('applyFail', e.message), 'bad');
   }
 }
 
 document.getElementById('bmimport').onclick = importBookmarks;
 document.getElementById('bmapply').onclick = applyBookmarks;
-document.getElementById('bmcancel').onclick = () => { bmReset(); say('没导入，书签一点没动。', 'ok'); };
+document.getElementById('bmcancel').onclick = () => { bmReset(); say(t('cancelled'), 'ok'); };
 
+applyI18n();
 load();

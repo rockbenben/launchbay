@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>存到 launchbay · 设置</title>
+<!-- 页面里**没有一句写死的话**：每一格文字都由 options.js 从 _locales 填进来
+     （`data-i18n` / `data-i18n-rich`）。留一份中文兜底就等于同一条句子有
+     两处可改，而那两处一定会分家——主站的模板也是 `{{.T "key"}}` 一个兜底
+     都不留。<title> 与 <h1> 那两处先写产品名 launchbay：它不是待翻的句子，
+     而脚本万一没跑成时这一页至少还认得出是谁家。
+     `lang` 属性留在 zh-CN 是因为 HTML 里这一个属性写不了目录里的值——它由
+     options.js 按界面语言改掉（applyI18n 里那一行 documentElement.lang）。 -->
+<title>launchbay</title>
 <style>
   /* color-scheme + 一套暗色覆写：这一页是"在自己电脑上配一次"的界面，
      深夜配机器时整页纯白很刺眼。写死浅色是它以前唯一的问题——不是设计，
@@ -32,7 +39,14 @@
      以前三列都没有列头，用户看到的就是"两个不知道是什么的框 + 一个删字按钮"。 */
   .row input[type=password]{flex:1 1 auto;min-width:0}
   .cols{display:flex;gap:8px;font-size:12px;color:var(--fg2);margin-top:12px}
-  .cols span:first-child{flex:0 0 9em}
+  /* id 那一列的宽度必须**列头与输入框同宽**，否则第二列的列头会横着错开一截
+     （实测：列头 108px、输入框 135px，差 27px——两格都写 9em 却是两个数，
+     因为 em 按各自元素的字号算，而列头 12px、输入框跟着 body 的 15px）。
+     这一页的字号是写死的 15px，所以 9em 恒等于 135px：钉一个绝对值，两边各引
+     一次，谁也不会再"顺手改一下 em"。 */
+  :root{--col-id-w:135px}
+  .cols span:first-child{flex:0 0 var(--col-id-w)}
+  .row input[type=text]{flex:0 0 var(--col-id-w)}
   .note{font-size:13px;color:var(--fg2);margin:6px 0 0}
   .bad{color:var(--bad);font-weight:600}
   .ok{color:var(--ok)}
@@ -53,45 +67,51 @@
   #bmreport h3{font-size:13px;color:var(--fg2);margin:14px 0 4px}
   #bmreport p,#bmreport li{font-size:13px}
   #bmreport code{background:var(--code);padding:1px 4px;border-radius:4px;word-break:break-all}
+  /* 窄窗口里这一行装不下三样东西：id 那一列 135 + 删除键 109，令牌框只剩一条缝
+     （实拍 320 那一档：30px，看不见自己贴进去的是什么）。换成一格一行，列头撤掉
+     ——每一格由自己的 placeholder 说清自己是谁（id 框的 placeholder 就是列头那句
+     "档案 id"，令牌框本来就写着"这一枚档案作用域的令牌"）。
+     断点跟着**内容宽**走：这一行需要 135+8+200+8+92=443 才不难看，而 body 的
+     38em(570) 减掉两侧 padding 之后，520 以下就开始挤。与主站台面面板同一档。 */
+  @media (max-width:520px){
+    .cols{display:none}
+    .row{flex-direction:column;align-items:stretch}
+    .row input[type=text]{flex:none}
+  }
 </style>
 </head>
 <body>
-<h1>存到 launchbay</h1>
+<h1 data-i18n="extName">launchbay</h1>
 
-<label for="base">这台机器的地址</label>
+<label for="base" data-i18n="lblBase"></label>
 <input id="base" type="url" placeholder="http://10.0.0.3:7600">
-<p class="note">不带结尾斜杠。扩展打过去的就是这里。</p>
+<p class="note" data-i18n="noteBase"></p>
 
-<label for="prof">默认档案 id</label>
+<label for="prof" data-i18n="lblProf"></label>
 <input id="prof" type="text" placeholder="dad">
-<p class="note">右键收藏时默认存进这一份。下面要有一枚属于它的令牌，否则扩展不知道往哪存。</p>
+<p class="note" data-i18n="noteProf"></p>
 
-<div class="cols"><span>档案 id</span><span>这一枚令牌（写权限）</span></div>
+<div class="cols"><span data-i18n="colId"></span><span data-i18n="colToken"></span></div>
 <div id="rows"></div>
-<p class="note">令牌是这台机器的<b>写权限</b>。它只存在这台电脑的
-<code>chrome.storage.local</code> 里，<b>不进 sync、不上云</b>；换档案就换令牌，
-某一台泄露了只吊销那一枚。</p>
+<p class="note" data-i18n-rich="noteToken"></p>
 
 <hr>
 <p id="msg" role="status" aria-live="polite"></p>
-<p><button id="save">存设置</button>
-  <button id="test">试一下这台机器</button></p>
-<p class="note">「试一下」用<b>默认档案</b>那一行的地址与令牌，去读一次那一份档案
-  （<code>GET /api/v1/data</code>）。它验的是你真正要成立的那件事：这枚令牌
-  能不能打开这个档案。答 403 就是令牌与档案对不上，不是网络问题。</p>
+<p><button id="save" data-i18n="btnSave"></button>
+  <button id="test" data-i18n="btnTest"></button></p>
+<p class="note" data-i18n-rich="noteTest"></p>
 
 <hr>
-<h2>把浏览器书签整个导进来</h2>
-<p class="note">读的是<b>这台浏览器自己的</b>书签树，不用先去别处导出一份文件。
-  第一次点下面那枚按钮时，浏览器会问你一次「要读你的书签吗」——读书签是一件很
-  敏感的事（它等于你的整个浏览兴趣图谱），所以这项权限我们设成<b>按需申请</b>：
-  只是为「右键收藏」装这个扩展的人，永远不会看到那个提问。</p>
-<p><button id="bmimport">读浏览器书签，看看会导入什么</button></p>
+<h2 data-i18n="bmHeading"></h2>
+<p class="note" data-i18n-rich="noteBookmarks"></p>
+<p><button id="bmimport" data-i18n="btnReadBookmarks"></button></p>
 <div id="bmreport" class="note" hidden></div>
-<p><button id="bmapply" hidden>确认导入</button>
-  <button id="bmcancel" hidden>算了，不导</button></p>
+<p><button id="bmapply" data-i18n="btnApply" hidden></button>
+  <button id="bmcancel" data-i18n="btnCancel" hidden></button></p>
 
-<script src="import.js"></script>
-<script src="options.js"></script>
+<!-- 只引一份：options.js 是 ES module，它 import 的 i18n.js / import.js 由模块图
+     自己带进来。三个 <script> 分别加载是经典脚本时代的形状，那样 `t` 得挂在全局
+     上，而模块没有全局——少一处显式 import 就变成运行时才报的 ReferenceError。 -->
+<script type="module" src="options.js"></script>
 </body>
 </html>

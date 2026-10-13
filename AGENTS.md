@@ -204,6 +204,16 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 带语言这一维，所以不需要手工清缓存——「改完遍历清一遍」是要记得做的事，
 进键是不用记得的事。
 
+**浏览器扩展那一侧不跟这个站级设置**：`extension/_locales/{zh_CN,en}/messages.json`
+按**浏览器自己的界面语言**取（`default_locale: "zh_CN"`，manifest 的
+`name`/`description` 走 `__MSG_key__`）。理由是它读不到这台机器的界面语言——那要一次
+带凭证的请求，而"这一页说什么"不该依赖一次网络成功；装扩展的人就坐在那台浏览器前面，
+浏览器语言就是他正在读的语言。两份 catalog 各管各的，**不许互相"统一"**：主站那份归
+`internal/i18n`，扩展那份由 `internal/i18n/extcatalog_test.go` 钉（两种语言 key 一一
+对应、占位符逐位相同、代码与页面只认 key、`extension/` 里不许出现中文句子）。扩展是
+ES module（`background.type: "module"`）——MV3 的 service worker **没有
+`importScripts()`**，四份脚本靠 `import './i18n.js'` 共用同一份句子层。
+
 ### 给写代码的 AI：三条纪律
 
 1. **文案只有一份**，在 `internal/i18n/messages/{zh,en}.json`。**模板里不许出现

@@ -1,0 +1,320 @@
+{
+  "extName": {
+    "message": "Save to launchbay"
+  },
+  "extDescription": {
+    "message": "Right-click to save the page you're on to your home launchbay, save a whole window's tabs at once, or import your bookmarks."
+  },
+  "menuSave": {
+    "message": "Save to launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "Save this window's tabs"
+  },
+  "badgeSaved": {
+    "message": "Saved"
+  },
+  "badgeSavedN": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "$1"
+  },
+  "failTitle": {
+    "message": "Didn't save to launchbay"
+  },
+  "failProfile": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "(Profile being saved to: $1)"
+  },
+  "noBase": {
+    "message": "This machine's address isn't set yet — it's the first box on the extension's settings page."
+  },
+  "noToken": {
+    "message": "That profile has no token yet."
+  },
+  "noGroup": {
+    "message": "This profile has no groups yet. Make one on the page first, then save."
+  },
+  "alreadySaved": {
+    "message": "That page is already in this profile, so nothing was saved twice."
+  },
+  "stoppedAt": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    },
+    "message": "Saved $1 of them, then stopped: $2"
+  },
+  "windowTotals": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    },
+    "message": "This window had $1 pages, so $2 weren't saved."
+  },
+  "skippedDup": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "$1 were already in this profile."
+  },
+  "nothingNew": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "All $1 pages in this window were already in this profile — nothing new to save."
+  },
+  "err401": {
+    "message": "This machine doesn't recognise that token — it may be missing a character, or the machine rotated it."
+  },
+  "err403": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "This token can't open “$1”: it belongs to another profile, or that id is a typo — this machine answers both the same way."
+  },
+  "err404": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "This machine has no profile called “$1” — it was probably deleted."
+  },
+  "errConflict": {
+    "message": "This profile changed just now. Click once more."
+  },
+  "errPlanGone": {
+    "message": "That report was already used, or it expired. Read the bookmarks again for a new one."
+  },
+  "errNoSnap": {
+    "message": "That version couldn't be stored, so the save was cancelled — your bookmarks are untouched."
+  },
+  "errRejected": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "This machine refused it: $1"
+  },
+  "errServer": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "The machine answered HTTP $1."
+  },
+  "netFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Couldn't reach this machine ($1). Does the address include the port, like http://10.0.0.3:7600?"
+  },
+  "addRow": {
+    "message": "+ Add another profile's token"
+  },
+  "tokenPlaceholder": {
+    "message": "This profile's token (write access)"
+  },
+  "tokenAria": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Token for $1"
+  },
+  "thisProfile": {
+    "message": "this profile"
+  },
+  "deleteRow": {
+    "message": "Remove"
+  },
+  "rowRemovedNote": {
+    "message": "It's only really gone once you press “Save settings”."
+  },
+  "saved": {
+    "message": "Saved."
+  },
+  "needBase": {
+    "message": "Fill in the address first."
+  },
+  "needToken": {
+    "message": "Add a profile-scoped token first — the id and its token belong on the same row."
+  },
+  "testOK": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Connected — this token opens “$1”."
+  },
+  "test403": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Connected, but this token can't open “$1”: it's scoped to another profile, or the id is a typo. Use the id that matches the token, or use the token that matches."
+  },
+  "testOther": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "The machine answered HTTP $1 — the address or the profile may be wrong."
+  },
+  "reading": {
+    "message": "Reading your bookmarks…"
+  },
+  "noPerm": {
+    "message": "Without permission to read your bookmarks this can't run. You can still take the site's route: export an .html file yourself and upload it there."
+  },
+  "missed": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": " — $1 didn't make it in (the report lists why)"
+  },
+  "planSummary": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    },
+    "message": "Read $1 bookmarks in $2 groups$3. Check the report below; nothing is written until you confirm."
+  },
+  "importFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Import failed: $1"
+  },
+  "applied": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    },
+    "message": "Imported $1 bookmarks. This profile is now version $2.$3"
+  },
+  "warnClause": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": " ($1)"
+  },
+  "warnSep": {
+    "message": "; "
+  },
+  "applyFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "Nothing was written: $1"
+  },
+  "cancelled": {
+    "message": "Not imported — your bookmarks are untouched."
+  },
+  "unnamedFolder": {
+    "message": "Unnamed"
+  },
+  "noProfileToken": {
+    "message": "There's no profile-scoped token yet — fill one in above first."
+  },
+  "pageTitle": {
+    "message": "Save to launchbay · Settings"
+  },
+  "lblBase": {
+    "message": "This machine's address"
+  },
+  "noteBase": {
+    "message": "No trailing slash. This is where the extension sends."
+  },
+  "lblProf": {
+    "message": "Default profile id"
+  },
+  "noteProf": {
+    "message": "Right-clicking saves into this one. It needs a token below, or the extension won't know where to put anything."
+  },
+  "colId": {
+    "message": "Profile id"
+  },
+  "colToken": {
+    "message": "Its token (write access)"
+  },
+  "noteToken": {
+    "message": "The token is this machine's <b>write access</b>. It stays in <code>chrome.storage.local</code> on this computer — <b>never synced, never uploaded</b>. Change profile, change token; if one leaks, revoke just that one."
+  },
+  "btnSave": {
+    "message": "Save settings"
+  },
+  "btnTest": {
+    "message": "Test this machine"
+  },
+  "noteTest": {
+    "message": "“Test” uses the address and token on the <b>default profile</b> row to read that profile once (<code>GET /api/v1/data</code>). It checks the thing that actually has to hold: can this token open this profile. A 403 means the token and the profile don't match — that isn't a network problem."
+  },
+  "bmHeading": {
+    "message": "Import your browser bookmarks"
+  },
+  "noteBookmarks": {
+    "message": "This reads <b>this browser's own</b> bookmark tree — no file to export first. The first time you press the button below, the browser asks once whether it may read your bookmarks. That's sensitive (it's effectively your whole browsing history), so the permission is <b>asked for on demand</b>: someone who installs this just for right-click saving never sees that prompt."
+  },
+  "btnReadBookmarks": {
+    "message": "Read my bookmarks and show what would be imported"
+  },
+  "btnApply": {
+    "message": "Confirm and import"
+  },
+  "btnCancel": {
+    "message": "Don't import"
+  }
+}

@@ -1,0 +1,320 @@
+{
+  "extName": {
+    "message": "存到 launchbay"
+  },
+  "extDescription": {
+    "message": "右键把当前页面存进家里的 launchbay，或一次收藏当前窗口的所有标签页；也能把浏览器书签树整个导进来。"
+  },
+  "menuSave": {
+    "message": "存到 launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "把这一窗的标签页全存进去"
+  },
+  "badgeSaved": {
+    "message": "已存"
+  },
+  "badgeSavedN": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "已存$1"
+  },
+  "failTitle": {
+    "message": "没存进 launchbay"
+  },
+  "failProfile": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "（当前要存的档案：$1）"
+  },
+  "noBase": {
+    "message": "还没配这台机器的地址（扩展设置页第一格）"
+  },
+  "noToken": {
+    "message": "这个档案还没有令牌"
+  },
+  "noGroup": {
+    "message": "这个档案一个分组都没有，先在页面上建一个分组再收藏"
+  },
+  "alreadySaved": {
+    "message": "这一条已经在这份里了，没有重复存。"
+  },
+  "stoppedAt": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    },
+    "message": "存到第 $1 条时停了：$2"
+  },
+  "windowTotals": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    },
+    "message": "这一窗共 $1 个网页，还有 $2 个没存。"
+  },
+  "skippedDup": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "另有 $1 条本来就在这份里。"
+  },
+  "nothingNew": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这一窗 $1 个网页都已经在这份里了，没有新东西要存。"
+  },
+  "err401": {
+    "message": "这台机器不认这枚令牌：多半是少复制了字符，或者机器那边换过令牌。"
+  },
+  "err403": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这枚令牌开不了「$1」这一份：它管的是别的档案，或者那个 id 打错了——这两种这台机器答的是同一句话。"
+  },
+  "err404": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这台机器上没有叫「$1」的档案（多半是那份档案已经被删了）。"
+  },
+  "errConflict": {
+    "message": "这一份刚刚被改过，再点一次就好。"
+  },
+  "errPlanGone": {
+    "message": "那份报告已经用过或过期了。再读一次书签就有新的一份。"
+  },
+  "errNoSnap": {
+    "message": "这一版存不下，改动已经取消，书签一个字都没变。"
+  },
+  "errRejected": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这台机器不收这一条：$1"
+  },
+  "errServer": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这台机器答了 HTTP $1。"
+  },
+  "netFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "连不上这台机器（$1）。地址里含端口吗？例如 http://10.0.0.3:7600"
+  },
+  "addRow": {
+    "message": "＋ 再加一枚（另一个档案）"
+  },
+  "tokenPlaceholder": {
+    "message": "这一枚档案作用域的令牌"
+  },
+  "tokenAria": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "$1 的令牌"
+  },
+  "thisProfile": {
+    "message": "这个档案"
+  },
+  "deleteRow": {
+    "message": "删掉这一枚"
+  },
+  "rowRemovedNote": {
+    "message": "这一枚要在下一次点「存设置」时才真的去掉。"
+  },
+  "saved": {
+    "message": "已保存。"
+  },
+  "needBase": {
+    "message": "先填地址。"
+  },
+  "needToken": {
+    "message": "先填一枚档案作用域的令牌（档案 id 和它的令牌要在同一行）。"
+  },
+  "testOK": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "连上了，这枚令牌能开「$1」这一份。"
+  },
+  "test403": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "连上了，但这枚令牌开不了「$1」这一份：它管的是别的档案，或者那个 id 打错了。把 id 改成令牌对应的那一份，或换一枚令牌。"
+  },
+  "testOther": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "这台机器答了 HTTP $1，地址或档案可能不对。"
+  },
+  "reading": {
+    "message": "正在读书签…"
+  },
+  "noPerm": {
+    "message": "没有拿到「读书签」这个权限，导不了。（你可以只走网页那条路：手动导出 .html 再上传。）"
+  },
+  "missed": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "，另有 $1 条没能进来（报告里逐条列了原因）"
+  },
+  "planSummary": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    },
+    "message": "读到 $1 条书签、$2 个分组$3。先看下面那份报告，确认了才写进去。"
+  },
+  "importFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "没导成：$1"
+  },
+  "applied": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    },
+    "message": "已导入 $1 条，rev 现在是 $2$3"
+  },
+  "warnClause": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "（$1）"
+  },
+  "warnSep": {
+    "message": "；"
+  },
+  "applyFail": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "没写进去：$1"
+  },
+  "cancelled": {
+    "message": "没导入，书签一点没动。"
+  },
+  "unnamedFolder": {
+    "message": "未命名"
+  },
+  "noProfileToken": {
+    "message": "还没有一枚档案作用域的令牌——先在上面填一枚。"
+  },
+  "pageTitle": {
+    "message": "存到 launchbay · 设置"
+  },
+  "lblBase": {
+    "message": "这台机器的地址"
+  },
+  "noteBase": {
+    "message": "不带结尾斜杠。扩展打过去的就是这里。"
+  },
+  "lblProf": {
+    "message": "默认档案 id"
+  },
+  "noteProf": {
+    "message": "右键收藏时默认存进这一份。下面要有一枚属于它的令牌，否则扩展不知道往哪存。"
+  },
+  "colId": {
+    "message": "档案 id"
+  },
+  "colToken": {
+    "message": "这一枚令牌（写权限）"
+  },
+  "noteToken": {
+    "message": "令牌是这台机器的<b>写权限</b>。它只存在这台电脑的 <code>chrome.storage.local</code> 里，<b>不进 sync、不上云</b>；换档案就换令牌，某一台泄露了只吊销那一枚。"
+  },
+  "btnSave": {
+    "message": "存设置"
+  },
+  "btnTest": {
+    "message": "试一下这台机器"
+  },
+  "noteTest": {
+    "message": "「试一下」用<b>默认档案</b>那一行的地址与令牌，去读一次那一份档案（<code>GET /api/v1/data</code>）。它验的是你真正要成立的那件事：这枚令牌能不能打开这个档案。答 403 就是令牌与档案对不上，不是网络问题。"
+  },
+  "bmHeading": {
+    "message": "把浏览器书签整个导进来"
+  },
+  "noteBookmarks": {
+    "message": "读的是<b>这台浏览器自己的</b>书签树，不用先去别处导出一份文件。第一次点下面那枚按钮时，浏览器会问你一次「要读你的书签吗」——读书签是一件很敏感的事（它等于你的整个浏览兴趣图谱），所以这项权限我们设成<b>按需申请</b>：只是为「右键收藏」装这个扩展的人，永远不会看到那个提问。"
+  },
+  "btnReadBookmarks": {
+    "message": "读浏览器书签，看看会导入什么"
+  },
+  "btnApply": {
+    "message": "确认导入"
+  },
+  "btnCancel": {
+    "message": "算了，不导"
+  }
+}
