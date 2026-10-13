@@ -242,7 +242,7 @@
   "app.delete.undoHint": "You can bring this version back from “Revert” in the top bar",
   "app.applyOps.fail": "%s could not be saved: %s",
   "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
-  "app.sep": ", ",
+"app.opsGone": "This page is no longer signed in. Tap your profile name at the top right to sign in again.",  "app.sep": ", ",
   "app.keys.mod": "⌘ or Ctrl",
   "app.keys.longpress": "Long-press a card",
   "admin.pin.title": "Set or clear a PIN",

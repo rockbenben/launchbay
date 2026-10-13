@@ -185,3 +185,20 @@ func stripJSLine(line string) string {
 	}
 	return out.String()
 }
+
+// 401 在人面前说的是**出路**，不是协议。
+//
+// 服务端那句 detail（"需要令牌或会话"）是给脚本对照的（AGENTS.md：`/api/v1/*` 的
+// detail 固定中文）。app.js 要是把它原样贴进横幅，那个人读到的就是
+// 「切换布局没存上：需要令牌或会话」——这一页上没有"令牌"这个概念，也没有任何地方
+// 能让他带一个令牌。所以 api() 里那一处 401 → T("app.opsGone") 是承重的：
+// 删掉它，界面上重新出现黑话，而**没有任何功能测试会红**（横幅照样弹、字照样显示）。
+func TestAppJS_401说的是出路不是协议(t *testing.T) {
+	src := readAppJS(t)
+	if !strings.Contains(src, "if (res.status === 401) why = T('app.opsGone');") {
+		t.Error("api() 里没有把 401 换成 app.opsGone：那个人会读到\"需要令牌或会话\"这种词")
+	}
+	if strings.Contains(src, "需要令牌或会话") {
+		t.Error("app.js 里不该抄一份服务端的协议话——那句话的作者在内层（batch.go 的 detail），抄过来就是两处会漂")
+	}
+}

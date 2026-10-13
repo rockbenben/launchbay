@@ -242,7 +242,7 @@
   "app.delete.undoHint": "删掉之后还能用顶栏的「回退」找回这一版",
   "app.applyOps.fail": "%s没存上：%s",
   "app.opsConflict": "这一份已经被改过，刷新之后再试。",
-  "app.sep": "、",
+"app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",  "app.sep": "、",
   "app.keys.mod": "⌘ 或 Ctrl",
   "app.keys.longpress": "长按卡片",
   "admin.pin.title": "设或取消 PIN",

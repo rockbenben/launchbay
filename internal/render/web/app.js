@@ -125,6 +125,7 @@ const APP_I18N = {
     "app.delete.undoHint": "删掉之后还能用顶栏的「回退」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
     "app.opsConflict": "这一份已经被改过，刷新之后再试。",
+    "app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",
     "app.sep": "、",
     "app.keys.mod": "⌘ 或 Ctrl",
     "app.keys.longpress": "长按卡片"
@@ -233,6 +234,7 @@ const APP_I18N = {
     "app.delete.undoHint": "You can bring this version back from “Revert” in the top bar",
     "app.applyOps.fail": "%s could not be saved: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
+    "app.opsGone": "This page is no longer signed in. Tap your profile name at the top right to sign in again.",
     "app.sep": ", ",
     "app.keys.mod": "⌘ or Ctrl",
     "app.keys.longpress": "Long-press a card"
@@ -664,7 +666,16 @@ const APP_I18N = {
       // 在 errors[0].reason（"条目 x 的图标名不在索引里"这种）。只报 detail 等于
       // 告诉人"失败了"而不说为什么失败。
       const first = Array.isArray(data.errors) && data.errors[0];
-      const why = (first && (first.reason || first.field)) || data.detail || `HTTP ${res.status}`;
+      let why = (first && (first.reason || first.field)) || data.detail || `HTTP ${res.status}`;
+      // 401 单独换一句话。服务端那格 detail 是**协议话**——AGENTS.md 明写
+      // `/api/v1/*` 的 detail 固定中文给脚本对照，那是调用方读的。可这一格会被原样
+      // 贴进人看的横幅，于是"没存上：<那格原文>"成了一个既看不懂又没法照做的句子
+      // （这一页上没有那个概念，也没有任何地方能让他带上一个）。
+      // 注释里不复述那五个字：整份 app.js 原样下发，字面串会喂饱"客户端不许抄
+      // 服务端协议话"那条闸——base.css 里"注释别写形状串"是同一条判据。
+      // 401 在这条通路上只有一种意思：这一页的会话没了（cookie 被清、或页面是
+      // Service Worker 从缓存里给的）。所以说的是**出路**，不是原因。
+      if (res.status === 401) why = T('app.opsGone');
       const e = new Error(why);
       e.status = res.status;
       throw e;
