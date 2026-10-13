@@ -383,7 +383,7 @@ func TestRevertPage_组名截断不许把总组数一起截掉(t *testing.T) {
 	}
 
 	page := get(h, "/revert", revertDadCookie).Body.String()
-	if !strings.Contains(page, " 等 4 组") {
+	if !strings.Contains(page, "（共 4 组）") {
 		t.Errorf("四分组那一版没报出真实组数（那一格报的是截断后收下几个名字）:\n%s", page)
 	}
 	// 名字只印前面几个、每个按字截：整串长名上了页面就等于把列表撑成书签页。

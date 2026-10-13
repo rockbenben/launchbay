@@ -111,7 +111,7 @@ func TestPickerPage_名字与图标都在卡上(t *testing.T) {
 	if !strings.Contains(body, `class="pick-face"`) {
 		t.Errorf("卡上要有服务图标:\n%.800s", body)
 	}
-	if n := strings.Count(body, `aria-label="进入 档案`); n != 2 {
+	if n := strings.Count(body, `aria-label="进入档案`); n != 2 {
 		t.Errorf("按钮的 aria-label 要念出是谁，实际 %d 处:\n%.800s", n, body)
 	}
 }
