@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -540,8 +541,62 @@ func TestImport_写入失败时点名是哪一条(t *testing.T) {
 		}
 	}
 	// 没有文档可对照时退回旧句式——宁可少一句点名，也不要指错一条。
-	if got := srv.importOutcomeText(out, nil); !strings.Contains(got, "过不了校验") ||
+	// 查的字串跟着 T7 那句改口（"过不了校验"→"写不进去"）：这一条判的是**有没有
+	// 点名那一句**，不是那五个字；改口的同时把新的计数句钉上，否则这句会空转。
+	if got := srv.importOutcomeText(out, nil); !strings.Contains(got, "写不进去") ||
 		strings.Contains(got, "出问题的那个") {
 		t.Errorf("拿不到文档就该退回计数那句，实际：%s", got)
+	}
+}
+
+// 报告那一份句子按**读者**分语言（T2 拍板后的形状）。
+//
+// AGENTS.md 从前把"导入的对账报告"整个划进不翻那一栏，理由是调用方要稳定可对照
+// 的文本。那条理由管的是脚本：同一个字符串现在也印在家人看的 `GET /import` 上，
+// 实测英文站上那一屏仍有 453 个汉字，节名一字未改，只有那颗按钮翻了。
+// 于是豁免收窄成：**浏览器那一屏按站点语言出句子，接口与 CLI 那一份逐字不变**。
+// 两路共用同一份 Report，翻的是句子不是结论——所以这一条同时钉住两个方向，
+// 少任何一边都会变成"某一类读者读到读不懂的话"。
+func TestImport_报告按读者分语言(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SetLanguage(i18n.En); err != nil {
+		t.Fatal(err)
+	}
+
+	// 一、浏览器那一屏：英文站点给英文句子。
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	ct, body := uploadOf("bookmarks.html", []byte(nbFile))
+	page := postImport(t, h, loginCookie(t, h, "dad", "1234"), ct, body).Body.String()
+	for _, want := range []string{"Verdict", "Reconciliation"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("英文站点的导入页里没有 %q：那一屏的读者拿到的还是中文报告\n%.400s", want, page)
+		}
+	}
+	if strings.Contains(page, "## 结论") || strings.Contains(page, "对账（三条全过才算导完）") {
+		t.Error("导入页上还有中文的节名——句子那份没跟着站点语言走")
+	}
+
+	// 二、接口那一格：逐字仍是中文那一份（脚本对照的锚点不许漂）。
+	if err := s.SaveBookmarks("kid", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/v1/import", strings.NewReader(nbFile))
+	req.Header.Set("Content-Type", "text/html")
+	req.Header.Set("Authorization", "Bearer "+kidTok)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var out struct {
+		Report string `json:"report"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("扩展那一条该回 JSON：%v %.200s", err, rec.Body)
+	}
+	if !strings.Contains(out.Report, "## 结论") || !strings.Contains(out.Report, "浏览器书签导入报告") {
+		t.Errorf("接口那份报告被翻了：调用方对照的锚点会漂。实际：%s", out.Report)
+	}
+	if err := s.SetLanguage(i18n.Zh); err != nil {
+		t.Fatal(err)
 	}
 }

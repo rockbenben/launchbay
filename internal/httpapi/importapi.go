@@ -183,7 +183,8 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	plan, err := s.planImport(profile, raw)
+	// 浏览器那一屏：报告里的句子跟着站点语言（人读的）。
+	plan, err := s.planImport(profile, raw, true)
 	if err != nil {
 		notice := s.t("import.notice.parseFail", err.Error())
 		switch {
@@ -419,7 +420,8 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 			Code: 413, Detail: "读不到请求体，或超过了 8 MB 上限"})
 		return
 	}
-	plan, err := s.planImport(sc.Profile, raw)
+	// 扩展读的是接口那一格：句子**不翻**，与 CLI 同一份字节（对照用）。
+	plan, err := s.planImport(sc.Profile, raw, false)
 	if err != nil {
 		importAPIError(w, err)
 		return
@@ -544,10 +546,21 @@ func skipEntries(in []bookimport.SkippedItem) []render.SkippedEntry {
 // 两个壳调它：网页上的 multipart 上传（handleImportUpload）与浏览器扩展的
 // 直读导入（handleImportAPI）。判据只有这一份，所以"扩展导进来的"与"手动
 // 传文件导进来的"在服务端看来是同一件事。
-func (s *Server) planImport(profile string, raw []byte) (importPlan, error) {
+// planImport 解析一份浏览器导出并算出报告。
+//
+// `human` 决定报告里那些**句子**用哪种语言：浏览器那一屏（GET/POST /import）传
+// true，跟着站点语言走；`/api/v1/import` 与 CLI 传 false，拿到的是逐字不变的
+// 中文那一份——那是调用方对照用的（AGENTS.md「翻的与不翻的」，2026-10-13 把
+// 这条豁免收窄到"给脚本读的那份"之后，浏览器这一屏就是它原来的读者）。
+// 两路都走同一份 bookimport.Report：翻的是句子，不是重新生成一份结论。
+func (s *Server) planImport(profile string, raw []byte, human bool) (importPlan, error) {
 	res, err := bookimport.Convert(raw, s.deps.Icons, bookimport.Options{})
 	if err != nil {
 		return importPlan{}, err
+	}
+	if human {
+		// 站点语言的那一份 catalog 已经在那里（s.t 就是查它），不另建一份。
+		res.Report.Words = s.t
 	}
 	n := bookimport.CountItems(res.Bookmarks)
 	if n == 0 {

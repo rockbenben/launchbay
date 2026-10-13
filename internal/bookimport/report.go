@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
 // Report 是一次导入的全部结论。
@@ -12,6 +14,17 @@ import (
 // 一节；"哪些东西我没照搬"紧随其后，因为那是迁不干净的**原因**；清单式的
 // 细节放最后。把对账放最后的话，读者得先读完三屏 icon 缺口才看到结论。
 type Report struct {
+	// Words 是报告句子的来源，nil = 中文那一份（CLI 与扩展读的正是它，逐字不变）。
+	//
+	// **为什么可以只给浏览器那一屏换语言**：AGENTS.md 把"导入的对账报告"划在
+	// 不翻那一栏，理由是调用方要稳定可对照的文本——那句话成立的是**脚本**那一侧。
+	// 同一个字符串现在也印在家人看的 `GET /import` 上（实测：英文站上那一屏仍有
+	// 453 个汉字，节名一字未改，只有按钮翻了），于是那条豁免保的东西与它的读者
+	// 分家了。收窄之后：句子按站点语言查表，**写路径的判定原话**（"没有分组 x"、
+	// 校验理由那一类）仍是不变的中文——它们与 /api/v1/* 的 detail 是同一族，
+	// 翻成两份就会漂。
+	Words func(key string, args ...any) string
+
 	Parse           nbNotes // 解析时跳过/顶替掉的每一件事
 	SourceCount     int
 	ResultCount     int
@@ -63,9 +76,17 @@ func (r *Report) Specials(src []srcItem) {
 }
 
 // Text 渲染成给人读的文本。
+// t 查一句话。没注入 Words 就是中文那一份——那正是 CLI 与扩展一直在读的字节。
+func (r *Report) t(key string, args ...any) string {
+	if r.Words != nil {
+		return r.Words(key, args...)
+	}
+	return i18n.Load(i18n.Zh).T(key, args...)
+}
+
 func (r *Report) Text() string {
 	var b strings.Builder
-	b.WriteString("# 浏览器书签导入报告\n\n## 结论\n\n")
+	b.WriteString("# " + r.t("import.rep.docTitle") + "\n\n## " + r.t("import.rep.verdict") + "\n\n")
 
 	// 1. 结论
 	//
@@ -76,19 +97,18 @@ func (r *Report) Text() string {
 	// 它**必须**解释，因为这一对词真会同时出现：对账判的是"该进的进了没"，
 	// 而那 N 条是**判定它进不来**的。混在一起不解释，等于把一句"没丢东西"摆在
 	// 一句"丢了东西"旁边，谁读都会怀疑自己看错了。
-	fmt.Fprintf(&b, "条目：文件里 %d 条 → 进档案 %d 条。", r.SourceCount, r.ResultCount)
+	fmt.Fprintf(&b, r.t("import.rep.items"), r.SourceCount, r.ResultCount)
 	if n := len(r.Skipped); n > 0 {
-		fmt.Fprintf(&b, "另有 **%d 条没能进来**（过不了写路径的校验，逐条列在下面）。", n)
+		fmt.Fprint(&b, r.t("import.rep.skippedLead", n))
 	}
 	if r.TrashedCount > 0 {
-		fmt.Fprintf(&b, "另有 %d 条在浏览器回收站里（用户已经删了），**没有进档案**。", r.TrashedCount)
+		fmt.Fprint(&b, r.t("import.rep.trashedHead", r.TrashedCount))
 	}
 	b.WriteString("\n\n")
 	if r.Rec.OK() {
-		b.WriteString("**三条对账全过**——它答的是「该进的有没有进」。" +
-			"被判进不来的那几条不在对账的范围里，所以「全过」与「少了东西」两句话都成立。\n\n")
+		b.WriteString(r.t("import.rep.recOK"))
 	} else {
-		b.WriteString("**没导干净**。对账不过的地方：\n\n")
+		b.WriteString(r.t("import.rep.recFail"))
 		for _, f := range r.Rec.Failures() {
 			b.WriteString("- " + f + "\n")
 		}
@@ -103,16 +123,15 @@ func (r *Report) Text() string {
 
 	// 3. 分组与 slug
 	if len(r.SlugFallbacks) > 0 || len(r.SlugCollisions) > 0 || len(r.DuplicateTitles) > 0 {
-		b.WriteString("## 分组名与 id\n\n")
+		b.WriteString("## " + r.t("import.rep.groupsH") + "\n\n")
 		if len(r.SlugFallbacks) > 0 {
-			fmt.Fprintf(&b, "- %d 个分组标题取不到 ASCII，id 退化成 `group-N`（%s）。改标题能改成 ASCII，id 就跟着变——**改 id 会让别人的链接指空**，所以先想清楚。\n",
-				len(r.SlugFallbacks), strings.Join(r.SlugFallbacks, "、"))
+			fmt.Fprint(&b, r.t("import.rep.slugFallback", len(r.SlugFallbacks), strings.Join(r.SlugFallbacks, "、")))
 		}
 		for _, c := range r.SlugCollisions {
-			fmt.Fprintf(&b, "- id `%s` 与「%s」撞了，已去重。\n", c.slug, c.with)
+			fmt.Fprint(&b, r.t("import.rep.slugCollide", c.slug, c.with))
 		}
 		for _, d := range r.DuplicateTitles {
-			fmt.Fprintf(&b, "- 有 %d 个分组同名「%s」，已合并成一个。\n", d.n, d.title)
+			fmt.Fprint(&b, r.t("import.rep.dupTitle", d.n, d.title))
 		}
 		b.WriteString("\n")
 	}
@@ -120,28 +139,28 @@ func (r *Report) Text() string {
 	// 5. 清单式的细节
 	if len(r.Remaps) > 0 {
 		byKind := summarizeRemaps(r.Remaps)
-		fmt.Fprintf(&b, "## 逐条明细\n\n图标 %d 条、分类调整 %d 条。\n\n", byKind["icon"], byKind["category"])
+		fmt.Fprint(&b, "## "+r.t("import.rep.detailH")+"\n\n")
+		fmt.Fprint(&b, r.t("import.rep.detailLead", byKind["icon"], byKind["category"]))
 		for _, x := range r.Remaps {
 			// 空值**不能**写成一对反引号：markdown 里那叫"空的 code"，落到页面上
 			// 会被行内规则从第二个反引号起配对，整行搅成
 			// `icon `<code> → </code>simple-icons:youtube``（本轮实测撞到）。
 			from := x.From
 			if from == "" {
-				from = "原来没有"
+				from = r.t("import.rep.noneBefore")
 			}
-			fmt.Fprintf(&b, "- %s %s → `%s`（%s）\n", x.Kind, from, x.To, x.Name)
+			fmt.Fprint(&b, r.t("import.rep.remapLine", x.Kind, from, x.To, x.Name))
 		}
 		b.WriteString("\n")
 	}
 
 	// 6. 对账三条
-	b.WriteString("## 对账（三条全过才算导完）\n\n")
-	fmt.Fprintf(&b, "1. 条目数：该进的 %d 条，档案里 %d 条 —— %s\n", r.Rec.CountSrc, r.Rec.CountDst, okFail(r.Rec.CountOK))
-	fmt.Fprintf(&b, "2. URL 差集：丢 %d 条，凭空多 %d 条 —— %s\n",
-		len(r.Rec.Missing), len(r.Rec.Extra), okFail(len(r.Rec.Missing) == 0 && len(r.Rec.Extra) == 0))
-	fmt.Fprintf(&b, "3. name/desc 逐条：不一致 %d 处 —— %s\n\n",
-		len(r.Rec.FieldDiffs), okFail(len(r.Rec.FieldDiffs) == 0))
-	b.WriteString("第 3 条只查 name 与 desc：图标**本来就该不一样**（源里没有图标名，是猜的），那是允许的整理动作，不在这里判红。\n")
+	b.WriteString("## " + r.t("import.rep.reconcileH") + "\n\n")
+	fmt.Fprint(&b, r.t("import.rep.checkCount", r.Rec.CountSrc, r.Rec.CountDst, r.okFail(r.Rec.CountOK)))
+	fmt.Fprint(&b, r.t("import.rep.checkURL", len(r.Rec.Missing), len(r.Rec.Extra),
+		r.okFail(len(r.Rec.Missing) == 0 && len(r.Rec.Extra) == 0)))
+	fmt.Fprint(&b, r.t("import.rep.checkFields", len(r.Rec.FieldDiffs), r.okFail(len(r.Rec.FieldDiffs) == 0)))
+	b.WriteString(r.t("import.rep.checkNote"))
 	return b.String()
 }
 
@@ -149,11 +168,11 @@ func (r *Report) writeSpecials(b *strings.Builder) {
 	if len(r.NonHTTP) == 0 && r.TrashedCount == 0 {
 		return
 	}
-	b.WriteString("## 没照搬的东西（只标出、没有自动改）\n\n")
+	b.WriteString("## " + r.t("import.rep.specialsH") + "\n\n")
 	if len(r.NonHTTP) > 0 {
-		fmt.Fprintf(b, "**非 http/https 协议 %d 条**——浏览器里点不动，URL 原样留着，渲染时会给「需手动打开」角标与一枚复制键：\n\n", len(r.NonHTTP))
+		fmt.Fprint(b, r.t("import.rep.nonHTTPLead", len(r.NonHTTP)))
 		for _, n := range r.NonHTTP {
-			fmt.Fprintf(b, "- %s —— `%s`（%s）\n", n.Name, n.URL, n.Scheme)
+			fmt.Fprint(b, r.t("import.rep.itemLine", n.Name, n.URL, n.Scheme))
 		}
 		b.WriteString("\n")
 	}
@@ -161,7 +180,7 @@ func (r *Report) writeSpecials(b *strings.Builder) {
 		// **这里曾经写着"它们进了共享模板"——那是句假话**：回收站的书签不进档案，
 		// 而模板是从档案里挑出来的，于是它们哪儿都没去。一份报告里混进一句
 		// "已经处理好了"的假话，比不提更糟：人会以为不用再管这件事。
-		fmt.Fprintf(b, "**回收站 %d 条**——你在浏览器里已经删过它们，所以没有进档案。它们仍然躺在源文件里；哪天想找回，翻浏览器自己的回收站更快。\n\n", r.TrashedCount)
+		fmt.Fprint(b, r.t("import.rep.trashed", r.TrashedCount))
 	}
 }
 
@@ -175,20 +194,18 @@ func (r *Report) writeSkipped(b *strings.Builder) {
 	if len(r.Skipped) == 0 && len(r.EmptyGroups) == 0 {
 		return
 	}
-	b.WriteString("## 没能进来的\n\n")
+	b.WriteString("## " + r.t("import.rep.skippedH") + "\n\n")
 	if len(r.Skipped) > 0 {
-		fmt.Fprintf(b, "下面 %d 条**没有进档案**，理由逐条列着：\n\n", len(r.Skipped))
+		fmt.Fprint(b, r.t("import.rep.skippedCountLead", len(r.Skipped)))
 		for _, s := range r.Skipped {
-			fmt.Fprintf(b, "- %s —— `%s`（%s）\n", s.Name, s.URL, s.Reason)
+			// 最后一格是**写路径的判定原话**，它不翻（与 /api/v1/* 的 detail 同族，
+			// 两份就会漂），所以外面那句用站点语言把它框出来。
+			fmt.Fprint(b, r.t("import.rep.skippedLine", s.Name, s.URL, s.Reason))
 		}
-		b.WriteString("\n这些大多是 `javascript:`、`data:` 这类**没有主机名、点了会执行东西**的地址——" +
-			"浏览器从网页里也点不开，写路径一律拒收（`file:` 不在其列：本地路径是能收的，2026-10-12）。" +
-			"**它们没被改写、也没被藏起来**：源文件里原样还在，" +
-			"想在浏览器里用就继续在浏览器里用。\n\n")
+		b.WriteString("\n" + r.t("import.rep.skippedExplain") + "\n\n")
 	}
 	if len(r.EmptyGroups) > 0 {
-		fmt.Fprintf(b, "另有 %d 个文件夹里的书签全没能进来，所以那个文件夹也没建（空文件夹在侧栏里只会让人以为导漏了）：%s\n\n",
-			len(r.EmptyGroups), strings.Join(r.EmptyGroups, "、"))
+		fmt.Fprint(b, r.t("import.rep.emptyGroups", len(r.EmptyGroups), strings.Join(r.EmptyGroups, "、")))
 	}
 }
 
@@ -196,27 +213,34 @@ func (r *Report) writeIconGaps(b *strings.Builder) {
 	if r.IconGaps == nil || r.IconGaps.n == 0 {
 		return
 	}
-	fmt.Fprintf(b, "## 没猜到图标的 %d 条（走首字母色块）\n\n按网址猜的：拿 host 去内嵌图标索引里找，**猜不到就置空，不配一个形似的图标顶上**——后者会让这批书签看上去都有图标，直到有人逐条点开才发现全是错的。\n\n", r.IconGaps.n)
+	fmt.Fprint(b, "## "+r.t("import.rep.iconGapsH", r.IconGaps.n)+"\n\n")
+	fmt.Fprint(b, r.t("import.rep.iconGapsLead"))
 	for _, g := range r.IconGaps.list() {
-		fmt.Fprintf(b, "- %s —— `%s`\n", g.Host, g.Name)
+		fmt.Fprint(b, r.t("import.rep.hostLine", g.Host, g.Name))
 	}
-	b.WriteString("\n这一版页面里改不了图标：想给某条补图标，导完之后用 POST /api/v1/batch 逐条设 icon，值要能在 GET /api/v1/icons?q= 里查到（查不到整批会被 422 拒掉）。\n\n")
+	// 这一句从前写着"这一版页面里改不了图标，导完之后用 POST /api/v1/batch 逐条设
+	// icon"——那句话当时是真的（编辑模态只有三格），而它是把家里人往接口上指。
+	// batch9 的 U7 给编辑那一格补上了图标，所以句子跟着事实改。
+	b.WriteString("\n" + r.t("import.rep.iconAdvice") + "\n\n")
 }
 
 func (r *Report) writeParseNotes(b *strings.Builder) {
 	if len(r.Parse) == 0 {
 		return
 	}
-	fmt.Fprintf(b, "## 解析时处理掉的 %d 处\n\n", len(r.Parse))
+	fmt.Fprint(b, "## "+r.t("import.rep.parseH", len(r.Parse))+"\n\n")
 	for _, n := range r.Parse {
-		fmt.Fprintf(b, "- 第 %d 行：%s\n", n.Line, n.What)
+		fmt.Fprint(b, r.t("import.rep.parseLine", n.Line, n.What))
 	}
 	b.WriteString("\n")
 }
 
-func okFail(ok bool) string {
+// okFail 是对账那一行的第 3 格。它**曾经**直写"过/不过"——那是界面词，不是
+// 写路径的判定原话，所以英文报告里不许再出现它，改成查表（r.t 的 zh 兜底
+// 与从前逐字相同，CLI 与扩展读到的字节不变）。
+func (r *Report) okFail(ok bool) string {
 	if ok {
-		return "过"
+		return r.t("import.rep.pass")
 	}
-	return "**不过**"
+	return r.t("import.rep.fail")
 }
