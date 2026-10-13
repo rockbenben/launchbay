@@ -736,11 +736,15 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs-group-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:3px;background:var(--sw)}
 /* 名字那行右端：磁贴/单列/「用这个颜色」三颗跟着名字走，色板另起一行。
-   九颗色块加上那颗取色器约 460px，已经占满 516px 的内容宽——硬塞进同一行只会
-   折成三行，而"这一组三件事"挤成三行就没人愿意往下翻（五个分组的面板已经
-   两屏高，四十个分组时那是一堵墙）。 */
+   **另起一行这件事用 width:100%，不用 flex-basis:100%**：下面那条窄屏媒体查询
+   把 `.prefs-group` 翻成 `flex-direction:column`，而 basis 是**主轴**上的量——
+   行向写的 100% 翻成列向就成了"这一格要占满整个高度"（实测同一处容器高 512、
+   每一颗色块 44×252）。width:100% 在两个方向上说的都是那一行占满，不猜主轴。
+
+   宽度算术（实测，不是估）：10 颗 × 44 + 9 个 gap × 8 = **512px** 才放得下这一行。
+   独立页给到 560 ✓；档案页那一层浮层要等 U3 那条宽度对齐之后才够（原来 499）。 */
 .prefs-group-shape{flex:0 0 auto}
-.prefs-group-colors{flex:1 1 100%}
+.prefs-group-colors{width:100%}
 
 /* 色块：**看得见的只有中间那一颗圆点**，键本身留着按钮族那 44px 的触摸目标。
    44px 见方的一整块实色在这一行里会盖过分组名，而色点加一圈按下的描边已经够说
@@ -760,24 +764,30 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer}
 
 /* ── 窄屏（320–520）：台面面板换一套排法 ───────────────────────────────────
-   下面每一句都从 320 档的算术来，而不是"看着挤"：
+   每一句都从实测的算术来，而实测的是**两处不同的内容宽**：
 
-     视口 320 → `.sheet` 宽 min(560, 100vw−28px) = 292 → 减 padding 22×2
-     → 内容 248px。
+     独立页 GET /prefs · 视口 320 → 面板内容宽 **280**
+     档案页那一层浮层 · 视口 320 → `.sheet` min(560,100vw−28)=292 − 内衬 22×2 = **248**
 
    **一、标签列收成"标签在上、控件在下"。** 92px 那一列在 248px 内容里占掉 37%，
    而窄屏上标签本来就在控件上面一行——这一列买不到任何东西，它只是把控件挤窄。
    改名那一行从「标签 | 输入框 | 保存」三列并排变成三行，控件于是拿到满宽。
 
-   **二、色板改 grid 而不是靠 flex-wrap。** 44px 一颗是触摸地板，**窄屏正是最
-   需要它的时候**，所以色块一颗都不缩。改的是排法：auto-fill 让每行都填满，
-   而 flex-wrap 在 248px 下排出来的是"能塞几颗塞几颗"，换一行宽度时颗数一变，
-   整块跟着跳。按 248 算：4 颗要 4×44+3×8 = 200，装得下；5 颗要 252，装不下。
-   于是窄屏恒定 4 列，九颗（跟随主色 + 八色 + 取色器）排成三行。
+   **二、色板继续用 .prefs-keys 那一族的 flex-wrap，这一档不改它。** 44px 一颗是
+   触摸地板，窄屏正是最需要它的时候，所以一颗都不缩。上一版在这里改成
+   `display:grid;grid-template-columns:repeat(auto-fill,44px)`，理由是想让每行填满、
+   别在换宽时颗数一跳——**代价量出来是致命的**：grid 容器在这个位置拿到一个确定的
+   高度（`flex-basis:100%` 在列向成了高度，见上面那条），auto-fill 于是把两行的行高
+   各撑成 252，实测 320 与 390 上**每一颗色块都是 44×252 的色带**，每个分组 688 高、
+   整块面板 5041px（390 那一档 ≈ 6 屏；20 个分组那一份 14813 = 21.3 屏）。
+   换回 flex-wrap 之后：320 是 5 颗一行（5×44+4×8=252 ≤ 280，6 颗要 304 装不下）、
+   390 是 7 颗一行，键全是 44×44，每个分组 272 / 173。
+   颗数随宽度变这件事是真的，但它换来的是"键还是键"；grid 那一版换来的是色带。
 
-   **三、每组的名字行也拆开。** 名字（`flex:1 1 120px`）+ 磁贴/单列/用这个颜色
-   在 248px 下是 120+224+16 = 360，装不下就折成两行，而折出来的第二行只有
-   三颗键、左边空一大块——不如让名字自己占一行。
+   **三、每组的名字行拆开，并把它的 basis 收回 auto。** 名字 + 磁贴/单列/用这个颜色
+   在 248px 下装不下同一行，折出来的第二行只有三颗键、左边空一大块——不如让名字自己
+   占一行。而 `.prefs .prefs-group-name{flex:1 1 120px}` 那个 120 是**行向**的宽度，
+   翻成列向就成了高度（实测名字行 120 高，比它管的三颗键还高；收回 auto 之后 21）。
 
    为什么是 520px 而不是 320px：这一档在 520 与 320 之间都读作"窄屏台面"，
    而在 520 以上、560 以下那一小段，两列并排仍然放得下（标签 92 + 控件 ≤ 420）。
@@ -785,8 +795,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 @media (max-width:520px){
   .prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}
   .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
-  .prefs-group-colors{display:grid;grid-template-columns:repeat(auto-fill,44px);gap:8px}
-  .prefs-color{justify-self:start}
+  .prefs .prefs-group-name{flex-basis:auto}
 }
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"

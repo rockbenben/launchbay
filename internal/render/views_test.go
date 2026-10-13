@@ -778,24 +778,23 @@ func stripAttrBrackets(sel string) string {
 	return b.String()
 }
 
-// 台面面板的窄屏排法：三条形状 + **它们各自算得出来**。
+// 台面面板的窄屏排法：**换排法，不缩控件，也不许把宽度预算写成高度预算**。
 //
-// 这一段是 2026-10-13 加的。触发的理由不是"在 320 上看着挤"，而是三笔算术：
+// 这一段 2026-10-13 加，同日改判过一次。改判的代价是实测出来的，不是审美：
+// 那一版把色板从 flex-wrap 改成 `grid + repeat(auto-fill,44px)`，理由是"每行填满、
+// 换宽时颗数不跳"。屏上量到的是——grid 容器在这一档拿到一个**确定的高度**，
+// auto-fill 于是把两行的行高各撑成 252，每一颗色块变成 44×252 的色带；
+// 每个分组 688 高、整块面板 5041px（390 ≈6 屏，20 个分组那一份 14813 = 21.3 屏）。
+// 同档还有一个 `.prefs-group-name{flex:1 1 120px}`：`flex-basis` 是主轴上的量，
+// `.prefs-group` 翻成 column 之后那 120 就成了**高度**（实测名字行 120 高，
+// 收回 auto 之后 21）。
 //
-//	视口 320 → .sheet 宽 min(560, 100vw−28px) = 292 → 减 padding 22×2
-//	→ 内容 248px。
-//
-//	· 92px 的标签列在 248px 里占 37%，而窄屏上标签本来就在控件上面一行——
-//	  它没买到任何东西，只是把控件挤窄。
-//	· 九颗 44px 色块：4 颗要 4×44+3×8 = 200（装得下），5 颗要 252（装不下）。
-//	· 名字(flex 1 1 120) + 磁贴/单列/用这个颜色(224) = 360 > 248。
+// 两处算术（都从屏上量的，别再抄注释）：独立页 320 档的面板内容宽是 **280**
+// （320 − 主区左右内衬），浮层那一层才是 248（min(560,100vw−28) − 22×2）；
+// 色板一行放平要 **512**（10 颗 ×44 + 9 个 gap ×8）。
 //
 // **44px 一颗都不许缩**：那是 §7.5 的触摸地板，而窄屏正是最需要它的时候。
-// 改的只是排法——所以这一条钉的是"flex 换列"与"色板变 grid"，而不是某个像素值。
-//
-// 为什么断点是 520 而不是 320：这一档在 320 到 520 之间都读作"窄屏台面"，而
-// 在 520 以上、560 以下那一小段两列仍然放得下。断点跟着**内容宽**走，不跟着
-// 某一台设备走。
+// 断点选 520 而不是 320：520 到 560 那一小段两列并排放得下（标签 92 + 控件 ≤ 420）。
 func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 	raw, err := webFS.ReadFile("web/base.css")
 	if err != nil {
@@ -807,24 +806,29 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 		"@media (max-width:520px){",
 		".prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}",
 		".prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}",
-		// 二、色板改 grid：auto-fill 让每行填满，而 flex-wrap 换一行宽度就换一颗数
-		".prefs-group-colors{display:grid;grid-template-columns:repeat(auto-fill,44px);gap:8px}",
+		// 二、翻成列向时把**行向写的 basis** 收回 auto（那 120px 不然就是高度）
+		".prefs .prefs-group-name{flex-basis:auto}",
+		// 三、色板"另起一行"这件事用 width，不用 basis（同一条判据的底座那一行）
+		".prefs-group-colors{width:100%}",
 	} {
 		if !strings.Contains(css, w) {
 			t.Errorf("base.css 少了 %q", w)
 		}
 	}
-	// **不许在窄屏那一档缩色块。** 写成 minmax(36px,…) 或给 .prefs-swatch 加一个
-	// 窄屏尺寸，看起来更"响应式"，实际上是把 §7.5 的地板在这一档偷偷抽掉了——
-	// 而窄屏恰恰是最需要 44px 的时候。
+	// **窄屏那一档不许把色板改成 grid。** 这条禁的是被实测打死的那一版：
+	// grid 在这一档拿到确定高度之后，44px 的键会被行高拉成色带。
 	narrow := css[strings.Index(css, "@media (max-width:520px){"):]
 	if i := strings.Index(narrow, "}"); i > 0 {
 		narrow = narrow[:i]
 	}
-	for _, banned := range []string{"minmax(36px", "minmax(32px", "width:36px", "width:32px", "min-height:36px", "min-height:32px"} {
+	for _, banned := range []string{"display:grid", "grid-template-columns", "minmax(36px", "minmax(32px", "width:36px", "width:32px", "min-height:36px", "min-height:32px"} {
 		if strings.Contains(narrow, banned) {
-			t.Errorf("窄屏那一档不许把色块缩到 %q 以下：44px 是 §7.5 的触摸地板，窄屏正是最需要它的时候", banned)
+			t.Errorf("窄屏那一档不许出现 %q：色板走 flex-wrap，44px 是 §7.5 的触摸地板，谁都不缩", banned)
 		}
+	}
+	// 底座那一行也不许退回 basis：`flex:1 1 100%` 在这一族里就是"高度占满"的别名。
+	if strings.Contains(css, ".prefs-group-colors{flex:1 1 100%}") {
+		t.Error(".prefs-group-colors 又写成 flex:1 1 100% 了：列向那一档会把它当成高度")
 	}
 }
 

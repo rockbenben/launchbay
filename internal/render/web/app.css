@@ -37,6 +37,14 @@
   background:var(--bg);border:1px solid var(--line);border-radius:16px;
   box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .sheet[hidden],.cmdk[hidden]{display:none}
+/* 台面面板那一层要**比别的浮层宽一档**，理由是一个数：色板那一行需要
+   10 颗 × 44 + 9 个 gap × 8 = **512px**，而 `.sheet` 的 560 减掉内衬 44、再减
+   竖向滚动条那 17，给到 499 —— 差的正好 13px。症状实测过：同一份 define 在
+   `GET /prefs`（560 内容宽）一行放得下，在浮层里每组折成两行，每个分组 94→146、
+   整块面板 1027→1339。所以只有这一层加宽到 620（576−17=559 ≥ 512），而里面那块
+   面板仍由 base.css 的 `.prefs{max-width:560px}` 收着——两处落地是同一个数。
+   添加与编辑那两层不动：它们没有一行 512 的东西，加宽只是让字段拉得散。 */
+#lb-prefs.sheet{width:min(620px,calc(100vw - 28px))}
 /* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
    浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
    与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是
