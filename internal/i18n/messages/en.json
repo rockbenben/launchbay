@@ -165,7 +165,7 @@
   "app.cmdk.clipboard": "Save the address on the clipboard",
   "app.cmdk.kind": "action",
   "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
-  "app.cmdk.none": "No bookmark named “%s”, and no matching action either.",
+  "app.cmdk.none": "Nothing matches “%s” - no bookmark, and no action either.",
   "app.cmdk.empty": "There is nothing to list yet.",
   "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
   "app.clip.noturl": "What is on the clipboard does not look like an address. Paste it yourself.",

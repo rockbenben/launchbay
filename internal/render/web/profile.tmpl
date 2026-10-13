@@ -126,7 +126,13 @@
   <h2 id="g-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
   <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
   {{range .Items}}
-    <li data-item="{{.ID}}">
+    {{/* data-desc / data-alias / data-tags 是给 ⌘K 的那一屏用的：面板从前只比名字与
+         地址，而整页搜索（filter.go 的 matchItem）比名字/地址/说明/每个别名/每个标签，
+         分组标题命中还带出整组——同一台机器同一个词，一个说"没有"，另一个搜出 8 条。
+         现在两边读同一组字段。多个值用 `&#10;`（换行）连接而不是空格：标签与别名
+         自己可能带空格，用空格当分隔会把一个标签拆成两个、还会跨两个标签误配。
+         空的就不写（1000 条那一份每一格都写会白吃一屏字节）。 */}}
+    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}}>
       {{if .External}}
         <span class="plain">
           {{template "icon" .}}

@@ -165,7 +165,7 @@
   "app.cmdk.clipboard": "把剪贴板里的网址存进来",
   "app.cmdk.kind": "动作",
   "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
-  "app.cmdk.none": "没有叫「%s」的书签，也没有对得上的动作。",
+  "app.cmdk.none": "没有对得上「%s」的书签，也没有对得上的动作。",
   "app.cmdk.empty": "这里还没有可列的东西。",
   "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
   "app.clip.noturl": "剪贴板里那段不像一个网址，手动贴一下。",

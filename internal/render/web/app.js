@@ -64,7 +64,7 @@ const APP_I18N = {
     "app.cmdk.clipboard": "把剪贴板里的网址存进来",
     "app.cmdk.history": "看这一份的改动历史",
     "app.cmdk.kind": "动作",
-    "app.cmdk.none": "没有叫「%s」的书签，也没有对得上的动作。",
+    "app.cmdk.none": "没有对得上「%s」的书签，也没有对得上的动作。",
     "app.cmdk.empty": "这里还没有可列的东西。",
     "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
     "app.clip.noturl": "剪贴板里那段不像一个网址，手动贴一下。",
@@ -180,7 +180,7 @@ const APP_I18N = {
     "app.cmdk.clipboard": "Save the address on the clipboard",
     "app.cmdk.history": "See this profile’s change history",
     "app.cmdk.kind": "action",
-    "app.cmdk.none": "No bookmark named “%s”, and no matching action either.",
+    "app.cmdk.none": "Nothing matches “%s” - no bookmark, and no action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
     "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
     "app.clip.noturl": "What is on the clipboard does not look like an address. Paste it yourself.",
@@ -930,7 +930,16 @@ const APP_I18N = {
       const a = li.querySelector('.card');
       const name = (li.querySelector('b')?.textContent || '').toLowerCase();
       const url = (a?.getAttribute('href') || li.querySelector('code')?.textContent || '').toLowerCase();
-      if (!q || name.includes(q) || url.includes(q)) {
+      // 判据与 `filter.go` 的 matchItem 是**同一组字段**：名字、地址、说明、每一个
+      // 别名、每一个标签，再加"分组标题命中就把整组带出来"。从前这里只比名字与地址，
+      // 于是同一个词在同一个产品里有两个答案——实测（同一份数据、两条通路各跑 11 个词）：
+      // 「NAS」整页 8 条 / 面板 2 条，「影音」（那是组名）3 条 / 0 条，「pt」「备份」
+      // 「对象存储」都是服务端有、面板回一句"没有叫「X」的书签"。
+      // 值从 li 上的 data-desc / data-alias / data-tags 读，多个值以换行连接。
+      const gtitle = (li.closest('section')?.querySelector('.sec-leaf')?.textContent || '').toLowerCase();
+      const extra = [li.dataset.desc || '', ...(li.dataset.alias || '').split('\n'), ...(li.dataset.tags || '').split('\n')];
+      if (!q || name.includes(q) || url.includes(q) || gtitle.includes(q)
+        || extra.some((x) => x && x.toLowerCase().includes(q))) {
         total++;
         if (hits.length < 8) {
           hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: a?.getAttribute('href') || '', el: li });
