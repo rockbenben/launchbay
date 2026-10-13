@@ -966,15 +966,27 @@ const APP_I18N = {
     // （属性已经留下了）第二次才动。
     card.setAttribute('draggable', 'true');
     card.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', li.dataset.item);
-      e.dataTransfer.effectAllowed = 'move';
+      const dt = e.dataTransfer;
+      // 排序走**自定义 MIME**，`text/plain` 与 `text/uri-list` 留给真地址。
+      // 从前这里把条目 id 塞进 text/plain——于是把一张卡片拖到书签栏，
+      // 落下来的是一个叫「group-2-chrome-apps」的坏书签（与"点不开那一行"
+      // 同一件事的另一半：拖走的东西该是那条书签的地址，不是我们的内部主键）。
+      dt.setData('application/x-lb-item', li.dataset.item);
+      const href = card.getAttribute('href') || '';
+      if (href) {
+        dt.setData('text/uri-list', href);
+        dt.setData('text/plain', href);
+      }
+      dt.effectAllowed = 'copyMove';
     });
     li.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('drop'); });
     li.addEventListener('dragleave', () => li.classList.remove('drop'));
     li.addEventListener('drop', async (e) => {
       e.preventDefault();
       li.classList.remove('drop');
-      const moved = e.dataTransfer.getData('text/plain');
+      // 只认自己那套 MIME：从别处（桌面、别的标签页）拖进来的东西没有它，
+      // 那种情况下不该动书签的顺序。
+      const moved = e.dataTransfer.getData('application/x-lb-item');
       if (!moved || moved === li.dataset.item) return;
       const gid = li.closest('section')?.dataset.gid;
       const sibs = [...li.closest('section').querySelectorAll('li[data-item]')];
