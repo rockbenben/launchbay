@@ -129,6 +129,8 @@
   "app.field.title": "名称",
   "app.field.desc": "描述",
   "app.field.group": "分组",
+  "app.group.new": "＋ 新分组…",
+  "app.group.shape": "这一组用",
   "app.field.icon": "图标",
   "app.ph.title": "网站标题，可改",
   "app.ph.desc": "一句话说明，可不填",

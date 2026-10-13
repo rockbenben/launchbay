@@ -129,6 +129,8 @@
   "app.field.title": "Name",
   "app.field.desc": "Description",
   "app.field.group": "Group",
+  "app.group.new": "+ New group…",
+  "app.group.shape": "Arrange it as",
   "app.field.icon": "Icon",
   "app.ph.title": "Page title, editable",
   "app.ph.desc": "One-line note, optional",

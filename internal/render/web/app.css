@@ -37,8 +37,26 @@
   background:var(--bg);border:1px solid var(--line);border-radius:16px;
   box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .sheet[hidden],.cmdk[hidden]{display:none}
+/* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
+   浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
+   与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是
+   `fNewGroup.hidden = true` 与那颗「这一组用」的 `hidden` 一起静默失效。
+   症状是"代码里明明藏了，屏幕上还在"，而它从前就在骗人：旧代码把新分组输入框
+   按选项数藏起来，那一句从来没生效过——于是输入框一直摆着，填了也不起作用
+   （groupOpsAndTarget 只在零分组那一支读它）。**不是新写的代码发现的，是旧
+   的一直没被发现的**。
+   `.sheet [hidden]` 是 0,2,0，压得住上面那两条（0,1,0 / 0,1,1）。 */
+.sheet [hidden]{display:none}
 .sheet h2{margin:0;font-size:18px}
 .sheet-actions{display:flex;gap:10px;margin:4px 0 0}
+/* 「这一组用磁贴还是单列」那两个键（2026-10-13）：它们住在添加浮层的**分组**那一格
+   下面，且**只在建新分组时出现**——往已有分组加一条时它没有作用，而"点了没反应
+   的东西不进界面"。
+   按下的形状复用 `.prefs button[aria-pressed=true]` 那一族（base.css），所以这里
+   不另开一条 pressed 规则：颜色是同一族、形状是同一族，两处不会慢慢分家。 */
+.sheet-keys{display:flex;gap:8px;margin-top:6px}
+.sheet-keys[hidden]{display:none}
+.sheet-keys button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
 .sheet-status{margin:0;min-height:1.2em;font-size:12px;color:var(--ink2)}
 .sheet-status.bad{color:var(--bad-text)}
 .sheet .close{position:absolute;top:10px;right:10px;width:auto;min-width:44px;font-size:20px;

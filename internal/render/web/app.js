@@ -75,6 +75,8 @@ const APP_I18N = {
     "app.edit.aria": "改「%s」",
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
+  "app.group.new": "＋ 新分组…",
+  "app.group.shape": "这一组用",
     "app.layout.rows": "单列",
     "app.layout.aria": "把「%s」这一组从%s改成%s",
     "app.multi.aria": "批量操作",
@@ -185,6 +187,8 @@ const APP_I18N = {
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this bookmark",
     "app.layout.tiles": "Tiles",
+  "app.group.new": "+ New group…",
+  "app.group.shape": "Arrange it as",
     "app.layout.rows": "Single column",
     "app.layout.aria": "Switch the group “%s” from %s to %s",
     "app.multi.aria": "Bulk actions",
@@ -278,7 +282,15 @@ const APP_I18N = {
       if (k === 'text') n.textContent = v; // **永远走 textContent**：书签名、
       // desc、标题都是用户或第三方给的，innerHTML 会把它们当标记解析。
       else if (k === 'on') for (const [ev, fn] of Object.entries(v)) n.addEventListener(ev, fn);
-      else if (v !== '' && v != null) n.setAttribute(k, v);
+      // **空串也要写上去**，只跳 null/undefined（2026-10-13 实拍逮到）。
+      // 从前是 `v !== ''` ——理由大概是"不写空 class/id，省几个字节"。但对
+      // `<option>` 来说少写 `value` 不是省字节而是**换语义**：没有 value 属性的
+      // option，其 `.value` 按规范回退到**文字**，于是「不选图标（用名字第一个字）」
+      // 那一颗读回来的是这句中文，submit 把它当图标名发出去，服务端回一句
+      // 「图标名不在索引里」。
+      // 症状特别难认：它是**每一条从浮层存进去的书签都发不出去**，而页面上那一格
+      // 看上去完全正常——只有一个真实用户点一次才看得见。
+      else if (v != null) n.setAttribute(k, v);
     }
     for (const c of [].concat(kids)) n.append(c);
     return n;
@@ -334,6 +346,39 @@ const APP_I18N = {
   const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
   const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: T('app.ph.group'), autocomplete: 'off' });
+  // 「这一组用磁贴还是单列」——**只在建新分组时出现**。往已有分组里加一条时它
+  // 没有作用，而"点了没反应的东西不进界面"（§8.1）。
+  //
+  // 它之所以在**这一格**而不是台面面板里，是时序：面板改的是已经建好的分组，
+  // 而这一次是在同一次提交里建组 + 放条目——顺路问一句，比让人存完再去面板翻一遍
+  // 便宜得多。新建出来的分组照样能在面板里随时改。
+  const fGroupShape = el('div', { class: 'sheet-keys' }, [
+    el('button', { type: 'button', class: 'fld', 'aria-pressed': 'true', text: T('app.layout.tiles'), on: { click: () => pickShape('tiles') } }),
+    el('button', { type: 'button', class: 'fld', 'aria-pressed': 'false', text: T('app.layout.rows'), on: { click: () => pickShape('list') } }),
+  ]);
+  const fGroupShapeWrap = el('label', {}, [
+    el('span', { text: T('app.group.shape') }),
+    fGroupShape,
+  ]);
+  // NEW_GROUP 是那颗哨兵选项的值。**它不能是空串**：空串在上一个版本里表示
+  // 「（不分组）」，而那一条是走不通的路——submit 判到空值就报错，于是界面摆着
+  // 一条按下去必然失败的选项。
+  const NEW_GROUP = '__new__';
+  let shape = 'tiles';
+  function pickShape(next) {
+    shape = next;
+    for (const b of fGroupShape.children) {
+      b.setAttribute('aria-pressed', String(b === fGroupShape.children[next === 'tiles' ? 0 : 1]));
+    }
+  }
+  // 建新分组的那几格跟着下拉的当前值显隐：选了「＋ 新分组…」才问名字，
+  // 没选就不占那一屏——一个永远在、永远不动的输入框是界面上最吵的一种东西。
+  function syncGroupFields() {
+    const creating = fGroup.value === NEW_GROUP;
+    fNewGroup.hidden = !creating;
+    fGroupShapeWrap.hidden = !creating;
+  }
+  fGroup.addEventListener('change', syncGroupFields);
   const fIcon = el('select', { id: 'lb-icon', class: 'fld' });
 
   const status = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite' });
@@ -348,7 +393,7 @@ const APP_I18N = {
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
     el('label', { text: T('app.field.title') }, [fTitle]),
     el('label', { text: T('app.field.desc') }, [fDesc]),
-    el('label', { text: T('app.field.group') }, [fGroup, fNewGroup]),
+    el('label', {}, [fGroup, fNewGroup, fGroupShapeWrap]),
     el('label', { text: T('app.field.icon') }, [fIcon]),
     el('div', { class: 'sheet-actions' }, [saveBtn, moreBtn]),
     status,
@@ -478,12 +523,19 @@ const APP_I18N = {
   for (const h2 of document.querySelectorAll('main h2[data-group]')) {
     fGroup.append(el('option', { value: h2.dataset.group, text: h2.textContent.trim() }));
   }
-  // 这里从前在末尾追加一个「（不分组）」空值选项，而 submit() 判到空值就报
-  // "先选一个分组——这个版本的分组是必选的"：**界面摆了一条走不通的路**。
-  // 现在没有分组可挑的档案（刚建好、一条书签都没有）改为直接问"新分组叫什么"，
-  // 一次 batch 里先建组再放条目——两件事本来就属于同一个意图。
-  fNewGroup.hidden = fGroup.options.length > 0;
-  if (!fGroup.options.length) fGroup.hidden = true;
+  // 末尾那颗「＋ 新分组…」是**建组唯一的入口**。从前新分组只在"一个分组都还没有"
+  // 的时候问（fNewGroup.hidden = fGroup.options.length > 0），于是有了书签之后
+  // 界面上再也建不了新分组——而 ops 一直认 `add path=groups`。这是同一个洞的
+  // 另一面：不是"选了不生效"，是"这一条根本不在界面上"。
+  //
+  // 哨兵值**不能是空串**：空串在上一个版本里表示「（不分组）」，而那一条是走不通
+  // 的路（submit 判到空值就报错），界面摆着一条按下去必然失败的选项。
+  fGroup.append(el('option', { value: NEW_GROUP, text: T('app.group.new') }));
+  // 零选项的档案（刚建好、一条书签都没有）下拉里只剩这一颗：读作"新分组"，
+  // 选它才问名字。那一档从前是**整个下拉藏起来、直接问名字**——两条路说的是同一
+  // 件事，现在合成一条，少一个只有零分组时才走到的分支。
+  if (fGroup.options.length === 1) fGroup.value = NEW_GROUP;
+  syncGroupFields();
 
   // 图标下拉在 resolve 之前是**空的**（零选项的下拉框）：人看不到能选什么，
   // 也选不到"抓这个网站的图标"。两个语义值常驻，resolve 回来的候选再插进去。
@@ -529,7 +581,7 @@ const APP_I18N = {
       if (r.detail || r.code) { say(r.detail || T('app.readFail'), 'bad'); return; }
       if (!fTitle.value) fTitle.value = r.title || '';
       if (!fDesc.value) fDesc.value = r.desc || '';
-      if (r.suggestedGroup && !fGroup.hidden) {
+      if (r.suggestedGroup && fGroup.value !== NEW_GROUP) {
         for (const o of fGroup.options) {
           if (o.value === r.suggestedGroup) { fGroup.value = r.suggestedGroup; break; }
         }
@@ -578,7 +630,7 @@ const APP_I18N = {
   // 「新分组叫什么」那一格，把建组与放条目放进**同一批** ops——batch 是全成
   // 或全败的，不会出现"组建了条目没进去"。
   function groupOpsAndTarget() {
-    if (!fGroup.hidden) {
+    if (fGroup.value !== NEW_GROUP) {
       const gid = fGroup.value;
       if (!gid) return { err: T('app.err.group') };
       return { gid, ops: [] };
@@ -586,7 +638,9 @@ const APP_I18N = {
     const title = fNewGroup.value.trim();
     if (!title) return { err: T('app.err.groupName') };
     const gid = slug(title);
-    return { gid, ops: [{ op: 'add', path: 'groups', value: { id: gid, title, layout: 'tiles', items: [] } }] };
+    // 一次 batch 里先建组再放条目——两件事本来就属于同一个意图（"把这条收进
+    // 一个新分组"）。layout 带上人在浮层里挑的那一档，省得存完再去面板翻一遍。
+    return { gid, ops: [{ op: 'add', path: 'groups', value: { id: gid, title, layout: shape, items: [] } }] };
   }
 
   async function submit(keepOpen) {
@@ -618,6 +672,19 @@ const APP_I18N = {
       });
       rev = r.rev; // 同一页再存第二条要拿新的 rev，否则下一条必然 409
       say(T('app.saved'), 'ok');
+      // 刚建出来的那一组**就地进下拉并选中**：连着往同一个新分组里加第二条时，
+      // 若下拉还停在「＋ 新分组…」且名字框留着上一次的内容，下一次就会拿同一个
+      // group id 再 `add` 一遍——ops 拒掉（重复 id），而屏幕上那句话说的是
+      // "保存失败"，人不知道自己刚才已经把第一条存进去了。
+      //
+      // 列表是服务端渲染的，所以这一条只是**这一层浮层**的视图；重载之后下拉
+      // 会从页面上重新长一遍，那时它已经在列表里了。
+      if (g.ops.length && !fGroup.querySelector('option[value="' + g.gid + '"]')) {
+        const opt = el('option', { value: g.gid, text: fNewGroup.value.trim() });
+        fGroup.insertBefore(opt, fGroup.lastElementChild);
+        fGroup.value = g.gid;
+        syncGroupFields();
+      }
       if (keepOpen) {
         for (const f of [fUrl, fTitle, fDesc]) f.value = '';
         iconChoices([]);

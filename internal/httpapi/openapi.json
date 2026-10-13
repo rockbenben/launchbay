@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.2426ac7805e9.js": {
+    "/app.b0b3ee94c503.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -92,7 +92,7 @@
         }
       }
     },
-    "/app.87eeee118c82.css": {
+    "/app.2e0f3ab61e58.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
