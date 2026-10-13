@@ -778,6 +778,56 @@ func stripAttrBrackets(sel string) string {
 	return b.String()
 }
 
+// 台面面板的窄屏排法：三条形状 + **它们各自算得出来**。
+//
+// 这一段是 2026-10-13 加的。触发的理由不是"在 320 上看着挤"，而是三笔算术：
+//
+//	视口 320 → .sheet 宽 min(560, 100vw−28px) = 292 → 减 padding 22×2
+//	→ 内容 248px。
+//
+//	· 92px 的标签列在 248px 里占 37%，而窄屏上标签本来就在控件上面一行——
+//	  它没买到任何东西，只是把控件挤窄。
+//	· 九颗 44px 色块：4 颗要 4×44+3×8 = 200（装得下），5 颗要 252（装不下）。
+//	· 名字(flex 1 1 120) + 磁贴/单列/用这个颜色(224) = 360 > 248。
+//
+// **44px 一颗都不许缩**：那是 §7.5 的触摸地板，而窄屏正是最需要它的时候。
+// 改的只是排法——所以这一条钉的是"flex 换列"与"色板变 grid"，而不是某个像素值。
+//
+// 为什么断点是 520 而不是 320：这一档在 320 到 520 之间都读作"窄屏台面"，而
+// 在 520 以上、560 以下那一小段两列仍然放得下。断点跟着**内容宽**走，不跟着
+// 某一台设备走。
+func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
+	raw, err := webFS.ReadFile("web/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(raw)
+	for _, w := range []string{
+		// 一、标签列收掉
+		"@media (max-width:520px){",
+		".prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}",
+		".prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}",
+		// 二、色板改 grid：auto-fill 让每行填满，而 flex-wrap 换一行宽度就换一颗数
+		".prefs-group-colors{display:grid;grid-template-columns:repeat(auto-fill,44px);gap:8px}",
+	} {
+		if !strings.Contains(css, w) {
+			t.Errorf("base.css 少了 %q", w)
+		}
+	}
+	// **不许在窄屏那一档缩色块。** 写成 minmax(36px,…) 或给 .prefs-swatch 加一个
+	// 窄屏尺寸，看起来更"响应式"，实际上是把 §7.5 的地板在这一档偷偷抽掉了——
+	// 而窄屏恰恰是最需要 44px 的时候。
+	narrow := css[strings.Index(css, "@media (max-width:520px){"):]
+	if i := strings.Index(narrow, "}"); i > 0 {
+		narrow = narrow[:i]
+	}
+	for _, banned := range []string{"minmax(36px", "minmax(32px", "width:36px", "width:32px", "min-height:36px", "min-height:32px"} {
+		if strings.Contains(narrow, banned) {
+			t.Errorf("窄屏那一档不许把色块缩到 %q 以下：44px 是 §7.5 的触摸地板，窄屏正是最需要它的时候", banned)
+		}
+	}
+}
+
 // §7.5 与 §8.1 的硬数字由这份 map 逐字钉住。**为什么用文本在场断言而不是
 // 只靠截图**：一次误删（比如重排 CSS 时删掉整个 @media 块）在截图上可能
 // 几小时都看不出来，而这里一行就红。

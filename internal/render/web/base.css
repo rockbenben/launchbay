@@ -758,6 +758,36 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    只把它撑到同一行的节奏上。它是**输入面**，44px 由输入族那条 joint 规则接
    （见上面那条），这里不开新的 44。 */
 .prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer}
+
+/* ── 窄屏（320–520）：台面面板换一套排法 ───────────────────────────────────
+   下面每一句都从 320 档的算术来，而不是"看着挤"：
+
+     视口 320 → `.sheet` 宽 min(560, 100vw−28px) = 292 → 减 padding 22×2
+     → 内容 248px。
+
+   **一、标签列收成"标签在上、控件在下"。** 92px 那一列在 248px 内容里占掉 37%，
+   而窄屏上标签本来就在控件上面一行——这一列买不到任何东西，它只是把控件挤窄。
+   改名那一行从「标签 | 输入框 | 保存」三列并排变成三行，控件于是拿到满宽。
+
+   **二、色板改 grid 而不是靠 flex-wrap。** 44px 一颗是触摸地板，**窄屏正是最
+   需要它的时候**，所以色块一颗都不缩。改的是排法：auto-fill 让每行都填满，
+   而 flex-wrap 在 248px 下排出来的是"能塞几颗塞几颗"，换一行宽度时颗数一变，
+   整块跟着跳。按 248 算：4 颗要 4×44+3×8 = 200，装得下；5 颗要 252，装不下。
+   于是窄屏恒定 4 列，九颗（跟随主色 + 八色 + 取色器）排成三行。
+
+   **三、每组的名字行也拆开。** 名字（`flex:1 1 120px`）+ 磁贴/单列/用这个颜色
+   在 248px 下是 120+224+16 = 360，装不下就折成两行，而折出来的第二行只有
+   三颗键、左边空一大块——不如让名字自己占一行。
+
+   为什么是 520px 而不是 320px：这一档在 520 与 320 之间都读作"窄屏台面"，
+   而在 520 以上、560 以下那一小段，两列并排仍然放得下（标签 92 + 控件 ≤ 420）。
+   断点跟着**内容宽**走，不是跟着某一台设备走。 */
+@media (max-width:520px){
+  .prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}
+  .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
+  .prefs-group-colors{display:grid;grid-template-columns:repeat(auto-fill,44px);gap:8px}
+  .prefs-color{justify-self:start}
+}
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
    这件事以前只能靠**实心蓝块**来说，而实心块与同栏其余按钮不像一家：实拍顶栏
