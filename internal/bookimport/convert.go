@@ -132,6 +132,10 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 	bm := &model.Bookmarks{Groups: []model.Group{}}
 	remaps := []remap{}
 	gaps := newIconGaps()
+	// 这一轮攒下来、**等确认这一组真的建出来**才写进报告的 id 记录（见下面
+	// "筛空了就不建"那道闸后面的两行）。
+	var groupFallbacks []string
+	var groupCollisions []slugCollision
 
 	// 先收集所有文件夹的路径（标题要靠它），再统一分配 id —— slug 必须在
 	// 全量标题上算，否则两个同名文件夹在不同批次里会拿到不同的 id。
@@ -201,11 +205,16 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 			Layout: model.LayoutTiles,
 			Items:  []model.Item{},
 		}
+		// id 那一格的记录**先攒在本地**，等下面那道"筛空了就不建"的闸过完再写进
+		// 报告（2026-10-13 实拍改判）。从前直接写 `rep`，于是报告的「分组名与 id」
+		// 一节列出了一个**根本不会被建出来**的 id——而同一份报告上面刚说过"那个
+		// 文件夹也没建"。两句话并排，一句说没建、一句点名了它的 id，读者只会以为
+		// 哪一句错了。
 		if slugs[i].FellBack {
-			rep.SlugFallbacks = append(rep.SlugFallbacks, slugs[i].Slug)
+			groupFallbacks = append(groupFallbacks, slugs[i].Slug)
 		}
 		if slugs[i].Displaced != "" {
-			rep.SlugCollisions = append(rep.SlugCollisions, slugCollision{
+			groupCollisions = append(groupCollisions, slugCollision{
 				slug: slugs[i].Slug, with: slugs[i].Displaced,
 			})
 		}
@@ -256,6 +265,12 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 			rep.EmptyGroups = append(rep.EmptyGroups, title)
 			continue
 		}
+		// 过完那道闸才写进报告：报告里点名的每一个 id，都得是**真的会建出来**的
+		// 那一个。
+		rep.SlugFallbacks = append(rep.SlugFallbacks, groupFallbacks...)
+		groupFallbacks = groupFallbacks[:0]
+		rep.SlugCollisions = append(rep.SlugCollisions, groupCollisions...)
+		groupCollisions = groupCollisions[:0]
 		bm.Groups = append(bm.Groups, gr)
 	}
 	return bm, remaps, gaps
