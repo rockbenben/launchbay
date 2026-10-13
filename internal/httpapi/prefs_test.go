@@ -71,6 +71,52 @@ func TestPrefs_形态与主题可以各改各的(t *testing.T) {
 	}
 }
 
+// 整页排法（全局视图）改得动、只动它自己，而且**改完立刻看得见**：
+// 判据是页面 `<body>` 上那个 data-profile-view——CSS 那一档全靠它，
+// 属性没发出去的话这一档在界面上根本不存在（功能通 ≠ 界面可选到）。
+func TestPrefs_排法改得动且页面带上属性(t *testing.T) {
+	s, h := setup(t)
+	// 全部走 pageText：内联 CSS 里全是 `[data-profile-view=wall]` 那种选择器，
+	// 直接对整份 HTML 找这个串，"属性发没发"永远是真的（同一份内联 CSS 也刚把
+	// historypage_test 里那句"130 漏进别人那一页"变成假话）。
+	if rec := get(h, "/", dadFormCookie); strings.Contains(pageText(rec.Body.String()), "data-profile-view") {
+		t.Errorf("没改过就不该发这个属性（空 = 没选过，默认那一档由 CSS 的缺省形状兜）")
+	}
+	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("只改 view 要 303，得到 %d", rec.Code)
+	}
+	p, err := s.LoadProfile("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.View != "wall" || p.Theme != "auto" || p.Layout != "sidebar" {
+		t.Errorf("只给 view 却动了别的字段：view=%q theme=%q layout=%q", p.View, p.Theme, p.Layout)
+	}
+	page := get(h, "/", dadFormCookie).Body.String()
+	if !strings.Contains(pageText(page), `data-profile-view="wall"`) {
+		t.Errorf("页面没带上 data-profile-view，那一档的 CSS 就找不到落点：%s", headLines(page, 6))
+	}
+	// 切回分组：属性发的是 groups，而**没选过**的那一份什么都不发（模板那个
+	// `{{with}}`）。两种形状渲染出来同一张脸——CSS 只认 `=wall`，剩下的一律走
+	// 缺省形状；区别只在盘上：一份是"这个人选过又选回来了"，一份是"没动过"。
+	if rec := postForm(h, "/prefs", "view=groups", dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("切回 groups 要 303，得到 %d", rec.Code)
+	}
+	if page = get(h, "/", dadFormCookie).Body.String(); !strings.Contains(pageText(page), `data-profile-view="groups"`) {
+		t.Errorf("切回之后页面该发 data-profile-view=\"groups\"：%s", headLines(page, 6))
+	}
+}
+
+// headLines 取**看得见的字**的前 n 行：整份 HTML 的头几十行全是内联 CSS，
+// 失败信息贴出来没法读（pageText 那一格的同一件事）。
+func headLines(html string, n int) string {
+	ls := strings.Split(pageText(html), "\n")
+	if len(ls) > n {
+		ls = ls[:n]
+	}
+	return strings.Join(ls, "\n")
+}
+
 // 非法值与"没说改什么"都是 422，而且要**点名是哪个字段**——422 不指字段，
 // 调用方只能猜；而"两个字段都不给"静默 303 会让一个拼错的字段名假装成功。
 func TestPrefs_非法与缺字段都422且点名(t *testing.T) {
@@ -80,6 +126,10 @@ func TestPrefs_非法与缺字段都422且点名(t *testing.T) {
 	}{
 		{"非法主题", "theme=pink", `"field": "theme"`},
 		{"非法形态", "layout=list", `"field": "layout"`},
+		{"非法排法", "view=tiled", `"field": "view"`},
+		// 空串**不是**"清回默认"的写法：那会与服务端"没这个键 = 没选过"那一格撞车
+		// （Profile.View 的注释）。表单要清就送 groups。
+		{"排法不吃空值", "view=", `"field": "view"`},
 		{"大小写不放过", "theme=Light", `"field": "theme"`},
 		{"两个都不给", "", `"field": "theme"`},
 		{"只有无关字段", "color=red", `"field": "layout"`},

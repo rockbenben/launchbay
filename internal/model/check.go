@@ -21,6 +21,9 @@ var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 var (
 	ThemeValues  = []string{"auto", "dark", "light"}
 	LayoutValues = []string{"sidebar", "topbar"}
+	// ViewValues 是**整页怎么排**：groups = 一组一节（默认），
+	// wall = 全局视图，各组作为列头、条目压成紧凑单行，多栏流式排满一屏。
+	ViewValues = []string{"groups", "wall"}
 )
 
 func valueSet(vs []string) map[string]bool {
@@ -33,11 +36,16 @@ func valueSet(vs []string) map[string]bool {
 
 var allowedTheme = valueSet(ThemeValues)
 var allowedLayout = valueSet(LayoutValues)
+var allowedView = valueSet(ViewValues)
 
 // ValidTheme / ValidLayout 是这两组枚举的唯一出口：校验走 map，
 // 表单端点走这两个谓词——判据一份，两处消费。
 func ValidTheme(s string) bool  { return allowedTheme[s] }
 func ValidLayout(s string) bool { return allowedLayout[s] }
+
+// ValidView 认的是**写侧**的值。读侧另有一条：空串是合法的"没选过"，
+// 见 Profile.Validate 里那一句与 Profile.View 的注释。
+func ValidView(s string) bool { return allowedView[s] }
 
 func ValidSlug(s string) bool { return slugRE.MatchString(s) }
 
@@ -89,7 +97,8 @@ func CheckURL(u string) error {
 // scheme 转小写）。浏览器禁止从网页跳这类地址，渲染层据此标「需手动
 // 打开」而不是渲染 href——spec §6.2 的"标警告"、§9 的 chrome:// 特例。
 // ExternalScheme 报告这个 URL 的协议是不是非 http/https（url.Parse 已把
-//  scheme 转小写）。
+//
+//	scheme 转小写）。
 //
 // **名单是量出来的，不是印象**（2026-10-13 真点击实验）：在一个 http 页面上放一个
 // 链接、用真鼠标点下去（带用户手势，因为 Chrome 对这类放行看的正是手势），
@@ -230,6 +239,15 @@ func (p *Profile) Validate() error {
 	if !allowedLayout[p.Layout] {
 		return fmt.Errorf("%w: profile %q: layout %q 只能是 %s", ErrValidation, p.ID, p.Layout,
 			strings.Join(LayoutValues, "/"))
+	}
+	// 空串**放过**，而且这一条必须放：`view` 是 2026-10-13 新加的一格，而
+	// Validate 挂在读路径上（store/load.go 的 decodeProfile），升级前落盘的
+	// profile.json 里根本没有这个键。在这儿判它坏档，等于一次升级把全机器的
+	// 档案变成坏档，而唯一出路是逐份 rebuild——图标名那一枪刚踩过（AGENTS.md
+	// 「写侧严格、读侧不验」同一条判据）。空 = 没选过 = groups，由渲染层兜。
+	if p.View != "" && !allowedView[p.View] {
+		return fmt.Errorf("%w: profile %q: view %q 只能是 %s（或留空）", ErrValidation, p.ID, p.View,
+			strings.Join(ViewValues, "/"))
 	}
 	return nil
 }

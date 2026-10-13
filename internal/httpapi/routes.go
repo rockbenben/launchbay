@@ -74,7 +74,7 @@ func (s *Server) routes() []route {
 		{Method: "POST", Pattern: "/admin/logout", Cred: credNone,
 			Summary: "丢掉管理员身份（清 lb_admin，档案会话不动）", H: s.handleAdminLogout},
 		{Method: "POST", Pattern: "/prefs", Cred: credSession,
-			Summary: "改自己的台面偏好（主题/形态，仅会话，表单通路）", H: s.handlePrefs},
+			Summary: "改自己的台面偏好（主题/形态/排法，仅会话，表单通路）", H: s.handlePrefs},
 		{Method: "POST", Pattern: "/switch", Cred: credSession,
 			Summary: "会话动作：回选择页（免 PIN 直达已下线）", H: s.handleSwitch},
 		// 浏览器收藏夹导入（2026-10-10）：三步零 JS——选文件 → 看报告 →

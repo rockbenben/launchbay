@@ -6,7 +6,7 @@
 <title>{{.PageTitle}} · {{.Profile.Title}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body data-profile-layout="{{.Profile.Layout}}" data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
+<body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
 <header>
   {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「改名」那一格里改），
        空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
@@ -48,6 +48,15 @@
   <form method="post" action="/prefs" class="theme">
     <input type="hidden" name="theme" value="{{if eq .Profile.Theme "auto"}}dark{{else if eq .Profile.Theme "dark"}}light{{else}}auto{{end}}">
     <button type="submit" title="{{.T "profile.theme.title"}}">{{if eq .Profile.Theme "auto"}}{{.T "profile.theme.auto"}}{{else if eq .Profile.Theme "dark"}}{{.T "profile.theme.dark"}}{{else}}{{.T "profile.theme.light"}}{{end}}</button>
+  </form>
+  {{/* 整页排法：一组一节（默认）↔ 全局视图（各组排进几栏，一屏看全）。
+       与主题那颗同一判据——按钮说**当前是哪一档**，hidden 里送的是另一档，
+       零 JS：现在在哪一档服务端本来就知道。
+       为什么放在顶栏而不是每个分组标题上：这一格管的是**整页**怎么排，
+       挂在某一组标题上会读成"这一组的开关"（那已经是 ▦/☰ 那颗的事了）。 */}}
+  <form method="post" action="/prefs" class="view">
+    <input type="hidden" name="view" value="{{if eq .Profile.View "wall"}}groups{{else}}wall{{end}}">
+    <button type="submit" title="{{if eq .Profile.View "wall"}}{{.T "profile.view.toGroups"}}{{else}}{{.T "profile.view.toWall"}}{{end}}">{{if eq .Profile.View "wall"}}{{.T "profile.view.wall"}}{{else}}{{.T "profile.view.groups"}}{{end}}</button>
   </form>
   <nav aria-label="{{.T "profile.nav.aria"}}">
     {{/* /admin 的路由真的存在（而且现在没管理权时会渲染登录页而不是死链），

@@ -221,7 +221,9 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 同样一张族都没进——实测 24px，与它左边 44px 的下拉并排时像两个产品。
 	// `.rename button`（同日第二批）：顶栏「改名」那一格的提交键，实测 21px 高，
 	// 同一条毛病——住在自己的容器里就没进过任何族名单。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
+	// `.view button`（同日第三批）：顶栏「分组 / 全局」那颗切换键。同一个坑第三次：
+	// 它带着自己的表单，不进名单就是又一颗 24px 的键排在 44px 的旁边。
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".view button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {

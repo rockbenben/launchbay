@@ -83,6 +83,15 @@ type Profile struct {
 	CreatedAt string `json:"createdAt"`
 	Theme     string `json:"theme"`
 	Layout    string `json:"layout"`
+	// View 是**整页怎么排**："" / "groups" = 一组一节（默认，今天的样子），
+	// "wall" = 全局视图（各组作为列头排进多栏，条目压成紧凑单行，一屏看全）。
+	// 与 Layout 不是一件事：sidebar/topbar 说的是"分组导航住在哪一边"，
+	// 这一格说的是"条目怎么铺"，两格可以任意组合。
+	//
+	// **空串是合法值而不是坏档**：这一格比老盘晚，升级时每一份 profile.json 都
+	// 没有它，判坏档等于让全机器的档案进不去（Profile.Validate 挂在读路径上）。
+	// 与 PageTitle 同一形状：默认值只在渲染时算，不往盘里编一个字。
+	View string `json:"view"`
 	// PageTitle 是**这一页叫什么**（顶栏那行大字与浏览器标签页的前半），
 	// 与上面的 Title（**这是谁的那一份**）是两件事：一家人共用一台机器时，
 	// 「爸爸的台」回答的是"谁"，而这一页本身可以叫"我的书签"、"影音室"、

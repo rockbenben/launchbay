@@ -10,7 +10,7 @@ import (
 )
 
 // handlePrefs 是浏览器表单通路：改的是"这个人对自己台面的偏好"（主题 +
-// 档案形态）。它**不是** API 端点，也不建 JSON 版——表单发不出 JSON，而 AI
+// 档案形态 + 整页排法 + 这一页叫什么）。它**不是** API 端点，也不建 JSON 版——表单发不出 JSON，而 AI
 // 替你换主题没有真实需求；每多一条 API 面就要 openapi 与 AGENTS.md 各同步一次
 // （spec §6.1）。
 //
@@ -46,13 +46,15 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	theme, hasTheme := r.Form["theme"]
 	layout, hasLayout := r.Form["layout"]
 	title, hasTitle := r.Form["title"]
-	if !hasTheme && !hasLayout && !hasTitle {
+	view, hasView := r.Form["view"]
+	if !hasTheme && !hasLayout && !hasTitle && !hasView {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Field: "theme", Reason: "要带 theme、layout 或 title 至少一个"},
-			{Field: "layout", Reason: "要带 theme、layout 或 title 至少一个"},
-			{Field: "title", Reason: "要带 theme、layout 或 title 至少一个"},
+			{Field: "theme", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Field: "layout", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Field: "title", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Field: "view", Reason: "要带 theme、layout、view 或 title 至少一个"},
 		})
 		return
 	}
@@ -65,6 +67,13 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	if hasLayout && (len(layout) != 1 || !model.ValidLayout(layout[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			[]fieldError{{Field: "layout", Reason: "只能是 " + strings.Join(model.LayoutValues, "|")}})
+		return
+	}
+	// view 的枚举里**没有空串**：留空是"没选过"，那是读侧的形状（Profile.View
+	// 的注释），表单要清回默认就该送 "groups"，不是送空。
+	if hasView && (len(view) != 1 || !model.ValidView(view[0])) {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Field: "view", Reason: "只能是 " + strings.Join(model.ViewValues, "|")}})
 		return
 	}
 	// title 是**这一页叫什么**（profile.PageTitle），不是"这是谁的那一份"。
@@ -92,6 +101,9 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		if hasLayout {
 			p.Layout = layout[0]
+		}
+		if hasView {
+			p.View = view[0]
 		}
 		if hasTitle {
 			// 空串照旧写下去（= 清除），不是"没给"：没给的是 !hasTitle 那一支。

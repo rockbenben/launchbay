@@ -167,6 +167,7 @@ func TestProfileValidate(t *testing.T) {
 		{"空 title", func(p *Profile) { p.Title = "" }},
 		{"非法 theme", func(p *Profile) { p.Theme = "pink" }},
 		{"非法 layout", func(p *Profile) { p.Layout = "topbar2" }},
+		{"非法 view", func(p *Profile) { p.View = "tiled" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -186,6 +187,16 @@ func TestProfileValidate(t *testing.T) {
 	if err := noPin.Validate(); err != nil {
 		t.Fatalf("不设 PIN 的档案是合法的: %v", err)
 	}
+	// view 那一格的两面：选过的要认，**没这个键的老盘更要认**。
+	// 上面 base 就是空 View（升级前落盘的形状），它被拒的话一次升级会把全机器
+	// 的档案打成坏档——`Profile.Validate` 是挂在读路径上的（store/load.go）。
+	for _, v := range []string{"", "groups", "wall"} {
+		p := base
+		p.View = v
+		if err := p.Validate(); err != nil {
+			t.Errorf("view=%q 应当读得动: %v", v, err)
+		}
+	}
 }
 
 // theme/layout 两组枚举的判据必须只有一份：Profile.Validate 走 map，表单端点
@@ -203,6 +214,15 @@ func TestValidThemeLayout_枚举只有一份(t *testing.T) {
 		"": false, "Sidebar": false, "list": false} {
 		if got := ValidLayout(ly); got != want {
 			t.Errorf("ValidLayout(%q) = %v，要 %v", ly, got, want)
+		}
+	}
+	// view 与上面两族**故意不一样**：谓词不认空串（表单要清回默认得送 groups，
+	// 送空是没说清要改什么），而 `Profile.Validate` **认**空串（没这个键的老盘
+	// 是合法档案）。方向相反不是漂——一个是写侧的入口，一个是读侧的门槛。
+	for v, want := range map[string]bool{"groups": true, "wall": true,
+		"": false, "Groups": false, "tiled": false} {
+		if got := ValidView(v); got != want {
+			t.Errorf("ValidView(%q) = %v，要 %v", v, got, want)
 		}
 	}
 }

@@ -296,9 +296,32 @@ func TestHistory_一页最多一百次(t *testing.T) {
 	if n := strings.Count(page, "一处改动"); n != 100 {
 		t.Errorf("说了只列 100 次，页面上那一格却有 %d 行（应当正好 100）", n)
 	}
-	if other := get(h, "/history", "lb_profile=kid").Body.String(); strings.Contains(other, fmt.Sprint(total)) {
-		t.Errorf("dad 的次数漏进了 kid 那一页：%s", other)
+	if other := get(h, "/history", "lb_profile=kid").Body.String(); strings.Contains(pageText(other), fmt.Sprint(total)) {
+		t.Errorf("dad 的次数漏进了 kid 那一页：%s", pageText(other))
 	}
+}
+
+// pageText 剥掉 `<style>` 与 `<script>` 两块，只留人眼看得见的字。
+// 这一格原先直接对整份 HTML 找数字，而首屏骨架是**内联**进每一页的
+// （§7.2）——CSS 里出现 `column-width:130px` 的那一天，"130 漏进了别人那一页"
+// 就成了假话。判据说的是"页面上说出来的数"，那就得先看页面上有的字。
+func pageText(html string) string {
+	out := html
+	for _, tag := range [][2]string{{"<style>", "</style>"}, {"<script>", "</script>"}} {
+		for {
+			i := strings.Index(out, tag[0])
+			if i < 0 {
+				break
+			}
+			j := strings.Index(out[i:], tag[1])
+			if j < 0 {
+				out = out[:i]
+				break
+			}
+			out = out[:i] + out[i+j+len(tag[1]):]
+		}
+	}
+	return out
 }
 
 // 坏档不挡：这一页一个字都不必读 bookmarks.json，而事故发生时它正是

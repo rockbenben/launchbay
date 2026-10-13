@@ -136,13 +136,15 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 		t.Fatalf("openapi.json 读不出形状: %v", err)
 	}
 	form := doc.Paths["/prefs"]["post"].RequestBody.Content["application/x-www-form-urlencoded"]
-	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues}
-	// 解析器不许空转：带 enum 的两个字段都得真的带出 enum，否则下面的循环一次都不跑。
-	// 2026-10-12 起 /prefs 有**三个**字段——多出来的 `title` 是页面名（无枚举，
-	// 只有 maxLength），所以这里数的是"两个带 enum 的 + 一个带 maxLength 的"，
-	// 而不是笼统的 2：形状变了这条要能指出变的是哪一格。
-	if len(form.Schema.Properties) != 3 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 3 个（theme/layout/title）：形状变了这条正在空转",
+	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues,
+		"view": model.ViewValues}
+	// 解析器不许空转：带 enum 的三个字段都得真的带出 enum，否则下面的循环一次都不跑。
+	// 2026-10-12 起 /prefs 有三个字段（多出来的 `title` 是页面名，无枚举、只有
+	// maxLength），2026-10-13 起四个（`view` = 整页排法）。所以这里数的是
+	// "三个带 enum 的 + 一个带 maxLength 的"，而不是笼统的 3：形状变了这条要能
+	// 指出变的是哪一格。
+	if len(form.Schema.Properties) != 4 {
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 4 个（theme/layout/view/title）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {
