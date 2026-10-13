@@ -88,6 +88,29 @@ func CheckURL(u string) error {
 // ExternalScheme 报告这个 URL 的协议是不是非 http/https（url.Parse 已把
 // scheme 转小写）。浏览器禁止从网页跳这类地址，渲染层据此标「需手动
 // 打开」而不是渲染 href——spec §6.2 的"标警告"、§9 的 chrome:// 特例。
+// ExternalScheme 报告这个 URL 的协议是不是非 http/https（url.Parse 已把
+//  scheme 转小写）。
+//
+// **名单是量出来的，不是印象**（2026-10-13 真点击实验）：在一个 http 页面上放一个
+// 链接、用真鼠标点下去（带用户手势，因为 Chrome 对这类放行看的正是手势），
+// 然后看地址走没走、控制台说了什么：
+//
+//	chrome://extensions/   不走。security error「Not allowed to load local resource」
+//	chrome://settings/     同上
+//	file:///C:/...         同上
+//	mailto:nobody@…        走。「Launched external handler for 'mailto:…'」
+//	about:blank            走
+//	http://example.com/    走（对照）
+//
+// 所以"能不能当普通链接点"与"我们认不认这个协议"是两件事，而**只有前者决定这一格
+// 画成链接还是画成"需手动打开 + 复制键"**。把 mailto: 画成一条点不动的行，
+// 是把一条本来会唤起邮件客户端的地址做成了一个假死链接；反过来把 chrome:// 画成
+// 链接，得到的是一按下去什么都不发生、只有控制台里一句报错——那正是 §8.1
+// 要避免的「点了没反应的东西」。
+//
+// `tel:` 与 `sms:` 与 `mailto:` 走的是浏览器里同一条外部协议处理通路
+// （external handler），只是本机没装能收 tel: 的程序所以量不了；
+// 装了的机器上它与 mailto: 同命运，所以一起放行。
 func ExternalScheme(raw string) bool {
 	parsed, err := url.Parse(raw)
 	if err != nil {
@@ -96,7 +119,7 @@ func ExternalScheme(raw string) bool {
 		return true
 	}
 	switch parsed.Scheme {
-	case "http", "https":
+	case "http", "https", "mailto", "tel", "sms":
 		return false
 	default:
 		return true

@@ -131,10 +131,19 @@ func TestExternalScheme(t *testing.T) {
 	}{
 		{"http://10.0.0.3:5000", false},
 		{"https://example.com/a?b=1", false},
+		// 下面这两条是**真点过一次**的：http 页面上放链接、真鼠标点下去，
+		// 控制台回的是「Not allowed to load local resource」，地址一格没动。
+		// 所以它们仍然不是"能点的链接"，画成链接等于画一个按下去没反应的控件。
 		{"chrome://extensions/", true},
 		{"chrome://apps", true},
+		{"file:///C:/Windows/win.ini", true}, // 同一句报错，同一条判据
 		{"ftp://10.0.0.3/", true},
-		{"mailto:home@launchbay.lan", true},
+		// mailto: 从前跟着"非 http"一起被标成"需手动打开"——**那是错的**：
+		// 同一个实验里它回的是「Launched external handler for 'mailto:…'」，
+		// 也就是它真的会唤起邮件客户端。一条能用的地址被画成一条点不动的行，
+		// 比画丑了更糟。tel:/sms: 走的是浏览器里同一条外部处理通路。
+		{"mailto:home@launchbay.lan", false},
+		{"tel:+8613800000000", false},
 		{"", true},
 		{"://10.0.0.3", true}, // 解析失败也别当内部链接
 	}
