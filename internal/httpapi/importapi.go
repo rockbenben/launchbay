@@ -184,7 +184,7 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 浏览器那一屏：报告里的句子跟着站点语言（人读的）。
-	plan, err := s.planImport(profile, raw, true)
+	plan, err := s.planImport(profile, raw, s.t)
 	if err != nil {
 		notice := s.t("import.notice.parseFail", err.Error())
 		switch {
@@ -420,8 +420,10 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 			Code: 413, Detail: "读不到请求体，或超过了 8 MB 上限"})
 		return
 	}
-	// 扩展读的是接口那一格：句子**不翻**，与 CLI 同一份字节（对照用）。
-	plan, err := s.planImport(sc.Profile, raw, false)
+	// 接口这一条有两个读者：脚本（CLI、curl）要的是**逐字不变**的那一份，
+	// 浏览器扩展要的是**贴给人看**的那一份——它把报告原样画在设置页下面。
+	// 判据是 Accept-Language（见 lang.go 的 browserLang）：不发这个头的照旧中文。
+	plan, err := s.planImport(sc.Profile, raw, s.apiReportWords(r))
 	if err != nil {
 		importAPIError(w, err)
 		return
@@ -548,20 +550,15 @@ func skipEntries(in []bookimport.SkippedItem) []render.SkippedEntry {
 // 传文件导进来的"在服务端看来是同一件事。
 // planImport 解析一份浏览器导出并算出报告。
 //
-// `human` 决定报告里那些**句子**用哪种语言：浏览器那一屏（GET/POST /import）传
-// true，跟着站点语言走；`/api/v1/import` 与 CLI 传 false，拿到的是逐字不变的
-// 中文那一份——那是调用方对照用的（AGENTS.md「翻的与不翻的」，2026-10-13 把
-// 这条豁免收窄到"给脚本读的那份"之后，浏览器这一屏就是它原来的读者）。
+// `words` 决定报告里那些**句子**用哪种语言：nil = 中文那一份，逐字不变（AGENTS.md
+// 「翻的与不翻的」里给脚本对照用的那个锚点）；给一个查表函数就用那一种语言。
 // 两路都走同一份 bookimport.Report：翻的是句子，不是重新生成一份结论。
-func (s *Server) planImport(profile string, raw []byte, human bool) (importPlan, error) {
+func (s *Server) planImport(profile string, raw []byte, words func(string, ...any) string) (importPlan, error) {
 	res, err := bookimport.Convert(raw, s.deps.Icons, bookimport.Options{})
 	if err != nil {
 		return importPlan{}, err
 	}
-	if human {
-		// 站点语言的那一份 catalog 已经在那里（s.t 就是查它），不另建一份。
-		res.Report.Words = s.t
-	}
+	res.Report.Words = words
 	n := bookimport.CountItems(res.Bookmarks)
 	if n == 0 {
 		// **Convert 不拒绝非 Netscape 文件**：喂一段随便的 HTML 进去，它解析出

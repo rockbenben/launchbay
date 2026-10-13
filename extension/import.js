@@ -90,6 +90,10 @@ export async function askPlan(cfg, html) {
     headers: {
       Authorization: 'Bearer ' + cfg.tokens[id],
       'Content-Type': 'text/html; charset=utf-8',
+      // 这份报告是**贴在这一页下面给人看的**，所以按浏览器界面语言要那一份。
+      // 服务端认不出这个头就回中文——脚本与 CLI 不发它，那一份逐字不变的中文
+      // 报告一个字都没动（判据见 internal/httpapi/lang.go 的 browserLang）。
+      'Accept-Language': chrome.i18n.getUILanguage(),
     },
     body: html,
   });

@@ -14,7 +14,8 @@ import (
 // 一节；"哪些东西我没照搬"紧随其后，因为那是迁不干净的**原因**；清单式的
 // 细节放最后。把对账放最后的话，读者得先读完三屏 icon 缺口才看到结论。
 type Report struct {
-	// Words 是报告句子的来源，nil = 中文那一份（CLI 与扩展读的正是它，逐字不变）。
+	// Words 是报告句子的来源，nil = 中文那一份，逐字不变（CLI 与不发
+	// Accept-Language 的脚本读的正是它）。
 	//
 	// **为什么可以只给浏览器那一屏换语言**：AGENTS.md 把"导入的对账报告"划在
 	// 不翻那一栏，理由是调用方要稳定可对照的文本——那句话成立的是**脚本**那一侧。
@@ -75,8 +76,8 @@ func (r *Report) Specials(src []srcItem) {
 	sort.Slice(r.SlugCollisions, func(i, j int) bool { return r.SlugCollisions[i].slug < r.SlugCollisions[j].slug })
 }
 
-// Text 渲染成给人读的文本。
-// t 查一句话。没注入 Words 就是中文那一份——那正是 CLI 与扩展一直在读的字节。
+// t 查一句话。没注入 Words 就是中文那一份——那正是 CLI 与任何不发
+// Accept-Language 的调用方一直在读的字节。
 func (r *Report) t(key string, args ...any) string {
 	if r.Words != nil {
 		return r.Words(key, args...)
@@ -84,6 +85,8 @@ func (r *Report) t(key string, args ...any) string {
 	return i18n.Load(i18n.Zh).T(key, args...)
 }
 
+// Text 渲染成给人读的文本（markdown）。CLI、页面与扩展读的都是这一份，
+// 区别只在 Words 给的是哪一本 catalog。
 func (r *Report) Text() string {
 	var b strings.Builder
 	b.WriteString("# " + r.t("import.rep.docTitle") + "\n\n## " + r.t("import.rep.verdict") + "\n\n")

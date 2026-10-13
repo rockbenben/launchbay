@@ -596,6 +596,36 @@ func TestImport_报告按读者分语言(t *testing.T) {
 	if !strings.Contains(out.Report, "## 结论") || !strings.Contains(out.Report, "浏览器书签导入报告") {
 		t.Errorf("接口那份报告被翻了：调用方对照的锚点会漂。实际：%s", out.Report)
 	}
+
+	// 三、同一条接口，**带着 Accept-Language 来**：那不再是脚本，是浏览器扩展，
+	// 而它把这份报告原样贴在自己的设置页下面（人读）。锚点仍不许动——判据是
+	// "有没有这个头"，所以 curl / Go 的 http.Client / 这台机器的 CLI 一律走二。
+	req2 := httptest.NewRequest("POST", "/api/v1/import", strings.NewReader(nbFile))
+	req2.Header.Set("Content-Type", "text/html")
+	req2.Header.Set("Authorization", "Bearer "+kidTok)
+	req2.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	var out2 struct {
+		Report     string `json:"report"`
+		ReportHTML string `json:"reportHtml"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &out2); err != nil {
+		t.Fatalf("带语言头的这一发也该回 JSON：%v %.200s", err, rec2.Body)
+	}
+	for _, want := range []string{"Verdict", "Reconciliation"} {
+		if !strings.Contains(out2.Report, want) {
+			t.Errorf("浏览器那一路没拿到英文句子（%q 不在报告里）：%s", want, out2.Report)
+		}
+	}
+	if strings.Contains(out2.Report, "## 结论") {
+		t.Errorf("带 en 头却仍回中文那一份：设置页下面贴的就是读者读不懂的话")
+	}
+	// 结论里的**数字与判定**不许因为换语言而变：翻的是句子，不是结论。
+	if strings.Count(out.Report, "\n") != strings.Count(out2.Report, "\n") {
+		t.Errorf("两份报告的行数不一样（%d / %d）——换语言不该改变报告的结构",
+			strings.Count(out.Report, "\n"), strings.Count(out2.Report, "\n"))
+	}
 	if err := s.SetLanguage(i18n.Zh); err != nil {
 		t.Fatal(err)
 	}

@@ -343,3 +343,30 @@ func TestAdminLanguage_确认页上不留中文界面文案(t *testing.T) {
 		}
 	}
 }
+
+// browserLang 判的是"这一发是不是浏览器发的"，而判错的两个方向都很具体：
+// 把脚本认成浏览器，那份逐字对照的中文报告就换了字节；把浏览器认成脚本，扩展
+// 设置页下面贴的就是读者读不懂的话。所以每一档都要有自己的名字，而不是只测
+// "en 与 zh 各一次"。
+func TestBrowserLang_只认第一个标签认不出就落默认(t *testing.T) {
+	for h, want := range map[string]i18n.Lang{
+		"":               i18n.Zh, // curl / Go 的 http.Client / 这台机器的 CLI：不发这个头
+		"*":              i18n.Zh,
+		"en":             i18n.En,
+		"en-US":          i18n.En,
+		"en-US,en;q=0.9": i18n.En,
+		"zh-CN,zh;q=0.9": i18n.Zh,
+		"zh-TW":          i18n.Zh,
+		"en-US,de;q=0.9": i18n.En,
+		"zh":             i18n.Zh,
+		"de,en;q=0.9":    i18n.Zh, // 第二个标签不算数：只看第一个
+		"english":        i18n.Zh, // 含 "en" 三个字母不是语言标签
+		"  en-GB  ":      i18n.En,
+		"fr-FR":          i18n.Zh,
+		"EN-us":          i18n.En, // 大小写不敏感
+	} {
+		if got := browserLang(h); got != want {
+			t.Errorf("browserLang(%q) = %s，要 %s", h, got, want)
+		}
+	}
+}

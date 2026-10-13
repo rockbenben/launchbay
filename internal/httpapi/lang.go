@@ -144,3 +144,40 @@ func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) t(key string, args ...any) string {
 	return i18n.Load(s.deps.Store.Language()).T(key, args...)
 }
+
+// browserLang 读 `Accept-Language` 里**第一个**能认出来的语言。
+//
+// 为什么用这个头而不是给接口加一个 `?lang=` 字段：浏览器发请求时**一定**带着它，
+// 而脚本（curl、Go 的 http.Client、这台机器自己的 CLI）默认不发——"没有这个头"
+// 就是"调用方不是浏览器"。于是那份逐字不变的中文报告继续是脚本的锚点，一个字都
+// 不用改，也不需要谁去申报什么、申报错了再没人管。
+//
+// 只看第一个标签，不解析 q 值：`de,en;q=0.9` 落默认（中文）而不是猜"他也会英文"。
+// 认不出来的一律落默认，**不 406**——一份显示层的兜底不该让一次导入停下来。
+func browserLang(h string) i18n.Lang {
+	first := strings.TrimSpace(strings.SplitN(h, ",", 2)[0])
+	tag := strings.ToLower(strings.TrimSpace(strings.SplitN(first, "-", 2)[0]))
+	for _, l := range i18n.All {
+		if string(l) == tag {
+			return l
+		}
+	}
+	return i18n.Default
+}
+
+// apiReportWords：`POST /api/v1/import` 那份报告的句子从哪一本语言里查。
+//
+// 中文那一份是**默认**而不是"翻了一遍得到中文"：不注入 Words 时 Report 自己查
+// zh 那本 catalog，所以脚本那一路的字节与今天完全一致——CLI 与 curl 都不发
+// Accept-Language，这个判据对它们就是"没有"。
+//
+// 换语言时换的是**调用方浏览器的界面语言**，不是这台机器的站级语言：扩展读不到
+// 站级设置（那要一次带凭证的请求），而它后面坐着的正是那台浏览器的主人。
+// 与 `extension/_locales` 同一判据（AGENTS.md「界面语言」那一节末段）。
+func (s *Server) apiReportWords(r *http.Request) func(string, ...any) string {
+	lang := browserLang(r.Header.Get("Accept-Language"))
+	if lang == i18n.Default {
+		return nil
+	}
+	return i18n.Load(lang).T
+}
