@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"html"
 	"net/http"
 	"strconv"
@@ -47,7 +48,7 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			// 字段名跟着 handlePin 的同一失败走（body）：同一个病在两个端点上叫两个名，
 			// AI 学到的词汇表就分家了。
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	theme, hasTheme := r.Form["theme"]
@@ -58,29 +59,29 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Field: "theme", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Field: "layout", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Field: "title", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Field: "view", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Kind: apierr.FieldInvalid, Field: "theme", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Kind: apierr.FieldInvalid, Field: "title", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Kind: apierr.FieldInvalid, Field: "view", Reason: "要带 theme、layout、view 或 title 至少一个"},
 		})
 		return
 	}
 	// 同名多值（?theme=dark&theme=light）不是"取第一个"，是没说清要改什么。
 	if hasTheme && (len(theme) != 1 || !model.ValidTheme(theme[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "theme", Reason: "只能是 " + strings.Join(model.ThemeValues, "|")}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "theme", Reason: "只能是 " + strings.Join(model.ThemeValues, "|")}})
 		return
 	}
 	if hasLayout && (len(layout) != 1 || !model.ValidLayout(layout[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "layout", Reason: "只能是 " + strings.Join(model.LayoutValues, "|")}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "layout", Reason: "只能是 " + strings.Join(model.LayoutValues, "|")}})
 		return
 	}
 	// view 的枚举里**没有空串**：留空是"没选过"，那是读侧的形状（Profile.View
 	// 的注释），表单要清回默认就该送 "groups"，不是送空。
 	if hasView && (len(view) != 1 || !model.ValidView(view[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "view", Reason: "只能是 " + strings.Join(model.ViewValues, "|")}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "view", Reason: "只能是 " + strings.Join(model.ViewValues, "|")}})
 		return
 	}
 	// title 是**这一页叫什么**（profile.PageTitle），不是"这是谁的那一份"。
@@ -90,7 +91,7 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	// 不往盘里编一个字（清名字与改名走同一格表单）。
 	if hasTitle && (len(title) != 1 || len([]rune(title[0])) > maxPageTitleRunes) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "title", Reason: fmt.Sprintf("最多 %d 个字，空着 = 用默认名", maxPageTitleRunes)}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "title", Reason: fmt.Sprintf("最多 %d 个字，空着 = 用默认名", maxPageTitleRunes)}})
 		return
 	}
 	var saveErr error
@@ -187,7 +188,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	gid := r.FormValue("group")
@@ -196,7 +197,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	// 而不是变成一句"路径解析失败"。
 	if gid == "" || !model.ValidSlug(gid) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "group", Reason: "要带 group，且必须是 ASCII slug"}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "group", Reason: "要带 group，且必须是 ASCII slug"}})
 		return
 	}
 	// **一次按下 = 一个意图，判据是"名字"而不是"只提交被按下的那个控件"。**
@@ -221,8 +222,8 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	_, wantsCustom := r.Form["apply_custom"]
 	if !hasAccent && !hasLayout && !wantsCustom {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Field: "accent", Reason: "要带 accent、layout，或按下「用这个颜色」"},
-			{Field: "layout", Reason: "要带 accent、layout，或按下「用这个颜色」"},
+			{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或按下「用这个颜色」"},
+			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或按下「用这个颜色」"},
 		})
 		return
 	}
@@ -234,21 +235,21 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	if wantsCustom {
 		if len(custom) != 1 || !model.ValidAccent(custom[0]) || custom[0] == "" {
 			writeFieldErrors(w, http.StatusUnprocessableEntity,
-				[]fieldError{{Field: "custom", Reason: "自定义那一格只能是 #rgb 或 #rrggbb"}})
+				[]fieldError{{Kind: apierr.FieldInvalid, Field: "custom", Reason: "自定义那一格只能是 #rgb 或 #rrggbb"}})
 			return
 		}
 		accentVal = custom[0]
 	} else if hasAccent {
 		if len(accent) != 1 || !model.ValidAccent(accent[0]) {
 			writeFieldErrors(w, http.StatusUnprocessableEntity,
-				[]fieldError{{Field: "accent", Reason: "空着 = 跟随页面主色，否则只能是 #rgb 或 #rrggbb"}})
+				[]fieldError{{Kind: apierr.FieldInvalid, Field: "accent", Reason: "空着 = 跟随页面主色，否则只能是 #rgb 或 #rrggbb"}})
 			return
 		}
 		accentVal = accent[0]
 	}
 	if hasLayout && (len(layout) != 1 || !model.ValidGroupLayout(layout[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "layout", Reason: "只能是 " + strings.Join(model.GroupLayoutValues, "/")}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "layout", Reason: "只能是 " + strings.Join(model.GroupLayoutValues, "/")}})
 		return
 	}
 	var opList []ops.Op

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"strconv"
 	"strings"
@@ -31,23 +32,21 @@ type iconsResponse struct {
 func (s *Server) handleIconsSearch(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{
-			Code: 400, Detail: "要带 ?q=<关键词>；这个端点是查名字，不吐全量索引"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?q=<关键词>；这个端点是查名字，不吐全量索引"})
 		return
 	}
 	// prefix 绑一次就地用：校验用它是它、喂给 Search 的也得是它——读两遍
 	// Query() 等于允许这两处悄悄不是同一个值（B14）。
 	p := r.URL.Query().Get("prefix")
 	if p != "" && p != "tabler" && p != "simple-icons" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{
-			Code: 400, Detail: "prefix 只能是 tabler 或 simple-icons"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "prefix 只能是 tabler 或 simple-icons"})
 		return
 	}
 	limit := iconsSearchDefaultLimit
 	if v := strings.TrimSpace(r.URL.Query().Get("limit")); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "limit 要是 1 以上的整数"})
+			writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "limit 要是 1 以上的整数"})
 			return
 		}
 		if n > iconsSearchMaxLimit {

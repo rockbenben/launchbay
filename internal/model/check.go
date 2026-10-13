@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/url"
 	"regexp"
 	"strings"
@@ -160,7 +161,7 @@ func CheckURL(u string) error {
 	// 没有主机名就打不开："http://"、"/relative"、mailto:/tel: 这类无 host 的
 	// scheme 都在这条上被拒。这仍是拒绝，不是"取消校验"。
 	if parsed.Host == "" {
-		return fmt.Errorf("url 缺主机名 %q", u)
+		return apierr.With(fmt.Errorf("url 缺主机名 %q", u), apierr.URLIncomplete)
 	}
 	return nil
 }
@@ -242,7 +243,7 @@ func (b *Bookmarks) Validate() error {
 			return fmt.Errorf("%w: group %q: id 不是 ASCII slug", ErrValidation, g.ID)
 		}
 		if seenGroup[g.ID] {
-			return fmt.Errorf("%w: group id 重复: %q", ErrValidation, g.ID)
+			return apierr.With(fmt.Errorf("%w: group id 重复: %q", ErrValidation, g.ID), apierr.DuplicateID)
 		}
 		seenGroup[g.ID] = true
 		if strings.TrimSpace(g.Title) == "" {
@@ -259,14 +260,17 @@ func (b *Bookmarks) Validate() error {
 			// item id 在整个档案内唯一，不只组内：move 之后按 id 寻址
 			// 才有唯一解（spec §4.4 的寻址前提）。
 			if seenItem[it.ID] {
-				return fmt.Errorf("%w: item id 在档案内重复: %q", ErrValidation, it.ID)
+				return apierr.With(fmt.Errorf("%w: item id 在档案内重复: %q", ErrValidation, it.ID), apierr.DuplicateID)
 			}
 			seenItem[it.ID] = true
 			if strings.TrimSpace(it.Name) == "" {
 				return fmt.Errorf("%w: group %q/item %q: name 为空", ErrValidation, g.ID, it.ID)
 			}
 			if err := CheckURL(it.URL); err != nil {
-				return fmt.Errorf("%w: group %q/item %q: %v", ErrValidation, g.ID, it.ID, err)
+				// **%w 不是笔误式的多余**：CheckURL 给那句原话贴了 kind（url-incomplete），
+				// 用 %v 就把它截在外面，batch 通路上这一类会掉回 field-invalid——
+				// 界面上那句"这一批没收"就成了第二次说谎。实测抓到的正是这一格。
+				return fmt.Errorf("%w: group %q/item %q: %w", ErrValidation, g.ID, it.ID, err)
 			}
 			// icon 不验——见文件末尾那段"图标名不在这里验"的理由。
 		}

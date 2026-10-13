@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"sort"
@@ -308,12 +309,12 @@ func (s *Server) handleRevertForm(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["to-rev"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "to-rev", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "to-rev", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	rev, ok := parseRevertRev(r.FormValue("to-rev"))

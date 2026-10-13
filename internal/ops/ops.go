@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 
 	"github.com/rockbenben/launchbay/internal/model"
 )
@@ -20,8 +21,14 @@ type Op struct {
 }
 
 // Error 把失败定位到"第几条 op 的哪个字段"。
+//
+// Kind 是**机器可读**的那一格（internal/apierr 那一族常量）：Reason 是给人排查的
+// 中文原话，而界面上的句子必须按 Kind 选——"那一组不在了"与"这一条已经存过了"
+// 都是 422，出路却完全相反。源头没贴分类的落 field-invalid（不是空串：
+// 空 kind 会让客户端静默退回状态码那一档，症状是"某几条错的说法永远不对"）。
 type Error struct {
 	OpsIndex int    `json:"opsIndex"`
+	Kind     string `json:"kind"`
 	Field    string `json:"field"`
 	Reason   string `json:"reason"`
 }
@@ -45,9 +52,9 @@ func checkIconName(icons IconSet, id, icon string) error {
 	if !icons.Has(icon) {
 		// 包成 fieldErr{"icon", ...}：字段归因由它决定，否则 fieldOf 会
 		// 按路径推断（add 整组时路径根本没有 icon 段，会掉回 path）。
-		return fieldErr{"icon", fmt.Errorf(
+		return fieldErr{"icon", kerr(apierr.IconUnknown, fmt.Errorf(
 			"条目 %s 的图标名 %q 不在服务端索引里；先查 GET /api/v1/icons?q=<关键词>，"+
-				"图标名不许靠猜（spec §5）", id, icon)}
+				"图标名不许靠猜（spec §5）", id, icon))}
 	}
 	return nil
 }
@@ -72,7 +79,7 @@ func Run(b *model.Bookmarks, in []Op, icons IconSet) (*model.Bookmarks, []Error,
 	for i, op := range in {
 		w, err := applyOne(out, op, icons)
 		if err != nil {
-			errs = append(errs, Error{OpsIndex: i, Field: fieldOf(op, err), Reason: err.Error()})
+			errs = append(errs, Error{OpsIndex: i, Kind: kindOf(err), Field: fieldOf(op, err), Reason: err.Error()})
 			continue
 		}
 		last = i
@@ -86,7 +93,7 @@ func Run(b *model.Bookmarks, in []Op, icons IconSet) (*model.Bookmarks, []Error,
 		// 改成了东西的 op** 上：`len(in)-1` 会指到一条本来就失败、或根本没
 		// 跑过的 op，那是把错误报给无辜的人（评审 Important #1）。
 		// field 用 bookmarks 而不是伪造某个字段名——它确实没有唯一责任人。
-		errs = append(errs, Error{OpsIndex: last, Field: "bookmarks", Reason: verr.Error()})
+		errs = append(errs, Error{OpsIndex: last, Kind: kindOf(verr), Field: "bookmarks", Reason: verr.Error()})
 	}
 	return out, errs, warns
 }
@@ -105,6 +112,19 @@ type fieldErr struct {
 
 func (e fieldErr) Error() string { return e.err.Error() }
 func (e fieldErr) Unwrap() error { return e.err }
+
+// kerr 给一条 op 错误贴上机器可读的分类。只在**人真需要分辨**的那几类上用
+// （id 重复 / 目标不在 / 图标名查不到 / 地址不完整）；剩下的形状错误一律落
+// field-invalid，那已经足够让界面说一句对的出路话。
+func kerr(kind string, err error) error { return apierr.With(err, kind) }
+
+// kindOf 是唯一的取值口：源头没贴就落 field-invalid。
+func kindOf(err error) string {
+	if k := apierr.Kind(err); k != "" {
+		return k
+	}
+	return apierr.FieldInvalid
+}
 
 func fieldOf(op Op, err error) string {
 	var fe fieldErr
@@ -165,7 +185,7 @@ func findGroup(b *model.Bookmarks, id string) (*model.Group, error) {
 			return &b.Groups[i], nil
 		}
 	}
-	return nil, fmt.Errorf("没有分组 %q", id)
+	return nil, kerr(apierr.MissingTarget, fmt.Errorf("没有分组 %q", id))
 }
 
 func findItem(g *model.Group, id string) (*model.Item, error) {
@@ -174,7 +194,7 @@ func findItem(g *model.Group, id string) (*model.Item, error) {
 			return &g.Items[i], nil
 		}
 	}
-	return nil, fmt.Errorf("分组 %q 里没有条目 %q", g.ID, id)
+	return nil, kerr(apierr.MissingTarget, fmt.Errorf("分组 %q 里没有条目 %q", g.ID, id))
 }
 
 func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
@@ -193,7 +213,7 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		}
 		for _, ex := range b.Groups {
 			if ex.ID == g.ID {
-				return nil, fmt.Errorf("分组 %q 已存在", g.ID)
+				return nil, kerr(apierr.DuplicateID, fmt.Errorf("分组 %q 已存在", g.ID))
 			}
 		}
 		// 整组一次带进来的每条图标都要过闸：陌生名字埋在十几条里时，理由必须
@@ -218,7 +238,7 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 			return nil, fmt.Errorf("新条目必须带 id")
 		}
 		if dupItem(b, it.ID) {
-			return nil, fmt.Errorf("条目 id %q 在本档案里已用过（跨分组也不行）", it.ID)
+			return nil, kerr(apierr.DuplicateID, fmt.Errorf("条目 id %q 在本档案里已用过（跨分组也不行）", it.ID))
 		}
 		if err := checkIconName(icons, it.ID, it.Icon); err != nil {
 			return nil, err
@@ -376,7 +396,7 @@ func remove(b *model.Bookmarks, op Op) ([]string, error) {
 				return nil, nil
 			}
 		}
-		return nil, fmt.Errorf("没有分组 %q", t.groupID)
+		return nil, kerr(apierr.MissingTarget, fmt.Errorf("没有分组 %q", t.groupID))
 	case kindItem:
 		g, err := findGroup(b, t.groupID)
 		if err != nil {
@@ -388,7 +408,7 @@ func remove(b *model.Bookmarks, op Op) ([]string, error) {
 				return nil, nil
 			}
 		}
-		return nil, fmt.Errorf("分组 %q 里没有条目 %q", g.ID, t.itemID)
+		return nil, kerr(apierr.MissingTarget, fmt.Errorf("分组 %q 里没有条目 %q", g.ID, t.itemID))
 	}
 	return nil, fmt.Errorf("remove 只能指向 groups/<gid> 或 groups/<gid>/items/<iid>")
 }
@@ -426,7 +446,7 @@ func move(b *model.Bookmarks, op Op) ([]string, error) {
 		}
 	}
 	if at < 0 {
-		return nil, fmt.Errorf("分组 %q 里没有条目 %q", src.ID, t.itemID)
+		return nil, kerr(apierr.MissingTarget, fmt.Errorf("分组 %q 里没有条目 %q", src.ID, t.itemID))
 	}
 	// 先校验再动手：Run 的"跳过失败的那条继续跑"前提要求失败的 op 不许
 	// 留下半改状态。摘除之后再验 index，越界那条报错时条目已经从源组消失

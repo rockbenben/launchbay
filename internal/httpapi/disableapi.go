@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strings"
@@ -42,14 +43,14 @@ type disableResult struct {
 func (s *Server) adminDisable(r *http.Request, profile string, disabled bool) disableResult {
 	var res disableResult
 	if !model.ValidSlug(profile) {
-		res.FieldErrs = []fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}}
+		res.FieldErrs = []fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}}
 		return res
 	}
 	actor, _, ok := s.require(r, credAdmin, profile)
 	if !ok {
 		// 与 adminPin 同口径：权限类拒绝不能自成一个 FieldErr——那会让页面显示
 		// "profile 不是 slug"，而真相是"你不该看见这一页"。由调用方直接答。
-		res.FieldErrs = []fieldError{{Field: "cred", Reason: "需要管理员会话"}}
+		res.FieldErrs = []fieldError{{Kind: apierr.CredentialAdminOnly, Field: "cred", Reason: "需要管理员会话"}}
 		return res
 	}
 	// 锁的返回值在这一族是**有意忽略**的：结论全在 res 里（ReadErr/SaveErr/
@@ -194,12 +195,12 @@ func (s *Server) handleAdminDisableForm(w http.ResponseWriter, r *http.Request) 
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["profile"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "profile", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "profile", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	id := strings.TrimSpace(r.FormValue("profile"))

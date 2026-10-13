@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strconv"
@@ -17,11 +18,11 @@ import (
 func (s *Server) targetProfile(w http.ResponseWriter, r *http.Request, want cred) (string, bool) {
 	id := strings.TrimSpace(r.URL.Query().Get("profile"))
 	if id == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "要带 ?profile=<id>"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?profile=<id>"})
 		return "", false
 	}
 	if !model.ValidSlug(id) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "profile 不是 ASCII slug"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.FieldInvalid, Detail: "profile 不是 ASCII slug"})
 		return "", false
 	}
 	if _, _, ok := s.require(r, want, id); !ok {
@@ -48,14 +49,13 @@ func (s *Server) handleData(w http.ResponseWriter, r *http.Request) {
 	snap, err := s.deps.Store.Current(id)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 	case err != nil:
 		// 503 由本次错误派生（最终整枝评审 #3）：登记表里有记录不等于
 		// "这次读失败是数据坏了"——真 I/O 错必须走 500，不能被陈旧
 		// 记录答成指错文件的 503。
 		if errors.Is(err, store.ErrCorrupt) {
-			writeJSON(w, http.StatusServiceUnavailable, errorResponse{
-				Code: 503, Detail: corruptDetail(s.deps.Store, id, err)})
+			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: corruptDetail(s.deps.Store, id, err)})
 			return
 		}
 		writeInternalError(w, err)
@@ -74,7 +74,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.deps.Store.LoadProfile(id); errors.Is(err, store.ErrNotFound) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 		return
 	}
 	raw, err := os.ReadFile(s.deps.Store.BookmarksPath(id))
@@ -103,14 +103,14 @@ func (s *Server) handleHistoryAPI(w http.ResponseWriter, r *http.Request) {
 	// ?profile= 可缺，但缺了不等于"什么都能看到"：见下面 want 的取值。
 	id := strings.TrimSpace(r.URL.Query().Get("profile"))
 	if id != "" && !model.ValidSlug(id) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "profile 不是 ASCII slug"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.FieldInvalid, Detail: "profile 不是 ASCII slug"})
 		return
 	}
 	limit := 0
 	if v := strings.TrimSpace(r.URL.Query().Get("limit")); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "limit 要是非负整数"})
+			writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "limit 要是非负整数"})
 			return
 		}
 		limit = n

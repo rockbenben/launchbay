@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strings"
@@ -134,12 +135,12 @@ func (s *Server) handleAdminPinForm(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["new"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "new", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "new", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	id := strings.TrimSpace(r.FormValue("profile"))
@@ -240,12 +241,12 @@ func (s *Server) handleAdminDeleteForm(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["profile"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "profile", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "profile", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	id := strings.TrimSpace(r.FormValue("profile"))

@@ -2246,6 +2246,9 @@
       "OpError": {
         "type": "object",
         "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ErrorKind"
+          },
           "opsIndex": {
             "type": "integer",
             "description": "第几条 op 失败；请求级（非 ops）的字段错误没有这个键"
@@ -2353,10 +2356,49 @@
           "code": {
             "type": "integer"
           },
+          "kind": {
+            "$ref": "#/components/schemas/ErrorKind"
+          },
           "detail": {
             "type": "string"
           }
         }
+      },
+      "ErrorKind": {
+        "type": "string",
+        "enum": [
+          "body-unreadable",
+          "credential-admin-only",
+          "credential-missing",
+          "credential-scope",
+          "credential-unknown",
+          "duplicate-id",
+          "field-duplicate",
+          "field-invalid",
+          "field-unknown",
+          "host-invalid",
+          "icon-unknown",
+          "import-no-bookmarks",
+          "import-nothing-accepted",
+          "import-plan-stale",
+          "internal-error",
+          "invalid-request",
+          "missing-target",
+          "ops-invalid",
+          "pin-wrong",
+          "profile-broken",
+          "profile-disabled",
+          "profile-exists",
+          "profile-not-found",
+          "profile-not-rebuildable",
+          "query-invalid",
+          "rev-conflict",
+          "route-not-found",
+          "snapshot-failed",
+          "target-unreachable",
+          "url-incomplete"
+        ],
+        "description": "机器可读的错误分类。**每个 JSON 错误响应都带一格 kind**（外壳与 errors[] 各一份）。\n\n为什么状态码不够：422 既可能是 missing-target（那一组已经不在了，该说：刷新看看），也可能是 duplicate-id（这一条已经存过了，该说：去改它，别再存第二遍）——两句出路相反。detail / reason 仍是给人排查的中文原话，kind 是给程序选句子的那一格。\n\nbatch 的 422：外壳说这一族（ops-invalid = 整批未写入），具体哪一条、为什么在 errors[0].kind。客户端读 errors[0].kind，没有明细才退回外壳那一格。\n\n这套码**只增不改不删**：改一个已发布的字面串等于让旧版扩展与脚本静默落进兜底句子。"
       }
     },
     "responses": {

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"net/url"
 	"os"
@@ -57,7 +58,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Profile != "" && !model.ValidSlug(in.Profile) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}})
 		return
 	}
 	if _, _, ok := s.require(r, credScoped, in.Profile); !ok {
@@ -71,21 +72,20 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	// *url.URL 塞进参数让测试去构造它。
 	if _, uerr := parseResolveURL(in.URL); uerr != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "url", Reason: uerr.Error()}})
+			[]fieldError{{Kind: kindOf(uerr, apierr.URLIncomplete), Field: "url", Reason: uerr.Error()}})
 		return
 	}
 
 	snap, err := s.deps.Store.Current(in.Profile)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 		return
 	case err != nil:
 		// 503 只由本次读返回的错误派生（最终整枝评审 #3 的口径）：
 		// 真 I/O 错不是 ErrCorrupt，不许被登记表里的陈旧记录答成 503。
 		if errors.Is(err, store.ErrCorrupt) {
-			writeJSON(w, http.StatusServiceUnavailable, errorResponse{
-				Code: 503, Detail: corruptDetail(s.deps.Store, in.Profile, err)})
+			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: corruptDetail(s.deps.Store, in.Profile, err)})
 			return
 		}
 		writeInternalError(w, err)
@@ -96,7 +96,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// 502 而不是 500：失败在目标站点那边。detail 用 sentinel 自带的人话，
 		// 一次都不拼 Go 内部错误——里面会有 URL、实现细节与换行。
-		writeJSON(w, http.StatusBadGateway, errorResponse{Code: 502, Detail: resolveDetail(err)})
+		writeJSON(w, http.StatusBadGateway, errorResponse{Code: 502, Kind: apierr.TargetUnreachable, Detail: resolveDetail(err)})
 		return
 	}
 	page := icons.Extract(body, finalURL)

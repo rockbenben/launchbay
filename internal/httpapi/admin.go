@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"sort"
@@ -211,7 +212,7 @@ func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("profile"))
 	if id == "" || !model.ValidSlug(id) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "要带 ?profile=<ASCII slug>"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?profile=<ASCII slug>"})
 		return
 	}
 	if _, _, ok := s.require(r, credAdmin, id); !ok {
@@ -226,7 +227,7 @@ func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 		// store 的"档案不存在"错误同时满足 os.ErrNotExist 与 store.ErrNotFound，
 		// 端点用 errors.Is(err, os.ErrNotExist) 分 404——判"文件不存在"一律走
 		// errors.Is，被 fmt.Errorf 包装也认得（与 store.ErrCorrupt 等分诊点同口径）。
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 	default:
 		writeInternalError(w, err)
 	}

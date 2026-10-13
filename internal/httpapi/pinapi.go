@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"time"
@@ -32,12 +33,11 @@ type pinChangedResponse struct {
 //   - 其余（真 I/O 错）才是 500，原因只进 stderr 不回显磁盘路径。
 func (s *Server) writeProfileReadFailure(w http.ResponseWriter, id string, err error) {
 	if errors.Is(err, store.ErrNotFound) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 		return
 	}
 	if errors.Is(err, store.ErrCorrupt) {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{
-			Code: 503, Detail: corruptDetail(s.deps.Store, id, err)})
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: corruptDetail(s.deps.Store, id, err)})
 		return
 	}
 	writeInternalError(w, err)
@@ -121,11 +121,11 @@ func (s *Server) handleSelfPin(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case badOld:
-		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Detail: "旧 PIN 不对"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.PinWrong, Detail: "旧 PIN 不对"})
 	case badNew:
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "new", Reason: "要 4-6 位数字"}})
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "new", Reason: "要 4-6 位数字"}})
 	case hashErr != nil:
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "new", Reason: hashErr.Error()}})
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: kindOf(hashErr, apierr.FieldInvalid), Field: "new", Reason: hashErr.Error()}})
 	case saveErr != nil:
 		writeInternalError(w, saveErr)
 	default:
@@ -158,7 +158,7 @@ func (r adminPinResult) ok() bool {
 func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResult {
 	var res adminPinResult
 	if !model.ValidSlug(profile) {
-		res.FieldErrs = []fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}}
+		res.FieldErrs = []fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}}
 		return res
 	}
 	// newPin 留空 = **取消**这一份的 PIN（2026-10-12）。管理员是唯一能给别人
@@ -167,12 +167,12 @@ func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResul
 	hash := ""
 	if !isNoPass(newPin) {
 		if !auth.ValidPinFormat(newPin) {
-			res.FieldErrs = []fieldError{{Field: "new", Reason: "要 4-6 位数字"}}
+			res.FieldErrs = []fieldError{{Kind: apierr.FieldInvalid, Field: "new", Reason: "要 4-6 位数字"}}
 			return res
 		}
 		h, err := auth.HashPIN(newPin)
 		if err != nil {
-			res.FieldErrs = []fieldError{{Field: "new", Reason: err.Error()}}
+			res.FieldErrs = []fieldError{{Kind: kindOf(err, apierr.FieldInvalid), Field: "new", Reason: err.Error()}}
 			return res
 		}
 		hash = h
@@ -182,7 +182,7 @@ func (s *Server) adminPin(r *http.Request, profile, newPin string) adminPinResul
 		// 权限类拒绝走浏览器那条 303（credAdmin 带 credSession），所以这里
 		// 不能自成一个 FieldErr——它会让页面显示"PIN 格式不对"，而真相是
 		// "你不该看见这一页"。由调用方在 !ok 时直接答。
-		res.FieldErrs = []fieldError{{Field: "cred", Reason: "需要管理员 cookie"}}
+		res.FieldErrs = []fieldError{{Kind: apierr.CredentialAdminOnly, Field: "cred", Reason: "需要管理员 cookie"}}
 		return res
 	}
 	// 读也搬进锁内（评审 Important 1）：以前只有写在里面，LoadProfile 在锁外

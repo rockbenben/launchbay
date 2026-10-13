@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 
 	"github.com/rockbenben/launchbay/internal/render"
@@ -89,17 +90,17 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["title"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "title", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "title", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	if n := len(r.Form["pin"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "pin", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "pin", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	res := s.createProfile(createInput{

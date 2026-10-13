@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strings"
@@ -52,11 +53,11 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !model.ValidSlug(in.Profile) {
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}})
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}})
 		return
 	}
 	if !store.ValidBy(in.By) {
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "by",
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "by",
 			Reason: "只能是 " + strings.Join(store.ByValues, "/")}})
 		return
 	}
@@ -192,20 +193,17 @@ func (s *Server) applyBatch(profile, actor, by string, expectedRev *int64, opLis
 func (s *Server) writeBatchOutcome(w http.ResponseWriter, profile string, out batchOutcome) {
 	switch {
 	case out.missing:
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 	case out.broken != "":
 		// 坏档案不是 500（不是服务的错）也不是 422（不是这次请求的错）。
 		// 503 + store 给的文件名与行号：AI 拿着它能直接去修那个文件。
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Detail: out.broken})
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: out.broken})
 	case out.conflict != nil:
-		writeJSON(w, http.StatusConflict, errorResponse{
-			Code: 409, Detail: "rev 已变，请重读后重试", CurrentRev: out.conflict})
+		writeJSON(w, http.StatusConflict, errorResponse{Code: 409, Kind: apierr.RevConflict, Detail: "rev 已变，请重读后重试", CurrentRev: out.conflict})
 	case len(out.verrs) > 0:
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Code: 422, Detail: "ops 校验未过，整批未写入", Errors: opFieldErrors(out.verrs)})
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Code: 422, Kind: apierr.OpsInvalid, Detail: "ops 校验未过，整批未写入", Errors: opFieldErrors(out.verrs)})
 	case out.snapErr != nil:
-		writeJSON(w, http.StatusInsufficientStorage, errorResponse{
-			Code: 507, Detail: "快照写不下去，本次写入已取消"})
+		writeJSON(w, http.StatusInsufficientStorage, errorResponse{Code: 507, Kind: apierr.SnapshotFailed, Detail: "快照写不下去，本次写入已取消"})
 	default:
 		writeJSON(w, http.StatusOK, out.resp)
 	}
@@ -223,19 +221,19 @@ func (s *Server) writeBatchOutcome(w http.ResponseWriter, profile string, out ba
 func (s *Server) writeAuthFailure(w http.ResponseWriter, r *http.Request) {
 	if tok := bearer(r); tok != "" {
 		if _, ok := s.deps.Tokens.Authorize(tok); !ok && !s.deps.AdminToken.Matches(tok) {
-			writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "令牌无效或已吊销"})
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌无效或已吊销"})
 			return
 		}
-		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Detail: "凭证作用域不含该档案"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "凭证作用域不含该档案"})
 		return
 	}
 	// 只拿得出管理员 cookie、拿不出档案会话时，那也**不是**"没有凭证"：
 	// 他确实有凭证，只是不带这个端点。说成 401 会让他以为自己没登录。
 	if !auth.ReadSession(r).Valid() && !s.hasAdminCookie(r) {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "需要令牌或会话"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialMissing, Detail: "需要令牌或会话"})
 		return
 	}
-	writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Detail: "凭证作用域不含该档案"})
+	writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "凭证作用域不含该档案"})
 }
 
 // errorResponse 是全 API 错误响应的唯一外壳：struct 字段序 = 输出键序
@@ -245,7 +243,11 @@ func (s *Server) writeAuthFailure(w http.ResponseWriter, r *http.Request) {
 // writeFieldErrors/writeInternalError 已折进这里，422 不再有"带不带
 // detail"两种外壳）。
 type errorResponse struct {
-	Code       int          `json:"code"`
+	Code int `json:"code"`
+	// Kind 是**机器可读**的错误分类（internal/apierr 那一族常量）。状态码不够分：
+	// 422 既可能是"那一组没了"也可能是"这一条已经存过了"，两句出路完全不同。
+	// detail 仍是给人排查的中文原话，两边各管各的读者。
+	Kind       string       `json:"kind"`
 	Detail     string       `json:"detail"`
 	CurrentRev *int64       `json:"currentRev,omitempty"`
 	Errors     []fieldError `json:"errors,omitempty"`
@@ -257,7 +259,7 @@ func opFieldErrors(errs []ops.Error) []fieldError {
 	out := make([]fieldError, 0, len(errs))
 	for _, e := range errs {
 		idx := e.OpsIndex
-		out = append(out, fieldError{OpsIndex: &idx, Field: e.Field, Reason: e.Reason})
+		out = append(out, fieldError{OpsIndex: &idx, Kind: e.Kind, Field: e.Field, Reason: e.Reason})
 	}
 	return out
 }

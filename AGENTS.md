@@ -179,6 +179,66 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 | GET | `/admin/delete` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 删档的**第一步**：读 `?profile=<id>`，回一张**把后果写死在页面里**的确认页（条目数与快照数取自 `statusRows`，与 `/admin` 那张表同一趟遍历）。删档不可逆，`revert` 救不了它——快照跟着档案一起没了。两道形状闸判据是"这台机器之后还能不能管"：目标是当前会话在用的那一份 → 303 `?err=self`；**没有"最后一个管理员"那一道**——权限只看 `lb_profile`，能进这页的人本身就是管理员，"唯一的管理员"只可能是他自己在用那一份（已被 `self` 拦） |
 | POST | `/admin/delete` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 删档的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{profile}`。**不是第二条删档通路**：ASCII slug / 目录须是 `profiles/` 下的同名直接子目录 / 档案写锁三道闸全在 `store.DeleteProfile` 内部，端点层不再"规范化" id（那等于绕过闸）。`history.jsonl` 的行保留（删档不抹审计线）。成功 303 回 `/admin`；不存在 303 `?err=notfound`；**落盘失败走 500 JSON 外壳** —— 删档失败必须说得清 |
 
+## 错误码（每个 JSON 错误都带 `kind`）
+
+**JSON 错误外壳是 `{code, kind, detail, currentRev?, errors?}`**，键序由 struct
+字段序固定（§4.3 那条对响应同样成立）。`kind` 是机器可读的那一格，`detail` /
+`errors[].reason` 仍是给人排查的中文原话——**两边各管各的读者，谁也不替换谁**。
+
+为什么状态码不够：422 既可能是 `missing-target`（那一组已经不在了，该说"刷新看看"），
+也可能是 `duplicate-id`（这一条已经存过了，该说"去改它，别再存第二遍"）。两句出路
+相反，而按状态码选句子只能说中一句——2026-10-14 实测到的正是这个：重复添加同一个
+网址的人，屏幕上写的是"东西没了，刷新一下"。
+
+**batch 的 422 读法**：外壳那一格说的是**这一族**（`ops-invalid` = 整批未写入），
+具体哪一条、为什么在 `errors[0].kind`。客户端读 `errors[0].kind`，没有明细才退回
+外壳那一格。
+
+**三处读者各自从码选句子，`detail` 不再上屏**：主站横幅（`app.js` 的 `KIND_KEY`）、
+扩展通知（`extension/i18n.js` 的 `KIND`）、CLI 的 stderr（`[kind]` 前缀 + 中文原话）。
+句子表是三份不是一份——它们本来就该不一样（横幅要说"去页面上改它"，stderr 要说
+哪个字段），但**"每一个码都有交代"这一条是同一颗闸**：`appi18n_test.go` 与
+`extcatalog_test.go` 各自扫 `internal/apierr` 那份登记表，收不到的码必须写着
+为什么收不到。中文原话退到浏览器 console 与容器日志——那里是给排查的人读的。
+
+**这套码只增不改不删**：改一个已发布的字面串等于让旧版扩展与脚本静默落进兜底句子，
+那比多一个码糟得多。要换说法就改中文原话，别动码。三处（代码常量、
+`openapi.json` 的 `ErrorKind` 枚举、本节这张表）由
+`internal/httpapi/kindsdoc_test.go` 逐码钉相等——文档骗 AI 比骗人更贵。
+
+| kind | 默认状态 | 这一类错误该让人做什么 |
+|---|---|---|
+| `body-unreadable` | 422 | 重新提交一次 |
+| `credential-admin-only` | 403 | 这一条要管理员身份，档案令牌不行 |
+| `credential-missing` | 401 | 把凭证带上：浏览器那条路是登录，扩展与脚本那条路是 Bearer 令牌 |
+| `credential-scope` | 403 | 换一枚作用域正好对上这个档案的令牌（管理员那把只管账号） |
+| `credential-unknown` | 401 | 这一把不被认：多半是少复制了字符，或者机器那边换过令牌 |
+| `duplicate-id` | 422 | 这一条已经在了：去改它，别再存第二遍 |
+| `field-duplicate` | 422 | 同一字段只带一次 |
+| `field-invalid` | 422 | 改那一格的值 |
+| `field-unknown` | 422 | 删掉不认识的字段再发 |
+| `host-invalid` | 400 | 换个地址访问 |
+| `icon-unknown` | 422 | 换一个查得到的图标名 |
+| `import-no-bookmarks` | 422 | 确认选的是浏览器导出的那份 .html |
+| `import-nothing-accepted` | 422 | 这份文件里的地址都进不来，换一份 |
+| `import-plan-stale` | 410 | 重新发起一次导入，拿一份新报告 |
+| `internal-error` | 500 | 稍后再试；持续发生看容器日志 |
+| `invalid-request` | 422 | 看 detail 说的那一格 |
+| `missing-target` | 422 | 那一组/那一条不在了：刷新之后再看 |
+| `ops-invalid` | 422 | 整批没写入；看 errors[] 逐条的 kind 与 field |
+| `pin-wrong` | 401 | 再输一次；忘了就走管理页那格设新 PIN |
+| `profile-broken` | 503 | 先修好那个数据文件（管理页会说要重建） |
+| `profile-disabled` | 401 | 这一份被停用了：去管理页点「启用」，或者换一份进 |
+| `profile-exists` | 409 | 换一个名字或 id |
+| `profile-not-found` | 404 | 确认这个 id 还在，或先建一份 |
+| `profile-not-rebuildable` | 409 | 这份读得动，不需要重建；改 PIN 走 profiles/pin |
+| `query-invalid` | 400 | 把查询参数补全/改对 |
+| `rev-conflict` | 409 | 重读一次再写（别人刚动过） |
+| `route-not-found` | 404 | 这条路径不存在 |
+| `snapshot-failed` | 507 | 什么都没改；腾出空间或稍后再试 |
+| `target-unreachable` | 502 | 那台机器可能没开；照样存下来也行，回头补标题 |
+| `url-incomplete` | 422 | 地址要有协议和主机名 |
+
 ## `by` 渠道（自报字段，只进历史审计线）
 
 所有写请求体里的 `by`，以及 `/api/v1/revert`、`/api/v1/profiles/pin` 的

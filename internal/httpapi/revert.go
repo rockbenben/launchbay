@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strconv"
@@ -186,16 +187,16 @@ func parseRevertRev(raw string) (int64, bool) {
 func (s *Server) handleRevert(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("profile"))
 	if id == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "要带 ?profile=<id>"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?profile=<id>"})
 		return
 	}
 	if !model.ValidSlug(id) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "profile 不是 ASCII slug"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.FieldInvalid, Detail: "profile 不是 ASCII slug"})
 		return
 	}
 	rev, ok := parseRevertRev(r.URL.Query().Get("to-rev"))
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "to-rev 要是非负整数"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "to-rev 要是非负整数"})
 		return
 	}
 	actor, _, ok := s.require(r, credScoped, id)
@@ -210,10 +211,9 @@ func (s *Server) handleRevert(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case out.NotFound:
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案或该 rev 的快照不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.MissingTarget, Detail: "档案或该 rev 的快照不存在"})
 	case out.SnapFailed:
-		writeJSON(w, http.StatusInsufficientStorage, errorResponse{
-			Code: 507, Detail: "快照写不下去，本次恢复已取消"})
+		writeJSON(w, http.StatusInsufficientStorage, errorResponse{Code: 507, Kind: apierr.SnapshotFailed, Detail: "快照写不下去，本次恢复已取消"})
 	case out.Done:
 		writeJSON(w, http.StatusOK, revertResponse{Profile: id, Rev: out.NewRev, RestoredFrom: out.RestoredFrom})
 	default:

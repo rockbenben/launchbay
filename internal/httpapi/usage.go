@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(in.ItemIDs) > usageMaxIDs {
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "itemIds",
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "itemIds",
 			Reason: "一次最多 " + strconv.Itoa(usageMaxIDs) + " 条"}})
 		return
 	}
@@ -59,14 +60,13 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		if s.deps.AdminToken.Matches(tok) {
 			// 点击计数是**内容**：它写进某个档案的 clicks。管理员令牌只管账号，
 			// 这里必须直说而不是让它落到下面的 require 去拿一个含混的 403。
-			writeJSON(w, http.StatusForbidden, errorResponse{
-				Code: 403, Detail: "管理员令牌只管账号；上报点击要用作用域正好是那个档案的令牌"})
+			writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "管理员令牌只管账号；上报点击要用作用域正好是那个档案的令牌"})
 			return
 		}
 		if sc, ok := s.deps.Tokens.Authorize(tok); ok {
 			claimed := strings.TrimSpace(r.URL.Query().Get("profile"))
 			if claimed != "" && !model.ValidSlug(claimed) {
-				writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "profile 不是 ASCII slug"})
+				writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.FieldInvalid, Detail: "profile 不是 ASCII slug"})
 				return
 			}
 			// 申报了就是它，没申报就是这枚令牌自己的作用域。申报成别的档案时
@@ -90,7 +90,7 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		// 里留着死档案的 lb_profile cookie，都会走到这里。AddUsage 的读排
 		// 在写之前，所以这条分支不会造出 profiles/<target>/（评审 Critical
 		// 修的就是"200 + 幽灵目录"）。
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 	case err != nil:
 		// 503 由**本次**错误派生（最终整枝评审 #3）：旧写法对任何错误
 		// 都查全局坏档登记表，而 usage.json 自己坏了从不 markBroken、
@@ -100,8 +100,7 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		// .json 现在如实 503（"仍回 500"那句旧注释作废——它不进
 		// brokenProfiles[] 的裁定不变，登记表只服务 /status 与全家页面）。
 		if errors.Is(err, store.ErrCorrupt) {
-			writeJSON(w, http.StatusServiceUnavailable, errorResponse{
-				Code: 503, Detail: corruptDetail(s.deps.Store, target, err)})
+			writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: corruptDetail(s.deps.Store, target, err)})
 			return
 		}
 		writeInternalError(w, err)

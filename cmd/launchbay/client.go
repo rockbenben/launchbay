@@ -91,17 +91,22 @@ func (c *client) do(method, path string, body []byte, hdr map[string]string) ([]
 }
 
 // mustOK 把非 2xx 变成带 detail 的错误：CLI 的失败要能说清是哪一格拒绝的，
-// 而不是"退出码 1"。
+// 而不是"退出码 1"。kind 也带上（`[duplicate-id]` 那一格）：脚本作者拿它
+// 判分支，比拿中文原话做子串匹配可靠——原话会改，码不会。
 func mustOK(raw []byte, code int, path string) error {
 	if code >= 200 && code <= 299 {
 		return nil
 	}
 	var e struct {
+		Kind   string `json:"kind"`
 		Detail string `json:"detail"`
 	}
 	_ = json.Unmarshal(raw, &e)
 	if e.Detail == "" {
 		e.Detail = strings.TrimSpace(string(raw))
+	}
+	if e.Kind != "" {
+		return fmt.Errorf("%s 返回 %d [%s]：%s", path, code, e.Kind, e.Detail)
 	}
 	return fmt.Errorf("%s 返回 %d：%s", path, code, e.Detail)
 }

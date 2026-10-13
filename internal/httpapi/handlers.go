@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"io"
 	"io/fs"
 	"mime"
@@ -158,7 +159,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		// 通路是假话（JSON 通路一直有 io.LimitReader 罩着）。
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		if err := r.ParseForm(); err != nil {
-			writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "body", Reason: "表单读不出来"}})
+			writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 			return
 		}
 		in.Profile = r.FormValue("profile")
@@ -172,7 +173,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 			redirectPinFail(w, r, "profile")
 			return
 		}
-		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Field: "profile", Reason: "必须是 ASCII slug"}})
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}})
 		return
 	}
 	target, err := s.deps.Store.LoadProfile(in.Profile)
@@ -181,7 +182,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 			redirectPinFail(w, r, "profile")
 			return
 		}
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 		return
 	}
 	if errors.Is(err, store.ErrCorrupt) || errors.Is(err, model.ErrValidation) {
@@ -225,7 +226,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		// 页面上的提示随这台机器的语言翻，API 的 detail 不翻——它是给脚本与 AI 读的，
 		// 混进第二种语言会让"这句话在两种语言里各有一份"这件事对不上号，而调用方要的
 		// 是稳定可对照的文本，不是随界面变的散文。
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: noticeOf(i18n.Default, "disabled")})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.ProfileDisabled, Detail: noticeOf(i18n.Default, "disabled")})
 		return
 	}
 
@@ -234,7 +235,7 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 			redirectPinFail(w, r, "pin")
 			return
 		}
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "PIN 不对"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.PinWrong, Detail: "PIN 不对"})
 		return
 	}
 	auth.WriteSession(w, in.Profile)
@@ -280,7 +281,7 @@ func writePinOK(w http.ResponseWriter, r *http.Request, fromForm bool, sess auth
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		// "GET /" 是兜底 pattern，未注册的路径要维持 404（Task 1 钉过的行为）。
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "not found"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.RouteNotFound, Detail: "not found"})
 		return
 	}
 	// ?add= 是 bookmarklet 带进来的。PIN 步骤不许丢它：选择页里
@@ -510,11 +511,11 @@ func hashFormPIN(pin string, noPass bool) (string, []fieldError) {
 		return "", nil
 	}
 	if !auth.ValidPinFormat(pin) {
-		return "", []fieldError{{Field: "pin", Reason: "要 4-6 位数字"}}
+		return "", []fieldError{{Kind: apierr.FieldInvalid, Field: "pin", Reason: "要 4-6 位数字"}}
 	}
 	hash, err := auth.HashPIN(pin)
 	if err != nil {
-		return "", []fieldError{{Field: "pin", Reason: err.Error()}}
+		return "", []fieldError{{Kind: kindOf(err, apierr.FieldInvalid), Field: "pin", Reason: err.Error()}}
 	}
 	return hash, nil
 }
@@ -528,10 +529,10 @@ func (s *Server) createProfile(in createInput) createResult {
 	}
 	var errs []fieldError
 	if !in.DeriveID && !model.ValidSlug(id) { // 只有 API 那条壳会走到这格：表单不问 id
-		errs = append(errs, fieldError{Field: "id", Reason: "必须是 ASCII slug（小写字母、数字、连字符）"})
+		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "id", Reason: "必须是 ASCII slug（小写字母、数字、连字符）"})
 	}
 	if strings.TrimSpace(in.Title) == "" {
-		errs = append(errs, fieldError{Field: "title", Reason: "不能为空"})
+		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "title", Reason: "不能为空"})
 	}
 	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（见函数上的注释）
 	errs = append(errs, pinErrs...)
@@ -559,7 +560,7 @@ func (s *Server) createProfile(in createInput) createResult {
 		// store 的错误文本含磁盘路径，与 500 同一理由不回显；给一句人话。
 		// 键是 profile 而不是 fromTemplate：模板机制 2026-10-10 整条拆掉之后，
 		// 这两个哨兵唯一还可能的来源就是档案自己写不下去。
-		return createResult{FieldErrs: []fieldError{{Field: "profile", Reason: "建档没成：数据文件读不了或写不下去"}}}
+		return createResult{FieldErrs: []fieldError{{Kind: apierr.ProfileBroken, Field: "profile", Reason: "建档没成：数据文件读不了或写不下去"}}}
 	case permDenied(err):
 		// 这一族排在最后一条之前、且独立于 500：它是"宿主上 ./data 不是
 		// 跑服务的那个用户写的"——群晖/威联通装机的头一个故障，用户在宿主机
@@ -604,7 +605,7 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 	case len(res.FieldErrs) > 0:
 		writeFieldErrors(w, http.StatusUnprocessableEntity, res.FieldErrs)
 	case res.Status == http.StatusConflict:
-		writeJSON(w, res.Status, errorResponse{Code: res.Status, Detail: res.Detail})
+		writeJSON(w, res.Status, errorResponse{Code: res.Status, Kind: apierr.ProfileExists, Detail: res.Detail})
 	case res.Status != 0:
 		writeInternalError(w, res.Err)
 	default:
@@ -624,9 +625,12 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 // "绕开 require 自己判访问"这条路不该在文件里留着诱人照抄。Bearer
 // 解析的唯一实现是 routes.go 的 bearer(r)。
 type fieldError struct {
-	OpsIndex *int   `json:"opsIndex,omitempty"`
-	Field    string `json:"field"`
-	Reason   string `json:"reason"`
+	OpsIndex *int `json:"opsIndex,omitempty"`
+	// Kind 与 errorResponse.Kind 同一族常量（internal/apierr）：一条 422 里
+	// 可能混着"这一条已经在了"与"那一组不在了"，逐条带码才分得开。
+	Kind   string `json:"kind"`
+	Field  string `json:"field"`
+	Reason string `json:"reason"`
 }
 
 var unknownFieldRE = regexp.MustCompile(`unknown field "([^"]+)"`)
@@ -635,9 +639,9 @@ var unknownFieldRE = regexp.MustCompile(`unknown field "([^"]+)"`)
 // 只报 body 等于没报；其余解码错误（语法、类型）归到 body。
 func decodeFieldErrors(err error) []fieldError {
 	if m := unknownFieldRE.FindStringSubmatch(err.Error()); m != nil {
-		return []fieldError{{Field: m[1], Reason: "未知字段"}}
+		return []fieldError{{Kind: apierr.FieldUnknown, Field: m[1], Reason: "未知字段"}}
 	}
-	return []fieldError{{Field: "body", Reason: err.Error()}}
+	return []fieldError{{Kind: kindOf(err, apierr.BodyUnreadable), Field: "body", Reason: err.Error()}}
 }
 
 // decodeBody 先读满（带上限）、再验字节、再解；拒未知键。
@@ -673,11 +677,27 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 // {code, detail, currentRev?, errors?}，map 产生的字母序不算形状）。
 func writeInternalError(w http.ResponseWriter, err error) {
 	fmt.Fprintf(os.Stderr, "launchbay: 内部错误: %v\n", err)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Code: 500, Detail: "内部错误"})
+	writeJSON(w, http.StatusInternalServerError, errorResponse{Code: 500, Kind: apierr.InternalError, Detail: "内部错误"})
+}
+
+// kindOf：错误自己带分类就用它，否则落一个兜底码。**空 kind 是不允许的**——
+// 客户端碰到空串会静默退回"按状态码选句子"那一档，症状是"某几条错的说法永远不对"，
+// 而那正是这一族码要消灭的东西。
+func kindOf(err error, fallback string) string {
+	if k := apierr.Kind(err); k != "" {
+		return k
+	}
+	return fallback
 }
 
 func writeFieldErrors(w http.ResponseWriter, code int, errs []fieldError) {
-	writeJSON(w, code, errorResponse{Code: code, Errors: errs})
+	// 外壳的 kind 取**第一条**的：422 的屏上句子只会用一条，
+	// 而 errors[] 逐条各带自己的 kind，第二、三条不会因为外壳只说一个就丢掉分类。
+	kind := apierr.InvalidRequest
+	if len(errs) > 0 && errs[0].Kind != "" {
+		kind = errs[0].Kind
+	}
+	writeJSON(w, code, errorResponse{Code: code, Kind: kind, Errors: errs})
 }
 
 // corruptDetail 给 503 取文本（最终整枝评审 #3）：503 的**判定**必须来自

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"strings"
 
@@ -27,12 +28,12 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		// 303 + ?err=badkey。把它们合成一个 303 会让人以为 key 写错了，
 		// 而真正的原因是请求体坏了。
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	if n := len(r.Form["key"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "key", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "key", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	if !s.deps.AdminToken.Matches(strings.TrimSpace(r.FormValue("key"))) {

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"strings"
 
@@ -25,23 +26,23 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		// 字段名与 /prefs、/pin 的同一失败对齐：同一个病在三个端点上叫两个名，
 		// AI 学到的词汇表就分家了。
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "body", Reason: "表单读不出来"}})
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
 	// 同名多值（title=a&title=b）不是"取第一个"，是没说清要建哪个（/prefs 同纪律）。
 	if n := len(r.Form["title"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "title", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "title", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	if n := len(r.Form["pin"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "pin", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "pin", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	if n := len(r.Form["language"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "language", Reason: "同一个字段只能出现一次"}})
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "language", Reason: "同一个字段只能出现一次"}})
 		return
 	}
 	res := s.createProfile(createInput{

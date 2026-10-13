@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"strings"
@@ -60,10 +61,10 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	var errs []fieldError
 	if !model.ValidSlug(in.Profile) {
-		errs = append(errs, fieldError{Field: "profile", Reason: "必须是 ASCII slug（小写字母、数字、连字符）"})
+		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug（小写字母、数字、连字符）"})
 	}
 	if strings.TrimSpace(in.Title) == "" {
-		errs = append(errs, fieldError{Field: "title", Reason: "不能为空"})
+		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "title", Reason: "不能为空"})
 	}
 	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（createrule_test.go 第三档钉着）
 	errs = append(errs, pinErrs...)
@@ -78,18 +79,16 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, store.ErrNotFound):
 		// 这条端点**不建目录**：建档案仍然只有 POST /api/v1/profiles 与 POST /setup。
 		// 说清这一点是为了让人别把它当"重建"的第二条路——目录不在就是不在。
-		writeJSON(w, http.StatusNotFound, errorResponse{
-			Code: 404, Detail: "档案不存在。这条通路只重写 profile.json，建不出新档案（建档走 POST /api/v1/profiles）"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotRebuildable, Detail: "档案不存在。这条通路只重写 profile.json，建不出新档案（建档走 POST /api/v1/profiles）"})
 	case errors.Is(err, store.ErrReadable):
 		// 409 而不是 403/404：档案在、也读得动，只是**不需要**重建。改 PIN 请走
 		// profiles/pin——它要的是新 PIN，不是整份重写（这正是两条端点不许合并的
 		// 那条理由，profile-repair 设计 §0）。
-		writeJSON(w, http.StatusConflict, errorResponse{
-			Code: 409, Detail: "这份档案读得动，不需要重建；要改 PIN 请走 POST /api/v1/profiles/pin"})
+		writeJSON(w, http.StatusConflict, errorResponse{Code: 409, Kind: apierr.ProfileNotRebuildable, Detail: "这份档案读得动，不需要重建；要改 PIN 请走 POST /api/v1/profiles/pin"})
 	case errors.Is(err, store.ErrInvalid):
 		// store 的错误文本含磁盘路径，与 500 同一理由不回显。
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "profile", Reason: "字段不合法，重建没成"}})
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "字段不合法，重建没成"}})
 	case err != nil:
 		// 落盘失败与"写完回读仍读不动"都在这里（回读失败是 500，且坏档登记留着
 		// ——那正是"别把一个已经修好的文件说成没好"的要求）。

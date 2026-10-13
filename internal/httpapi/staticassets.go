@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"fmt"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"strings"
 
@@ -67,7 +68,7 @@ func (s *Server) handleBookmarklet(w http.ResponseWriter, r *http.Request) {
 		host = host[:i]
 	}
 	if host == "" || !validHostShape(host) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Detail: "Host 头形状不对"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.HostInvalid, Detail: "Host 头形状不对"})
 		return
 	}
 	// scheme 在局域网里几乎总是 http（这台服务自己不上 TLS，§11 明写不防）。

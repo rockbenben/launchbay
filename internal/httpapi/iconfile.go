@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -53,14 +54,14 @@ func (s *Server) handleIconFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	name := r.PathValue("name")
 	if !iconFileNameRE.MatchString(name) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: iconMissingDetail})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.RouteNotFound, Detail: iconMissingDetail})
 		return
 	}
 	ext := name[strings.LastIndexByte(name, '.')+1:]
 	data, err := os.ReadFile(filepath.Join(s.deps.Store.IconsDir(), name))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: iconMissingDetail})
+			writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.RouteNotFound, Detail: iconMissingDetail})
 			return
 		}
 		writeInternalError(w, err)

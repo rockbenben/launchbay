@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"io"
 	"net/http"
 	"time"
@@ -401,13 +402,12 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	// 它落到下面那次 Authorize 上只会得到"认不出来"的 401——那是错的答案：
 	// 它不是坏了，是**层级不对**。所以这里单独拦一句，给出 403 与出路。
 	if s.deps.AdminToken.Matches(bearer(r)) {
-		writeJSON(w, http.StatusForbidden, errorResponse{
-			Code: 403, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
 		return
 	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "令牌认不出来"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌认不出来"})
 		return
 	}
 	if _, _, ok := s.require(r, credScoped, sc.Profile); !ok {
@@ -416,8 +416,7 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, err := io.ReadAll(io.LimitReader(r.Body, maxImportBytes+1))
 	if err != nil || len(raw) > maxImportBytes {
-		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{
-			Code: 413, Detail: "读不到请求体，或超过了 8 MB 上限"})
+		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{Code: 413, Kind: apierr.BodyUnreadable, Detail: "读不到请求体，或超过了 8 MB 上限"})
 		return
 	}
 	// 接口这一条有两个读者：脚本（CLI、curl）要的是**逐字不变**的那一份，
@@ -447,7 +446,7 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Detail: "令牌认不出来"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌认不出来"})
 		return
 	}
 	actor, _, ok := s.require(r, credScoped, sc.Profile)
@@ -462,18 +461,15 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case out.missing:
-		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Detail: "档案不存在"})
+		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotFound, Detail: "档案不存在"})
 	case out.broken != "":
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Detail: out.broken})
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Code: 503, Kind: apierr.ProfileBroken, Detail: out.broken})
 	case out.conflict != nil:
-		writeJSON(w, http.StatusConflict, errorResponse{
-			Code: 409, Detail: "rev 已变，请重读后重试", CurrentRev: out.conflict})
+		writeJSON(w, http.StatusConflict, errorResponse{Code: 409, Kind: apierr.RevConflict, Detail: "rev 已变，请重读后重试", CurrentRev: out.conflict})
 	case len(out.verrs) > 0:
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Code: 422, Detail: "ops 校验未过，整批未写入", Errors: opFieldErrors(out.verrs)})
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Code: 422, Kind: apierr.OpsInvalid, Detail: "ops 校验未过，整批未写入", Errors: opFieldErrors(out.verrs)})
 	case out.snapErr != nil:
-		writeJSON(w, http.StatusInsufficientStorage, errorResponse{
-			Code: 507, Detail: "快照写不下去，本次写入已取消"})
+		writeJSON(w, http.StatusInsufficientStorage, errorResponse{Code: 507, Kind: apierr.SnapshotFailed, Detail: "快照写不下去，本次写入已取消"})
 	default:
 		writeJSON(w, http.StatusOK, importApplyResponse{
 			Profile: sc.Profile, Rev: out.resp.Rev,
@@ -489,19 +485,15 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 func importAPIError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errNothingToImport):
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Code: 422, Detail: "这个文件里没读出书签——请确认它是浏览器「导出书签」出来的那份 .html"})
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Code: 422, Kind: apierr.ImportNoBookmarks, Detail: "这个文件里没读出书签——请确认它是浏览器「导出书签」出来的那份 .html"})
 	case errors.Is(err, errAllSkipped):
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
-			Code: 422, Detail: "读出了书签，但没有一条能进来——它们的地址都是 javascript:、data: " +
-				"这类没有主机名、点了会执行东西的地址，这种书签请继续在浏览器里用；" +
-				"本地文件 file:// 是能导的"})
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Code: 422, Kind: apierr.ImportNothingAccepted, Detail: "读出了书签，但没有一条能进来——它们的地址都是 javascript:、data: " +
+			"这类没有主机名、点了会执行东西的地址，这种书签请继续在浏览器里用；" +
+			"本地文件 file:// 是能导的"})
 	case errors.Is(err, errStashGone):
-		writeJSON(w, http.StatusGone, errorResponse{
-			Code: 410, Detail: "这次的上传已经过期或被用过了，请重新发起"})
+		writeJSON(w, http.StatusGone, errorResponse{Code: 410, Kind: apierr.ImportPlanStale, Detail: "这次的上传已经过期或被用过了，请重新发起"})
 	case errors.Is(err, errNoStash):
-		writeJSON(w, http.StatusInsufficientStorage, errorResponse{
-			Code: 507, Detail: "临时存不下这次上传，稍后再试"})
+		writeJSON(w, http.StatusInsufficientStorage, errorResponse{Code: 507, Kind: apierr.InternalError, Detail: "临时存不下这次上传，稍后再试"})
 	default:
 		writeInternalError(w, err)
 	}
