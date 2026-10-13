@@ -137,6 +137,9 @@
   "app.ph.group": "新分组叫什么",
   "app.icon.none": "不选图标（用名字第一个字）",
   "app.icon.auto": "抓这个网站的图标",
+  "app.icon.currentSuffix": "（现在的）",
+  "app.icon.fetch": "去看这一站的图标",
+
   "app.save": "保存",
   "app.saveMore": "保存并继续",
   "app.close": "关闭",

@@ -106,13 +106,17 @@ type executor struct {
 
 type itemView struct {
 	ID, Name, URL, Desc string
-	Letter              string
-	Alias, Tags         []string
-	External            bool // 非 http/https：浏览器不让从网页跳过去
-	SVG                 template.HTML
-	Img                 string
-	Missing             bool
-	ChipHue             int
+	// Icon 是盘上那串图标名（tabler:box / simple-icons:x / auto / 空）。屏上它只是
+	// 一个小图形，DOM 里没有一处写着这串字——编辑那一格要说"现在用的是哪一个"，
+	// 只能由模板把它带到 li[data-icon] 上（batch9 U7）。
+	Icon        string
+	Letter      string
+	Alias, Tags []string
+	External    bool // 非 http/https：浏览器不让从网页跳过去
+	SVG         template.HTML
+	Img         string
+	Missing     bool
+	ChipHue     int
 }
 
 type groupView struct {
@@ -753,7 +757,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		for _, it := range g.Items {
 			p := pieceFor(it, e.ix, e.fc)
 			gv.Items = append(gv.Items, itemView{
-				ID: it.ID, Name: it.Name, URL: it.URL, Desc: it.Desc,
+				ID: it.ID, Name: it.Name, URL: it.URL, Desc: it.Desc, Icon: it.Icon,
 				Alias: it.Alias, Tags: it.Tags,
 				// 协议判据只有一个来源：model.ExternalScheme。字符串前缀
 				// 各写一份，校验与渲染就会在某天分家。

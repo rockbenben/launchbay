@@ -131,8 +131,13 @@
          分组标题命中还带出整组——同一台机器同一个词，一个说"没有"，另一个搜出 8 条。
          现在两边读同一组字段。多个值用 `&#10;`（换行）连接而不是空格：标签与别名
          自己可能带空格，用空格当分隔会把一个标签拆成两个、还会跨两个标签误配。
-         空的就不写（1000 条那一份每一格都写会白吃一屏字节）。 */}}
-    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}}>
+         空的就不写（1000 条那一份每一格都写会白吃一屏字节）。
+         data-icon-name 是给编辑模态的：那一格要能说出"现在用的是哪一个"，而图标名
+         在屏上只是一个小图形，DOM 里没有它写字的地方。**名字不能写成 data-icon**：
+         Go 的 html/template 把 `icon` 当 URL 属性，`data-icon` 的后缀撞上它，
+         值会被换成 #ZgotmplZ（实测，复现见 .superpowers/tmp/dp9/tmplattr）。
+         带 `-name` 后缀就不在名单里，值原样出去。 */}}
+    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
         <span class="plain">
           {{template "icon" .}}

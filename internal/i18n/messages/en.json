@@ -137,6 +137,9 @@
   "app.ph.group": "Name for the new group",
   "app.icon.none": "No icon (use the first letter)",
   "app.icon.auto": "Fetch this site's icon",
+  "app.icon.currentSuffix": " (current)",
+  "app.icon.fetch": "Look up this site's icons",
+
   "app.save": "Save",
   "app.saveMore": "Save and continue",
   "app.close": "Close",

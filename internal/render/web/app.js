@@ -35,6 +35,8 @@ const APP_I18N = {
     "app.ph.group": "新分组叫什么",
     "app.icon.none": "不选图标（用名字第一个字）",
     "app.icon.auto": "抓这个网站的图标",
+    "app.icon.currentSuffix": "（现在的）",
+    "app.icon.fetch": "去看这一站的图标",
     "app.save": "保存",
     "app.saveMore": "保存并继续",
     "app.close": "关闭",
@@ -151,6 +153,8 @@ const APP_I18N = {
     "app.ph.group": "Name for the new group",
     "app.icon.none": "No icon (use the first letter)",
     "app.icon.auto": "Fetch this site's icon",
+    "app.icon.currentSuffix": " (current)",
+    "app.icon.fetch": "Look up this site's icons",
     "app.save": "Save",
     "app.saveMore": "Save and continue",
     "app.close": "Close",
@@ -544,16 +548,26 @@ const APP_I18N = {
 
   // 图标下拉在 resolve 之前是**空的**（零选项的下拉框）：人看不到能选什么，
   // 也选不到"抓这个网站的图标"。两个语义值常驻，resolve 回来的候选再插进去。
-  function iconChoices(candidates) {
-    fIcon.innerHTML = '';
-    fIcon.append(
+  const iconLabel = (v) => v.replace(/^[a-z-]+:/, '');
+  function fillIconChoices(sel, candidates, current) {
+    sel.innerHTML = '';
+    sel.append(
       el('option', { value: '', text: T('app.icon.none') }),
       el('option', { value: 'auto', text: T('app.icon.auto') }),
     );
-    for (const c of candidates || []) {
-      fIcon.append(el('option', { value: c, text: c.replace(/^[a-z-]+:/, '') }));
+    const list = candidates || [];
+    // 盘上那个名字如果不在候选里，也**必须**还能被选着：否则打开模态什么都没改，
+    // 一按保存就把它的图标清掉了——那一格说"没设图标"，而人从没碰过它。
+    if (current && current !== 'auto' && !list.includes(current)) {
+      sel.append(el('option', {
+        value: current, selected: 'selected',
+        text: iconLabel(current) + T('app.icon.currentSuffix'),
+      }));
     }
+    for (const c of list) sel.append(el('option', { value: c, text: iconLabel(c) }));
+    if (current) sel.value = current;
   }
+  function iconChoices(candidates) { fillIconChoices(fIcon, candidates, ''); }
   iconChoices([]);
 
   // ── bookmarklet 带进来的一条（§6.3）────────────────────────────────────
@@ -1259,6 +1273,29 @@ const APP_I18N = {
     const gname = groupName(sec);
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
+    // 图标这一格从前只在「＋ 添加」那一层有——于是"给一条已经在库里的书签换个图标"
+    // 在界面上没有任何出口：能改内容的那一层没有图标，能选图标的那一层只用于新增。
+    // 导入报告因此只能说"导完之后用 POST /api/v1/batch 逐条设 icon"，把家里人指去
+    // 打接口（那是 2ddeb12 那一族「能配却没有出口」的又一格）。
+    const curIcon = li.dataset.iconName || '';
+    const ic = el('select', { id: 'lb-edit-icon', class: 'fld' });
+    fillIconChoices(ic, [], curIcon);
+    const lookIcon = el('button', {
+      type: 'button', class: 'fld', text: T('app.icon.fetch'),
+      on: {
+        click: async () => {
+          lookIcon.disabled = true;
+          try {
+            const r = await api('/api/v1/resolve', { url: u.value.trim() || url, profile });
+            fillIconChoices(ic, r.iconCandidates, ic.value || curIcon);
+          } catch (e) {
+            showBanner(T('app.readErr', e.message), 'bad');
+          } finally {
+            lookIcon.disabled = false;
+          }
+        },
+      },
+    });
     const undo = el('p', { class: 'edit-undo', text: T('app.delete.undoHint') });
     // 删除是**两步**，两步都在这一格里走完：第一下把那颗键换成"确定删掉？"并露出
     // 那句"还能用回退找回来"，第二下才发 op。为什么不用 confirm()——那是 §8.8
@@ -1295,7 +1332,10 @@ const APP_I18N = {
       on: {
         submit: async (e) => {
           e.preventDefault();
-          const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim() });
+          // icon 只在**人真的换过**时发：没动过就不许发一条 set 把它清掉
+          // （下拉里"不选图标"是空串，与"当前没有图标"同值，靠比较而不是靠非空判断）。
+          const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim(),
+            icon: ic.value === curIcon ? null : ic.value });
           if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
         // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
@@ -1318,6 +1358,8 @@ const APP_I18N = {
     }, [el('h2', { id: 'lb-edit-h', text: T('app.edit.aria', name || T('app.edit.fallbackName')) }),
         el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
         el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
+        el('label', { text: T('app.field.icon') }, [ic]),
+        el('p', { class: 'edit-icon-row' }, [lookIcon]),
         el('div', { class: 'row' }, [
           el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
           el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit() } }),
