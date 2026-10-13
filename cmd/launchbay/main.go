@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/httpapi"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/render"
@@ -33,6 +35,12 @@ func main() {
 	// "端口被占用"，而不是"这个子命令不存在"，能白查很久。
 	if code := runCLI(os.Args[1:], cfg, os.Stdout); code != notCLICommand {
 		os.Exit(exitCode(code))
+	}
+	// 走到这里就是 serve 那一支：管理员 key 是**服务端**的启动错误（AGENTS.md
+	// 「令牌与鉴权」——缺了它这台机器装完没人能管）。CLI 子命令在上面已经返回了，
+	// 它们要的是档案作用域令牌，所以这条闸不拦它们。
+	if err := serveNeedsAdmin(cfg); err != nil {
+		log.Fatalf("配置错误: %v", err)
 	}
 	s := store.New(cfg.DataDir)
 	ix, err := icons.Load()
@@ -112,4 +120,16 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
+}
+
+// serveNeedsAdmin 是"这台机器要能管"那一道闸：管理员 key 缺失对**服务端**是启动错误
+// （缺了它装完没人能建档、删档、给别人设 PIN），对 CLI 子命令却不是——`revert` 与
+// `import-bookmarks` 用的是档案作用域令牌，管理员那把在内容端点上恰恰是 403。
+// 所以这条判据单独成一个函数：main 里那三行没法被测到，而"谁必填谁选填"这件事
+// 一旦挪错，症状是所有人卡在建档页而日志一个字不打。
+func serveNeedsAdmin(cfg config) error {
+	if cfg.AdminToken.Secret() == "" {
+		return fmt.Errorf("LAUNCHBAY_ADMIN_TOKEN: %w", auth.ErrNoAdminToken)
+	}
+	return nil
 }

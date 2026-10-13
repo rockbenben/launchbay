@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rockbenben/launchbay/internal/auth"
 )
@@ -24,11 +25,18 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("LAUNCHBAY_WRITE_TOKENS: %w", err)
 	}
 	c.Tokens = scopes
-	admin, err := auth.ParseAdminToken(os.Getenv("LAUNCHBAY_ADMIN_TOKEN"))
-	if err != nil {
-		return config{}, fmt.Errorf("LAUNCHBAY_ADMIN_TOKEN: %w", err)
+	// **空值是合法的**，但只对 CLI 子命令合法：`revert` 与 `import-bookmarks` 用的是
+	// 档案作用域令牌（管理员那把在内容端点上恰恰是 403，AGENTS.md「令牌与鉴权」）。
+	// 以前这里无条件要管理员 key，于是"我只想退一档"的人被告知的是
+	// "这台机器就没有人能建档、删档或给别人设 PIN"——说的是另外三件事。
+	// 服务端那一支仍然硬要：判据挪回 main.go 的 serve 分支，那儿才是"这台机器要能管"的地方。
+	if raw := strings.TrimSpace(os.Getenv("LAUNCHBAY_ADMIN_TOKEN")); raw != "" {
+		admin, err := auth.ParseAdminToken(raw)
+		if err != nil {
+			return config{}, fmt.Errorf("LAUNCHBAY_ADMIN_TOKEN: %w", err)
+		}
+		c.AdminToken = admin
 	}
-	c.AdminToken = admin
 	return c, nil
 }
 

@@ -47,11 +47,35 @@ func TestLoadConfigRejectsBadTokens(t *testing.T) {
 	if !strings.Contains(err.Error(), "LAUNCHBAY_ADMIN_TOKEN") {
 		t.Fatalf("报错该指出去哪儿改: %v", err)
 	}
-	// 管理员 key 缺失同样是**启动错误**：症状是所有人卡在建档页而日志一个字不打。
+}
+
+// 管理员 key 缺失**只拦服务端，不拦 CLI 子命令**（2026-10-14）。
+//
+// 以前 loadConfig 无条件要它，于是"我只想退一档"的人拿着 dad 的档案令牌，
+// 被告知的是"这台机器就没有人能建档、删档或给别人设 PIN"——说的是另外三件事，
+// 而那三件事他一件都没在做。判据挪进 serveNeedsAdmin 之后，这一族要钉两件事：
+// CLI 那一边真的能走通，serve 那一边仍然起不来。
+func Test管理员key只拦serve不拦CLI(t *testing.T) {
 	t.Setenv("LAUNCHBAY_WRITE_TOKENS", "ai-dad:tok-dad:dad")
-	t.Setenv("LAUNCHBAY_ADMIN_TOKEN", "")
-	if _, err := loadConfig(); err == nil {
-		t.Fatal("want error for missing LAUNCHBAY_ADMIN_TOKEN")
+	for _, empty := range []string{"", "   "} {
+		t.Setenv("LAUNCHBAY_ADMIN_TOKEN", empty)
+		cfg, err := loadConfig()
+		if err != nil {
+			t.Fatalf("缺管理员 key 不该让 CLI 子命令连配置都读不动（%q）：%v", empty, err)
+		}
+		if err := serveNeedsAdmin(cfg); err == nil {
+			t.Fatal("服务端那一支该仍然把它当启动错误：缺了这台机器没人能管")
+		} else if !strings.Contains(err.Error(), "LAUNCHBAY_ADMIN_TOKEN") {
+			t.Errorf("报错该指出去哪儿改：%v", err)
+		}
+	}
+	t.Setenv("LAUNCHBAY_ADMIN_TOKEN", "tok-admin")
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := serveNeedsAdmin(cfg); err != nil {
+		t.Errorf("配了 key 之后 serve 不该再拦：%v", err)
 	}
 }
 

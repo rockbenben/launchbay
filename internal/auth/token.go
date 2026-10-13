@@ -125,11 +125,15 @@ type AdminToken struct {
 
 // ParseAdminToken 读 LAUNCHBAY_ADMIN_TOKEN。空值是**启动错误**而不是"这台机器
 // 没有管理员"：后者的症状是所有人卡在建档页上、而日志一个字都不打。
+// ErrNoAdminToken 是"这台机器没有管理员 key"这一件事的**唯一一份文本**：
+// 服务端启动要报它（main.go 的 serve 分支），CLI 那一支却**不该**被它拦住
+// （revert 与 import-bookmarks 用的是档案作用域令牌）。
+var ErrNoAdminToken = errors.New("未配置 LAUNCHBAY_ADMIN_TOKEN：这台机器就没有人能建档、删档或给别人设 PIN")
+
 func ParseAdminToken(envValue string) (AdminToken, error) {
 	v := strings.TrimSpace(envValue)
 	if v == "" {
-		return AdminToken{}, errors.New(
-			"未配置 LAUNCHBAY_ADMIN_TOKEN：这台机器就没有人能建档、删档或给别人设 PIN")
+		return AdminToken{}, ErrNoAdminToken
 	}
 	return AdminToken{secret: v}, nil
 }
