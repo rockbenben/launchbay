@@ -131,6 +131,26 @@ li:focus-within .pencil,li:focus-within .copybtn
   .card:hover .pencil,.plain:hover .pencil,.plain:hover .copybtn,
   li:focus-within .pencil,li:focus-within .copybtn{opacity:1}
 }
+/* 这两枚键的**命中区**在手指上往外撑 6px（§7.5 说的是命中区，不是盒子——
+   `.layoutbtn` 同一族的处置：盒子 32×28，透明 ::before 上下 -8 左右 -6）。
+   390 触摸档实测：盒子 32×32，中心命中自己、往上 4px 就不是了，而它们静息还
+   只有 .34 的透明度——手指对着的是一个又小又淡的目标。
+   扩完之后实测：两枚键各 42×42 与 42×37（CSS 给的是 ±6，第 6 个像素是开区间
+   边界所以量到 5；把手贴着行尾，向右那 6px 落在行外，量不到）——比 44 还差
+   一到两像素，差的是**盒子外的边界像素**，不是排法。**只在粗指针上扩**：dense
+   那一档的去壳写在上面那条 `pointer:fine` 里，行高压到 26px，无条件上下各扩 6px
+   会盖住相邻那一行的把手——鼠标上偷走别人的点击，比手指上够不着更坏。
+   粗指针这一边行高本来就 ≥44（`.card/.plain` 那一族接住），扩展正好落在自己那一行里。
+   `position:relative` 盖不住磁贴那枚：`.tiles .pencil{position:absolute}` 是 0,2,0，比这里高。 */
+@media (hover:none),(pointer:coarse){
+  .pencil,.copybtn{position:relative}
+  .pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}
+  /* 两枚键原来只隔 4px，而各自往外扩 6px 会把这一片重叠掉——后画的那枚（把手）
+     整段拿走，实测复制键向右扩得出 0px。缝给到 12px 之后两边都留得住 5px。
+     挤出去的那 8px 由名字那一格吸收（`.tiles .plain b{flex:1 1 0}` 那条判据：
+     挤不动的是名字，不是行高，也不是键）。 */
+  .plain .pencil,.card .pencil{margin-left:8px}
+}
 /* 高对比模式：两枚幽灵键必须**看得见**。上面那一档静息 `opacity:0`，而高对比把
    border-color 之类压成 CanvasText、`opacity` 照旧生效——于是它们既没有框也没有
    字形，只剩 Tab 过去才知道在那儿。`.layoutbtn` 早有同一处置，那两枚 44px 的键
