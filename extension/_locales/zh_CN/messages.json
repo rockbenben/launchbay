@@ -102,6 +102,46 @@
     },
     "message": "这台机器上没有叫「$1」的档案（多半是那份档案已经被删了）。"
   },
+  "errAdminOnly": {
+    "message": "这枚是管理员的 key，它不开书签这一面。扩展设置页里要配的是那一份档案自己的令牌。"
+  },
+  "errBadUrl": {
+    "message": "这个地址还不完整——要有协议和主机名（例如 http://10.0.0.5:5000/）。"
+  },
+  "errBroken": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "「$1」的数据文件读不动，这一条没写进去。要在那台机器上修好那个文件，重试解决不了。"
+  },
+  "errDisabled": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "「$1」这一份被停用了，写不进去。要在那台机器的管理页重新启用它。"
+  },
+  "errDuplicate": {
+    "message": "这一条已经在这份里了，没有存第二遍。要改它，去页面上在那一条上按编辑。"
+  },
+  "errGoneTarget": {
+    "message": "那一组或那一条已经不在了——可能别人刚改过。刷新页面再看一次。"
+  },
+  "errIconName": {
+    "message": "那个图标名这台机器查不到。换一个，或留空用名字第一个字。"
+  },
+  "errNoBookmarks": {
+    "message": "那份文件里读不出书签——确认选的是浏览器导出的那一个 .html 文件。"
+  },
+  "errNothingAccepted": {
+    "message": "这份文件里的地址一条都进不来（多半是缺主机名那种）。换一份，或先在浏览器里把那些书签修好。"
+  },
+  "errOpsBatch": {
+    "message": "这一批没写进去，书签一个字都没变。再点一次不会不一样——这一条得在页面上改。"
+  },
   "errConflict": {
     "message": "这一份刚刚被改过，再点一次就好。"
   },
@@ -110,14 +150,6 @@
   },
   "errNoSnap": {
     "message": "这一版存不下，改动已经取消，书签一个字都没变。"
-  },
-  "errRejected": {
-    "placeholders": {
-      "1": {
-        "content": "$1"
-      }
-    },
-    "message": "这台机器不收这一条：$1"
   },
   "errServer": {
     "placeholders": {

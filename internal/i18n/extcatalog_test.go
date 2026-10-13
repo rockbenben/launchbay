@@ -301,11 +301,41 @@ var reT = regexp.MustCompile(`\bt\('([A-Za-z0-9_]+)'`)
 var reMsg = regexp.MustCompile(`__MSG_([A-Za-z0-9_]+)__`)
 var rePlain = regexp.MustCompile(`data-i18n="([^"]+)"`)
 
+// i18n.js 里那两张错误码表也是引用，写法是 `'duplicate-id': 'errDuplicate',` 与
+// `401: 'err401',`。扫描器只认 `t('key')` 这一种写法的话，表里那批 key 会集体被判成
+// "在册却没人引用"，而**真正漏接的那个码却一路绿**——直到有人撞上报错才在通知里
+// 看见一条 ⟨errXxx⟩。两张表的写法由 extKindTable 解析，它同时是
+// TestExtension_每种错误码都有交代 的输入，判据只有一份。
+var reKindRow = regexp.MustCompile(`^\s*'([a-z][a-z0-9-]*)': '([A-Za-z][A-Za-z0-9_]*)',\s*$`)
+var reStatusRow = regexp.MustCompile(`^\s*(\d{3}): '([A-Za-z][A-Za-z0-9_]*)',\s*$`)
+
+// extKindTable 交出 i18n.js 里"码/状态 → 目录 key"的两份映射（键带上前缀区分不开，
+// 所以状态码那一份单独返回）。
+func extKindTable(t *testing.T) (map[string]string, map[string]string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(extDir, "i18n.js"))
+	if err != nil {
+		t.Fatalf("读不到 extension/i18n.js：%v", err)
+	}
+	kinds := map[string]string{}
+	statuses := map[string]string{}
+	for _, line := range extCodeLines(string(raw)) {
+		if m := reKindRow.FindStringSubmatch(line); m != nil {
+			kinds[m[1]] = m[2]
+		}
+		if m := reStatusRow.FindStringSubmatch(line); m != nil {
+			statuses[m[1]] = m[2]
+		}
+	}
+	return kinds, statuses
+}
+
 // extRefs 返回 {key: 出现处}（值只为了报错时说得清），以及只来自 HTML 的那一批。
 func extRefs(t *testing.T) (map[string][]string, map[string]bool) {
 	t.Helper()
 	refs := map[string][]string{}
 	fromHTML := map[string]bool{}
+	kindTable, statusTable := extKindTable(t)
 	jsFiles := []string{"bg.js", "options.js", "import.js", "i18n.js"}
 	for _, f := range jsFiles {
 		raw, err := os.ReadFile(filepath.Join(extDir, f))
@@ -314,6 +344,15 @@ func extRefs(t *testing.T) (map[string][]string, map[string]bool) {
 		}
 		for _, m := range reT.FindAllStringSubmatch(string(raw), -1) {
 			refs[m[1]] = append(refs[m[1]], f)
+		}
+		if f == "i18n.js" {
+			// 两张表的 value 也算引用（见 reKindRow 那段理由）。
+			for _, key := range kindTable {
+				refs[key] = append(refs[key], "i18n.js 错误码表")
+			}
+			for _, key := range statusTable {
+				refs[key] = append(refs[key], "i18n.js 状态码表")
+			}
 		}
 	}
 	for _, f := range []string{"options.html", "manifest.json"} {
@@ -536,4 +575,90 @@ func TestExtension_商店名称与描述在长度上限内(t *testing.T) {
 			}
 		}
 	}
+}
+
+// 七、服务端登记的每一个错误码，扩展这一侧都要有交代：要么有一句，要么写着
+// 为什么这一侧永远收不到它。
+//
+// 为什么这一条不归上面那族管：那族判的是"引用了的 key 在册"，而**一个根本没接上的
+// 码不会产生任何引用**——它掉进 httpErr 的状态码兜底，通知里说的是一句大致对的话
+// （422 = "这一批没写进去"），而真实原因可能是"这一条已经存过了"。那种错不会红，
+// 只会让人照着错的那句查。主站 app.js 那一侧有同形状的一条（appi18n_test.go），
+// 两边判据同源：kind 清单从 internal/apierr/apierr.go 扫，不在这里再抄一份。
+func TestExtension_每种错误码都有交代(t *testing.T) {
+	kinds := extServerKinds(t)
+	if len(kinds) < 25 {
+		t.Fatalf("从 apierr.go 只扫到 %d 个 kind——扫描器失灵与「真的就这么几个」长得一模一样", len(kinds))
+	}
+	kindTable, statusTable := extKindTable(t)
+	if len(kindTable) < 12 {
+		t.Fatalf("从 i18n.js 的 KIND 表只扫到 %d 行：写法变了？这条闸现在形同不设", len(kindTable))
+	}
+	if len(statusTable) < 5 {
+		t.Fatalf("从 i18n.js 的 STATUS 表只扫到 %d 行：写法变了？", len(statusTable))
+	}
+	for _, k := range kinds {
+		if _, ok := kindTable[k]; ok {
+			continue
+		}
+		if why := extUnreachable[k]; why != "" {
+			continue
+		}
+		t.Errorf("kind %q 在扩展里既没句子也没写「为什么收不到」：那一发会退回状态码兜底，"+
+			"而兜底句对这一类很可能又是一句假话（通知是这条流水线上唯一会被人读到的地方）", k)
+	}
+	for k, why := range extUnreachable {
+		if !extHasString(kinds, k) {
+			t.Errorf("未达表里写着 %q（%s），服务端已经没有这一码：这一格该删——留着它，"+
+				"下次真加了这个码反而没人管", k, why)
+		}
+	}
+	// 状态码兜底那张表不许是空的，也不许把某一族指回"东西没了，刷新一下"那一类
+	// 假话：409 在扩展这一侧只可能是 rev-conflict（别人刚改过），说成"没这个档案"
+	// 会让人去查配置而不是再点一次。
+	for _, want := range []string{"401", "403", "404", "409", "410", "422", "507"} {
+		if _, ok := statusTable[want]; !ok {
+			t.Errorf("STATUS 兜底表里没有 %s 那一档：扩展比服务端旧时，那一发连一句大致对的话都没有", want)
+		}
+	}
+}
+
+// extUnreachable 是"扩展这一侧收不到这个码"的登记表：写理由，不是留空位。
+// 理由要能被下一个人复核——"界面上没有那条通路"与"我懒得映射"得区分得开。
+var extUnreachable = map[string]string{
+	"pin-wrong":               "扩展不带 PIN：进门是浏览器那条路（Cookie/PIN 表单）",
+	"profile-exists":          "建档只有管理页表单与 POST /api/v1/profiles 两条通路，扩展都不走",
+	"profile-not-rebuildable": "rebuild 是管理员与 CLI 的动作，扩展没有这条通路",
+	"body-unreadable":         "请求体由这份脚本自己组装成 JSON；导入那一路发原始 HTML，读不出东西归 import-no-bookmarks",
+	"field-duplicate":         "同一份组装出来的对象里不会有重复键",
+	"field-unknown":           "同上：多出来的键只可能是这份脚本自己写错了，那时该红的是代码",
+	"query-invalid":           "扩展唯一那个带查询参数的请求（/api/v1/data?profile=）在发出去之前就判过 id 非空",
+	"route-not-found":         "路径由这份脚本写死",
+	"host-invalid":            "那是 Host 头与静态资源那一族；扩展只打 /api/v1/*，不抓 /icons/",
+	"target-unreachable":      "resolve 抓不到就退回标签页标题，那一发不弹通知（bg.js 的 saveOne 那个 catch）",
+	"internal-error":          "500 由 errServer 那一档带着状态码说——一句猜的出路不如一个事实",
+}
+
+func extServerKinds(t *testing.T) []string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "apierr", "apierr.go"))
+	if err != nil {
+		t.Fatalf("读 internal/apierr/apierr.go：%v", err)
+	}
+	re := regexp.MustCompile("(?m)^\\t([A-Z][A-Za-z]+)\\s*= \"([a-z0-9][a-z0-9-]*)\"")
+	var out []string
+	for _, m := range re.FindAllStringSubmatch(string(raw), -1) {
+		out = append(out, m[2])
+	}
+	sort.Strings(out)
+	return out
+}
+
+func extHasString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

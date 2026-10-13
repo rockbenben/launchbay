@@ -16,11 +16,11 @@
 // 扩展不做 URL 白名单，替用户偷偷删书签不是它该做的事。
 //
 // 这里**一句中文都不写**：每一句人都要读到的话都住在 `_locales/*/messages.json`
-// （internal/i18n/extcatalog_test.go 钉着两份语言一一对应）。服务端答的那些
-// detail / reason 是**给脚本读的协议话**，不进通知——除非那句话本身就是唯一
-// 说得清原因的东西（见 httpErr 的 422 那一格）。
+// （internal/i18n/extcatalog_test.go 钉着两份语言一一对应，并钉着"服务端登记的
+// 每一个错误码在这儿都有交代"）。服务端答的那些 detail / reason 是给脚本读的
+// 协议话，不进通知——它们进 console，那里有排查的人与 AI。
 
-import { t, httpErr } from './i18n.js';
+import { t, httpErr, kindOf, serverNote } from './i18n.js';
 
 const CFG_KEY = 'lb-config';
 const DEFAULTS = { base: '', tokens: {}, defaultProfile: '' };
@@ -37,7 +37,7 @@ function currentProfile(c) {
 
 // send 打这台机器。**每一处失败都要变成人话**：扩展弹一下就没了，报错写在
 // console 里的话，点了没反应的人根本不会去看那里。`body` 不给就是 GET。
-// 状态码那一段的判据在 i18n.js 的 httpErr——三处通路共用一张表。
+// 哪一类失败说哪一句的判据在 i18n.js 的 KIND 表——三处通路共用那一张表。
 async function send(c, path, body, profile) {
   const opts = body === undefined
     ? { method: 'GET' }
@@ -53,10 +53,10 @@ async function send(c, path, body, profile) {
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // batch 的 422 说的是"ops 校验未过，整批未写入"，那是协议话；真正的原因
-    // 在 errors[0].reason。与 app.js 那侧同一条口径。
-    const first = Array.isArray(data.errors) && data.errors[0];
-    throw new Error(httpErr(res, (first && (first.reason || first.field)) || data.detail, profile));
+    // 通知里说的是**出路**（按 kind 查表，见 i18n.js），服务端那句 detail/reason
+    // 是给脚本对照的协议话，只进 console：排查的人要原话，正要点下去的人要下一步。
+    console.warn('lb: ' + path + ' → ' + res.status, kindOf(data), serverNote(data));
+    throw new Error(httpErr(res, data, profile));
   }
   return data;
 }

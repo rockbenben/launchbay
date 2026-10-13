@@ -12,7 +12,7 @@
 // 为什么在扩展里拼 Netscape HTML 而不是发 JSON：服务端那条 `bookimport.Convert`
 // 吃的就是 Netscape 格式，而所有浏览器的导出也都是这个格式。在扩展里拼一份发过去，
 // 服务端**一行都不用改**，它与"手动导出文件再上传"走的是同一个 Convert。
-import { t, httpErr } from './i18n.js';
+import { t, httpErr, kindOf, serverNote } from './i18n.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -63,11 +63,15 @@ function pickProfile(cfg) {
   return ids[0] || '';
 }
 
-// detailOf：错误响应里能读出来的那句话。服务端回的是 JSON 外壳，但**不是每一发
-// 都是 JSON**（网关、静态页、半截响应都可能是别的），所以认不出来就原样带出来。
-async function detailOf(res) {
-  const text = await res.text();
-  try { return JSON.parse(text).detail || text; } catch { return text; }
+// bodyOf：错误响应里能读出来的那一格 JSON。**不是每一发都是 JSON**（网关、
+// 半截响应都可能是别的），所以认不出来就交 `{}` —— httpErr 于是退回状态码那一档。
+// 服务端那句 detail 不再往人看的行里贴：它说的是协议，人照做不了（判据见 i18n.js）。
+async function bodyOf(res) {
+  try {
+    return JSON.parse(await res.text()) || {};
+  } catch {
+    return {};
+  }
 }
 
 // post：两次请求都是**人在看着这一页等回答**，所以连"fetch 根本没成"都要变成
@@ -79,6 +83,13 @@ async function post(url, opts) {
   } catch (e) {
     throw new Error(t('netFail', e.message));
   }
+}
+
+// failOf：一次失败换成人看的那一句。服务端原话只进 console——与 bg.js 那条
+// send 同一口径，同一条流水线上两处失败不该一个说人话、一个贴协议。
+function failOf(res, body, profile) {
+  console.warn('lb: import → ' + res.status, kindOf(body), serverNote(body));
+  return httpErr(res, body, profile);
 }
 
 // askPlan 走第一步：发原始 HTML 换一份"会写什么"的报告。不写盘。
@@ -97,7 +108,7 @@ export async function askPlan(cfg, html) {
     },
     body: html,
   });
-  if (!r.ok) throw new Error(httpErr(r, await detailOf(r), id));
+  if (!r.ok) throw new Error(failOf(r, await bodyOf(r), id));
   // 服务端回的 profile 就是令牌作用域那个；本地这枚 id 只用于第二步取同一枚令牌。
   return { ...JSON.parse(await r.text()), localProfile: id };
 }
@@ -109,6 +120,6 @@ export async function applyPlan(cfg, plan) {
     headers: { Authorization: 'Bearer ' + cfg.tokens[plan.localProfile], 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: plan.token }),
   });
-  if (!r.ok) throw new Error(httpErr(r, await detailOf(r), plan.localProfile));
+  if (!r.ok) throw new Error(failOf(r, await bodyOf(r), plan.localProfile));
   return JSON.parse(await r.text());
 }

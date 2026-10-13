@@ -102,6 +102,46 @@
     },
     "message": "This machine has no profile called “$1” — it was probably deleted."
   },
+  "errAdminOnly": {
+    "message": "That is the admin key — it doesn't open the bookmarks side. The extension settings page wants that profile's own token."
+  },
+  "errBadUrl": {
+    "message": "That address isn't complete yet — it needs a scheme and a host name (for example http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "The data file for “$1” can't be read, so that one wasn't written. The file has to be fixed on that machine — trying again won't help."
+  },
+  "errDisabled": {
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    },
+    "message": "The profile “$1” is disabled, so nothing can be written to it. Re-enable it from the admin page on that machine."
+  },
+  "errDuplicate": {
+    "message": "That bookmark is already in this profile — it wasn't stored a second time. To change it, use the edit button on it in the page."
+  },
+  "errGoneTarget": {
+    "message": "That group or bookmark is gone — someone else may have changed it. Reload the page and look again."
+  },
+  "errIconName": {
+    "message": "This machine doesn't know that icon name. Pick another, or leave it empty and use the first letter."
+  },
+  "errNoBookmarks": {
+    "message": "No bookmarks could be read from that file — make sure it is the .html your browser exported."
+  },
+  "errNothingAccepted": {
+    "message": "None of the addresses in that file can go in (usually they have no host name). Try another file, or fix those bookmarks in the browser first."
+  },
+  "errOpsBatch": {
+    "message": "That batch wasn't written — your bookmarks are untouched. Clicking again won't change it; this one has to be changed in the page."
+  },
   "errConflict": {
     "message": "This profile changed just now. Click once more."
   },
@@ -110,14 +150,6 @@
   },
   "errNoSnap": {
     "message": "That version couldn't be stored, so the save was cancelled — your bookmarks are untouched."
-  },
-  "errRejected": {
-    "placeholders": {
-      "1": {
-        "content": "$1"
-      }
-    },
-    "message": "This machine refused it: $1"
   },
   "errServer": {
     "placeholders": {

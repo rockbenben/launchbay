@@ -18,22 +18,77 @@ export function t(key, ...args) {
   return s || '⟨' + key + '⟩';
 }
 
-// httpErr：状态码 → 人能照做的一句话。**这一张表是全扩展唯一的一份**——
-// bg.js 的右键收藏、options 页的「试一下这台机器」与 import.js 的两次请求走的是
-// 同一条流水线，同一个 403 在三处说三种话，人就照着最后一句查。
-// 401 = 这枚令牌不被认，403 = 令牌与档案对不上，404 = 没这个档案。
-// 422 是唯一的例外：那是这台机器**对这一条本身**说出的话（最常见的两种是
-// 「这一条已经在里面了」与「图标名不在索引里」），除了把它原样带出来没有别的
-// 信息可给——所以它是唯一进入通知的服务端文本。
-export function httpErr(res, reason, profile) {
-  switch (res.status) {
-    case 401: return t('err401');
-    case 403: return t('err403', profile);
-    case 404: return t('err404', profile);
-    case 409: return t('errConflict');
-    case 410: return t('errPlanGone');
-    case 422: return reason ? t('errRejected', reason) : t('errServer', res.status);
-    case 507: return t('errNoSnap');
-    default: return t('errServer', res.status);
-  }
+// ── 失败怎么说：按**错误码（kind）**，不按状态码 ────────────────────────────
+//
+// 状态码答不了"该做什么"。422 同时是"这一条已经存过了"（别存第二遍，去改它）与
+// "那一组已经不在了"（刷新再看一次）——两句出路相反，而按状态码选句子时它们只能
+// 共用一句。实测批量收藏撞上一个重复网址，通知里写的是"东西没了，刷新一下"，
+// 人照着刷新，问题一个字都没少。
+//
+// 服务端现在每个 JSON 错误都带 kind（AGENTS.md「错误码」），这一侧从码出句子。
+// **状态码那一张表只留给版本差**：扩展可能比那台机器旧，遇到不认识的码时
+// 退回按状态码说一句大致对的话，也比把服务端的协议原话贴进通知好。
+//
+// 表里的 value 是目录里的 key；闸在 internal/i18n/extcatalog_test.go：
+// 服务端登记的每一个 kind 都要在这儿有句子，或者在测试那份"收不到"的清单里
+// 写着为什么收不到。
+const KIND = {
+  'credential-missing': 'noToken',
+  'credential-unknown': 'err401',
+  'credential-scope': 'err403',
+  'credential-admin-only': 'errAdminOnly',
+  'profile-not-found': 'err404',
+  'profile-broken': 'errBroken',
+  'profile-disabled': 'errDisabled',
+  'duplicate-id': 'errDuplicate',
+  'missing-target': 'errGoneTarget',
+  'icon-unknown': 'errIconName',
+  'url-incomplete': 'errBadUrl',
+  'rev-conflict': 'errConflict',
+  'snapshot-failed': 'errNoSnap',
+  'ops-invalid': 'errOpsBatch',
+  'invalid-request': 'errOpsBatch',
+  // 值本身不收（名字过长、地址缺主机名那一类）。扩展这一侧组装得了请求体，
+  // 但**值是从网页与标签页标题来的**，所以这一码真收得到——那句"得在页面上改"
+  // 就是它的出路。
+  'field-invalid': 'errOpsBatch',
+  'import-no-bookmarks': 'errNoBookmarks',
+  'import-nothing-accepted': 'errNothingAccepted',
+  'import-plan-stale': 'errPlanGone',
+};
+
+const STATUS = {
+  401: 'err401',
+  403: 'err403',
+  404: 'err404',
+  409: 'errConflict',
+  410: 'errPlanGone',
+  422: 'errOpsBatch',
+  507: 'errNoSnap',
+};
+
+// kindOf：这一发该按哪一码说话。batch 与 import 的外壳 kind 说的是**这一族**
+// （ops-invalid = 整批未写入），具体哪一条、为什么在 errors[0] —— 所以先读明细。
+// 与主站 app.js 的 msgKeyFor 同一口径。
+export function kindOf(body) {
+  const first = Array.isArray(body && body.errors) && body.errors[0];
+  return (first && first.kind) || (body && body.kind) || '';
+}
+
+// serverNote：服务端那句协议原文（detail / errors[].reason）。它**不进通知**——
+// 那一句是给脚本对照的中文黑话（AGENTS.md：`/api/v1/*` 的 detail 固定中文），
+// 而扩展唯一的展示面是一条人正在读的消息。它进 console：排查的人要原话。
+export function serverNote(body) {
+  const first = Array.isArray(body && body.errors) && body.errors[0];
+  return (first && (first.reason || first.field)) || (body && body.detail) || '';
+}
+
+// httpErr：把一次失败变成人能照做的一句话。**这一张表是全扩展唯一的一份**——
+// bg.js 的右键收藏、options 页的导入两次请求走的是同一条流水线，同一个错误在
+// 两处说两种话，人就照着最后一句查。
+//
+// `body` 是解析过的响应（认不出来就传 `{}`）；`profile` 给那几句需要点名档案的话。
+export function httpErr(res, body, profile) {
+  const key = KIND[kindOf(body)] || STATUS[res.status];
+  return key ? t(key, profile) : t('errServer', res.status);
 }
