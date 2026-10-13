@@ -111,6 +111,7 @@ const APP_I18N = {
     "app.ops.item": "这一条",
     "app.ops.move": "移动",
     "app.ops.layout": "切换布局",
+  "app.ops.group": "这一下",
     "app.ops.bulkMove": "批量移动",
     "app.ops.bulkTags": "批量打标签",
     "app.ops.delete": "删除",
@@ -220,6 +221,7 @@ const APP_I18N = {
     "app.ops.item": "this bookmark",
     "app.ops.move": "the move",
     "app.ops.layout": "the layout change",
+  "app.ops.group": "this change",
     "app.ops.bulkMove": "the bulk move",
     "app.ops.bulkTags": "the bulk tags",
     "app.ops.delete": "the delete",
@@ -422,6 +424,53 @@ const APP_I18N = {
     e.preventDefault();
     prefsOpen();
   });
+
+  // 面板里「分组」那一节的表单（POST /prefs/group）在这里被拦下，改走
+  // /api/v1/batch——**落点与那张表单完全相同**（都是 applyBatch：快照、审计、
+  // rev 一道闸不少），只是不必为按一颗色块把整页导航一次。
+  //
+  // 拦不拦得动由**按钮的形状**判，不由"面板是不是浮层"判：零 JS 时同一张表单
+  // 照常提交、303 回 /prefs 整页，这条路不需要存在。于是独立页上的分组表单
+  // 不会被这份委托影响——那一页根本不引 app.js。
+  if (prefsSheet) {
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action="/prefs/group"]');
+      if (!form) return;
+      e.preventDefault();
+      // 一次只发一条 op：表单里颜色与排法两组键并排，靠"只提交被按下的那个
+      // 控件"分开，所以这里读 submitter 就能知道人按的是哪一颗——
+      // 按了没有 name 的那颗「用这个颜色」时 submitter 是那颗键，取它旁边的
+      // 取色器。
+      const btn = e.submitter;
+      const data = new FormData(form, btn || undefined);
+      const op = groupOpFromForm(form, data);
+      if (!op) return;
+      const ok = await applyOps([op], T('app.ops.group'));
+      if (ok) reloadKeepingPlace();
+    });
+  }
+
+  // groupOpFromForm 把「哪一个控件被按下了」翻成一条 op。
+  //
+  // 它必须**认形状而不是认顺序**：色板与排法两组键在同一张表单里，谁被按下
+  // 才是意图。submitter 带 name=accent / name=layout 时直接走那一条；
+  // 不带 name 的那颗「用这个颜色」提交的是旁边的 <input type=color>，
+  // 那是 accent 的自定义档。
+  function groupOpFromForm(form, data) {
+    const gid = form.querySelector('input[name=group]')?.value;
+    if (!gid) return null;
+    const layout = data.get('layout');
+    if (typeof layout === 'string' && layout) {
+      return { op: 'set', path: `groups/${gid}/layout`, value: layout };
+    }
+    // colorInput 在「按了自定义那颗键」与「别的路」两种情形下值都在，
+    // 所以判据只能是：submitter 是不是那颗键，或者 accent 是不是个 hex。
+    const accent = data.get('accent');
+    if (typeof accent === 'string' && (accent === '' || /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(accent))) {
+      return { op: 'set', path: `groups/${gid}/accent`, value: accent };
+    }
+    return null;
+  }
 
   // 分组下拉的选项来自**服务端已经渲染在页面上的分组**。不重新拉一次 /api/v1/data：
   // 一次浮层开合不该为了拿一份没变的数据多发一个请求，而它还会带来"两处分组列表"

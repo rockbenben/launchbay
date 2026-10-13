@@ -75,6 +75,11 @@ func (s *Server) routes() []route {
 			Summary: "丢掉管理员身份（清 lb_admin，档案会话不动）", H: s.handleAdminLogout},
 		{Method: "POST", Pattern: "/prefs", Cred: credSession,
 			Summary: "改自己的台面偏好（主题/形态/排法，仅会话，表单通路）", H: s.handlePrefs},
+		// 台面面板「分组」那一节。**不并进 /prefs**：accent 与分组自己的 layout
+		// 落在 bookmarks.json 的分组上，属于书签数据，要走 applyBatch（快照、审计、
+		// rev 一道闸不少），而 /prefs 只写 profile.json。
+		{Method: "POST", Pattern: "/prefs/group", Cred: credSession,
+			Summary: "改一个分组的颜色与排法（磁贴/单列，仅会话，表单通路；书签写通路）", H: s.handlePrefsGroup},
 		{Method: "POST", Pattern: "/switch", Cred: credSession,
 			Summary: "会话动作：回选择页（免 PIN 直达已下线）", H: s.handleSwitch},
 		// 浏览器收藏夹导入（2026-10-10）：三步零 JS——选文件 → 看报告 →

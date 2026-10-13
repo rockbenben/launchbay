@@ -313,6 +313,84 @@
       <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
     </div>
   </div>
+
+  {{/* ── 分组：颜色 + 这一组自己的排法 ──────────────────────────────────────
+       这是"能配却没有出口"的那一格。`ops` 一直认 `groups/<id>/accent` 与
+       `groups/<id>/layout`，而界面上一个入口都没有——于是每个类目的色块都是
+       CSS 的 `--sec-accent,var(--accent)` 兜底值，一整页同一个蓝。
+
+       **一个分组一张表单**，表单里摆着颜色与排法两组键，靠 HTML"只提交被按下的
+       那个控件"这一条规则分开：按色块只交 `accent`，按磁贴只交 `layout`。
+       所以"一次按一下只改一件事"在这里仍然成立，而不必拆成两张表单、也不必
+       让两个字段互相覆盖。
+
+       落点是 `POST /prefs/group`，不是 `/prefs`：这两个字段落在
+       bookmarks.json 的分组上，走的是 applyBatch 那条书签写通路（快照、审计、
+       rev 一道闸不少），而 `/prefs` 只写 profile.json 的台面偏好。把两边混在
+       一个端点里，422 的"至少给一个字段"就会开始管到不属于它的东西。 */}}
+  <div class="prefs-groups-head">
+    <span class="prefs-label">{{.T "prefs.groups"}}</span>
+    <p class="hint">{{.T "prefs.groups.hint"}}</p>
+  </div>
+
+  {{if .PrefGroupsBroken}}
+    <p class="hint" data-prefs-groups-broken>{{.PrefGroupsBroken}}</p>
+  {{else if not .PrefGroups}}
+    <p class="hint">{{.T "prefs.groups.empty"}}</p>
+  {{else}}
+  <div class="prefs-groups">
+    {{range .PrefGroups}}
+    {{/* Accent 过 validatedAccent 之后：盘上写坏了的值到不了 style 属性上。
+         自定义那一格的输入框用盘上这个值当默认，于是「改回原来那个」是一次点击。 */}}
+    {{$cur := .Accent}}
+    {{$onPalette := false}}
+    {{range $.PrefPalette}}{{if eq . $cur}}{{$onPalette = true}}{{end}}{{end}}
+    <form method="post" action="/prefs/group" class="prefs-group">
+      <input type="hidden" name="group" value="{{.ID}}">
+      {{/* 名字与**这一组自己的排法**同一行，色板另起一行。这么分是因为
+           "这一组叫什么、用哪种排法"是一句话，而九颗色块与它们放在同一行
+           就得折成两行——五个分组的面板已经两屏高，四十个分组时那是一堵墙。
+           排法那两颗跟着名字走，读起来也正好是"这一组：磁贴"。 */}}
+      <b class="prefs-group-name" title="{{.Title}}">
+        <i class="prefs-swatch-preview" style="--sw:{{if .Accent}}{{.Accent}}{{else}}var(--accent){{end}}" aria-hidden="true"></i>
+        <span>{{.Title}}</span>
+      </b>
+      <div class="prefs-keys prefs-group-shape">
+        <button type="submit" name="layout" value="tiles"
+          aria-pressed="{{if eq .Layout "list"}}false{{else}}true{{end}}"
+          title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</button>
+        <button type="submit" name="layout" value="list"
+          aria-pressed="{{if eq .Layout "list"}}true{{else}}false{{end}}"
+          title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</button>
+        {{/* 自定义：原生取色器收任意 hex（色板**不是白名单**），这一格就是那条路的
+             入口。按下的不是色块本身而是这颗「用这个颜色」，免得调色器一开就立刻
+             改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那 9 颗
+             已经占满 516px 的内容宽——硬塞进同一行只会让它折成第三行，
+             而"这一组三件事"挤成三行就没人愿意往下翻了。 */}}
+        <button type="submit" class="prefs-swatch-apply"
+          aria-pressed="{{if and $cur (not $onPalette)}}true{{else}}false{{end}}"
+          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
+      </div>
+      <div class="prefs-keys prefs-group-colors">
+        {{/* 「跟随页面主色」不是"无色"，而是**没设色**这个状态的按钮**：
+             它是那一行的默认值，所以它得是一颗能被按的键——否则从自定义色
+             回不到默认去，色板就成了只能进不能出的单向门。 */}}
+        <button type="submit" name="accent" value="" class="prefs-swatch prefs-swatch-none"
+          aria-pressed="{{if $cur}}false{{else}}true{{end}}"
+          aria-label="{{$.T "prefs.groups.accentDefault"}}" title="{{$.T "prefs.groups.accentDefault"}}"></button>
+        {{range $i, $c := $.PrefPalette}}
+        <button type="submit" name="accent" value="{{$c}}" class="prefs-swatch" style="--sw:{{$c}}"
+          aria-pressed="{{if eq $cur $c}}true{{else}}false{{end}}"
+          aria-label="{{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
+        {{end}}
+        <input type="color" class="prefs-color" name="accent"
+          value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
+          aria-label="{{$.T "prefs.groups.customLabel"}}" title="{{$.T "prefs.groups.customLabel"}}">
+      </div>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
 </section>
 {{end}}
 

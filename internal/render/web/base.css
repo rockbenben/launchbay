@@ -719,6 +719,45 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs-field{flex:1 1 200px;min-width:0}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
 .prefs-back{margin:16px auto 0;max-width:560px}
+
+/* 「分组」那一节（2026-10-13）：一个分组一行，行里左边是名字、右边是色板与
+   磁贴/单列。**它不进 .prefs-row** ——那一行是一标签一控件，宽度由标签那一格
+   说了算；而一个分组要装下十颗键，塞进 92px 标签后面只剩一列竖着的碎片。
+   所以这一节自己排：名字固定一块、键组吃剩下的。 */
+.prefs-groups-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;
+  padding-top:6px;border-top:1px solid var(--line)}
+.prefs-groups-head .prefs-label{color:var(--ink)}
+.prefs-groups-head .hint{flex:1 1 240px;min-width:0;margin:0}
+.prefs-groups{display:flex;flex-direction:column;gap:10px}
+.prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+/* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。 */
+.prefs .prefs-group-name{flex:1 1 120px;min-width:0;display:flex;align-items:center;gap:7px;
+  font-weight:600;font-size:13px}
+.prefs-group-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:3px;background:var(--sw)}
+/* 名字那行右端：磁贴/单列/「用这个颜色」三颗跟着名字走，色板另起一行。
+   九颗色块加上那颗取色器约 460px，已经占满 516px 的内容宽——硬塞进同一行只会
+   折成三行，而"这一组三件事"挤成三行就没人愿意往下翻（五个分组的面板已经
+   两屏高，四十个分组时那是一堵墙）。 */
+.prefs-group-shape{flex:0 0 auto}
+.prefs-group-colors{flex:1 1 100%}
+
+/* 色块：**看得见的只有中间那一颗圆点**，键本身留着按钮族那 44px 的触摸目标。
+   44px 见方的一整块实色在这一行里会盖过分组名，而色点加一圈按下的描边已经够说
+   "现在选的是这一颗"——按下的形状由 .prefs button[aria-pressed=true] 给（描边转
+   主色），所以这里**不再单开一条 pressed 规则**，也不开第 8 条带 44px 的规则。 */
+.prefs .prefs-swatch{width:44px;padding:0;display:grid;place-items:center}
+.prefs-swatch::before{content:"";display:block;width:20px;height:20px;border-radius:50%;
+  background:var(--sw);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+/* 「跟随页面主色」：那一格不是"无色"，而是**没设色**。所以它画的是页面主色本身，
+   压到四成半并加一圈虚线——虚线说的是"这一档没写下来"，而实心的那一颗说的是
+   "写下来了，就这个数"。 */
+.prefs-swatch-none{border-style:dashed}
+.prefs-swatch-none::before{background:var(--accent);opacity:.45;box-shadow:none}
+/* 原生取色器：尺寸与色块对齐，浏览器自带的那个小色块已经就是一枚色块了，
+   只把它撑到同一行的节奏上。它是**输入面**，44px 由输入族那条 joint 规则接
+   （见上面那条），这里不开新的 44。 */
+.prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer}
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
    这件事以前只能靠**实心蓝块**来说，而实心块与同栏其余按钮不像一家：实拍顶栏
@@ -757,7 +796,7 @@ button.danger:hover{background:var(--bad);border-color:var(--bad);opacity:.88}
    TestCSS_搜索控件的44px由哪条规则保证 数出第七条；而 TestCSS_硬规格在场 又逐字钉着
    `input[type=search],input[type=file]{min-height:44px}` 那一段——加在末尾会把它截断，
    加在开头则原样保留（它是这条规则的子串），两头都不得罪。 */
-select,input[type=password],input[type=text],input[type=search],input[type=file]{min-height:44px}
+select,input[type=password],input[type=text],input[type=search],input[type=file],input[type=color]{min-height:44px}
 /* 导航族：侧栏分组链接、把手 summary，以及**所有可点的 badge**。
    顶栏「管理」「从浏览器导入」、管理页的「设 PIN / 停用 / 删档 / 回首页」、
    导入页的「算了，不导」——它们此前一律只有 20px 高，而 §7.5 的 44px 是管

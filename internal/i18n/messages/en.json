@@ -229,6 +229,7 @@
   "app.ops.item": "this bookmark",
   "app.ops.move": "the move",
   "app.ops.layout": "the layout change",
+  "app.ops.group": "this change",
   "app.ops.bulkMove": "the bulk move",
   "app.ops.bulkTags": "the bulk tags",
   "app.ops.delete": "the delete",
@@ -361,5 +362,12 @@
   "prefs.theme.dark.title": "Always the dark background",
   "prefs.theme.light.title": "Always the light background",
   "prefs.elsewhere": "Elsewhere",
+  "prefs.groups": "Groups",
+  "prefs.groups.hint": "One colour and one arrangement per group. This edits the groups in this profile's bookmarks, not the page itself.",
+  "prefs.groups.empty": "No groups yet. Typing a new name when you add a bookmark creates the first one.",
+  "prefs.groups.broken": "The bookmarks file cannot be read, so this section is left out. Colour and arrangement stay locked until the file is fixed.",
+  "prefs.groups.accentDefault": "Follow the page accent",
+  "prefs.groups.customLabel": "Custom colour",
+  "prefs.groups.customSave": "Use this colour",
   "app.cmdk.history": "See this profile’s change history"
 }

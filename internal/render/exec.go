@@ -306,6 +306,22 @@ type profileView struct {
 	// 含义 2026-10-12 变了——从"这个档案是不是管理员"变成"这次请求有没有带着
 	// 一把真的管理权"，于是同一个人可以一边用自己那份书签、一边仍带着管理权。
 	HasAdmin bool
+	// PrefGroups 是台面面板里那一节「分组」的每一行。**只有 GET /prefs 填**，
+	// 档案页那个空壳是 0 长——面板内容是 fetch 一次注入的，档案页不该背这几十行。
+	//
+	// 它不是 groupNav 那棵树、也不是 Bookmarks.Groups：那一棵是**页面上**的导航
+	// （父子折叠、只印叶名），这一列是**面板里**的清单（一个分组一行，带它自己的
+	// accent 与 layout）。两种形状各有各的判据，别处把其中一份抄过来用。
+	PrefGroups []groupView
+	// PrefGroupsBroken 是"分组清单画不出来"的原因（非空 = 那一节不画，并说清为什么）。
+	// **坏档不挡面板**：改台面偏好只写 profile.json，而书签文件读坏了正是最需要
+	// 改排版看看的时候——所以那一节单独退化，页面上其余四行照常可用。
+	PrefGroupsBroken string
+	// PrefPalette / PrefPaletteNames 把 model 那张色板原样带上来。**不在这里
+	// 再抄一份**：色块渲成什么、读屏念什么，两边必须与 model 同数同序
+	// （model 里的 init 会 panic 兜住它们不同数的情形）。
+	PrefPalette      []string
+	PrefPaletteNames []string
 }
 
 // themeAttr 把 theme 枚举里的 "auto" 归一成空串。
@@ -826,9 +842,11 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 //
 // 视图复用 profileView：面板要读的 `.T`、`.Profile`、`Lang`、`.Theme`、`.CSS`
 // 与 `HasSnapshots` 全在那上面，另建一个结构体只会多一份要同步的字段清单。
-func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, cat *i18n.Catalog) ([]byte, error) {
+func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, cat *i18n.Catalog) ([]byte, error) {
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
-		i18nView: newI18nView(cat), HasSnapshots: hasSnaps}
+		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
+		PrefGroups: gs, PrefGroupsBroken: broken,
+		PrefPalette: model.GroupAccentPalette, PrefPaletteNames: model.GroupAccentNames}
 	// 引 app.css：面板里的输入框走 `.fld`、按钮走按钮族，两条都在那里。**不引**
 	// 就得在 base.css 里另抄一份输入框的脸，于是"浮层里那个框"与"整页那个框"
 	// 迟早分家（判据只有一份）。不带 AppJS——这一页没有浮层之外的交互，

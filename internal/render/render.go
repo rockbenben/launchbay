@@ -548,9 +548,34 @@ func (r *Renderer) PrefsPage(id string) (Page, error) {
 	// 一次目录读失败把撤销入口藏起来，比多画一枚可能点不动的按钮更糟。
 	snaps, err := r.s.ListSnapshots(id)
 	hasSnaps := err != nil || len(snaps) > 0
-	body, err := r.tmpl.prefsPage(prof, hasSnaps, i18n.Load(r.s.Language()))
+	cat := i18n.Load(r.s.Language())
+	gs, broken := r.prefsGroups(id, cat)
+	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, cat)
 	if err != nil {
 		return Page{}, err
 	}
 	return Page{Body: body, ETag: makeETag(id, body), Profile: id, NoStore: true}, nil
+}
+
+// prefsGroups 读出面板「分组」那一节要用的清单。
+//
+// 它**走的是与 ProfilePage 相同形状的 groupView**（ID/Title/Layout/Accent，Accent
+// 经 validatedAccent 过滤），但必须是**另一次读**，不能从 ProfilePage 的结果里截：
+// 那一页要为整页渲染标题、条目与导航树，而搜索时只渲染命中的分组——于是"面板里
+// 少了几行"会取决于当时有没有在搜东西，而面板与搜索词毫无关系。
+//
+// 读不出来**不算失败**：把这一节撤掉并说清为什么，其余四行照常可用。这与
+// `/prefs` 的"坏档不挡"是同一条纪律——改台面只写 profile.json，而书签文件读坏了
+// 正是最需要改排版看看的时候。
+func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string) {
+	b, err := r.s.LoadBookmarks(id)
+	if err != nil {
+		return nil, cat.T("prefs.groups.broken")
+	}
+	out := make([]groupView, 0, len(b.Groups))
+	for _, g := range b.Groups {
+		out = append(out, groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
+			Accent: validatedAccent(g.Accent)})
+	}
+	return out, ""
 }

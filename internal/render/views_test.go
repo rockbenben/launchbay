@@ -863,7 +863,10 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 而不是把整页撑出一条横向滚动条。钉的是"行会折"——改回 nowrap 就回到
 		// 能横滚的样子。
 		"台面行要能折行": `.prefs-row{display:flex;flex-wrap:wrap;align-items:center;`,
-		"文件选择框入输入族":    `input[type=search],input[type=file]{min-height:44px}`,
+		// 台面面板的取色器（2026-10-13）也进了输入族：它是一个输入面，44 由这条
+		// joint 规则接，而不是自己开一条 min-height（开一条就是族数闸上的第八位点）。
+		// 逐字串跟着扩——钉的是"文件选择框在那条规则里"，不是"它后面没有别人"。
+		"文件选择框入输入族": `input[type=search],input[type=file],input[type=color]{min-height:44px}`,
 		// 侧栏外壳（Task 6，spec §8.2）的 190px 常驻列是硬规格：grid-template-columns
 		// 的第一个值就是它。逐字串截到 minmax(0,1fr)，不钉后面的 gap/margin 顺序。
 		// 首列 190 → 206px 是 2026-10-11 给侧栏那根分隔线腾的内衬，

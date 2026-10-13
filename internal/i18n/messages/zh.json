@@ -229,6 +229,7 @@
   "app.ops.item": "这一条",
   "app.ops.move": "移动",
   "app.ops.layout": "切换布局",
+  "app.ops.group": "这一下",
   "app.ops.bulkMove": "批量移动",
   "app.ops.bulkTags": "批量打标签",
   "app.ops.delete": "删除",
@@ -361,5 +362,12 @@
   "prefs.theme.dark.title": "这一页固定用暗底",
   "prefs.theme.light.title": "这一页固定用亮底",
   "prefs.elsewhere": "别的路",
+  "prefs.groups": "分组",
+  "prefs.groups.hint": "每一组一个颜色与一种排法。改的是这一份书签里的分组，不是页面本身。",
+  "prefs.groups.empty": "还没有分组。加书签的时候填一个新名字，就会建出第一个分组。",
+  "prefs.groups.broken": "书签文件读不出来，这一节先不画。文件修好之前，颜色与排法都改不了。",
+  "prefs.groups.accentDefault": "跟随页面主色",
+  "prefs.groups.customLabel": "自定义颜色",
+  "prefs.groups.customSave": "用这个颜色",
   "app.cmdk.history": "看这一份的改动历史"
 }

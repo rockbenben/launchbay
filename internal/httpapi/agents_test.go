@@ -186,8 +186,16 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 }
 
 // prefsEnumRE 抓 AGENTS.md 里「`theme` ∈ `auto`、`dark`、`light`」这种写法：
-// 组 1 是字段名，组 2 是档位清单（到分号或逗号为止，档位之间用顿号分隔）。
-var prefsEnumRE = regexp.MustCompile("`(theme|layout)` ∈([^；，]*)")
+// 组 1 是字段名，组 2 是**限定词**（2026-10-13 加，见下），组 3 是档位清单
+// （到分号或逗号为止，档位之间用顿号分隔）。
+//
+// **限定词为什么必须有**：台面面板新增了 `POST /prefs/group`，那里的 `layout`
+// 收的是 `tiles`/`list`（一个分组内部的排法），而 `POST /prefs` 的 `layout`
+// 收的是 `sidebar`/`topbar`（分组导航放哪）。**两个字段同名、值集不同**——
+// 而这一条闸恰恰是要让文档的档位清单与 model 那张表同集，所以它不能把两者
+// 看成同一段：认错的那一天，文档会拿一份枚举去校另一份，绿得毫无意义。
+// 文档里写成「`layout`（组） ∈ …」与「`layout`（页） ∈ …」，各认各的表。
+var prefsEnumRE = regexp.MustCompile("`(theme|layout)`(?:（(组|页)）)? ∈([^；，]*)")
 
 // 文档里的值集也必须与 model 那张表同集，两个方向都核：少一档是 AI 写不出
 // 那一档（它不知道有），多一档是 AI 照着文档写出去吃 422。422 的拒绝语已经
@@ -199,24 +207,38 @@ func TestAgentsMD枚举与model同集(t *testing.T) {
 		t.Fatalf("AGENTS.md 读不到: %v", err)
 	}
 	text := string(raw)
-	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues}
+	want := map[string][]string{
+		"theme":    model.ThemeValues,
+		"layout":   model.LayoutValues,
+		"layout/组": model.GroupLayoutValues,
+	}
 	matches := prefsEnumRE.FindAllStringSubmatch(text, -1)
-	// 解析器不能空转：两个字段都必须在文档里出现，否则下面的循环一次都不跑，
-	// 这条闸就只是一句"没找到，跳过"。
-	if len(matches) != 2 {
-		t.Fatalf("从 AGENTS.md 只抓到 %d 段枚举清单，要 2 段（theme 与 layout）：写法变了，这条闸正在空转", len(matches))
+	// 解析器不能空转：三段都必须出现（theme、页 layout、组 layout），否则下面的
+	// 循环有一次不跑，这条闸就只是一句"没找到，跳过"。数的是**段**，不是字段名——
+	// 两个 layout 段只按字段名去重会把它们合并成一段，那正是要防的那件事。
+	if len(matches) != len(want) {
+		t.Fatalf("从 AGENTS.md 只抓到 %d 段枚举清单，要 %d 段（theme、layout（页）、layout（组））：写法变了，这条闸正在空转",
+			len(matches), len(want))
 	}
 	for _, m := range matches {
-		field, list := m[1], m[2]
+		key := m[1]
+		if m[2] != "" {
+			key += "/" + m[2]
+		}
+		list, ok := want[key]
+		if !ok {
+			t.Errorf("文档里多出一段认不出的枚举清单：%s（组 %q）——要么它写错了字段名，要么 model 那边少了一张表", key, m[1])
+			continue
+		}
 		var got []string
-		for _, tok := range strings.Split(list, "、") {
+		for _, tok := range strings.Split(m[3], "、") {
 			tok = strings.Trim(strings.TrimSpace(tok), "`")
 			if tok != "" {
 				got = append(got, tok)
 			}
 		}
-		if strings.Join(got, ",") != strings.Join(want[field], ",") {
-			t.Errorf("%s 的档位清单 = %v，model 的表里是 %v（顺序也要一致：文档是 AI 的词汇表）", field, got, want[field])
+		if strings.Join(got, ",") != strings.Join(list, ",") {
+			t.Errorf("%s 的档位清单 = %v，model 的表里是 %v（顺序也要一致：文档是 AI 的词汇表）", key, got, list)
 		}
 	}
 }
