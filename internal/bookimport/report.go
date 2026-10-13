@@ -101,11 +101,15 @@ func (r *Report) Text() string {
 	// 而那 N 条是**判定它进不来**的。混在一起不解释，等于把一句"没丢东西"摆在
 	// 一句"丢了东西"旁边，谁读都会怀疑自己看错了。
 	fmt.Fprintf(&b, r.t("import.rep.items"), r.SourceCount, r.ResultCount)
+	// 每一句**自己一行**。从前这三句首尾相接：中文读得通（句子之间不需要空格），
+	// 英文就成了 "…came into the profile.Another 2 could not come in…"——
+	// 在真扩展宿主里实拍抓到的就是这一条。渲染器按行出 <p>，所以分行在两种语言里
+	// 都是对的形状；而 markdown 那份（CLI 与脚本读的）也顺带一行一句。
 	if n := len(r.Skipped); n > 0 {
-		fmt.Fprint(&b, r.t("import.rep.skippedLead", n))
+		fmt.Fprint(&b, "\n", r.t("import.rep.skippedLead", n))
 	}
 	if r.TrashedCount > 0 {
-		fmt.Fprint(&b, r.t("import.rep.trashedHead", r.TrashedCount))
+		fmt.Fprint(&b, "\n", r.t("import.rep.trashedHead", r.TrashedCount))
 	}
 	b.WriteString("\n\n")
 	if r.Rec.OK() {

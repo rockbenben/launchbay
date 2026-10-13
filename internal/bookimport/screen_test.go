@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
 )
@@ -285,6 +286,59 @@ func Test报告里全过与少东西要能同时成立(t *testing.T) {
 	// 就往下走了，而"少了 3 条"被压在解释的后面。
 	if strings.Index(txt, "没能进来") > strings.Index(txt, "三条对账全过") {
 		t.Errorf("「没能进来」要排在「三条对账全过」前面：先说少了什么，再解释为什么对账还是过的\n%s", txt)
+	}
+}
+
+// 结论那几句**各占一行**。这一条要防的形状是"两句首尾相接"：中文读得通（句子之间
+// 不需要空格），英文就成了 "…came into the profile.Another 2 could not come in…"
+// ——在真扩展宿主（英文界面）的实拍里抓到的就是这一条。
+//
+// 判据拿的是**当前 catalog 里的那几句**去比对它们所在的行，而不是钉一句原话：
+// 钉原话的话改文案就得改测试，而这里要钉的是"两句不许落在同一行"这件事本身。
+// 两份夹具各覆盖一部分（realWorld 有"没能进来"、fixture 有"回收站"），
+// 末尾那一句"三句都至少被验过一次"防的是夹具一改、这一族检查静默变成空转。
+func Test结论的每一句各占一行(t *testing.T) {
+	seen := map[string]bool{}
+	for _, res := range []*Result{convertRealWorld(t), convertFixture(t, Options{})} {
+		for _, words := range []func(string, ...any) string{nil, i18n.Load(i18n.En).T} {
+			rep := res.Report
+			rep.Words = words
+			items := rep.t("import.rep.items", rep.SourceCount, rep.ResultCount)
+			lead := ""
+			if n := len(rep.Skipped); n > 0 {
+				lead = rep.t("import.rep.skippedLead", n)
+			}
+			trash := ""
+			if rep.TrashedCount > 0 {
+				trash = rep.t("import.rep.trashedHead", rep.TrashedCount)
+			}
+			line := map[string]string{}
+			for _, l := range strings.Split(rep.Text(), "\n") {
+				for _, s := range []string{items, lead, trash} {
+					if s != "" && strings.Contains(l, s) {
+						line[s] = l
+					}
+				}
+			}
+			for _, s := range []string{items, lead, trash} {
+				if s == "" {
+					continue
+				}
+				seen[s] = true
+				if line[s] == "" {
+					t.Fatalf("结论里那句 %q 没在文本里找到——它被改写成了别的样子，这一族检查就空转了", s)
+				}
+			}
+			if line[items] != "" && lead != "" && line[items] == line[lead] {
+				t.Errorf("「条目数」与「没能进来」挤在同一行，英文里就会粘成一句：%q", line[items])
+			}
+			if trash != "" && line[trash] != "" && line[trash] == line[items] {
+				t.Errorf("回收站那一句也要自己一行：%q", line[trash])
+			}
+		}
+	}
+	if len(seen) < 3 {
+		t.Errorf("这一族只验到了 %d 句（要三句：条目数 / 没能进来 / 回收站）——夹具形状变了，去换一份能覆盖的", len(seen))
 	}
 }
 
