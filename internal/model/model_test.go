@@ -225,4 +225,65 @@ func TestValidThemeLayout_枚举只有一份(t *testing.T) {
 			t.Errorf("ValidView(%q) = %v，要 %v", v, got, want)
 		}
 	}
+	// 分组自己的排法（2026-10-13）：**与 ValidLayout 分开钉**，因为这两个
+	// "layout" 改的是不同层的东西。合并成一个谓词的那一天，422 的拒绝语就会
+	// 开始报出一句与调用方无关的枚举——而 `sidebar`/`topbar` 在这里必须是 false。
+	for ly, want := range map[string]bool{"tiles": true, "list": true,
+		"": false, "Tiles": false, "sidebar": false, "topbar": false} {
+		if got := ValidGroupLayout(ly); got != want {
+			t.Errorf("ValidGroupLayout(%q) = %v，要 %v", ly, got, want)
+		}
+	}
+	if strings.Join(GroupLayoutValues, ",") != LayoutTiles+","+LayoutList {
+		t.Errorf("GroupLayoutValues = %v，要与两个常量同序", GroupLayoutValues)
+	}
+}
+
+// accent 的判据只有一份，两个方向各用一次：写侧（表单端点）拒、读侧
+// （render.validatedAccent）丢。
+//
+// **空串是合法值**——那是"没设色"，页面与侧栏的色块退回页面主色。它必须与
+// view 那个"空串不算"的族相反：view 的空串是"没说清要改什么"，而 accent 的
+// 空串是"明确要回到默认"。把它判成非法，界面就没有回得去的那颗键。
+func TestValidAccent_空串是回默认不是没改(t *testing.T) {
+	for a, want := range map[string]bool{
+		"": true, "#fff": true, "#FFF": true, "#4c8dff": true,
+		"#12345": false, "4c8dff": false, "#gggggg": false, "red": false,
+		`#fff;}body{display:none`: false,
+	} {
+		if got := ValidAccent(a); got != want {
+			t.Errorf("ValidAccent(%q) = %v，要 %v", a, got, want)
+		}
+	}
+}
+
+// 色板与色名必须同数同序：色块是看得见的颜色，看不见的名字——而读屏与色觉
+// 障碍的人拿到的只有那个名字。init 里的 panic 兜住"加了一颗色忘了起名"，
+// 这条钉住的是**渲染时用索引配对**（`index $.PrefPaletteNames $i`）：两张表
+// 都在却配错了序，颜色和人念出来的话会对不上，而 panic 一点都不会响。
+func TestGroupAccentPalette_每颗色都有名字且是合法颜色(t *testing.T) {
+	if len(GroupAccentPalette) != len(GroupAccentNames) {
+		t.Fatalf("色板 %d 颗、色名 %d 个", len(GroupAccentPalette), len(GroupAccentNames))
+	}
+	seen := map[string]bool{}
+	for i, c := range GroupAccentPalette {
+		if !ValidAccent(c) {
+			t.Errorf("第 %d 颗 %q 不是合法 hex：色块会被 render 悄悄丢掉，画出来是一颗空圆", i, c)
+		}
+		if seen[c] {
+			t.Errorf("第 %d 颗 %q 与前面某颗重了：两格按下去是同一个结果", i, c)
+		}
+		seen[c] = true
+		if GroupAccentNames[i] == "" {
+			t.Errorf("第 %d 颗色没有名字：读屏只拿到一个空的 aria-label", i)
+		}
+	}
+	// InGroupAccentPalette 只给界面用（决定哪一颗按着），**不参与写入校验**——
+	// 所以不在表里的 hex 必须答 false 而仍然合法（走「自定义」那一格）。
+	if InGroupAccentPalette("#123456") {
+		t.Error("InGroupAccentPalette 把一个不在表里的 hex 说成在表里")
+	}
+	if !ValidAccent("#123456") {
+		t.Error("色板之外的颜色被判非法了：「自定义」那一格走的正是这条")
+	}
 }

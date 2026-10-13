@@ -4,7 +4,6 @@ import (
 	"hash/fnv"
 	"html"
 	"html/template"
-	"regexp"
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/icons"
@@ -24,10 +23,10 @@ type iconPiece struct {
 	ChipHue int           // 首字母色块的色相（0-359）
 }
 
-// hexColorRE 是 accent 的唯一判据。它不是装饰：accent 是用户可写的字符串，
-// 而它会进 style 属性。只认 #rgb/#rrggbb，其余一律当没写——
-// 于是这里既不需要 template.HTML，也不需要"这条是不是颜色"的第二套逻辑。
-var hexColorRE = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
+// accent 的判据**只有一份**，在 model.ValidAccent：写侧（表单端点）用它拒掉
+// 什么都不是的值，读侧（下面 validatedAccent）用它把盘上写坏的值丢掉。
+// 它不是装饰：accent 会进 style 属性，而一份正则换来"模板不需要 template.HTML、
+// 也不需要'这条是不是颜色'的第二套逻辑"。
 
 // pieceFor 决定一个条目怎么长出一张脸。
 //
@@ -122,7 +121,7 @@ func orderedItems(b *model.Bookmarks) []model.Item {
 }
 
 func validatedAccent(s string) string {
-	if hexColorRE.MatchString(s) {
+	if model.ValidAccent(s) {
 		return strings.ToLower(s)
 	}
 	return ""

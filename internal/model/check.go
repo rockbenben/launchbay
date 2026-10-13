@@ -24,7 +24,52 @@ var (
 	// ViewValues 是**整页怎么排**：groups = 一组一节（默认），
 	// wall = 全局视图，各组作为列头、条目压成紧凑单行，多栏流式排满一屏。
 	ViewValues = []string{"groups", "wall", "dense"}
+
+	// GroupLayoutValues 是**一个分组内部**条目的排法：tiles 磁贴 / list 单列。
+	//
+	// 它与 LayoutValues（sidebar/topbar，分组**导航**放在哪）不是一件事，两个
+	// 枚举都叫 "Layout" 是历史遗留——所以这一张带 Group 前缀，把"排的是哪一层"
+	// 写进名字里。判据仍然只有一份：`ValidGroupLayout` 与 `ValidLayout`。
+	GroupLayoutValues = []string{LayoutTiles, LayoutList}
+
+	// GroupAccentNames 给 GroupAccentPalette 那一排色块各自起一个中文名。
+	// **它必须与 palette 一一对应、同序**：色块是看得见的颜色，看不见的名字，
+	// 而读屏与色觉障碍的人拿到的只有这个名字——所以"这一颗叫什么"不是可选项。
+	// 数目不等时下面 init 里的 panic 会当场点出是哪一张表。
+	GroupAccentNames = []string{"蓝", "青", "绿", "黄", "橙", "红", "紫", "粉"}
+
+	// GroupAccentPalette 是台面面板上那排色块的取值。**它不是白名单**：
+	// accent 收任意 3/6 位 hex（render 的 hexColorRE），「自定义」那一格就是
+	// 走这条的。这张表回答的是另一个问题——"大多数人选哪几个"，
+	// 一家人手边没有取色器，让一个 color input 承担"给 30 个分组配色"这件事
+	// 会让它在触摸设备上变成一个笨重的入口。
+	//
+	// 取值全是**中间调**：亮底与暗底两档都得看得见，而暗底那一档的
+	// `--accent` 是 #4c8dff、亮底是 #2a63bd，所以第一格刻意选暗底那个数——
+	// 「跟随页面主色」与「蓝」并排时，两者一眼能看出是不是同一个。
+	GroupAccentPalette = []string{
+		"#4c8dff", "#22b8a0", "#57b95a", "#d3a52c",
+		"#e8823c", "#e0574f", "#9b6ce8", "#dd6aa6",
+	}
 )
+
+func init() {
+	if len(GroupAccentPalette) != len(GroupAccentNames) {
+		panic("色板与色名必须同数同序：加了一颗色忘了起名字，读屏就少一个可及名")
+	}
+}
+
+// InGroupAccentPalette 判某个 accent 是不是色板上的那一档。它**只给界面用**
+// （决定哪一颗是按下的、"自定义"那颗要不要亮着），不参与写入校验——
+// accent 收任意 hex，"自定义"走的就是不在表里的那条路。
+func InGroupAccentPalette(accent string) bool {
+	for _, c := range GroupAccentPalette {
+		if c == accent {
+			return true
+		}
+	}
+	return false
+}
 
 func valueSet(vs []string) map[string]bool {
 	m := make(map[string]bool, len(vs))
@@ -38,6 +83,8 @@ var allowedTheme = valueSet(ThemeValues)
 var allowedLayout = valueSet(LayoutValues)
 var allowedView = valueSet(ViewValues)
 
+var allowedGroupLayout = valueSet(GroupLayoutValues)
+
 // ValidTheme / ValidLayout 是这两组枚举的唯一出口：校验走 map，
 // 表单端点走这两个谓词——判据一份，两处消费。
 func ValidTheme(s string) bool  { return allowedTheme[s] }
@@ -47,7 +94,26 @@ func ValidLayout(s string) bool { return allowedLayout[s] }
 // 见 Profile.Validate 里那一句与 Profile.View 的注释。
 func ValidView(s string) bool { return allowedView[s] }
 
+// ValidGroupLayout 认**一个分组自己的**排法。与 ValidLayout（导航放哪）分开，
+// 是因为这两个"layout"改的是不同层的东西，而把它们合并成一个谓词的那一天，
+// 422 的拒绝语就会开始报出一句与调用方无关的枚举。
+func ValidGroupLayout(s string) bool { return allowedGroupLayout[s] }
+
 func ValidSlug(s string) bool { return slugRE.MatchString(s) }
+
+// accentHexRE 是 accent 的**唯一**判据，两个方向各用一次：写侧
+// `ValidAccent` 拒掉什么都不是的值（accent 是用户可写的字符串，而写进去
+// 一个坏值只会得到"按下去什么都没变"——渲染侧会把它悄悄丢掉）；读侧
+// `render.validatedAccent` 把盘上已经写坏的值也丢掉。
+//
+// **为什么不放在 render**：判据住在读侧时，写侧就永远够不着，于是"存下一个
+// 垃圾颜色"是一条没人拦的路。两处各抄一份正则，则下一次改格式要记得改两处。
+var accentHexRE = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
+
+// ValidAccent 认 #rgb / #rrggbb。**空串是合法的**——那是"没设色"，页面与侧栏
+// 的色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）。它不是"无色"，
+// "无色"要的是不画那个色块，那是另一件事、另一套判据。
+func ValidAccent(s string) bool { return s == "" || accentHexRE.MatchString(s) }
 
 // CheckURL 只验"这串能不能当 URL 用"，不验协议白名单：spec §6.2 明写
 // 非 http/https「允许存但标警告」，§9 要求 flare 的 chrome://extensions/
@@ -176,7 +242,7 @@ func (b *Bookmarks) Validate() error {
 		if strings.TrimSpace(g.Title) == "" {
 			return fmt.Errorf("%w: group %q: title 为空", ErrValidation, g.ID)
 		}
-		if g.Layout != LayoutTiles && g.Layout != LayoutList {
+		if !ValidGroupLayout(g.Layout) {
 			return fmt.Errorf("%w: group %q: layout %q 只能是 tiles/list", ErrValidation, g.ID, g.Layout)
 		}
 		for ii := range g.Items {

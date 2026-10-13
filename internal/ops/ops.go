@@ -188,7 +188,7 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		if err := decode(op.Value, &g); err != nil {
 			return nil, err
 		}
-		if g.Layout != model.LayoutTiles && g.Layout != model.LayoutList {
+		if !model.ValidGroupLayout(g.Layout) {
 			return nil, fmt.Errorf("新分组的 layout 只能是 tiles/list，得到 %q", g.Layout)
 		}
 		for _, ex := range b.Groups {
@@ -286,7 +286,7 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 			warn = changed(g.Title == s)
 			g.Title = s
 		case "layout":
-			if s != model.LayoutTiles && s != model.LayoutList {
+			if !model.ValidGroupLayout(s) {
 				return nil, fmt.Errorf("layout 只能是 tiles/list，得到 %q", s)
 			}
 			warn = changed(g.Layout == s)
