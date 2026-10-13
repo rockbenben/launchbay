@@ -846,7 +846,13 @@ func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, br
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
 		PrefGroups: gs, PrefGroupsBroken: broken,
-		PrefPalette: model.GroupAccentPalette, PrefPaletteNames: model.GroupAccentNames}
+		PrefPalette: model.GroupAccentPalette}
+	// 色名在这里算，不在 model 里写死：那张表只给键名后缀，句子在语言包里。
+	// 英文界面上那八颗从前印的是「蓝 青 绿…」，因为名字住在 Go 的一侧。
+	v.PrefPaletteNames = make([]string, len(model.GroupAccentColorKeys))
+	for i, slug := range model.GroupAccentColorKeys {
+		v.PrefPaletteNames[i] = v.T("prefs.color." + slug)
+	}
 	// 引 app.css：面板里的输入框走 `.fld`、按钮走按钮族，两条都在那里。**不引**
 	// 就得在 base.css 里另抄一份输入框的脸，于是"浮层里那个框"与"整页那个框"
 	// 迟早分家（判据只有一份）。不带 AppJS——这一页没有浮层之外的交互，

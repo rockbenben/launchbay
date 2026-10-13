@@ -32,11 +32,17 @@ var (
 	// 写进名字里。判据仍然只有一份：`ValidGroupLayout` 与 `ValidLayout`。
 	GroupLayoutValues = []string{LayoutTiles, LayoutList}
 
-	// GroupAccentNames 给 GroupAccentPalette 那一排色块各自起一个中文名。
+	// GroupAccentColorKeys 给 GroupAccentPalette 那一排色块各配一个**语言包键名后缀**。
 	// **它必须与 palette 一一对应、同序**：色块是看得见的颜色，看不见的名字，
 	// 而读屏与色觉障碍的人拿到的只有这个名字——所以"这一颗叫什么"不是可选项。
 	// 数目不等时下面 init 里的 panic 会当场点出是哪一张表。
-	GroupAccentNames = []string{"蓝", "青", "绿", "黄", "橙", "红", "紫", "粉"}
+	//
+	// 这里存的是**键名而不是话**（2026-10-13 改判）：从前这张表直接写着「蓝 青 绿…」，
+	// 于是英文界面上那八颗键的 aria-label 是中文单字——"文案只有一份，在语言包里"
+	// 那一条纪律被一张 Go 表绕过了。句子归 `prefs.color.*`，本表只管配对。
+	GroupAccentColorKeys = []string{
+		"blue", "cyan", "green", "yellow", "orange", "red", "purple", "pink",
+	}
 
 	// GroupAccentPalette 是台面面板上那排色块的取值。**它不是白名单**：
 	// accent 收任意 3/6 位 hex（render 的 hexColorRE），「自定义」那一格就是
@@ -54,8 +60,8 @@ var (
 )
 
 func init() {
-	if len(GroupAccentPalette) != len(GroupAccentNames) {
-		panic("色板与色名必须同数同序：加了一颗色忘了起名字，读屏就少一个可及名")
+	if len(GroupAccentPalette) != len(GroupAccentColorKeys) {
+		panic("色板与色名键必须同数同序：加了一颗色忘了起名字，读屏就少一个可及名")
 	}
 }
 

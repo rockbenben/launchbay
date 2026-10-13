@@ -613,7 +613,7 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// **只在粗指针上扩**是这条规则的形状之一：dense 那一档（精确指针专属）
 		// 行高 26px，无条件扩就会盖住相邻那行的把手。
 		"幽灵键命中区撑出边界（粗指针）": `@media (hover:none),(pointer:coarse){`,
-		"幽灵键命中区那一圈":             `.pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}`,
+		"幽灵键命中区那一圈":       `.pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}`,
 		// 两枚键的缝给到 12px，否则后画的把手把 4px 那片整段拿走，复制键向右 0px。
 		"幽灵键之间留出扩展的缝": `.plain .pencil,.card .pencil{margin-left:8px}`,
 		// 这一条是**实测**逼出来的：选择器前多打了一个引号（`'.inline-edit .row{`），

@@ -262,8 +262,8 @@ func TestValidAccent_空串是回默认不是没改(t *testing.T) {
 // 这条钉住的是**渲染时用索引配对**（`index $.PrefPaletteNames $i`）：两张表
 // 都在却配错了序，颜色和人念出来的话会对不上，而 panic 一点都不会响。
 func TestGroupAccentPalette_每颗色都有名字且是合法颜色(t *testing.T) {
-	if len(GroupAccentPalette) != len(GroupAccentNames) {
-		t.Fatalf("色板 %d 颗、色名 %d 个", len(GroupAccentPalette), len(GroupAccentNames))
+	if len(GroupAccentPalette) != len(GroupAccentColorKeys) {
+		t.Fatalf("色板 %d 颗、色名键 %d 个", len(GroupAccentPalette), len(GroupAccentColorKeys))
 	}
 	seen := map[string]bool{}
 	for i, c := range GroupAccentPalette {
@@ -274,8 +274,18 @@ func TestGroupAccentPalette_每颗色都有名字且是合法颜色(t *testing.T
 			t.Errorf("第 %d 颗 %q 与前面某颗重了：两格按下去是同一个结果", i, c)
 		}
 		seen[c] = true
-		if GroupAccentNames[i] == "" {
-			t.Errorf("第 %d 颗色没有名字：读屏只拿到一个空的 aria-label", i)
+		if GroupAccentColorKeys[i] == "" {
+			t.Errorf("第 %d 颗色没有名字键：读屏只拿到一个空的 aria-label", i)
+		}
+		// 这张表里**不许住句子**（2026-10-13 改判）：从前这里写着「蓝 青 绿…」，
+		// 于是英文界面那八颗的 aria-label 是中文单字——文案的那一份跑到了语言包外面。
+		// 现在只许是小写键名后缀，句子归 prefs.color.*。
+		for _, r := range GroupAccentColorKeys[i] {
+			if !(r >= 'a' && r <= 'z') {
+				t.Errorf("第 %d 颗的名字键 %q 不是纯小写字母：语言包外的句子会从这一格长回来",
+					i, GroupAccentColorKeys[i])
+				break
+			}
 		}
 	}
 	// InGroupAccentPalette 只给界面用（决定哪一颗按着），**不参与写入校验**——

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -117,6 +118,59 @@ func TestPrefsGroup_每颗键带组名而动作键不装开关(t *testing.T) {
 			t.Errorf("颜色在色板上了，取色器还挂着环：%s", well)
 		}
 	}
+}
+
+// 色板那八颗的名字必须**跟着界面语言走**（C1）。
+//
+// 触发的实测：英文站上把 /prefs 打开，aria-label 那八个位置印的是「蓝 青 绿 黄
+// 橙 红 紫 粉」——名字当时住在 model 的一张 Go 表里，绕过了"文案只有一份，
+// 在 messages/{zh,en}.json"那条纪律。英文界面里一个英语读者看见中文单字，
+// 比看见英文更没用（他念不出来，而那本来就是给念不出颜色的人准备的）。
+func TestPrefsGroup_色名跟着界面语言走(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SetLanguage(i18n.En); err != nil {
+		t.Fatal(err)
+	}
+	page := get(h, "/prefs", dadFormCookie).Body.String()
+	form := groupForm(page, "nas")
+	if form == "" {
+		t.Fatal("英文界面下没有分组那一行的 form")
+	}
+	labels := regexp.MustCompile(`class="prefs-swatch"[^>]*aria-label="([^"]+)"`).FindAllStringSubmatch(form, -1)
+	if len(labels) == 0 {
+		// 属性顺序由模板排版决定，反过来写也要认得到（否则这条闸会在排一次属性后静默空转）。
+		labels = regexp.MustCompile(`aria-label="([^"]+)"[^>]*class="prefs-swatch"`).FindAllStringSubmatch(form, -1)
+	}
+	if len(labels) < len(model.GroupAccentPalette) {
+		t.Fatalf("只数到 %d 颗色块的可及名，色板有 %d 颗", len(labels), len(model.GroupAccentPalette))
+	}
+	for _, l := range labels {
+		name := l[1]
+		if cjk(name) {
+			t.Errorf("英文界面上这颗色块的可及名是中文：%q——名字不许住在 Go 表里", name)
+			break
+		}
+	}
+	if !strings.Contains(form, "Blue") || !strings.Contains(form, "Pink") {
+		t.Errorf("英文界面上没有 Blue/Pink 这两个色名：%s", firstBytes(form))
+	}
+	if err := s.SetLanguage(i18n.Zh); err != nil {
+		t.Fatal(err)
+	}
+	zhPage := groupForm(get(h, "/prefs", dadFormCookie).Body.String(), "nas")
+	if !strings.Contains(zhPage, "蓝") {
+		t.Errorf("切回中文之后那颗键的可及名里没有「蓝」：%s", firstBytes(zhPage))
+	}
+}
+
+// cjk 报这段文字里有没有汉字——语言闸的"英文态不许残留中文"用的是同一把尺。
+func cjk(s string) bool {
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff {
+			return true
+		}
+	}
+	return false
 }
 
 // 面板改得出颜色也改得出磁贴/单列，**且走的是书签写通路**。

@@ -362,9 +362,14 @@ func TestHistory_坏档不挡(t *testing.T) {
 // 只钉后者，那一天面板渲染坏了会一路绿灯。
 func TestHistory_入口在台面面板上画得出来(t *testing.T) {
 	_, h := setupBatch(t)
-	// 第一步：档案页上有一颗带可见文字的「台面」入口。
+	// 第一步：档案页上有一颗带可见文字的入口。
+	//
+	// 2026-10-13 那一屏把这颗键的话从「台面」换成了「外观」——"台面"是这个项目
+	// 内部对那一组台面偏好的称呼，新用户第一次看见它并不知道那能改什么，
+	// 而判据是"没读过文档的人一眼懂不懂"。钉的字跟着换成屏上真的印着的那两个字，
+	// id 仍是 lb-prefs-open（id 是内部形状，不跟着界面词漂）。
 	home := get(h, "/", historyDadCookie).Body.String()
-	if !strings.Contains(home, `id="lb-prefs-open"`) || !strings.Contains(home, "台面") {
+	if !strings.Contains(home, `id="lb-prefs-open"`) || !strings.Contains(home, "外观") {
 		t.Errorf("档案页顶栏少了进台面面板的那一枚：%s", firstBytes(home))
 	}
 	// 第二步：面板里画着通往 /history 的那一枚。
