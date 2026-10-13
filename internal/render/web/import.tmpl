@@ -35,7 +35,7 @@
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}
     <form method="post" action="/import/apply" class="act">
       <input type="hidden" name="token" value="{{.Token}}">
-      <button type="submit">{{.T "import.apply"}}</button>
+      <button type="submit" class="primary">{{.T "import.apply"}}</button>
       <a class="badge" href="/">{{.T "import.cancel"}}</a>
     </form>
   {{else if eq .Mode "done"}}

@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.48de140741e8.js": {
+    "/app.2060656b73d9.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -212,6 +212,34 @@
       }
     },
     "/prefs": {
+      "get": {
+        "summary": "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；JS 关着时顶栏那颗「台面」落在这里）",
+        "x-credential": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**为什么有这一页**：档案页里那一枚「台面」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 403：令牌发给 AI/扩展/CLI，而这一页是给人看的。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的四行是四张**独立的表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。最后一行是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。",
+        "responses": {
+          "200": {
+            "description": "no-store 的 HTML 页面（台面面板）",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "会话指的档案整个没了：回选择页（不带 ?err=，见 /setup 那条「窗口已关」的同一种形状）"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
       "post": {
         "summary": "改自己的台面偏好（主题/形态/排法，仅会话，表单通路）",
         "x-credential": "session",
@@ -220,7 +248,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall，四个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**顶栏的三颗表单键**：theme 那颗是三态循环，按钮文字说\"当前是哪一档\"；`view`（全局视图）与 `layout`（顶栏导航）那两颗是二态开关，标签稳定、状态走 `aria-pressed`。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json），现在有了。",
+        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall|dense，四个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图，dense = 密集视图）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**唯一发出这些字段的界面是台面面板**（`GET /prefs` 那张独立页与档案页里页内嵌的浮层，同一个 define）：六件事此前是顶栏六颗散着的控件，2026-10-13 收进一屏，于是**界面形状也统一了**——排法三颗、档案形态两颗、主题三颗，**每一颗都是标签稳定的 pressed 单选钮**（`aria-pressed`），不再有\"主题是一颗说\"当前是哪一档\"的循环键。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json）。面板那一行是**四张独立的表单**，一次按一下只改一件事，所以没有\"提交\"这一步，也就没有\"忘了提交\"。",
         "requestBody": {
           "required": true,
           "content": {
@@ -247,9 +275,10 @@
                     "type": "string",
                     "enum": [
                       "groups",
-                      "wall"
+                      "wall",
+                      "dense"
                     ],
-                    "description": "**整页怎么排**，落 profile.json 的 view，与 theme/layout 同族（台面偏好，不是书签数据：不产生 rev、不写快照）。groups = 一组一节（默认）；wall = 全局视图，各组作为列头排进多栏、条目压成紧凑单行。空串**不在值集里**：表单要清回默认送 groups，而盘上没有这个键（升级前的形状）在**读侧**是合法的——写侧严、读侧宽，判据见 model 的 Profile.View。渲染成 `<body data-profile-view>`，CSS 那一档全靠它。"
+                    "description": "**整页怎么排**，落 profile.json 的 view，与 theme/layout 同族（台面偏好，不是书签数据：不产生 rev、不写快照）。groups = 一组一节（默认）；wall = 全局视图，各组作为列头排进多栏；dense = 密集视图，磁贴去壳、每条一行「图标 + 名字」（参考 Flare）——去壳**只对精确指针生效**，触摸设备仍走 44px 那一族。空串**不在值集里**：表单要清回默认送 groups，而盘上没有这个键（升级前的形状）在**读侧**是合法的——写侧严、读侧宽，判据见 model 的 Profile.View。渲染成 `<body data-profile-view>`，CSS 那一档全靠它。"
                   },
                   "title": {
                     "type": "string",

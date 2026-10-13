@@ -17,59 +17,13 @@
        同名，进门之后认不出自己在谁的台上。今天档案名挪到了右上角那颗常驻的
        徽标上（见下面 profmenu 那段），"认人"这一维没有丢，只是不再占用标题那一格。 */}}
   <h1 title="{{.PageTitle}}">{{.PageTitle}}</h1>
-  {{/* 改名：**零脚本的两步**（<details> 展开一张表单，POST /prefs）。
-       不做成"点标题就地编辑"的 JS 控件：那一族（⑤）关掉脚本就整条消失，
-       而这一格改的是这个档案长期显示的名字，值得一条没有脚本也走得通的通路。
-       与主题那颗按钮同一个落点（/prefs 只改自己），不进 batch：档案级的 title
-       走 batch 要为它破"set 路径必须以 groups 开头"那条判据，不值。 */}}
-  <details class="rename">
-    <summary>{{.T "profile.rename.summary"}}</summary>
-    <form method="post" action="/prefs">
-      <label>{{.T "profile.rename.label"}}
-        <input name="title" type="text" maxlength="60" autocomplete="off"
-          value="{{.Profile.PageTitle}}" placeholder="{{.T "profile.title.default"}}">
-      </label>
-      <p class="hint">{{.T "profile.rename.hint" (.T "profile.title.default")}}</p>
-      <button type="submit">{{.T "profile.rename.save"}}</button>
-    </form>
-  </details>
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
-    <button type="submit">{{.T "profile.search.submit"}}</button>
+    <button type="submit" class="primary">{{.T "profile.search.submit"}}</button>
   </form>
   {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，
        读起来像"还有 20 条没显示"。说清是谁的总数。 */}}
   {{if .Query}}<p class="hits">{{.T "profile.hits" .Hits .Total}}</p>{{end}}
-  {{/* 主题循环：auto→dark→light→auto（spec §8.1 的三态）。两态互切是错的——
-       auto 是建档默认值，一旦离开就再也回不去，"跟随系统"这个选项等于不存在。
-       值由服务端算并写死在 hidden 里：不用 JS 读当前值，因为"当前值"服务端本来就知道。
-       按钮说**当前是什么**而不是"切到哪"：三态循环下"切到亮色"不告诉人现在在哪一档，
-       而三个说法字数不同（4/4/7 字），按一次宽度跳一次。 */}}
-  <form method="post" action="/prefs" class="theme">
-    <input type="hidden" name="theme" value="{{if eq .Profile.Theme "auto"}}dark{{else if eq .Profile.Theme "dark"}}light{{else}}auto{{end}}">
-    <button type="submit" title="{{.T "profile.theme.title"}}">{{if eq .Profile.Theme "auto"}}{{.T "profile.theme.auto"}}{{else if eq .Profile.Theme "dark"}}{{.T "profile.theme.dark"}}{{else}}{{.T "profile.theme.light"}}{{end}}</button>
-  </form>
-  {{/* 两颗**二态**开关：整页排法（全局视图）与分组导航的位置（顶栏导航）。
-       判据与上面那颗三态的主题键**故意不一样**：主题那一颗没有"按下/未按下"可言
-       （auto→dark→light 是循环），所以它的文字必须说"当前是哪一档"；这两颗是二态，
-       稳定标签 + `aria-pressed` 才是那个标准形状——文字不随状态换，宽度不跳，
-       读屏拿到的是"顶栏导航, 切换按钮, 未按下"这样一句自洽的话，
-       而不是一个每次按下都会改名字的可及名。
-       hidden 里送的仍是另一档：零 JS，现在在哪一档服务端本来就知道。
-       为什么放在顶栏而不是每个分组标题上：这两格管的都是**整页**，
-       挂在某一组标题上会读成"这一组的开关"（那已经是 ▦/☰ 那颗的事了）。 */}}
-  <form method="post" action="/prefs" class="view">
-    <input type="hidden" name="view" value="{{if eq .Profile.View "wall"}}groups{{else}}wall{{end}}">
-    <button type="submit" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{if eq .Profile.View "wall"}}{{.T "profile.view.toGroups"}}{{else}}{{.T "profile.view.toWall"}}{{end}}">{{.T "profile.view.label"}}</button>
-  </form>
-  {{/* 顶栏导航这颗补的是一个**一直缺着的入口**：`Profile.Layout`（sidebar|topbar）
-       此前只有 CSS 与模板属性，没有任何通路能改它——表单没有这颗键，扩展与 CLI
-       也不收 layout，而手改 profile.json 是 AGENTS.md 的禁止事项。
-       也就是说这一档"档案形态"从 2026-10 起就是齐备但拨不动的。 */}}
-  <form method="post" action="/prefs" class="layout">
-    <input type="hidden" name="layout" value="{{if eq .Profile.Layout "topbar"}}sidebar{{else}}topbar{{end}}">
-    <button type="submit" aria-pressed="{{if eq .Profile.Layout "topbar"}}true{{else}}false{{end}}" title="{{if eq .Profile.Layout "topbar"}}{{.T "profile.layout.toSidebar"}}{{else}}{{.T "profile.layout.toTopbar"}}{{end}}">{{.T "profile.layout.label"}}</button>
-  </form>
   <nav aria-label="{{.T "profile.nav.aria"}}">
     {{/* /admin 的路由真的存在（而且现在没管理权时会渲染登录页而不是死链），
          这枚徽章才有资格发链接。判据那一格由 httpapi 算，见上面的注释。 */}}
@@ -104,6 +58,7 @@
          带着一把真的管理权」（lb_admin）。于是管理员可以**一边用自己的档案看书签、
          一边仍带着管理权**，两者不再是同一个身份。 */}}
     {{if .HasAdmin}}<a class="badge" href="/admin">{{.T "profile.admin"}}</a>{{end}}
+    <a class="badge" href="/prefs" id="lb-prefs-open" title="{{.T "prefs.open.title"}}">{{.T "prefs.open.label"}}</a>
     {{/* 回退入口：一条零 JS 链接（GET /revert），不需要 JS 也不需要令牌。
          它是"改坏了能退回去"这条承诺在页面上的**唯一**入口——revert 此前只有
          API 与命令行两条通路，页面上一个按钮都没有，而人点不到的东西不算承诺。
@@ -111,7 +66,6 @@
          **只在还有可退版本时画**（判据在 exec.go 的 HasSnapshots）：一条书签都没
          写过的档案，snapshots/ 是空的，点进去只有一句解释——那就是 §8.1 明写
          要避免的「点了没反应的东西」。*/}}
-    {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{end}}
     {{/* 改动历史（2026-10-13）。这一枚**不判"有没有历史可看"**，与上面那枚
          回退不一样：回退在零快照时整张表单都不画，点进去确实什么都没有；
          而"还没有人动过这一份"本身就是历史页要回答的问题，不是一条死路。
@@ -119,7 +73,6 @@
          第二个理由是缓存：改 PIN、停用、重建这几类动作**不推进书签 rev**，
          却都会往审计线追一行。要按"有没有行"画这一枚，判据就得进渲染缓存键
          多出一维，而那一维天生滞后——为了一枚本来就该常驻的徽标不值得。 */}}
-    <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
   </nav>
 </header>
 {{/* 管理横幅整块删掉了（2026-10-10 改判）：它那句「正在管理 X 的书签 · 由 Y 操作」
@@ -222,6 +175,16 @@
      type=module + defer：模块天然 defer，且不污染全局（§7.2 那个 CSP 下 'self'
      仍然放行，因为它是外部文件而不是内联脚本）。 */}}
 <link rel="stylesheet" href="{{.AppCSS}}">
+  {{/* 页内嵌的那一份浮层：JS 开着时点顶栏「台面」弹的是它；JS 关着时那颗
+       `<a href="/prefs">` 正常跳去独立页。两条路渲染的是同一个 define。
+
+       **空壳**（内容由 app.js fetch `/prefs` 后注入）：面板约 2 KB，而 §7.3 那条
+       操作线管的是每一页的首屏——只是来看书签的人不该背这 2 KB。
+
+       tabindex="-1"：浮层打开后焦点要落在面板自己身上（读屏先念可及名），
+       而 div 默认不可聚焦。可及名走 aria-labelledby 指向注入进来的那个 h2，
+       不用 aria-label 把同一句话写两遍。 */}}
+  <div class="sheet" id="lb-prefs" hidden tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="lb-prefs-h"></div>
 <script type="module" src="{{.AppJS}}"></script>
 </body>
 </html>{{end}}
@@ -275,4 +238,99 @@
   {{end}}
 {{end}}
 </ul>
+{{end}}
+
+{{/* ── 台面面板（2026-10-13）────────────────────────────────────────────────
+     顶栏这一格改的全是**同一件事**：这一页怎么排、叫什么、能退到哪。
+     之前它们是六颗散着的控件（改名 details、主题循环、视图三颗、档案形态、
+     回退、改动历史），顶栏两行都塞不下，于是每一颗各自解释自己。
+
+     收进一个面板之后有两件事同时变好：
+       1. **一个入口**：顶栏右侧只剩一颗「台面」，其余五件事在这一屏里排成一列，
+          人看得见"这些是一伙的"，也就不用记哪颗在哪。
+       2. **一处可优化**：三组三态/两态的键现在形状完全一致（都是一组 pressed 单选钮），
+          以前它们是三种不同的控件——改名是一张 details 表单、主题是一颗循环键、
+          视图与形态才是 pressed 单选钮。同族不同形是最难维护的一种排法。
+
+     主题那一颗从**三态循环**改成三颗显式键：循环键只能说"当前是哪一档"，
+     而面板里三个选项并排摆着，直接挑就行，"跟随系统"（auto）这个选项也不再是
+     一个只能按顺序绕回去才能回来的东西。
+
+     `prefs-panel` 是**共用块**：`GET /prefs` 那张独立页与页内嵌浮层渲染的是同一份
+     标记（它们在本文件里，不跨文件——`icon` 在 profile.tmpl 与 picker.tmpl 里重名，
+     把两个模板并成一个集合会让其中一份被静默覆盖）。
+     每一行仍然是**普通的 form POST /prefs**：面板是 JS 画的，改设置不是。
+     入口是 `<a href="/prefs">`：JS 关着时它就是一次正常跳转。 */}}
+{{define "prefs-panel"}}
+<section class="prefs">
+  <h2 id="lb-prefs-h">{{.T "prefs.heading"}}</h2>
+  <p class="hint">{{.T "prefs.explain"}}</p>
+
+  {{/* 每一行都是**一张独立的表单**：一次按下只改一件事，于是"改坏了退回上一档"
+       永远是一颗键的事，不需要"提交"这一步。
+
+       改名那一行用 `<label for>` 而不是 `<span>` + 内层 `<label>`：可见文字
+       **就是**输入框的可及名（WCAG 2.5.3），而且点那五个字会直接把光标送进
+       输入框。内层再写一遍「这一页的名字」是同一句话说了两遍。 */}}
+  <form method="post" action="/prefs" class="prefs-row">
+    <label class="prefs-label" for="lb-page-title">{{.T "prefs.rename"}}</label>
+    <input class="fld prefs-field" id="lb-page-title" name="title" type="text"
+      maxlength="60" autocomplete="off"
+      value="{{.Profile.PageTitle}}" placeholder="{{.T "profile.title.default"}}">
+    <button type="submit" class="primary">{{.T "profile.rename.save"}}</button>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.view"}}</span>
+    <div class="prefs-keys">
+      <button type="submit" name="view" value="groups" aria-pressed="{{if eq .Profile.View "wall"}}false{{else if eq .Profile.View "dense"}}false{{else}}true{{end}}" title="{{.T "profile.view.groups.title"}}">{{.T "profile.view.groups.label"}}</button>
+      <button type="submit" name="view" value="wall" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{.T "profile.view.wall.title"}}">{{.T "profile.view.wall.label"}}</button>
+      <button type="submit" name="view" value="dense" aria-pressed="{{if eq .Profile.View "dense"}}true{{else}}false{{end}}" title="{{.T "profile.view.dense.title"}}">{{.T "profile.view.dense.label"}}</button>
+    </div>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.layout"}}</span>
+    <div class="prefs-keys">
+      <button type="submit" name="layout" value="sidebar" aria-pressed="{{if eq .Profile.Layout "topbar"}}false{{else}}true{{end}}" title="{{.T "profile.layout.toSidebar"}}">{{.T "prefs.layout.sidebar"}}</button>
+      <button type="submit" name="layout" value="topbar" aria-pressed="{{if eq .Profile.Layout "topbar"}}true{{else}}false{{end}}" title="{{.T "profile.layout.toTopbar"}}">{{.T "prefs.layout.topbar"}}</button>
+    </div>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.theme"}}</span>
+    <div class="prefs-keys">
+      <button type="submit" name="theme" value="auto" aria-pressed="{{if eq .Profile.Theme "auto"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.auto.title"}}">{{.T "profile.theme.auto"}}</button>
+      <button type="submit" name="theme" value="dark" aria-pressed="{{if eq .Profile.Theme "dark"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.dark.title"}}">{{.T "profile.theme.dark"}}</button>
+      <button type="submit" name="theme" value="light" aria-pressed="{{if eq .Profile.Theme "light"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.light.title"}}">{{.T "profile.theme.light"}}</button>
+    </div>
+  </form>
+
+  <div class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.elsewhere"}}</span>
+    <div class="prefs-keys">
+      {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{end}}
+      <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
+    </div>
+  </div>
+</section>
+{{end}}
+
+{{define "prefs-page"}}<!doctype html>
+<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.T "prefs.pageTitle"}} · {{.Profile.Title}}</title>
+<style>{{.CSS}}</style>
+{{/* app.css 只为那一格输入框与按钮族而引：面板的骨架（行、标签、键组）在
+     base.css 里，因为**没有 JS 时这一页照样要长这样**——降级路径不能是个
+     没穿衣服的版本。这一页不带 AppJS：它没有浮层之外的交互。 */}}
+{{with .AppCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
+</head>
+<body>
+{{template "prefs-panel" .}}
+<nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
+</body>
+</html>
 {{end}}

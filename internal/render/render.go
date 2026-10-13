@@ -531,3 +531,26 @@ func firstChar(s string) string {
 	}
 	return "?"
 }
+
+// PrefsPage 渲染台面面板的独立页（GET /prefs）。**JS 关着时那条路**：
+// 顶栏那颗「台面」是 `<a href="/prefs">`，开着 JS 时 app.js 把它拦成浮层，
+// 关着时它就是一次普通跳转——而两种形态渲染的是同一份标记。
+//
+// 不进渲染缓存：这一页每个字段都是台面偏好（改一个就换一个 profile 指纹），
+// 而它是"出了事去找设置"的落点，不该是浏览器缓存里的旧值。
+func (r *Renderer) PrefsPage(id string) (Page, error) {
+	prof, _, err := r.s.LoadProfileWithFingerprint(id)
+	if err != nil {
+		return Page{}, err
+	}
+	// 快照目录读一次决定面板里那枚「回退」画不画，判据与 ProfilePage 同一句
+	// （exec.go 的 HasSnapshots 那段）。读不出来按**有快照**处理：为了
+	// 一次目录读失败把撤销入口藏起来，比多画一枚可能点不动的按钮更糟。
+	snaps, err := r.s.ListSnapshots(id)
+	hasSnaps := err != nil || len(snaps) > 0
+	body, err := r.tmpl.prefsPage(prof, hasSnaps, i18n.Load(r.s.Language()))
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Body: body, ETag: makeETag(id, body), Profile: id, NoStore: true}, nil
+}

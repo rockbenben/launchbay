@@ -749,7 +749,6 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		v.Bookmarks.Groups = append(v.Bookmarks.Groups, gv)
 	}
 	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
-	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
 	// ⑤ 的脚本与 rev 由执行器填，不从视图结构体带进来：指纹路径由内容算出，
 	// 而 rev 就在 b 上（渲染这一页读的就是它）。视图结构体要是能带这两个，
 	// 就会多出"调用方忘了填 → 页面静默没有添加按钮"这种形状。
@@ -814,6 +813,34 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 	if err := e.adminActionT.ExecuteTemplate(&buf, "adminAction", adminActionView{
 		AdminAction: v, CSS: e.cssT, i18nView: newI18nView(cat)}); err != nil {
 		return nil, fmt.Errorf("渲染确认页: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// prefsPage 渲染台面面板的**独立页**（GET /prefs）。
+//
+// 它与档案页里页内嵌的那一份浮层渲染的是**同一个 define**（profile.tmpl 的
+// `prefs-panel`），所以两条路永远一致——这正是把面板定义**留在 profile.tmpl 里**
+// 而不是另开一个 prefs.tmpl 的理由：跨文件共享模板要把所有模板并成一个集合，而
+// `icon` 在 profile.tmpl 与 picker.tmpl 里重名，并进去会让其中一份被静默覆盖。
+//
+// 视图复用 profileView：面板要读的 `.T`、`.Profile`、`Lang`、`.Theme`、`.CSS`
+// 与 `HasSnapshots` 全在那上面，另建一个结构体只会多一份要同步的字段清单。
+func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, cat *i18n.Catalog) ([]byte, error) {
+	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
+		i18nView: newI18nView(cat), HasSnapshots: hasSnaps}
+	// 引 app.css：面板里的输入框走 `.fld`、按钮走按钮族，两条都在那里。**不引**
+	// 就得在 base.css 里另抄一份输入框的脸，于是"浮层里那个框"与"整页那个框"
+	// 迟早分家（判据只有一份）。不带 AppJS——这一页没有浮层之外的交互，
+	// 脚本是档案页才需要的。
+	v.AppCSS = AppCSSPath
+	v.PageTitle = strings.TrimSpace(p.PageTitle)
+	if v.PageTitle == "" {
+		v.PageTitle = v.T("profile.title.default")
+	}
+	var buf bytes.Buffer
+	if err := e.profileT.ExecuteTemplate(&buf, "prefs-page", v); err != nil {
+		return nil, fmt.Errorf("渲染台面面板页: %w", err)
 	}
 	return buf.Bytes(), nil
 }

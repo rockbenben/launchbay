@@ -190,18 +190,21 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 			joint = append(joint, r)
 		}
 	}
-	// 规则条数 == 族数。**⑤ 之后是 5，2026-10-10 变 6，2026-10-13 变 7**：app.css 里那三族是
-	// 交互界面的输入面（.fld，收浮层、⌘K、就地编辑三处）、⌘K 的**结果行**
-	// （.cmdk-list li，那是一排可点的行，§7.5 的「触摸目标 ≥ 44px」说的正是它），
-	// 以及顶栏那枚**由 app.js 创建的**「＋ 添加」按钮（header .add）。
+	// 规则条数 == 族数。**⑤ 之后是 5，2026-10-10 变 6，2026-10-13 变 7**：app.css 里那两族是
+	// 交互界面的输入面（.fld，收浮层、⌘K、就地编辑三处）与 ⌘K 的**结果行**
+	// （.cmdk-list li，那是一排可点的行，§7.5 的「触摸目标 ≥ 44px」说的正是它）。
 	// 第七族是**书签卡片本身**（.card/.pick/.plain）：紧凑那一轮把它从 56px 收到 44px，
 	// 而 44 正是这条闸的地板——**密度是往上顶到下限停，不是往下穿过它**。
 	// 那一轮要是把卡片收到 32px，这条闸必须红；它不红就说明卡片根本没被这条闸管过。
 	// 前两族不合并进 .fld：.fld 带着 input 专属的一堆属性（width/padding/border），
 	// 套到列表项上会把那一行撑变形——而一条形状坏掉的样式，比两条各自正确的规则糟得多。
-	// 第三族也不并进按钮族：那条联合规则带着边框与 padding，会把顶栏那枚实心按钮
-	// 的外观改掉；它单独成族是因为 app.css 只在档案页加载，base.css 不该为它
-	// 背一份每个页面都要付的字节。
+	//
+	// 2026-10-13 第三批：顶栏那枚**由 app.js 创建的**「＋ 添加」**并进按钮族**
+	// （`.add`），族数因此回到 6。它此前单独成族的理由是"那条联合规则带着边框与
+	// padding，会把顶栏那枚实心按钮的外观改掉"——而那句话反过来读才对：正因为它
+	// 被刷成一颗 4px 圆角的实心蓝块，同栏另外六颗全是 9px 圆角的半透明描边脸，
+	// 它才**不像这一栏的东西**。它进族之后外观由族给，主次改用字色与描边分
+	// （app.css 的 `header .add`），族数与外观两边都对。
 	// 多一条就是有人**又**开了一族（或把一族拆成两条）——上面那圈逐条断言对这种改法全绿，
 	// 只有数条规则抓得住。
 	if len(joint) != 7 {
@@ -225,7 +228,12 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 它带着自己的表单，不进名单就是又一颗 24px 的键排在 44px 的旁边。
 	// `.layout button`（同日第四批）：顶栏「顶栏导航」那颗——`Profile.Layout` 从此才有
 	// 了入口，而它一出生就在名单里，不再重复那三次"住在自己的容器里"的老毛病。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".view button", ".layout button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
+	//
+	// 2026-10-13：上面这四格（`.theme` / `.view` / `.layout` / `.rename`）连同它们
+	// 的挂载点一起收进了台面面板，所以名单里那一串换成**一个** `.prefs button`。
+	// 不是"少了几条保护"：它们仍然是提交键，仍然要 44px，只是现在共用一条规则
+	// ——留着四个已经不存在于模板里的选择器，那才是"规则还在、证人没了"。
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".prefs button", ".adm button", ".act button", ".langsel button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", ".add", ".card", ".plain"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {
@@ -797,6 +805,10 @@ func checkCSSSpecs(t *testing.T, css string) {
 		"触摸目标 44px":   `min-height:44px`,
 		"减弱动效豁免":      `@media (prefers-reduced-motion:reduce)`,
 		"高对比模式豁免":     `@media (forced-colors:active)`,
+		// 主操作键：同一张脸 + 两个 token。钉的是**选择器写成了 `button.primary`**，
+		// 不是 `.primary`——按钮族那条联合规则本身就是 0,1,1，少一个元素就输给它，
+		// 输了的症状是"类加上了但什么都没变"。
+		"主操作键描边转主色": `button.primary{color:var(--ink);border-color:var(--accent)}`,
 		// 钉的是**判据本身**而不是那个具体列宽：这一格要保证的是"list 形态由
 		// [data-layout=list] 选、且按视口自适应分列"，而不是"必须是 360px"——
 		// 后者把一个随手可调的像素值抬成了规格，改它就得改这里。
@@ -840,11 +852,17 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 表单，同样一张族都没进，量出来 24px），同日第二批又多了 `.rename`
 		// （顶栏改名的提交键，21px）。**逐字串跟着改了**——改选择器却不改
 		// 这条钉，下一个人加容器时它会红，而红的是"你得看看这条钉说的是哪一族"。
-		"确认/导入页的按钮入按钮族": `.adm button,.act button,.langsel button,.rename button{`,
-		// 顶栏「改名」的浮层在 320 档打开后整页能横滚 5px（`scrollWidth=325`），因为
-		// 那一行 `flex:0 0 auto` + `white-space:nowrap` 不参与收缩。钉的是"可缩 +
-		// min-width:0"这一形状还在：改回不缩，320 档就回到那个能横滚的样子。
-		"改名的标签与输入框要能缩": `.rename label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);flex:1 1 220px;min-width:0}`,
+		// 「＋ 添加」并进按钮族（2026-10-13）。它此前不在族里，于是自己长成一颗实心蓝块
+		// ——4px 圆角、没有描边、悬停是抬升加投影——同一栏里另外六颗全是 9px 圆角的
+		// 半透明描边脸。钉的是**它出现在这条联合规则里**这件事：把它摘出去，它就退回
+		// 那个不属于这一栏的样子，而功能测试一条都不会红。
+		"确认/导入页的按钮入按钮族": `.adm button,.act button,.langsel button,.add{`,
+		// 顶栏「改名」那一格 2026-10-13 收进了台面面板（`GET /prefs` 那张整页与
+		// 档案页里页内嵌的浮层渲染的是同一个 define）。它带走的不是那个溢出，而是
+		// 它背后的形状：面板里每一行都是 `flex-wrap:wrap`，320 档放不下就换行，
+		// 而不是把整页撑出一条横向滚动条。钉的是"行会折"——改回 nowrap 就回到
+		// 能横滚的样子。
+		"台面行要能折行": `.prefs-row{display:flex;flex-wrap:wrap;align-items:center;`,
 		"文件选择框入输入族":    `input[type=search],input[type=file]{min-height:44px}`,
 		// 侧栏外壳（Task 6，spec §8.2）的 190px 常驻列是硬规格：grid-template-columns
 		// 的第一个值就是它。逐字串截到 minmax(0,1fr)，不钉后面的 gap/margin 顺序。
@@ -1245,20 +1263,26 @@ func Test无档案的三页都不发data_theme(t *testing.T) {
 	}
 }
 
-// 顶栏那枚主题按钮是无 JS 时唯一改得动主题的通路，两条断言各挡一种谎：
-//   - 提交值必须是 /prefs 认的枚举值：写错一个字母，按钮每次点都换来一句 422，
-//     而页面看上去一切正常。判据用 model.ValidTheme——模板与端点不许各写一份名单。
-//   - 提交值必须不等于当前值："点一下什么也没变"的按钮不如不放。
+// 台面面板里那三颗主题键是无 JS 时唯一改得动主题的通路，逐格钉三条：
+//   - **每一档都要有一颗键**，且它交出去的值就是它自己：写错一个字母，按钮
+//     每次点都换来一句 422，而页面看上去一切正常。判据用 model.ThemeValues——
+//     模板与端点不许各写一份名单。
+//   - 任何时刻**恰好一颗**是 `aria-pressed="true"`，且是当前这一档。
+//   - 每一档都有可见文字（读屏与语音输入的人都点得到它）。
+//
+// 这一条 2026-10-13 整体改判：顶栏那枚**三态循环**键收进了台面面板，改成三颗
+// 并排的显式键。循环键那条判据（"交出去的必须是下一档"）连同 `wantNext` 一起
+// 没了——三个选项并排摆着的时候，"下一档"根本不是一个需要被钉住的概念，而
+// auto 也不再是一个只能按顺序绕回去才能回来的东西。
 //
 // 这条测的是模板，端点那侧的证人在 httpapi/prefs_test.go；两侧都钉住才叫配对。
-func TestProfilePage_顶栏主题表单交得出合法值(t *testing.T) {
-	hiddenThemeRE := regexp.MustCompile(`name="theme" value="([^"]*)"`)
-	// 这张表和 model 那张表必须是同一套档位：少一格是模板没跟上（循环里那次
-	// Fatalf 会点名），多一格是值集删了档而测试还留着——那也会让模板里留下
-	// 一条永远走不到的分支。
-	if len(wantNext) != len(model.ThemeValues) {
-		t.Fatalf("wantNext 有 %d 格，model.ThemeValues 有 %d 档：值集变了，这张表也要跟着变",
-			len(wantNext), len(model.ThemeValues))
+func TestPrefsPage_主题三颗键各交自己那一档(t *testing.T) {
+	themeKeyRE := regexp.MustCompile(`name="theme" value="(\w+)" aria-pressed="(\w+)" title="([^"]*)">([^<]*)</button>`)
+	// 改名那一行也要在：面板是**所有**台面偏好的唯一入口，少一行就少一条路。
+	wantTitle := `name="title" type="text"`
+	if len(wantLabel) != len(model.ThemeValues) {
+		t.Fatalf("wantLabel 有 %d 格，model.ThemeValues 有 %d 档：值集变了，这张表也要跟着变",
+			len(wantLabel), len(model.ThemeValues))
 	}
 	for _, theme := range model.ThemeValues {
 		s := seeded(t)
@@ -1270,66 +1294,55 @@ func TestProfilePage_顶栏主题表单交得出合法值(t *testing.T) {
 		if err := s.SaveProfile(p); err != nil {
 			t.Fatal(err)
 		}
-		body := string(mustRender(t, s, "dad"))
-		// 钉的是"**带 theme 字段的那张表单**恰好一张"，不是"/prefs 表单恰好一张"：
-		// 2026-10-12 顶栏多了「改名」那一格，它也 POST /prefs（同一族、同样只改自己）。
-		// 按 action 数会把两件不同的事数成一件事，按字段数才是在说"主题通路没被复制"。
-		var withTheme, withTitle int
-		for _, f := range regexp.MustCompile(`(?s)<form method="post" action="/prefs".*?</form>`).FindAllString(body, -1) {
-			if strings.Contains(f, `name="theme"`) {
-				withTheme++
+		page, err := renderer(t, s).PrefsPage("dad")
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := string(page.Body)
+
+		var pressed []string
+		for _, m := range themeKeyRE.FindAllStringSubmatch(body, -1) {
+			if !model.ValidTheme(m[1]) {
+				t.Errorf("theme=%s：面板里那颗键交出去的是 %q，不在 /prefs 认的枚举里，按下去只换来一句 422", theme, m[1])
 			}
-			if strings.Contains(f, `name="title"`) {
-				withTitle++
+			if m[2] == "true" {
+				pressed = append(pressed, m[1])
+			}
+			if m[4] == "" {
+				t.Errorf("theme=%s：那颗键没有可见文字（读屏与语音输入的人都点不到它）", theme)
+			}
+			if m[3] == "" {
+				t.Errorf("theme=%s：%q 那颗键没有 title——「跟随系统」那一档尤其需要它解释自己", theme, m[4])
 			}
 		}
-		if withTheme != 1 {
-			t.Fatalf("theme=%s：顶栏要恰好一张带 theme 的表单，got %d", theme, withTheme)
+		// 每一档的可见文字都要在页面上（词表与 model 同步，少一格上面那次 Fatalf 已点名）。
+		for v, label := range wantLabel {
+			if !strings.Contains(body, ">"+label+"</button>") {
+				t.Errorf("theme=%s：面板里 %q 那颗键的文字不是 %q", theme, v, label)
+			}
 		}
-		if withTitle != 1 {
-			t.Fatalf("theme=%s：顶栏要恰好一张改名表单（带 title 字段），got %d", theme, withTitle)
+		// 集合要等于整张值表：少一颗是某档没法直接选（auto 曾经就是这样——
+		// 循环键下"回到跟随系统"要按两下），多一颗是模板留了一条走不到的分支。
+		for _, v := range model.ThemeValues {
+			if !strings.Contains(body, fmt.Sprintf(`name="theme" value="%s"`, v)) {
+				t.Errorf("theme=%s：面板里没有交出 %q 的那颗键", theme, v)
+			}
 		}
-		m := hiddenThemeRE.FindStringSubmatch(body)
-		if m == nil {
-			t.Fatalf("theme=%s：表单没有 hidden 的 theme 字段——值由服务端算并写死在 hidden 里，无 JS 才有下一档可交:\n%.300s", theme, body)
+		if strings.Join(pressed, ",") != theme {
+			t.Errorf("theme=%s：按下的键是 %v，要恰好是当前这一档一颗", theme, pressed)
 		}
-		next := m[1]
-		if !model.ValidTheme(next) {
-			t.Errorf("theme=%s 交出去的下一档 %q 不在枚举里，/prefs 会 422 整批", theme, next)
-		}
-		if next == theme {
-			t.Errorf("theme=%s 却交出同一个值：按下去什么都不改的按钮是装饰，不是通路", theme)
-		}
-		// **三态循环要逐格钉死，不能只钉"合法且不等于当前值"**：两态互切
-		// （light↔dark）完全满足那两条，却把 auto 变成回不去的状态——而 auto 是
-		// 建档默认值（store.CreateProfile）。spec §8.1 写的是 auto→dark→light→auto。
-		// 表里没有这一档 = model 加了档而模板与这张表都还没跟上，点名它比
-		// 让上面那条交出空串更清楚（评审 I-6：值集不许只有一份证人）。
-		nx, ok := wantNext[theme]
-		if !ok {
-			t.Fatalf("theme=%q 在 model.ThemeValues 里，wantNext 却没有它：加一档要同时改模板、按钮文案与这张表", theme)
-		}
-		if wantNext[theme] != next {
-			t.Errorf("theme=%s 交出 %q，循环里该交 %q", theme, next, nx)
-		}
-		// 按钮上的字说的是**当前这一档**：三态循环下"切到亮色"不告诉人现在在哪一档。
-		label, ok := wantLabel[theme]
-		if !ok {
-			t.Fatalf("theme=%q 有循环格却没有按钮文案格：交得出下一档却说不出它是哪档，等于没说", theme)
-		}
-		if !strings.Contains(body, label) {
-			t.Errorf("theme=%s 的按钮文案不含 %q（文案要说的是当前这一档）:\n%.300s", theme, label, body)
+		if !strings.Contains(body, wantTitle) {
+			t.Errorf("theme=%s：面板里没有改名那一格（它是台面偏好的另一半）:\n%.300s", theme, body)
 		}
 	}
 }
 
-// 主题循环的完整形状：三格全钉，循环走一遍能回到起点。
-var wantNext = map[string]string{"auto": "dark", "dark": "light", "light": "auto"}
-
+// 每颗键的可见文字。这张表和 model 那张表必须是同一套档位：少一格是模板没跟上
+// （上面那条 Fatalf 会点名），多一格是值集删了档而测试还留着。
 var wantLabel = map[string]string{
-	"auto":  "主题：自动",
-	"dark":  "主题：暗",
-	"light": "主题：亮",
+	"auto":  "跟随系统",
+	"dark":  "暗色",
+	"light": "亮色",
 }
 
 // htmlHead 只截 <style> 之前的部分：内联 CSS 有几 KB，整页打进失败输出没人看得下去，
@@ -1684,6 +1697,18 @@ func mustRender(t *testing.T, s *store.Store, id string) []byte {
 	return p.Body
 }
 
+// mustPrefs 渲染台面面板的独立页（GET /prefs）。2026-10-13 起，「回退」「改动
+// 历史」「改名」「视图」「档案形态」「主题」这六件事全部只住在这一页/这一浮层里
+// （档案页只剩一颗「台面」入口），所以凡是断言那几件事"画得出来"的测试都要走它。
+func mustPrefs(t *testing.T, s *store.Store, id string) []byte {
+	t.Helper()
+	p, err := renderer(t, s).PrefsPage(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p.Body
+}
+
 // 两句空态：有书签的档案搜不到东西，不能说"还没有书签"。
 // 夹具必须真的有书签——seeded() 建的档案是空的，空档案里两句都会绿。
 func TestProfilePage_搜索无结果与没书签是两句话(t *testing.T) {
@@ -1807,7 +1832,7 @@ func TestProfilePage_顶栏有换档案的表单出路(t *testing.T) {
 	}
 }
 
-// 顶栏那枚「回退」**只在还有可退版本时画**。
+// 台面面板里那枚「回退」**只在还有可退版本时画**。
 //
 // §8.1 有一条写在别的功能头上的纪律：「点击没反应的东西不进界面」。回退接进顶栏
 // 之后没有跟着走这条：一条书签都没写过的档案 snapshots/ 是空的，点进去只有一句
@@ -1815,7 +1840,11 @@ func TestProfilePage_顶栏有换档案的表单出路(t *testing.T) {
 //
 // 两个方向都要钉：零快照时**不许**画（死路），有快照时**必须**画（承诺的入口不能
 // 凭空消失——这一条更值钱，它防的是"为了修死路把出口一起删了"）。
-func TestProfilePage_回退入口只在有快照时画(t *testing.T) {
+//
+// 2026-10-13：渲染的页面从档案页换成 `GET /prefs`（台面面板）。判据一个字没改，
+// 改的只是**它住在哪一页**——顶栏那枚从散着的一枚变成面板里的一行，而这恰恰是
+// "断言扫描哪份 HTML" 最容易漏掉的地方：不改的话，这条会红得像实现坏了。
+func TestPrefsPage_回退入口只在有快照时画(t *testing.T) {
 	s := seeded(t)
 	save(t, s, "dad", "爸爸的台", "dsm")
 	// SaveBookmarks 不留快照（只有写入路径才留），所以此刻快照为零。
@@ -1824,13 +1853,13 @@ func TestProfilePage_回退入口只在有快照时画(t *testing.T) {
 	} else if len(snaps) != 0 {
 		t.Fatalf("夹具前提不对：快照 = %v（要零）", snaps)
 	}
-	if body := string(mustRender(t, s, "dad")); strings.Contains(body, `href="/revert"`) {
-		t.Error("零快照的档案上画了「回退」——点进去只有一句「还没有可回退的版本」")
+	if body := string(mustPrefs(t, s, "dad")); strings.Contains(body, `href="/revert"`) {
+		t.Error("零快照的面板上画了「回退」——点进去只有一句「还没有可回退的版本」")
 	}
 	if _, err := s.WriteSnapshot("dad"); err != nil {
 		t.Fatal(err)
 	}
-	if body := string(mustRender(t, s, "dad")); !strings.Contains(body, `href="/revert"`) {
+	if body := string(mustPrefs(t, s, "dad")); !strings.Contains(body, `href="/revert"`) {
 		t.Error("有快照了却没画「回退」——「改坏了能退回去」那条承诺的入口不能凭空消失")
 	}
 }
@@ -2349,10 +2378,12 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := stripCSSComments(string(raw))
-	// 锚点跟着按钮族**末尾那一段**走：先是 `.langsel`，同日第二批又追加了 `.rename`
-	// （见 硬规格在场 那条逐字串的注释）。这里找的是这条规则自身的位置，所以锚在
-	// 它的最后一段选择器上：`.langsel button{` 已不再是末端，`.rename button{` 才是。
-	joint := strings.Index(css, ".rename button{")
+	// 锚点跟着按钮族**末尾那一段**走：先是 `.langsel`，同日第二批又追加了 `.rename`，
+	// 2026-10-13 第三批再追加 `.add`（「＋ 添加」并进按钮族，见 硬规格在场 那条逐字串
+	// 的注释），第四批把 `.theme/.view/.layout/.rename button` 四格收进台面面板之后
+	// 换成 `.prefs button`。这里找的是这条规则自身的位置，所以锚在它的最后一段
+	// 选择器上：`.langsel button,.add{` 才是末端。
+	joint := strings.Index(css, ".langsel button,.add{")
 	danger := strings.Index(css, "button.danger{")
 	if joint < 0 || danger < 0 {
 		t.Fatalf("找不到要对比的两条规则（joint=%d danger=%d）：改名可以，但要连这条证人一起改", joint, danger)
@@ -2360,13 +2391,13 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 	if danger < joint {
 		t.Errorf("button.danger 写在 .act button 之前（%d < %d）：等权重下按顺序盖，确认页的红键会变灰", danger, joint)
 	}
-	// 同一族判据的第二条：二态开关的**按下态**。它与按钮族权重相同（都是一个类 +
+	// 同一族判据的第二条：三态/两态键的**按下态**。它与按钮族权重相同（都是一个类 +
 	// 一个元素），靠的就是写在后面；挪到前面去的话 `background:var(--card)` 会盖掉
 	// `--card-hi`，"开着"那一维静默消失——而 aria-pressed 还在页上，读屏说得对、
 	// 眼睛看不见，这种"辅助技术说真话而界面撒谎"的形状最难被功能测试抓到。
-	pressed := strings.Index(css, ".view button[aria-pressed=true]")
+	pressed := strings.Index(css, ".prefs button[aria-pressed=true]")
 	if pressed < 0 {
-		t.Fatal("找不到按下态那条规则（.view button[aria-pressed=true]）：改名可以，但要连这条证人一起改")
+		t.Fatal("找不到按下态那条规则（.prefs button[aria-pressed=true]）：改名可以，但要连这条证人一起改")
 	}
 	if pressed < joint {
 		t.Errorf("按下态写在按钮族之前（%d < %d）：族的 background 会盖掉它，开关看着永远是关的", pressed, joint)

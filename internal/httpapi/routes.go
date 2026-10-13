@@ -99,7 +99,15 @@ func (s *Server) routes() []route {
 		// 表单通路，但**目标不接受申报**：档案从会话推导，所以 credSession 而
 		// 不是 credScoped——管理员进得了这一页也只能退自己那一份（管理员管账号、
 		// 不碰内容）。落点与 POST /api/v1/revert 同一个 revertLocked。
-		{Method: "GET", Pattern: "/revert", Cred: credSession,
+		// 台面面板的独立页（2026-10-13）。顶栏那一格改的全是同一件事——这一页怎么排、
+		// 叫什么、能退到哪——原先是六颗散着的控件（改名 details、主题循环、视图三颗、
+		// 档案形态、回退、改动历史），顶栏两行都塞不下。
+		//
+		// 它是**不经 JS 的那条路**：档案页里页内嵌的浮层与这一页渲染同一个 define。
+		// 准入与 /revert、/history 同一族（selfProfileOnly，档案从会话推导），
+		// 所以管理员进得了也只能改自己那一份。
+		{Method: "GET", Pattern: "/prefs", Cred: credSession,
+			Summary: "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；JS 关着时顶栏那颗「台面」落在这里）", H: s.handlePrefsPage}, {Method: "GET", Pattern: "/revert", Cred: credSession,
 			Summary: "回退到某一版的确认页（第一步；浏览器表单通路）", H: s.handleRevertPage},
 		{Method: "POST", Pattern: "/revert", Cred: credSession,
 			Summary: "确认回退（第二步；与 POST /api/v1/revert 同一落点）", H: s.handleRevertForm},

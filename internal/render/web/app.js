@@ -318,7 +318,7 @@ const APP_I18N = {
   }
 
   const openBtn = el('button', {
-    type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
+    type: 'button', id: 'lb-add', class: 'add primary', text: T('app.add'), title: T('app.addTitle'),
     on: { click: openSheet },
   });
   // 插在搜索表单**之后**而不是 header 末尾：DOM 顺序就是视觉顺序，这样「＋ 添加」
@@ -366,6 +366,62 @@ const APP_I18N = {
     }),
   ]);
   body.append(sheet);
+
+  // ── 台面面板 ──────────────────────────────────────────────────────────────
+  // 顶栏那颗「台面」是 `<a href="/prefs">`。JS 关着时它就是一次普通跳转——**降级
+  // 路径必须自己成立**，所以它得是一个真的链接而不是一颗按钮。JS 开着时拦下来
+  // 弹成浮层。
+  //
+  // 内容是**服务端现渲染**的，不是这里拼的：面板里每一行都是一张普通的
+  // `form POST /prefs`，抽屉外壳是 JS 画的，改设置不是。fetch 回来的是同一份
+  // define（`GET /prefs` 那张独立页渲染的也是它），于是浮层与整页永远一致。
+  //
+  // 为什么 fetch 一次而不是把标记内嵌进档案页：面板约 2 KB，而 §7.3 那条操作线
+  // 管的是**每一页**的首屏——不打开面板的绝大多数人（只是来看书签）不该背这 2 KB。
+  // 代价是打开时多一次同源请求；它是本地请求，面板自己不写状态，**失败就退回一次
+  // 普通跳转**（一次网络抖动不该把人堵在"浮层开不出来"上）。
+  const prefsSheet = $('#lb-prefs');
+  let prefsLoaded = false;
+
+  async function prefsOpen() {
+    if (!prefsSheet) return;
+    if (!prefsLoaded) {
+      try {
+        const res = await fetch('/prefs', { headers: { Accept: 'text/html' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+        const panel = doc.querySelector('section.prefs');
+        if (!panel) throw new Error('no panel in that page');
+        prefsSheet.append(panel, el('button', {
+          type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
+          on: { click: prefsClose },
+        }));
+        prefsLoaded = true;
+      } catch {
+        location.href = '/prefs';
+        return;
+      }
+    }
+    prefsSheet.hidden = false;
+    syncTrap();
+    // 落点跟「＋ 添加」不一样：那里是**输入**面板，焦点必须在第一个输入框上；
+    // 这里是**设置**面板，第一格是文本框但大部分人进来是换视图或换主题，
+    // 焦点给它只会让读屏从一行字开始念。落在面板自己身上（tabindex=-1 加在
+    // 空壳上），读屏先念可及名——也就是那个 h2。
+    prefsSheet.focus();
+  }
+
+  function prefsClose() {
+    if (!prefsSheet || prefsSheet.hidden) return;
+    prefsSheet.hidden = true;
+    syncTrap();
+    $('#lb-prefs-open')?.focus();
+  }
+
+  $('#lb-prefs-open')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    prefsOpen();
+  });
 
   // 分组下拉的选项来自**服务端已经渲染在页面上的分组**。不重新拉一次 /api/v1/data：
   // 一次浮层开合不该为了拿一份没变的数据多发一个请求，而它还会带来"两处分组列表"
@@ -1403,7 +1459,12 @@ const APP_I18N = {
       // `editing.closest('li')` 那套"从面板找回它那一行"的写法已经不成立。
       if (openEdit) { closeEdit(); return; }
       if (multi.on) { exitMulti(); return; }
-      const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet);
+      // 台面浮层要排在下面那个通用 `.sheet` 分支**之前**：它就是一个 `.sheet`，
+      // 而那一支是 `dlg.remove()`——那是为"用完即弃"的挑组/标签/确认框写的
+      // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
+      // remove 掉等于第二次打开要重新拉一次，而且 DOM 里那个空壳被摘走了。
+      if (prefsSheet && !prefsSheet.hidden) { prefsClose(); return; }
+      const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
       if (dlg) { dlg.remove(); return; }
       for (const n of [help, cmdk, sheet]) {
         if (!n.hidden) { n.hidden = true; syncTrap(); return; }

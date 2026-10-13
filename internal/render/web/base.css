@@ -520,6 +520,55 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    「点不动那一行」例外（app.css 里那条 `.tiles .plain .pencil{position:static}`）：
    那一行的行尾本来就站着一枚复制键，两枚键不能互相压。 */
 [data-profile-view=wall] .tiles .card i,[data-profile-view=wall] .tiles .tags-row{margin-left:0}
+
+/* ── 密集视图（`Profile.View=dense`）—— 参考 Flare 那一屏 ──────────────────
+   前两档都还是**磁贴**：每一条带着自己的边框、圆角、底色与 8px 的内衬，
+   于是每行 44px 起、每条占一格，全屏翻不到几条。Flare 那一屏能一屏数几十条，
+   靠的不是更小的行，而是**每一条不再是一个盒子**：去壳之后一行只剩
+   「小图标 + 名字」，高度掉到 26px——省下来的是壳，不是字。
+
+   密度是从**壳**里换来的，字号、行距、触摸目标一律没动（下一段的
+   `@media (pointer:coarse)` 把触摸那一档拉回 44，§7.5 那条地板没有让路）。
+   那一档里"点不动的地址"那一行反而是**最要紧**的：点不动意味着整行只剩地址，
+   地址与它的复制键必须一直在。 */
+[data-profile-view=dense] main{column-width:224px;column-gap:20px}
+@media (max-width:700px){[data-profile-view=dense] main{column-width:140px;column-gap:12px}}
+[data-profile-view=dense] section{break-inside:avoid;margin-bottom:16px;content-visibility:visible}
+/* 组标题变成**栏头**：小字 + 主色（Flare 的分组名就是这么读的）。这一档里
+   它是唯一还在划分结构的东西，所以给它颜色而不是一个色点。 */
+[data-profile-view=dense] section h2{font-size:12px;color:var(--accent);letter-spacing:.02em;
+  margin:0 0 6px;text-transform:none}
+/* 磁贴**去壳**：框线、透明底、8px 内衬、毛玻璃全撤。留 1px 透明边框是为了
+   hover 时描边有地方可换——它在 `.card` 那条 `border` 家族规则里，写 0 会让
+   悬停时那一行抖一下。
+
+   **整块收在精确指针那一档里**，与 `.pencil` 静息不画是同一条判据：手指没有
+   hover，26px 的行对它就是够不着的一行，所以触摸设备**一个字都不省**，
+   `min-height:44px` 仍由 `.card/.pick/.plain` 那一族接着（§7.5 那条族数闸数的是
+   带 44px 的规则，这里没有另开一族——省壳的不是触摸目标，是壳）。
+   换句话说：这一档对鼠标省，对手指不省。 */
+@media (hover:hover) and (pointer:fine){
+  [data-profile-view=dense] .tiles,[data-profile-view=dense] .rows{grid-template-columns:1fr;gap:0}
+  [data-profile-view=dense] .card,[data-profile-view=dense] .plain{
+    min-height:0;padding:3px 6px;gap:7px;border-radius:6px;
+    border:1px solid transparent;background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  [data-profile-view=dense] .card:hover{border-color:var(--line);background:var(--card-hi)}
+  /* 说明与标签在这一档收起来：Flare 的条目就是一行「图标 + 名字」。 */
+  [data-profile-view=dense] .card i,[data-profile-view=dense] .tags-row{display:none}
+  /* 把手**回流到行尾**，不再是右上角那一枚：行只有 26px 高，32px 的键挂在角上
+     会垂下来压到下一条。回流之后名字让出 32px，220px 的栏里还剩 ~150px 给名字。 */
+  [data-profile-view=dense] .pencil{position:static;top:auto;right:auto;margin-left:auto}
+  /* `.card b` 的右上角让位（`.tiles .card b{padding-right:32px}`）在这一档不该有——
+     角上不再有键，那 32px 是白让的。 */
+  [data-profile-view=dense] .card b{padding-right:0}
+  /* 「点不动的地址」那一行：地址要留（那是它唯一的正文），复制键与把手仍并排在
+     地址行右端（app.css 那个 `.addr` 容器），只是行内衬收到 0。 */
+  [data-profile-view=dense] .addr{padding:0}
+  /* 图标跟着缩：22px 的色块在这一档比名字还重，而 Flare 那一屏用的是 14px
+     单色小图标。缩到 15px，一栏能多让出 7px 给名字——那一栏的名字才是必读的。 */
+  [data-profile-view=dense] .ic,[data-profile-view=dense] .ic-img,
+  [data-profile-view=dense] .ic-svg{width:15px;height:15px;border-radius:4px;font-size:9px}
+}
 .profiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
   background:rgba(255,157,108,.12);color:var(--ink)}
@@ -634,17 +683,53 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    与它左边那颗 44px 的下拉并排时像两个不同的产品拼在一起。它并进来而不是
    自己开一条 min-height：一个硬数字一族只写一遍（见上面按钮族的注释与
    TestCSS_搜索控件的44px由哪条规则保证 数出来的六族）。
-   `.rename button` 是顶栏「改名」那一格的提交键：它住在 `<details>` 里，
-   一张族都没进，量出来比它旁边那格输入框矮一截。同上一条并进来，不另开数字。 */
-.pick button,.search button,.theme button,.view button,.layout button,.adm button,.act button,.langsel button,.rename button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
+
+   `.prefs button` 是 2026-10-13 把顶栏六颗控件收进台面面板时顶掉
+   `.theme/.view/.layout/.rename button` 那四格的：它们原来的挂载点已经不在
+   模板里了，而面板里三组三态/两态的键要**同一张脸**——那正是收进面板的第二个
+   好处（以前这几颗分属三个不同的控件族：改名是 details 里的表单、主题是一颗
+   循环键、视图与形态才是 pressed 单选钮。同族不同形是最难维护的一种排法）。 */
+.pick button,.search button,.prefs button,.adm button,.act button,.langsel button,.add{font:inherit;cursor:pointer;color:inherit;background:var(--card);
   border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
-.pick button:hover,.search button:hover,.theme button:hover,.view button:hover,.layout button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.rename button:hover{background:var(--card-hi);border-color:var(--accent)}
-/* 二态开关的**按下态**（`aria-pressed="true"`）。这两颗键的文字是稳定标签
-   （"全局视图"/"顶栏导航"），所以"现在开没开"不能靠文字说，得有个形状：
+.pick button:hover,.search button:hover,.prefs button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.add:hover{background:var(--card-hi);border-color:var(--accent)}
+/* 三态/两态键的**按下态**（`aria-pressed="true"`）。这些键的文字是稳定标签
+   （"分组"/"全局"/"密集"），所以"现在开没开"不能靠文字说，得有个形状：
    字提亮 + 描边转主色。颜色不是唯一载体——下面 forced-colors 那一档另给一圈环。
    必须写在上面那条按钮族的**后面**：两边权重相同，谁在后面谁赢，
    放前面就会被族的 background:var(--card) 静默盖掉（与危险键那一族同一条层叠判据）。 */
-.view button[aria-pressed=true],.layout button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
+.prefs button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
+
+/* 台面面板（2026-10-13）：一列**等宽的行**，每行左边一个标签、右边一组控件。
+   宽度上限 560px 是照着 `.sheet` 那个数定的——浮层里那一份与 `GET /prefs`
+   那张整页渲染的是同一个 define，而**降级路径不许长得像另一个产品**，
+   所以骨架必须是同一条规则写在 base.css 里（浮层那份在 app.css 加载之前
+   就要有个能看的样子，而整页那份根本没有 app.css 可依赖）。
+
+   标签固定 92px：五行的控件起点对齐成一条竖线，一眼能扫下来"哪一行是哪一行"。
+   窄屏上放不下就靠 flex-wrap 换行（`prefs-keys` 自己也会换），不再开一条
+   媒体查询把布局搬成另一套——两套排法迟早不同步。 */
+.prefs{display:flex;flex-direction:column;gap:14px;max-width:560px;margin:0 auto}
+.prefs h2{margin:0;font-size:18px}
+.prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0}
+/* 两级选择器是**必需的**：app.css 里 `.sheet label{display:block;font-size:12px}`
+   是给添加浮层那五格字段写的，而 `.prefs-label` 在浮层里正好也是 label。
+   写 `.prefs-label`（0,1,0）会被它（0,1,1）压掉，于是浮层里那列标签 12px、
+   整页那列 13px——同一份标记在两条路上长得不一样，那正是这条规则要防的。 */
+.prefs .prefs-label{flex:0 0 92px;font-size:13px;color:var(--ink2)}
+.prefs-field{flex:1 1 200px;min-width:0}
+.prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
+.prefs-back{margin:16px auto 0;max-width:560px}
+/* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
+   全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
+   这件事以前只能靠**实心蓝块**来说，而实心块与同栏其余按钮不像一家：实拍顶栏
+   「＋ 添加」是整栏唯一的实心块，4px 圆角、没有描边，看上去像另一个产品。
+   改成描边转主色之后，圆角、内衬、触摸目标与族里其余每一颗完全一致。
+   **权重**：写 `button.primary`（0,1,1）而不是 `.primary`（0,1,0）——按钮族那条
+   联合规则本身就是 0,1,1，少一个元素就输给它，输了的症状是"加了类但没变化"。
+   **什么时候不用**：按钮并排时（两个都像主操作就等于都不是），或者它根本不是
+   这一步的主要出路时（切换语言、退出管理、主题循环、两态开关——那几颗有各自
+   更好的形状）。 */
+button.primary{color:var(--ink);border-color:var(--accent)}
 /* danger 是"这一步不可逆"的**视觉区分**，不是安全措施（§11 刻意不做防护）。
    它与 --warn 分开是因为 --warn 已经表示"坏档读不出来"；让删档与坏档同色，
    等于在一张同时出现这两者的表里把"这里坏了"与"点这里会删东西"画成一样。
@@ -772,7 +857,7 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 @media (forced-colors:active){
   .card,.pick,.plain{backdrop-filter:none;background:Canvas;border:1px solid CanvasText}
   /* 系统色把边框颜色盖平之后，"开着"这一维只剩颜色差就是没有差：补一圈环。 */
-  .view button[aria-pressed=true],.layout button[aria-pressed=true]{outline:2px solid CanvasText;outline-offset:1px}
+  .prefs button[aria-pressed=true]{outline:2px solid CanvasText;outline-offset:1px}
   body::before{display:none}
   .ic{border:1px solid CanvasText}
 }

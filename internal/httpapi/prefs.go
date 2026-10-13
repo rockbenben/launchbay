@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/model"
+	"github.com/rockbenben/launchbay/internal/store"
 )
 
 // handlePrefs 是浏览器表单通路：改的是"这个人对自己台面的偏好"（主题 +
@@ -124,4 +126,36 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	// 成功与拒都回 `/`：字节相同，语义不同（拒是"你没资格动这条路"，成功是
 	// "改完了，回首页看新主题"）。判据在 require 那一份里，外壳在这一句里。
 	redirectPicker(w)
+}
+
+// handlePrefsPage 渲染**台面面板的独立页**（GET /prefs）。
+//
+// 这一页是顶栏那颗「台面」的**不经 JS 的那条路**：档案页里页内嵌的那一份浮层
+// （app.js 拦下点击打开）与这一页渲染的是同一个 define，于是两处永远一致。
+// 改设置的动作本身始终是普通的 form POST /prefs——面板是 JS 画的，改设置不是。
+//
+// 准入与 /revert、/history 同一族（selfProfileOnly）：档案从会话推导、不接受申报，
+// 所以管理员带 cookie 进得了这一页也只能改自己那一份——管理员管账号、不碰内容。
+// 带令牌一律 403：令牌发给 AI/扩展/CLI，而这一页是给人看的浏览器通路。
+func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.selfProfileOnly(w, r)
+	if !ok {
+		return
+	}
+	// 档案整个没了（会话指着一个已删的档案）→ 回选择页，那里会重新列一遍。
+	// **坏档不挡**：改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，
+	// 而坏档正是最需要改排版看看的时候。
+	if _, err := s.deps.Store.LoadProfile(id); errors.Is(err, store.ErrNotFound) {
+		redirectPicker(w)
+		return
+	} else if err != nil && !errors.Is(err, store.ErrCorrupt) && !errors.Is(err, store.ErrInvalid) {
+		writeInternalError(w, err)
+		return
+	}
+	page, err := s.deps.Render.PrefsPage(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.writePage(w, r, page)
 }

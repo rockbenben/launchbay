@@ -15,7 +15,7 @@
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
   <form method="post" action="/admin/login" class="pick">
     <label>{{.T "admin.login.key"}} <input name="key" type="password" required autocomplete="off" autofocus></label>
-    <button type="submit">{{.T "admin.login.submit"}}</button>
+    <button type="submit" class="primary">{{.T "admin.login.submit"}}</button>
   </form>
   {{/* 这一段是这一页存在的理由：key 在 docker-compose.yml 里，不在任何档案上，
        而"输 PIN 进自己的台"与"管这台机器"是两件不同的事。不说清的话，人会去

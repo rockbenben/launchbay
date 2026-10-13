@@ -23,7 +23,7 @@ var (
 	LayoutValues = []string{"sidebar", "topbar"}
 	// ViewValues 是**整页怎么排**：groups = 一组一节（默认），
 	// wall = 全局视图，各组作为列头、条目压成紧凑单行，多栏流式排满一屏。
-	ViewValues = []string{"groups", "wall"}
+	ViewValues = []string{"groups", "wall", "dense"}
 )
 
 func valueSet(vs []string) map[string]bool {

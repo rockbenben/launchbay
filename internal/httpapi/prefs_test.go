@@ -107,46 +107,54 @@ func TestPrefs_排法改得动且页面带上属性(t *testing.T) {
 	}
 }
 
-// 两颗二态开关：标签**不随状态换**，状态走 aria-pressed。
+// 面板里那些键：标签**不随状态换**，状态走 aria-pressed。
 //
-// 这条钉的是"形状"而不是"改得动"（改得动由上面那两条覆盖）：从前这两颗键把状态
-// 印在文字里（「分组」/「全局」），读屏拿到的是一个每次按下都改名字的可及名，
-// 而"这是不是一个开关"没有任何地方说。稳定标签 + aria-pressed 才是那个标准形状，
-// 顺带把顶栏的宽度也钉住了（文字不换 = 不跳）。
+// 这条钉的是"形状"而不是"改得动"（改得动由上面那两条覆盖）：从前列名那几颗键把
+// 状态印在文字里（「全局视图」/「顶栏导航」），读屏拿到的是一个每次按下都改名字的
+// 可及名，而"这是不是一个开关"没有任何地方说。稳定标签 + aria-pressed 才是那个
+// 标准形状，顺带把控件宽度也钉住了（文字不换 = 不跳）。
 //
-// 「顶栏导航」这一颗补的是一个一直缺着的入口：Profile.Layout 此前只有 CSS 与
+// 「档案形态」这一组补的是一个一直缺着的入口：Profile.Layout 此前只有 CSS 与
 // 模板属性，表单没有键、扩展与 CLI 都不收，只有手改 profile.json（禁止事项）。
-func TestPrefs_两颗开关的标签稳定而状态走aria(t *testing.T) {
+//
+// 2026-10-13：这一条连同 `view` 那一组一起从**档案页顶栏**搬进了台面面板，
+// 并加上了 `theme` 那一组（三颗显式键，顶栏从前是一颗三态循环键）。所以
+// "扫哪份 HTML"与"名单里有几颗"两处都跟着变了——名单是**八颗**，不多不少。
+func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	s, h := setup(t)
-	// 起点：dad 是 sidebar + 没选过 view（盘上没有那个键）
-	two := func(html string) []string {
+	// 起点：dad 是 sidebar + 没选过 view（盘上没有那个键）+ auto 主题
+	panel := func() []string {
+		rec := get(h, "/prefs", dadFormCookie)
+		if rec.Code != 200 {
+			t.Fatalf("台面面板该 200，得到 %d：%s", rec.Code, firstBytes(rec.Body.String()))
+		}
 		var out []string
-		for _, m := range regexp.MustCompile(`<button type="submit" aria-pressed="(\w+)" title="[^"]*">([^<]+)</button>`).FindAllStringSubmatch(html, -1) {
+		for _, m := range regexp.MustCompile(`<button type="submit"[^>]*aria-pressed="(\w+)"[^>]*title="[^"]*"[^>]*>([^<]+)</button>`).FindAllStringSubmatch(rec.Body.String(), -1) {
 			out = append(out, m[2]+"="+m[1])
 		}
 		return out
 	}
-	page := get(h, "/", dadFormCookie).Body.String()
-	got := two(page)
-	want := []string{"全局视图=false", "顶栏导航=false"}
+	want := []string{"分组=true", "全局=false", "密集=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false"}
+	got := panel()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("静息态的两颗开关不对：%v，要 %v", got, want)
+		t.Fatalf("静息态的八颗键不对：%v，要 %v", got, want)
 	}
-	// 开全局视图：标签一个字不动，只有 pressed 翻
+	// 开全局视图：三颗视图键里 pressed 只翻一颗，标签一个字不动
 	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("view=wall 要 303，得到 %d", rec.Code)
 	}
-	if got = two(get(h, "/", dadFormCookie).Body.String()); strings.Join(got, ",") != "全局视图=true,顶栏导航=false" {
+	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false" {
 		t.Errorf("开完全局视图：%v", got)
 	}
-	// 开顶栏导航：两维互不干涉（view 还开着）
+	// 开顶栏导航：两维互不干涉（view 还开着，dense 那颗仍是 false）
 	if rec := postForm(h, "/prefs", "layout=topbar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("layout=topbar 要 303，得到 %d", rec.Code)
 	}
-	page = get(h, "/", dadFormCookie).Body.String()
-	if got = two(page); strings.Join(got, ",") != "全局视图=true,顶栏导航=true" {
+	got = panel()
+	if strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false" {
 		t.Errorf("两维都开：%v", got)
 	}
+	page := get(h, "/", dadFormCookie).Body.String()
 	if !strings.Contains(pageText(page), `data-profile-layout="topbar"`) || !strings.Contains(pageText(page), `data-profile-view="wall"`) {
 		t.Errorf("两个属性没同时发出来：%s", headLines(page, 6))
 	}
@@ -157,11 +165,11 @@ func TestPrefs_两颗开关的标签稳定而状态走aria(t *testing.T) {
 	if p.Layout != "topbar" || p.View != "wall" {
 		t.Errorf("盘上不是那两个值：layout=%q view=%q", p.Layout, p.View)
 	}
-	// 那颗键送的是**另一档**（hidden 由服务端算），所以再按一次就关得掉
+	// 那颗键送的是**另一档**，所以再按一次就关得掉
 	if rec := postForm(h, "/prefs", "layout=sidebar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("切回 sidebar 要 303，得到 %d", rec.Code)
 	}
-	if got = two(get(h, "/", dadFormCookie).Body.String()); strings.Join(got, ",") != "全局视图=true,顶栏导航=false" {
+	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false" {
 		t.Errorf("关掉顶栏导航：%v", got)
 	}
 }
