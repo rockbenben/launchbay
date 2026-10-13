@@ -132,6 +132,13 @@ const APP_I18N = {
     "app.opsConflict": "这一份已经被改过，刷新之后再试。",
     "app.opsWrongProfile": "这一页改的不是你正在用的那一份。点右上角的档案名，重新进一次。",
     "app.opsStale": "那一组或那一条已经不在了——可能别人刚改过。刷新之后再看一次。",
+    "app.opsDuplicate": "这一条已经在这份里了（同一条书签不能存两次）。要改它，就在那一条上按 ✎。",
+    "app.opsIcon": "那个图标名这台机器查不到。换一枚，或者留空走首字母色块。",
+    "app.resolveBadUrl": "这个地址还不完整——要有协议和主机名（例如 http://10.0.0.5:5000/）。",
+    "app.resolveDown": "那个网页没应答（那台机器可能没开）。照样存下来也行，回头补标题。",
+    "app.opsNoProfile": "这台机器上没有这一份档案了——多半是刚被删掉。点右上角的档案名重新选一份。",
+    "app.opsBroken": "这一份的数据文件读不动，刚才的改动没有写进去。这不是重试一次能解决的——要在这台机器上修好那个文件。",
+    "app.opsRejected": "这一批没有写进去：这台机器不收刚才那些内容。（原因在浏览器控制台里。）",
     "app.opsNoSnap": "这一版存不下，改动已经取消，书签一个字都没变。",
     "app.opsServerError": "这台机器刚才没能完成（HTTP %s）。稍后再试一次。",
     "app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",
@@ -250,6 +257,13 @@ const APP_I18N = {
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
     "app.opsWrongProfile": "This page isn't the profile you're using. Tap the name at the top right and come back in.",
     "app.opsStale": "That group or bookmark is gone — someone else may have changed it. Reload and look again.",
+    "app.opsDuplicate": "That one is already in this profile — a bookmark can't be stored twice. To change it, press ✎ on it.",
+    "app.opsIcon": "This machine doesn't know that icon name. Pick another, or leave it empty and use the initial-letter tile.",
+    "app.resolveBadUrl": "That address isn't complete yet — it needs a scheme and a host name (e.g. http://10.0.0.5:5000/).",
+    "app.resolveDown": "That page didn't answer (the machine may be off). You can still save it and fill the title in later.",
+    "app.opsNoProfile": "This machine no longer has that profile — it was probably just deleted. Pick another one from the name at the top right.",
+    "app.opsBroken": "That profile's data file can't be read, so the change wasn't written. Retrying won't help — the file has to be fixed on this machine.",
+    "app.opsRejected": "That batch wasn't written — this machine didn't accept what was in it. (The reason is in the browser console.)",
     "app.opsNoSnap": "This version couldn't be stored, so the change was cancelled — your bookmarks are untouched.",
     "app.opsServerError": "This machine couldn't finish that (HTTP %s). Try again in a moment.",
     "app.opsGone": "This page is no longer signed in. Click your profile name at the top right to sign in again.",
@@ -286,6 +300,42 @@ const APP_I18N = {
   let rev = Number(body.dataset.rev || '0');
   if (!profile) return; // 不是档案首屏（选择页 / 坏档页），这里什么也不注入
 
+
+  // 服务端每个 JSON 错误都带一格 kind（AGENTS.md「错误码」）。这两张表是**这一侧
+  // 唯一的选句子判据**：kind 优先，状态码兜底。
+  //
+  // 为什么不能只按状态码：同一个 422 在两条通路上说的是两件相反的事——
+  // missing-target 该说"刷新看看"，duplicate-id 该说"这条已经在里面了，去改它"。
+  // 上一版只按状态码选，于是重复添加同一网址的人看到"东西没了，刷新一下"。
+  //
+  // 422 的兜底是 app.opsRejected（"没收，原因在 console"）而不是"已经不在了"：
+  // 走到那一格说明这台机器给了一个这一版还不认识的码，那句"刷新看看"就成了假话。
+  const KIND_KEY = {
+    'duplicate-id': 'app.opsDuplicate',
+    'missing-target': 'app.opsStale',
+    'icon-unknown': 'app.opsIcon',
+    'url-incomplete': 'app.resolveBadUrl',
+    'target-unreachable': 'app.resolveDown',
+    'rev-conflict': 'app.opsConflict',
+    'credential-missing': 'app.opsGone',
+    'credential-unknown': 'app.opsGone',
+    'credential-scope': 'app.opsWrongProfile',
+    'profile-not-found': 'app.opsNoProfile',
+    'profile-broken': 'app.opsBroken',
+    'snapshot-failed': 'app.opsNoSnap',
+  };
+  const STATUS_KEY = { 401: 'app.opsGone', 403: 'app.opsWrongProfile', 409: 'app.opsConflict', 422: 'app.opsRejected', 507: 'app.opsNoSnap' };
+
+  // kindOf：这一发该按哪一码说话。batch 的外壳 kind 说的是**这一族**
+  // （ops-invalid = 整批未写入），具体哪一条、为什么在 errors[0] —— 所以先读明细。
+  function kindOf(data) {
+    const first = Array.isArray(data && data.errors) && data.errors[0];
+    return (first && first.kind) || (data && data.kind) || '';
+  }
+  // msgKeyFor 挑这一发该说的那一句：kind 优先，状态码只在这一版不认识那个码时兜底。
+  function msgKeyFor(data, status) {
+    return KIND_KEY[kindOf(data)] || STATUS_KEY[status] || 'app.opsServerError';
+  }
   // ── 小工具 ────────────────────────────────────────────────────────────────
   const $ = (sel, root = document) => root.querySelector(sel);
   const el = (tag, attrs = {}, kids = []) => {
@@ -597,7 +647,14 @@ const APP_I18N = {
     say(T('app.reading'), 'busy');
     try {
       const r = await api('/api/v1/resolve', { url, profile });
-      if (r.detail || r.code) { say(r.detail || T('app.readFail'), 'bad'); return; }
+      if (r.detail || r.code) {
+        // 屏上说的仍是**这一类**的话：那一格的文本是给脚本对照的协议话，
+        // 英文界面里冒出一句中文、还不说这是哪一步，等于让人自己猜。
+        const key = msgKeyFor(r, r.code);
+        console.warn('lb: resolve answered with an error body', r.code, r.kind || '', r.detail || '');
+        say(T(KIND_KEY[r.kind] || (key === 'app.opsServerError' ? 'app.readFail' : key)), 'bad');
+        return;
+      }
       if (!fTitle.value) fTitle.value = r.title || '';
       if (!fDesc.value) fDesc.value = r.desc || '';
       if (r.suggestedGroup && fGroup.value !== NEW_GROUP) {
@@ -610,7 +667,13 @@ const APP_I18N = {
     } catch (e) {
       // **写失败一律显式报错，不静默吞**（§8.7）：一条"正在读取…"永远停在那儿，
       // 用户会以为它在加载。
-      say(T('app.readErr', e.message), 'bad');
+      //
+      // 带 status 的那一发，`e.message` 已经是 api() 按错误码挑出来的那句话，
+      // 再套一层"读不出来："就成了"读不出来：这个地址还不完整——要有协议和主机名"
+      // ——两句叠一句，实测英文站上就是 "Could not read it: That address isn't
+      // complete yet"。没有 status 的才是真·意外（网络断了、脚本自己抛的），那时
+      // 前面那句"读不出来："带着上下文才有用。
+      say(e && e.status ? e.message : T('app.readErr', e.message), 'bad');
     }
   }
 
@@ -871,10 +934,17 @@ const APP_I18N = {
       // 日志，那里有完整的 field/reason。注释里不复述那几字：整份 app.js 原样下发，
       // 字面串会喂饱"客户端不许抄服务端协议话"那条闸。
       const first = Array.isArray(data.errors) && data.errors[0];
-      const byStatus = { 401: 'app.opsGone', 403: 'app.opsWrongProfile', 409: 'app.opsConflict', 422: 'app.opsStale', 507: 'app.opsNoSnap' };
-      const msgKey = byStatus[res.status] || 'app.opsServerError';
+      // **kind 优先，状态码兜底**。服务端每个错误都带 kind（AGENTS.md「错误码」），
+      // 而同一个状态码在两条通路上说的是两件相反的事：422 既可能是"那一组已经不
+      // 在了"（该说：刷新看看），也可能是"这一条已经存过了"（该说：去改它，别再
+      // 存第二遍）。上一版只按状态码选，于是重复添加同一网址的人看到的是"东西没
+      // 了，刷新一下"——实测抓到的就是这一条。
+      // errors[0].kind 先读：batch 的外壳那一格说的是**这一族**（ops-invalid = 整批
+      // 未写入），具体哪一条、为什么在明细里。
+      const msgKey = msgKeyFor(data, res.status);
       const why = msgKey === 'app.opsServerError' ? T(msgKey, String(res.status)) : T(msgKey);
-      console.warn('lb: write request rejected', res.status,
+      // 标签不再写 "write request"：这一条通路也服务 resolve，那是**读**。
+      console.warn('lb: request rejected', res.status, kindOf(data),
         (first && (first.reason || first.field)) || data.detail || '');
       const e = new Error(why);
       e.status = res.status;
