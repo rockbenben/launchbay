@@ -65,29 +65,35 @@ func (r *Report) Specials(src []srcItem) {
 // Text 渲染成给人读的文本。
 func (r *Report) Text() string {
 	var b strings.Builder
-	b.WriteString("# 浏览器书签导入报告\n\n")
+	b.WriteString("# 浏览器书签导入报告\n\n## 结论\n\n")
 
 	// 1. 结论
-	if r.Rec.OK() {
-		b.WriteString("## 结论\n\n三条对账全过：条目数相等、URL 差集为空、name/desc 逐条一致。\n\n")
-	} else {
-		b.WriteString("## 结论：**没导干净**\n\n")
-		for _, f := range r.Rec.Failures() {
-			b.WriteString("- " + f + "\n")
-		}
-		b.WriteString("\n")
-	}
-	// 两个"源"以前打架：结论说"源 12 → 新库 9"，对账第 1 条说"源 9，新库 9 —— 过"。
-	// 后者比的是**过滤后**的条目数，所以它永远过——"三条全过"于是掩盖了"12 条里
-	// 3 条没进来"。改成各自说清自己数的是哪一批。
+	//
+	// **先说完整画面，再说对账**（2026-10-13 实拍改判）。从前是「三条对账全过」
+	// 打头、"另有 N 条没能进来" 跟在后面——于是读者第一眼读到的是"全过"，第二眼
+	// 才看到少了东西，而这两句为什么能同时成立，报告从头到尾没有解释。
+	//
+	// 它**必须**解释，因为这一对词真会同时出现：对账判的是"该进的进了没"，
+	// 而那 N 条是**判定它进不来**的。混在一起不解释，等于把一句"没丢东西"摆在
+	// 一句"丢了东西"旁边，谁读都会怀疑自己看错了。
 	fmt.Fprintf(&b, "条目：文件里 %d 条 → 进档案 %d 条。", r.SourceCount, r.ResultCount)
 	if n := len(r.Skipped); n > 0 {
-		fmt.Fprintf(&b, "另有 %d 条**没能进来**（过不了写路径的校验，逐条列在下面）。", n)
+		fmt.Fprintf(&b, "另有 **%d 条没能进来**（过不了写路径的校验，逐条列在下面）。", n)
 	}
 	if r.TrashedCount > 0 {
 		fmt.Fprintf(&b, "另有 %d 条在浏览器回收站里（用户已经删了），**没有进档案**。", r.TrashedCount)
 	}
 	b.WriteString("\n\n")
+	if r.Rec.OK() {
+		b.WriteString("**三条对账全过**——它答的是「该进的有没有进」。" +
+			"被判进不来的那几条不在对账的范围里，所以「全过」与「少了东西」两句话都成立。\n\n")
+	} else {
+		b.WriteString("**没导干净**。对账不过的地方：\n\n")
+		for _, f := range r.Rec.Failures() {
+			b.WriteString("- " + f + "\n")
+		}
+		b.WriteString("\n")
+	}
 
 	// 2. 没照搬的东西 —— 这是"迁不干净"的原因
 	r.writeSkipped(&b)

@@ -83,6 +83,9 @@ func TestConvert_报告能回答该回答的问题(t *testing.T) {
 	if i, j := strings.Index(txt, "## 结论"), strings.Index(txt, "对账（三条"); i < 0 || (j >= 0 && i > j) {
 		t.Errorf("结论要排在对账明细之前\n%s", txt)
 	}
+	// 「三条全过」与「没能进来」并排时的那一句，**在带跳过条目的那份夹具上验**
+	// ——见 screen_test.go 的 `Test报告里全过与少东西要能同时成立`。这一份夹具里
+	// 一条都跳不出去，两个词也就不会同时出现，在这儿钉它是空转。
 }
 
 // 浏览器导出的 <TITLE> 常是 "Bookmarks" 这种什么都没说的默认值。
