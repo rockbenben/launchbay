@@ -140,8 +140,23 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
    名字那一格让出 44px 是为了不被压在下面；描述在第二行，与右上角不重叠，
    仍占满整幅宽。
 
-   **list 形态不改**：它一行读完、描述在右侧，把手本来就该在行尾。 */
+   **list 形态不改**：它一行读完、描述在右侧，把手本来就该在行尾。
+
+   **但「点不动那一行」的把手留在流里**（2026-10-13 用户实拍指出）。那一行的行尾
+   本来就站着一枚 44×44 的复制键，把手再绝对定位到右上角就正好**压在它身上**：
+   量到相交 25×42=1050px²，而 `elementFromPoint` 打在复制键中心返回的是
+   `button.pencil`——想复制，按下的是编辑。窄磁贴（390 那一档）今天没撞上，
+   只是因为名字长到把复制键挤去了第二行；名字一短（NAS 那种）同一处就会撞上，
+   所以那不是"窄屏没这个问题"，是"这一份数据恰好躲过去了"。
+   两枚键一起待在流里 = 它们永远是相邻的两格，不可能互相压。
+   挤不动的那一笔由名字承担（`.tiles .plain b{flex:1 1 0}`，同一轮改的），
+   不是由行高承担——同排磁贴会被 grid 一起拉高，那一笔 batch7 已经算过。 */
 .tiles .pencil{position:absolute;top:6px;right:6px}
+/* `margin-left:0` 收掉 base.css 那条 `.tiles .pencil{margin-left:auto}`：
+   主轴上的 auto 边距与名字的 `flex:1 1 0` 抢的是同一份剩余空间。Chrome 这边
+   量到的是名字拿到 56px（键贴着行尾），但这条次序换引擎不保证——名字被挤成
+   0 宽是看得见的事故，而两枚键本来就在行尾，这一格不需要 auto。 */
+.tiles .plain .pencil{position:static;margin-left:0}
 .tiles .card b{padding-right:44px}
 .tags-row:empty{display:none}
 /* 编辑态**盖住**这一张卡，而不是在它下面追加一坨表单：追加会把整列撑开，

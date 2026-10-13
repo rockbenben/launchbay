@@ -604,6 +604,13 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// CSS 文件读得进来、构建没错、每一颗按钮都还在、只是排成了两行三行——
 		// 所以除了逐字钉，下面另有一道"选择器段里没有游离引号"的形状闸。
 		"编辑态底部那一行是横排": `.inline-edit .row{display:flex;gap:8px}`,
+		// 「点不动那一行」的两枚键（复制 + 编辑）必须**一起待在流里**。写回绝对定位
+		// 时把手压在复制键身上：量到相交 25×42=1050px²，`elementFromPoint` 打在复制键
+		// 中心返回的是 `button.pencil`——想复制，按下的是编辑。这一格在 HTML 里
+		// 没有任何痕迹（两个 rect 相不相交，DOM 看不出来），所以钉逐字行。
+		// `margin-left:0` 也在钉内：它顶掉 base.css 那条 auto 边距，与名字的
+		// `flex:1 1 0` 抢同一份剩余空间——换引擎时名字可能被挤成 0 宽。
+		"点不动那行的把手在流里": `.tiles .plain .pencil{position:static;margin-left:0}`,
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css 里没有 %q（%s）", want, name)
@@ -791,6 +798,10 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 裁定 M-4：长名字截断要同时盖住 .card 与 .plain 两种形态，
 		// 只写 .card 时"需手动打开"那条会换行而不是省略。
 		"长名截断两态": `.card b,.plain b{font-weight:600;overflow:hidden;text-overflow:ellipsis`,
+		// 同一族在磁贴里的那一半（2026-10-13）：`flex:1 1 0` 让名字先收缩再省略，
+		// 而不是把行尾的键挤去下一行。少了 `.plain b`，「点不动那一行」在 1440 档
+		// 整排磁贴被 grid 一起拉高 52px（量过：一屏 46→41）。
+		"磁贴里的名字先收缩不换行": `.tiles .card b,.tiles .plain b{flex:1 1 0;min-width:0}`,
 		// 管理横幅与"两层 sticky 让位"这两格在 2026-10-10 随代管态一起删了，
 		// 对应的 CSS 也清干净了——一条永不触发的规则比没有更糟：它看起来像在那里
 		// 守着。替代它们的是下面那条**导入页的触摸目标**——那一族过去不在名单里，

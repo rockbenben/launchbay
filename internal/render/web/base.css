@@ -315,7 +315,7 @@ a:active,button:active,input[type=submit]:active,summary:active{transform:transl
    于是键盘下**完全看不见焦点在哪**。容器点名的写法每加一个容器就要漏一次，
    所以这里按**元素**收口，那三条容器级的 2px 规则随之删掉（同一族两个环宽）。 */
 .card:focus-visible,.pick:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
-.card>*{min-width:0}
+.card>*,.plain>*{min-width:0}
 /* 名字的截断一次覆盖两态：旧版写的是 `li b`，`.card`/`.plain` 都盖得住。改成只选
    .card 之后，"需手动打开"那条（.plain）的长名字会换行而不是省略号——两态在类名
    契约里是同一张脸，规则就该一起写（修复轮 1 的 M-4）。 */
@@ -386,9 +386,12 @@ a.badge.danger,button.badge.danger{border-color:var(--bad);color:var(--bad)}
 a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);border-color:var(--bad)}
 .tag{border:1px solid var(--line);color:var(--ink2)}
 .tags-row{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
-/* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。 */
+/* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。
+   `order:2` 是为**排在 code 后面的那些东西**说的：把手与「图标未匹配」徽标是
+   app.js/模板挂在行尾的，没有这一句它们会被那条 100% 宽的 URL 顶到第三行去，
+   看着像另一件事的键（list 档实拍过：✎ 孤零零悬在 URL 下面）。名字与键同在第一行。 */
 .plain{flex-wrap:wrap}
-.plain code{flex:1 0 100%;font-size:12px;color:var(--ink2);
+.plain code{flex:1 0 100%;order:2;font-size:12px;color:var(--ink2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 地址从「整串换行」改成「一行省略号」（2026-10-13 真实数据 390 档实拍）：
    同排卡片要等高（2026-10-11 那条判据），于是一条 chrome://extensions/ 这种
@@ -425,12 +428,15 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    改后几乎全截）。名字是这张卡上唯一必读的东西，标签与说明是次要元数据——
    让次要的换行，而不是让主要的消失。list 形态一行 966px，不需要这一套。 */
 .tiles .card{flex-wrap:wrap}
-.tiles .card b{flex:1 1 0;min-width:0}
+.tiles .card b,.tiles .plain b{flex:1 1 0;min-width:0}
 /* `1 1 auto` → `1 1 0`（2026-10-13 真实数据实拍）：basis 是 auto 时，flex 先按**内容宽**
    排一行，放不下才换行——于是名字长一点的条目（「Chrome 网上应用店」）整块掉到第二行，
    图标孤零零占着第一行，那一格从 44px 长到 99px，同排其它卡片被 grid 一起拉高。
    basis 给 0 之后名字永远先收缩、再省略号，一行读完。次要的东西（说明、标签）仍然
-   自己换行：**让次要的换行，而不是让主要的消失**，这条判据没变，变的只是名字不该算次要。 */
+   自己换行：**让次要的换行，而不是让主要的消失**，这条判据没变，变的只是名字不该算次要。
+   选择器带上 `.plain b`（同日第二批）：「点不动那一行」与卡片同一张脸，行尾却站着
+   **两枚** 44px 的键（复制 + 编辑）。basis auto 时它俩放不下就换行，整排磁贴被 grid
+   一起拉高 52px——正是上面那段话里已经判过的那一种。收缩与省略号对两态是同一条规矩。 */
 .tiles .pencil{margin-left:auto}
 .tiles .tags-row{flex:1 1 100%;order:8;margin-left:32px}
 .tiles .card i{flex:1 1 100%;order:9;margin-left:32px;max-width:none;text-align:left}
