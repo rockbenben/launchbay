@@ -186,17 +186,49 @@ func stripJSLine(line string) string {
 	return out.String()
 }
 
-// 401 在人面前说的是**出路**，不是协议。
+// 失败横幅按**状态码**换句子，屏上不出现服务端那格协议话。
 //
-// 服务端那句 detail（"需要令牌或会话"）是给脚本对照的（AGENTS.md：`/api/v1/*` 的
-// detail 固定中文）。app.js 要是把它原样贴进横幅，那个人读到的就是
+// 服务端那句 detail / errors[].reason 是给脚本对照的（AGENTS.md：`/api/v1/*` 的
+// detail 固定中文）。app.js 把它原样贴进横幅，那个人读到的就是
 // 「切换布局没存上：需要令牌或会话」——这一页上没有"令牌"这个概念，也没有任何地方
-// 能让他带一个令牌。所以 api() 里那一处 401 → T("app.opsGone") 是承重的：
-// 删掉它，界面上重新出现黑话，而**没有任何功能测试会红**（横幅照样弹、字照样显示）。
+// 能让他带上一个。401 那一枪之后，其余状态码走的是同一条路：实测 422 的横幅
+// 出来是「这一下没存上：没有分组 "nope"」，英文界面一句中文，末尾还挂着一个
+// 人在界面上根本看不见的 id。
+//
+// 所以这一族现在**每一个状态码都得有话**：删掉 map 里的一档或整张 map，
+// 界面上重新出现黑话，而没有任何功能测试会红（横幅照样弹、字照样显示）——
+// 这条闸就是为那个"不会红"而存在。原文不进屏，但要进 console（排查的人与 AI
+// 看的是 devtools 与容器日志）。
 func TestAppJS_401说的是出路不是协议(t *testing.T) {
 	src := readAppJS(t)
-	if !strings.Contains(src, "if (res.status === 401) why = T('app.opsGone');") {
-		t.Error("api() 里没有把 401 换成 app.opsGone：那个人会读到\"需要令牌或会话\"这种词")
+	for _, want := range []string{
+		"401: 'app.opsGone'",
+		"403: 'app.opsWrongProfile'",
+		"409: 'app.opsConflict'",
+		"422: 'app.opsStale'",
+		"507: 'app.opsNoSnap'",
+		"byStatus[res.status] || 'app.opsServerError'",
+		// 服务端那格只许进 console（那是排查的人与 AI 看的地方），不许进屏上那句话。
+		// 这条 console 的话用英文写：app.js 里不许有中文字面量（除语言包镜像那两块），
+		// 而这条闸本身就会为它变红——先踩过一次再写在这里。
+		"console.warn('lb: write request rejected'",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("api() 里少了 %q：那一个状态码会退回服务端那句协议话，直接印在人看的横幅上", want)
+		}
+	}
+	// 屏上那句话的唯一来源是 T(msgKey)：`why` 一旦再读 first.reason / data.detail，
+	// 上面那些映射就都只是装饰。
+	if strings.Contains(src, "let why = (first && (first.reason") {
+		t.Error("api() 又把服务端的 reason 当成屏上那句话了：那些是给脚本读的，不是给人读的")
+	}
+	// map 里点名的每个 key 必须在两份语言包的同族镜像里都有——缺一个，屏上会出现
+	// <app.opsX> 那种尖括号（缺 key 的兜底），比中文更难看但同样是一句谎。
+	for _, key := range []string{"app.opsGone", "app.opsWrongProfile", "app.opsConflict",
+		"app.opsStale", "app.opsNoSnap", "app.opsServerError"} {
+		if n := strings.Count(src, "\""+key+"\""); n < 2 {
+			t.Errorf("%s 在 app.js 的镜像里只出现 %d 次，两份语言各要一份", key, n)
+		}
 	}
 	if strings.Contains(src, "需要令牌或会话") {
 		t.Error("app.js 里不该抄一份服务端的协议话——那句话的作者在内层（batch.go 的 detail），抄过来就是两处会漂")

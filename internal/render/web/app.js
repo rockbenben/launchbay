@@ -128,6 +128,10 @@ const APP_I18N = {
     "app.delete.undoHint": "删掉之后还能用顶栏的「回退」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
     "app.opsConflict": "这一份已经被改过，刷新之后再试。",
+    "app.opsWrongProfile": "这一页改的不是你正在用的那一份。点右上角的档案名，重新进一次。",
+    "app.opsStale": "那一组或那一条已经不在了——可能别人刚改过。刷新之后再看一次。",
+    "app.opsNoSnap": "这一版存不下，改动已经取消，书签一个字都没变。",
+    "app.opsServerError": "这台机器刚才没能完成（HTTP %s）。稍后再试一次。",
     "app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",
     "app.sep": "、",
     "app.keys.mod": "⌘ 或 Ctrl",
@@ -240,6 +244,10 @@ const APP_I18N = {
     "app.delete.undoHint": "You can bring this version back from “Revert” in the top bar",
     "app.applyOps.fail": "%s didn't go through: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
+    "app.opsWrongProfile": "This page isn't the profile you're using. Tap the name at the top right and come back in.",
+    "app.opsStale": "That group or bookmark is gone — someone else may have changed it. Reload and look again.",
+    "app.opsNoSnap": "This version couldn't be stored, so the change was cancelled — your bookmarks are untouched.",
+    "app.opsServerError": "This machine couldn't finish that (HTTP %s). Try again in a moment.",
     "app.opsGone": "This page is no longer signed in. Click your profile name at the top right to sign in again.",
     "app.sep": ", ",
     "app.keys.mod": "⌘ or Ctrl",
@@ -831,20 +839,29 @@ const APP_I18N = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      // batch 的 422 说的是"ops 校验未过，整批未写入"——那是**协议话**，真正的原因
-      // 在 errors[0].reason（"条目 x 的图标名不在索引里"这种）。只报 detail 等于
-      // 告诉人"失败了"而不说为什么失败。
+      // **按状态码换成带出路的句子，屏上不出现服务端那格协议话。**
+      //
+      // 服务端那一格（detail 与 errors[].reason）是给脚本对照的，固定中文
+      // （AGENTS.md「翻的与不翻的」）。从前只有 401 换过句子，其余原样贴进横幅：
+      // 实测 422 那一份出来是「这一下没存上：没有分组 "nope"」——英文界面里一句
+      // 中文，末尾还挂着一个人在界面上根本看不见的 id；它既不说这是哪一步失败了，
+      // 也不说下一步该按什么。
+      //
+      // 401 在这一条通路上只有一种意思（会话没了：cookie 被清，或页面是 Service
+      // Worker 从缓存里给的），所以它说"重新进一次"。403 说的是这一页与这一份
+      // 对不上号。422 在界面上的成因只有一个：那一组或那一条已经不在了（别人改过、
+      // 或这一页开着很久）。507 是快照写不下去，而那一句必须说清**什么都没改**，
+      // 否则人会以为改坏了。其余（500/503）不是这一页能解决的，说"稍后再试"。
+      //
+      // 原文不进屏，但也不许丢：进 console——排查的人与 AI 打的是 devtools 与容器
+      // 日志，那里有完整的 field/reason。注释里不复述那几字：整份 app.js 原样下发，
+      // 字面串会喂饱"客户端不许抄服务端协议话"那条闸。
       const first = Array.isArray(data.errors) && data.errors[0];
-      let why = (first && (first.reason || first.field)) || data.detail || `HTTP ${res.status}`;
-      // 401 单独换一句话。服务端那格 detail 是**协议话**——AGENTS.md 明写
-      // `/api/v1/*` 的 detail 固定中文给脚本对照，那是调用方读的。可这一格会被原样
-      // 贴进人看的横幅，于是"没存上：<那格原文>"成了一个既看不懂又没法照做的句子
-      // （这一页上没有那个概念，也没有任何地方能让他带上一个）。
-      // 注释里不复述那五个字：整份 app.js 原样下发，字面串会喂饱"客户端不许抄
-      // 服务端协议话"那条闸——base.css 里"注释别写形状串"是同一条判据。
-      // 401 在这条通路上只有一种意思：这一页的会话没了（cookie 被清、或页面是
-      // Service Worker 从缓存里给的）。所以说的是**出路**，不是原因。
-      if (res.status === 401) why = T('app.opsGone');
+      const byStatus = { 401: 'app.opsGone', 403: 'app.opsWrongProfile', 409: 'app.opsConflict', 422: 'app.opsStale', 507: 'app.opsNoSnap' };
+      const msgKey = byStatus[res.status] || 'app.opsServerError';
+      const why = msgKey === 'app.opsServerError' ? T(msgKey, String(res.status)) : T(msgKey);
+      console.warn('lb: write request rejected', res.status,
+        (first && (first.reason || first.field)) || data.detail || '');
       const e = new Error(why);
       e.status = res.status;
       throw e;
@@ -1024,7 +1041,9 @@ const APP_I18N = {
       rev = r.rev;
       return true;
     } catch (e) {
-      showBanner(T('app.applyOps.fail', T(what), e.status === 409 ? T('app.opsConflict') : e.message));
+      // 409 也已经在 api() 里按状态码换过句子了（app.opsConflict），这里不再
+      // 分第二次——两处各判一遍同一个状态码，迟早有一处忘了加新一档。
+      showBanner(T('app.applyOps.fail', T(what), e.message));
       return false;
     }
   }
