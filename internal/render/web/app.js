@@ -1001,7 +1001,7 @@ const APP_I18N = {
     });
   }
 
-  // 就地编辑：三个字段 + 存 / 取消 / 删掉这条。
+  // 编辑一条书签：三个字段 + 存 / 取消 / 删掉这条。
   //
   // 注释先前写"改完就写，不摆保存大按钮（失焦即写那条裁定见 §8.4）"——那是**旧的**
   // 交互，代码里早就换成「存 / 取消」两颗按钮（失焦即写在"改一半点到别处"时会
@@ -1011,16 +1011,27 @@ const APP_I18N = {
   // **要有关掉它的出路**：从前这一格只有一个「存」，按 Esc 什么都不做
   // （Esc 只关浮层与面板），再点 ✎ 也被 `if (form) return` 挡掉——
   // 手滑点开的人只能刷新页面才能退出。
-  function closeEdit(li) {
-    const f = li.querySelector('.inline-edit');
-    if (!f) return;
-    const pen = li.querySelector('.pencil');
-    f.remove();
-    pen?.focus();
+  //
+  // **它是模态的一层，不是贴在卡片上的一坨**（2026-10-13）。这个 form 从前挂在
+  // `li` 里、绝对定位盖住那张卡，于是宽度、出屏、被 `content-visibility` 裁掉
+  // 这三件事都要在它自己的规则里各补一刀（`min(max(100%,300px),420px)`、
+  // `.flip`、`section:has(.inline-edit)`）。现在它挂到 body 上、与「＋ 添加」
+  // 共用 `.sheet` 那一族：居中、宽度上限、背板、`max-height` 滚动、以及
+  // `syncTrap` 那圈 inert，都是族里现成的规矩。三条补丁连同它们各自的闸一起删。
+  let openEdit = null;
+
+  function closeEdit() {
+    if (!openEdit) return;
+    const { li, form } = openEdit;
+    openEdit = null;
+    form.remove();
+    syncTrap();
+    li.querySelector('.pencil')?.focus();
   }
 
   function editItem(li) {
-    if (li.querySelector('form')) return;
+    if (openEdit && openEdit.li === li) return;
+    if (openEdit) closeEdit();
     const a = li.querySelector('.card');
     const name = li.querySelector('b')?.textContent || '';
     // 地址从**这一行本来显示它的那个元素**上读：链接形态读 href，点不动的那一行
@@ -1029,8 +1040,8 @@ const APP_I18N = {
     const desc = li.querySelector('i')?.textContent || '';
     const sec = li.closest('section');
     const gid = sec?.dataset.gid || '';
-    // 分组那一行不是装饰：面板盖住卡片之后，"我在改哪一组的哪一条"只剩这里能说，
-    // 而删除那一步的确认句要引用它。
+    // 分组那一行不是装饰：面板浮起来之后底下整屏都不可点，"我在改哪一组的哪一条"
+    // 只剩这里能说，而删除那一步的确认句要引用它。
     const gname = groupName(sec);
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
@@ -1066,14 +1077,14 @@ const APP_I18N = {
       },
     });
     const form = el('form', {
-      class: 'inline-edit',
+      class: 'sheet inline-edit', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'lb-edit-h',
       on: {
         submit: async (e) => {
           e.preventDefault();
           const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim() });
           if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
-        // 这一层浮在卡片之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
+        // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
         // 武装态下的 Esc 先**解除武装**，再按一次才关面板——两步确认不能被 Esc 一次跳过。
         keydown: (e) => {
           if (e.key !== 'Escape') return;
@@ -1087,24 +1098,24 @@ const APP_I18N = {
             undo.hidden = true;
             return;
           }
-          closeEdit(li);
+          closeEdit();
         },
       },
-    }, [el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
+    }, [el('h2', { id: 'lb-edit-h', text: T('app.edit.aria', name || T('app.edit.fallbackName')) }),
+        el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
         el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
         el('div', { class: 'row' }, [
           el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
-          el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit(li) } }),
+          el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit() } }),
         ]),
         el('div', { class: 'row' }, [del]),
         undo]);
     undo.hidden = true;
-    li.append(form);
-    // 面板宽是"至少 300px"（放得下一条完整 URL），而最后一列的磁贴只有 213px 宽——
-    // 实测那颗右边缘落在 1475 而视口是 1440：**35px 悬在屏幕外**，「取消」与
-    // 「删掉这条」那半截看不见也点不到。量一次，出屏就改成贴着卡片右边缘长出来。
-    const r = form.getBoundingClientRect();
-    if (r.right > innerWidth - 8) form.classList.add('flip');
+    document.body.append(form);
+    openEdit = { li, form };
+    // 不调这一句，Tab 会一路走进面板背后那张被遮住的页面上去（`syncTrap` 那一
+    // 族的判据是 DOM 里最后出现的那一层，这一份是刚 append 的，正好在最上面）。
+    syncTrap();
     n.focus();
   }
 
@@ -1370,9 +1381,10 @@ const APP_I18N = {
       // 会连浮层和面板一起关掉——那是一次按键毁掉两个状态。
       //
       // 多选排第一：进多选时那句提示明写「按 Esc 退出」，而从前这一支里
-      // 根本没有 exitMulti——说了没做。就地编辑的表单比它更靠上层，先关它。
-      const editing = document.querySelector('.inline-edit');
-      if (editing) { closeEdit(editing.closest('li')); return; }
+      // 根本没有 exitMulti——说了没做。编辑面板比它更靠上层，先关它。
+      // 判据读 openEdit 而不是查 DOM：这一层如今挂在 body 上，
+      // `editing.closest('li')` 那套"从面板找回它那一行"的写法已经不成立。
+      if (openEdit) { closeEdit(); return; }
       if (multi.on) { exitMulti(); return; }
       const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet);
       if (dlg) { dlg.remove(); return; }

@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.7c8c2b9cbf56.js": {
+    "/app.dc4c67e73474.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -92,12 +92,12 @@
         }
       }
     },
-    "/app.9e7cfed6d84c.css": {
+    "/app.28e0de46dd52.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
         "security": [],
-        "description": "浮层、⌘K 面板、就地编辑与拖拽把手的样式。\n\n**走外部指纹文件而不内联进 `<style>`**：首屏骨架那部分在 `base.css` 里内联（§7.2），而这一部分只在**档案页**用得到——内联等于让选择页、引导页、管理页、坏档页各白带一份它们一个都用不上的字节，也会把内联 CSS 顶出 §7.3 那条操作线。spec §7.1 早就把 `/*.<hash>.css|js` 定成 immutable 外部资源，这里只是补上没做的那一半。\n\n**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变，由 `internal/render/assets.go` 在启动时从 embed 的字节算出，不需要构建步骤。",
+        "description": "浮层、⌘K 面板、编辑模态与拖拽把手的样式。\n\n**走外部指纹文件而不内联进 `<style>`**：首屏骨架那部分在 `base.css` 里内联（§7.2），而这一部分只在**档案页**用得到——内联等于让选择页、引导页、管理页、坏档页各白带一份它们一个都用不上的字节，也会把内联 CSS 顶出 §7.3 那条操作线。spec §7.1 早就把 `/*.<hash>.css|js` 定成 immutable 外部资源，这里只是补上没做的那一半。\n\n**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变，由 `internal/render/assets.go` 在启动时从 embed 的字节算出，不需要构建步骤。",
         "responses": {
           "200": {
             "description": "样式表字节（immutable 缓存）"

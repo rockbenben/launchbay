@@ -6,7 +6,7 @@
 .fld{display:block;width:100%;margin-top:4px;padding:8px 10px;
   font:inherit;font-size:14px;color:var(--ink);background:var(--card);
   border:1px solid var(--line);border-radius:8px;min-height:44px}
-.sheet label,.inline-edit label{display:block;font-size:12px;color:var(--ink2)}
+.sheet label{display:block;font-size:12px;color:var(--ink2)}
 /* ⌘K 结果行里的地址是**行内**的次级信息，不是标签。它原先与 label 共用一条
    `display:block`，于是每条命中都被 URL 顶成第二行——实测行高 114px，十行
    1140px 超过一屏，面板看起来像换了页。 */
@@ -159,34 +159,22 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
 .tiles .plain .pencil{position:static;margin-left:0}
 .tiles .card b{padding-right:44px}
 .tags-row:empty{display:none}
-/* 编辑态**盖住**这一张卡，而不是在它下面追加一坨表单：追加会把整列撑开，
-   而磁贴里的输入框只有 213px——改一条 URL 需要的是能看清它的宽度。
-
-   **但它不许被锁死在卡片的尺寸里**（2026-10-11 修）。从前写的是 `inset:0`，
-   于是这一层正好等于卡片那个盒子：磁贴 287×109、列表行 68px 高，而表单要装
-   三个「标签 + 输入框」（输入框吃 §7.5 的 44px 触摸目标）加一行存/取消，
-   实测要 ~250px。`inset:0` 把上下左右都钉死之后，内容溢出到框外，而背景与
-   边框**只画那 109px**——溢出来的那一截透明地浮在下面几张卡上，实拍出来是
-   「描述」输入框压在 WireGuard 上、「地址」输入框和 "WireGuard" 文字重叠、
-   存/取消压在 Grafana 上。
-
-   所以改成**从卡片左上角长出来、尺寸由内容定**：高度不再被 bottom 钉住、
-   宽度给一个下限（磁贴窄，300px 才放得下一条完整 URL）同时封顶（列表行
-   接近整幅宽，不封顶的话编辑一块就铺满半屏）。盖住相邻卡片是**编辑态本来就
-   该有的样子**——它底下那些卡此刻是不可点的，模态就该模态；错的是盖到一半
-   就没有背景，而不是盖得太大。阴影是为了让"这块浮在上面"这件事看得出来。 */
-.inline-edit{position:absolute;top:0;left:0;z-index:6;display:grid;gap:6px;align-content:start;
-  width:min(max(100%,300px),420px);padding:10px;background:var(--bg);
-  border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
-.inline-edit input{background:var(--card);font-size:13px}
-.inline-edit label{font-size:12px;color:var(--ink2)}
+/* 编辑一条书签的面板：**与「＋ 添加」同一族模态**（`.sheet`，app.js 那边写的是
+   `class: 'sheet inline-edit'`）。
+   从前它挂在 `li` 里、绝对定位盖住那张卡，于是三件事各要一条补丁才立得住：
+   宽度要 `min(max(100%,300px),420px)`（磁贴只有 213px，放不下一条完整 URL）、
+   伸出视口要 `.flip`（实测最后一列那颗右边缘落在 1475 而视口是 1440，
+   「取消」与「删掉这条」那半截看不见也点不到）、不被裁要
+   `section:has(.inline-edit){content-visibility:visible}`（那一节的 containment
+   会把没渲染到的部分吃掉）。三条随这一改动一起删了：居中、宽度上限、背板、
+   `max-height` 滚动、以及 `syncTrap` 那圈 inert 都是从 `.sheet` 继承的。
+   这一族自己剩下的只有两件事：底部那两行横排，与删除键的三态（就在下面）。 */
 .inline-edit .row{display:flex;gap:8px}
 .inline-edit .row button{flex:1 1 auto}
-/* 面板贴着卡片左上角长出来。最后一列的磁贴只有 213px 宽，而面板的下限是 300px
-   （放得下一条完整 URL）——实测那颗的右边缘落在 1475 而视口是 1440，**35px 悬在
-   屏幕外**，「取消」与「删掉这条」那半截看不见也点不到。开完面板量一次，
-   出屏就改成贴着卡片右边缘长（left:auto;right:0）。 */
-.inline-edit.flip{left:auto;right:0}
+/* 标题里引的是**那条书签自己的名字**，而全局 h2 带着 `text-transform:uppercase`
+   （它是给分组名那种路标用的）。引号里的东西要按写它的样子出现：
+   「YouTube」不该被排成「YOUTUBE」——那不是强调，是改了人家的名字。 */
+.inline-edit h2{text-transform:none}
 /* 分组那一行：面板盖住卡片之后，"我在改哪一组的哪一条"只剩这里能说。 */
 .edit-where,.edit-undo{margin:0;font-size:12px;color:var(--ink2)}
 /* 删除那颗：**静息不穿实心红**。它是"这一格里第三个可选动作"，不是"危险警报"，

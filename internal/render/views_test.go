@@ -586,11 +586,6 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// 多选那条贴在**视口下沿**，而联合规则 `button:active{transform:translateY(1px)}`
 		// 把它往下推 1px——那一族的按下位移要明确豁免，否则按任意一颗都让整条抖一下。
 		"多选条按下不位移": `.multibar button:active{transform:none`,
-		// **不许写回 inset:0**：那会把编辑态的高度钉成卡片的高度，而表单装不下。
-		"编辑态按内容定高": `.inline-edit{position:absolute;top:0;left:0`,
-		// 磁贴只有 190px 宽，没有下限就放不下一条完整 URL；列表行接近整幅宽，
-		// 没有上限则编辑一块就铺满半屏。
-		"编辑态宽度有上下限": `width:min(max(100%,300px),420px)`,
 		// 分组标题右端那枚布局切换键：**44 是 §7.5 的触摸目标硬线**，但 2026-10-13
 		// 那一轮把"盒子 44"换成了"盒子 28 + 透明 ::before 撑回 44"——因为盒子 44 的
 		// 代价是**每一节标题都比内容厚**（八组一节白吃 130px）。钉这条钉的是那圈
@@ -611,6 +606,10 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// `margin-left:0` 也在钉内：它顶掉 base.css 那条 auto 边距，与名字的
 		// `flex:1 1 0` 抢同一份剩余空间——换引擎时名字可能被挤成 0 宽。
 		"点不动那行的把手在流里": `.tiles .plain .pencil{position:static;margin-left:0}`,
+		// 编辑面板改成模态族之后，"表单比视口高"这件事由 `.sheet` 的滚动兜着：
+		// 摘掉它，320×480 那一档最后一行「删掉这条」会滚不到（旧版靠
+		// `section:has(.inline-edit)` 与 `top:0;left:0` 两条补丁躲这一枪）。
+		"模态面板装不下时要能滚": `max-height:calc(100vh - 32px);overflow:auto`,
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css 里没有 %q（%s）", want, name)
@@ -882,11 +881,6 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 四次，删掉 .tech 这一条它照样绿。系统色会盖掉 --ring 描边，没有这条
 		// CanvasText 边框，"技术细节"那块就与正文糊成一片。
 		"细节块的高对比边框": `@media (forced-colors:active){.tech{border:1px solid CanvasText`,
-		// 就地编辑的面板**不能被自己那一节裁掉**：`content-visibility:auto` 带 paint
-		// containment，面板比这一节剩下的空间高时，多出来那截不画也点不到（实测
-		// `elementFromPoint` 交出下一节的 h2）。这条与上面那条 containment 是一对，
-		// 删了它=「删掉这条」那颗键在界面上消失，而功能测试照样全绿。
-		"开着编辑器的那一节退出 containment": `section:has(.inline-edit){content-visibility:visible}`,
 		// 顶栏搜索表单（Task 2）新加的两个控件必须留在 §7.5 那两条 44px 规则的
 		// 名单里。这里**不放逐字串**：逐字串会把选择器顺序也钉住（列表内部重排
 		// 不该红），又钉不住"值在哪条规则里"。结构判据见
