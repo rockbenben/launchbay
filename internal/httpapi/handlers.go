@@ -339,9 +339,16 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			// （档案坏了）时不编造，用一句中性话——这一页本来就要输 PIN。
 			opts.Heading = s.onlyProfileTitle()
 		default:
-			// ≥2 不传标题：那三个字只写一处（render.PickerPage 的默认值）。这里再写一遍
-			// 就是两份真相，改文案的人只会改一处，另一处变成没人看见的旧话。
-			// 判据本身（"现在是多人形状"）仍然在这里算。
+			// ≥2 这一支**也显式传标题**，从语言包取（2026-10-13 改判）。它原先靠
+			// "不传 → 渲染器退回硬编码的「谁来用？」"，代价是**英文机器上这一页的
+			// 大标题是中文**：那句话绕过了语言包，而同一页的 0 档案与 1 档案两支都
+			// 走 s.t(...)，只有 ≥2 这一支是例外。
+			//
+			// "只写一份"的顾虑本身是对的，但它防的是**两份真相**（改了文案只改一处，
+			// 另一处变成没人看见的旧话）。现在渲染器里那份降级成**兜底**：正常通路
+			// 走不到它，而它留着仍有意义——标题不许因为漏传而渲染成空白。
+			// 判据本身（"现在是多人形状"）仍然在这里算，没挪地方。
+			opts.Heading = s.t("picker.heading.many")
 		}
 		page, err := s.deps.Render.PickerPage(opts)
 		if err != nil {
@@ -383,7 +390,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 func (s *Server) onlyProfileTitle() string {
 	ps, err := s.deps.Store.ListProfiles()
 	if err != nil || len(ps) != 1 || strings.TrimSpace(ps[0].Title) == "" {
-		return "你的书签"
+		return s.t("profile.title.default")
 	}
 	return ps[0].Title
 }

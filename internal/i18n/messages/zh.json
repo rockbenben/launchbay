@@ -287,6 +287,7 @@
   "revert.explain.unreadable": "另有 %d 份快照读不出来，没有列出来。",
   "revert.explain.noversions": "这个档案还没有可回退的版本：每次改动前会自动留一份，所以你现在只有这一版。",
   "picker.heading.none": "还没有档案",
+  "picker.heading.many": "谁来用？",
   "import.notice.parseFail": "解析失败：%s",
   "import.notice.notSaved": "没写进去：%s",
   "import.outcome.missing": "档案不存在。",

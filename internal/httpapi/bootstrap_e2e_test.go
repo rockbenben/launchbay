@@ -526,8 +526,8 @@ func TestHome_唯一档案读不出用中性标题(t *testing.T) {
 	if strings.Contains(body, "谁来用") {
 		t.Errorf("档案读不出时也不许退回「谁来用？」:\n%.300s", body)
 	}
-	if !strings.Contains(body, "<h1>你的书签</h1>") {
-		t.Errorf("要用那句中性话，不许编造名字也不许留空白标题:\n%.300s", body)
+	if !strings.Contains(body, "<h1>我的书签</h1>") {
+		t.Errorf("要用语言包里的中性话（profile.title.default），不许编造名字也不许留空白标题:\n%.300s", body)
 	}
 	// 0 张卡仍然是对的（PIN 根本无从验证），但这一页不再什么都不说：坏掉的那份要
 	// 点名，出路要说实话（2026-10-09 的死路①对策；卡片与说明由渲染器画，这里钉的是
