@@ -49,14 +49,26 @@
     <input type="hidden" name="theme" value="{{if eq .Profile.Theme "auto"}}dark{{else if eq .Profile.Theme "dark"}}light{{else}}auto{{end}}">
     <button type="submit" title="{{.T "profile.theme.title"}}">{{if eq .Profile.Theme "auto"}}{{.T "profile.theme.auto"}}{{else if eq .Profile.Theme "dark"}}{{.T "profile.theme.dark"}}{{else}}{{.T "profile.theme.light"}}{{end}}</button>
   </form>
-  {{/* 整页排法：一组一节（默认）↔ 全局视图（各组排进几栏，一屏看全）。
-       与主题那颗同一判据——按钮说**当前是哪一档**，hidden 里送的是另一档，
-       零 JS：现在在哪一档服务端本来就知道。
-       为什么放在顶栏而不是每个分组标题上：这一格管的是**整页**怎么排，
+  {{/* 两颗**二态**开关：整页排法（全局视图）与分组导航的位置（顶栏导航）。
+       判据与上面那颗三态的主题键**故意不一样**：主题那一颗没有"按下/未按下"可言
+       （auto→dark→light 是循环），所以它的文字必须说"当前是哪一档"；这两颗是二态，
+       稳定标签 + `aria-pressed` 才是那个标准形状——文字不随状态换，宽度不跳，
+       读屏拿到的是"顶栏导航, 切换按钮, 未按下"这样一句自洽的话，
+       而不是一个每次按下都会改名字的可及名。
+       hidden 里送的仍是另一档：零 JS，现在在哪一档服务端本来就知道。
+       为什么放在顶栏而不是每个分组标题上：这两格管的都是**整页**，
        挂在某一组标题上会读成"这一组的开关"（那已经是 ▦/☰ 那颗的事了）。 */}}
   <form method="post" action="/prefs" class="view">
     <input type="hidden" name="view" value="{{if eq .Profile.View "wall"}}groups{{else}}wall{{end}}">
-    <button type="submit" title="{{if eq .Profile.View "wall"}}{{.T "profile.view.toGroups"}}{{else}}{{.T "profile.view.toWall"}}{{end}}">{{if eq .Profile.View "wall"}}{{.T "profile.view.wall"}}{{else}}{{.T "profile.view.groups"}}{{end}}</button>
+    <button type="submit" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{if eq .Profile.View "wall"}}{{.T "profile.view.toGroups"}}{{else}}{{.T "profile.view.toWall"}}{{end}}">{{.T "profile.view.label"}}</button>
+  </form>
+  {{/* 顶栏导航这颗补的是一个**一直缺着的入口**：`Profile.Layout`（sidebar|topbar）
+       此前只有 CSS 与模板属性，没有任何通路能改它——表单没有这颗键，扩展与 CLI
+       也不收 layout，而手改 profile.json 是 AGENTS.md 的禁止事项。
+       也就是说这一档"档案形态"从 2026-10 起就是齐备但拨不动的。 */}}
+  <form method="post" action="/prefs" class="layout">
+    <input type="hidden" name="layout" value="{{if eq .Profile.Layout "topbar"}}sidebar{{else}}topbar{{end}}">
+    <button type="submit" aria-pressed="{{if eq .Profile.Layout "topbar"}}true{{else}}false{{end}}" title="{{if eq .Profile.Layout "topbar"}}{{.T "profile.layout.toSidebar"}}{{else}}{{.T "profile.layout.toTopbar"}}{{end}}">{{.T "profile.layout.label"}}</button>
   </form>
   <nav aria-label="{{.T "profile.nav.aria"}}">
     {{/* /admin 的路由真的存在（而且现在没管理权时会渲染登录页而不是死链），

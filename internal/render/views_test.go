@@ -223,7 +223,9 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 同一条毛病——住在自己的容器里就没进过任何族名单。
 	// `.view button`（同日第三批）：顶栏「分组 / 全局」那颗切换键。同一个坑第三次：
 	// 它带着自己的表单，不进名单就是又一颗 24px 的键排在 44px 的旁边。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".view button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
+	// `.layout button`（同日第四批）：顶栏「顶栏导航」那颗——`Profile.Layout` 从此才有
+	// 了入口，而它一出生就在名单里，不再重复那三次"住在自己的容器里"的老毛病。
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".view button", ".layout button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {
@@ -2330,5 +2332,16 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 	}
 	if danger < joint {
 		t.Errorf("button.danger 写在 .act button 之前（%d < %d）：等权重下按顺序盖，确认页的红键会变灰", danger, joint)
+	}
+	// 同一族判据的第二条：二态开关的**按下态**。它与按钮族权重相同（都是一个类 +
+	// 一个元素），靠的就是写在后面；挪到前面去的话 `background:var(--card)` 会盖掉
+	// `--card-hi`，"开着"那一维静默消失——而 aria-pressed 还在页上，读屏说得对、
+	// 眼睛看不见，这种"辅助技术说真话而界面撒谎"的形状最难被功能测试抓到。
+	pressed := strings.Index(css, ".view button[aria-pressed=true]")
+	if pressed < 0 {
+		t.Fatal("找不到按下态那条规则（.view button[aria-pressed=true]）：改名可以，但要连这条证人一起改")
+	}
+	if pressed < joint {
+		t.Errorf("按下态写在按钮族之前（%d < %d）：族的 background 会盖掉它，开关看着永远是关的", pressed, joint)
 	}
 }

@@ -609,9 +609,15 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    TestCSS_搜索控件的44px由哪条规则保证 数出来的六族）。
    `.rename button` 是顶栏「改名」那一格的提交键：它住在 `<details>` 里，
    一张族都没进，量出来比它旁边那格输入框矮一截。同上一条并进来，不另开数字。 */
-.pick button,.search button,.theme button,.view button,.adm button,.act button,.langsel button,.rename button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
+.pick button,.search button,.theme button,.view button,.layout button,.adm button,.act button,.langsel button,.rename button{font:inherit;cursor:pointer;color:inherit;background:var(--card);
   border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
-.pick button:hover,.search button:hover,.theme button:hover,.view button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.rename button:hover{background:var(--card-hi);border-color:var(--accent)}
+.pick button:hover,.search button:hover,.theme button:hover,.view button:hover,.layout button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.rename button:hover{background:var(--card-hi);border-color:var(--accent)}
+/* 二态开关的**按下态**（`aria-pressed="true"`）。这两颗键的文字是稳定标签
+   （"全局视图"/"顶栏导航"），所以"现在开没开"不能靠文字说，得有个形状：
+   字提亮 + 描边转主色。颜色不是唯一载体——下面 forced-colors 那一档另给一圈环。
+   必须写在上面那条按钮族的**后面**：两边权重相同，谁在后面谁赢，
+   放前面就会被族的 background:var(--card) 静默盖掉（与危险键那一族同一条层叠判据）。 */
+.view button[aria-pressed=true],.layout button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
 /* danger 是"这一步不可逆"的**视觉区分**，不是安全措施（§11 刻意不做防护）。
    它与 --warn 分开是因为 --warn 已经表示"坏档读不出来"；让删档与坏档同色，
    等于在一张同时出现这两者的表里把"这里坏了"与"点这里会删东西"画成一样。
@@ -738,6 +744,8 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 /* 高对比模式：毛玻璃与阴影会被系统色盖掉，只留边框与文字（spec §7.5）。 */
 @media (forced-colors:active){
   .card,.pick,.plain{backdrop-filter:none;background:Canvas;border:1px solid CanvasText}
+  /* 系统色把边框颜色盖平之后，"开着"这一维只剩颜色差就是没有差：补一圈环。 */
+  .view button[aria-pressed=true],.layout button[aria-pressed=true]{outline:2px solid CanvasText;outline-offset:1px}
   body::before{display:none}
   .ic{border:1px solid CanvasText}
 }
