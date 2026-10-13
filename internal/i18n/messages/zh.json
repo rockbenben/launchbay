@@ -370,6 +370,7 @@
   "prefs.groups.broken": "书签文件读不出来，这一节先不画。文件修好之前，颜色与排法都改不了。",
   "prefs.groups.accentDefault": "跟随页面主色",
   "prefs.groups.customLabel": "自定义颜色",
+  "prefs.groups.customOn": "（现在生效的是这一格）",
   "prefs.groups.customSave": "用这个颜色",
   "app.cmdk.history": "看这一份的改动历史"
 }

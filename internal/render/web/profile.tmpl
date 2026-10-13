@@ -345,6 +345,9 @@
     {{/* Accent 过 validatedAccent 之后：盘上写坏了的值到不了 style 属性上。
          自定义那一格的输入框用盘上这个值当默认，于是「改回原来那个」是一次点击。 */}}
     {{$cur := .Accent}}
+    {{/* 组名要在这里存成变量：色板那一圈 range 会把 `.` 换成
+         颜色字符串，而 `$` 是页根（没有 Title 这一格）。 */}}
+    {{$gname := .Title}}
     {{$onPalette := false}}
     {{range $.PrefPalette}}{{if eq . $cur}}{{$onPalette = true}}{{end}}{{end}}
     <form method="post" action="/prefs/group" class="prefs-group">
@@ -358,20 +361,27 @@
         <span>{{.Title}}</span>
       </b>
       <div class="prefs-keys prefs-group-shape">
+        {{/* 每一颗键的可及名都带上"这一组叫什么"：一块面板里 13 个名字各重复
+             六遍（磁贴/单列/用这个颜色/跟随主色/八色/自定义颜色 ×6 组），读屏
+             听得到"按下/没按下"，听不到"这是哪一组"。屏上仍然只印短标签——
+             WCAG 2.5.3 要的是可及名**包含**看得见的字，"NAS 与存储 · 磁贴"包得住。 */}}
         <button type="submit" name="layout" value="tiles"
           aria-pressed="{{if eq .Layout "list"}}false{{else}}true{{end}}"
+          aria-label="{{$gname}} · {{$.T "app.layout.tiles"}}"
           title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</button>
         <button type="submit" name="layout" value="list"
           aria-pressed="{{if eq .Layout "list"}}true{{else}}false{{end}}"
+          aria-label="{{$gname}} · {{$.T "app.layout.rows"}}"
           title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</button>
         {{/* 自定义：原生取色器收任意 hex（色板**不是白名单**），这一格就是那条路的
              入口。按下的不是色块本身而是这颗「用这个颜色」，免得调色器一开就立刻
-             改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那 9 颗
-             已经占满 516px 的内容宽——硬塞进同一行只会让它折成第三行，
-             而"这一组三件事"挤成三行就没人愿意往下翻了。 */}}
+             改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那一行需要
+             512px（10 颗 ×44 + 9 个 gap ×8）——硬塞进同一行只会折成三行。
+             **这颗键不是开关**：它没有"按下/没按下"可言，只有"按下去会发生什么"，
+             所以不带 aria-pressed；"现在生效的是自定义那一格"这件事由取色器自己
+             身上那一圈 `data-active` 说（下面那一格）。 */}}
         <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
-          aria-pressed="{{if and $cur (not $onPalette)}}true{{else}}false{{end}}"
-          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
+          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
       </div>
       <div class="prefs-keys prefs-group-colors">
         {{/* 「跟随页面主色」不是"无色"，而是**没设色**这个状态的按钮**：
@@ -379,19 +389,21 @@
              回不到默认去，色板就成了只能进不能出的单向门。 */}}
         <button type="submit" name="accent" value="" class="prefs-swatch prefs-swatch-none"
           aria-pressed="{{if $cur}}false{{else}}true{{end}}"
-          aria-label="{{$.T "prefs.groups.accentDefault"}}" title="{{$.T "prefs.groups.accentDefault"}}"></button>
+          aria-label="{{$gname}} · {{$.T "prefs.groups.accentDefault"}}" title="{{$.T "prefs.groups.accentDefault"}}"></button>
         {{range $i, $c := $.PrefPalette}}
         <button type="submit" name="accent" value="{{$c}}" class="prefs-swatch" style="--sw:{{$c}}"
           aria-pressed="{{if eq $cur $c}}true{{else}}false{{end}}"
-          aria-label="{{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
+          aria-label="{{$gname}} · {{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
         {{end}}
         {{/* 这一格**必须**叫 custom 而不是 accent：命名过的输入框每一次提交都跟着走，
              与色板那颗键同名就会出现两个 `accent`——那正是把整条零 JS 通路堵死的形状
              （实测：按色块 422 一屏裸 JSON）。它只在同一次提交里带上 `apply_custom`
              时才说话，判据在 httpapi/prefs.go 那一处。 */}}
         <input type="color" class="prefs-color" name="custom"
+          {{if and $cur (not $onPalette)}}data-active="1"{{end}}
           value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
-          aria-label="{{$.T "prefs.groups.customLabel"}}" title="{{$.T "prefs.groups.customLabel"}}">
+          aria-label="{{$gname}} · {{$.T "prefs.groups.customLabel"}}{{if and $cur (not $onPalette)}}{{$.T "prefs.groups.customOn"}}{{end}}"
+          title="{{$.T "prefs.groups.customLabel"}}">
       </div>
     </form>
     {{end}}

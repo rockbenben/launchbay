@@ -56,6 +56,69 @@ func TestPrefsGroup_色板画全且按下的就是盘上那个(t *testing.T) {
 	}
 }
 
+// 每一颗键都要说得出"这是哪一组的哪一颗"，而那颗动作键不许装成开关。
+//
+// 两条都是从取景实测来的：一块六组的面板上 13 个可及名各重复六遍
+// （磁贴/单列/用这个颜色/跟随主色/八色/自定义颜色 ×6），读屏听得到按下与否，
+// 听不到这是谁的；而「用这个颜色」带着 aria-pressed，于是它一边说"按下我"
+// 一边表示"自定义生效中"——那是第三种形状，这一族里没有它。
+//
+// 组名从**同一张表单里**读，不写死：写死了以后改档案标题就假红，而那才是这条
+// 判据真正要防的漂移（名字与键分家）。
+func TestPrefsGroup_每颗键带组名而动作键不装开关(t *testing.T) {
+	_, h := setupBatch(t)
+	// 分组 id 从**渲染出来的面板**里取，不写死：写死了夹具一改分组名单这条就假红，
+	// 而假红的闸护不住任何一边。每一组都过一遍——这一族的形状在各组是同一份标记，
+	// 而"同一份标记"这件事正是被测的对象。
+	first := get(h, "/prefs", dadFormCookie).Body.String()
+	ids := regexp.MustCompile(`name="group" value="([^"]+)"`).FindAllStringSubmatch(first, -1)
+	if len(ids) < 1 {
+		t.Fatalf("夹具里 dad 一个分组都没有，这一条没有可量的形状")
+	}
+	for _, m := range ids {
+		gid := m[1]
+		setGroupAccent(t, h, "dad", gid, "#123456") // 盘上一个不在色板里的颜色
+		html := get(h, "/prefs", dadFormCookie).Body.String()
+		form := groupForm(html, gid)
+		if form == "" {
+			t.Fatalf("面板里没有 %s 那张 form", gid)
+		}
+		nm := regexp.MustCompile(`class="prefs-group-name" title="([^"]*)"`).FindStringSubmatch(form)
+		if len(nm) != 2 {
+			t.Fatalf("%s 那一行没读到组名", gid)
+		}
+		labels := regexp.MustCompile(`aria-label="([^"]+)"`).FindAllStringSubmatch(form, -1)
+		// 磁贴/单列/用这个颜色/跟随主色/八色/取色器 = 12 颗，一颗都不许漏前缀。
+		if len(labels) < 12 {
+			t.Errorf("%s 那一行只有 %d 个 aria-label，要 12 颗键都有可及名", gid, len(labels))
+		}
+		for _, l := range labels {
+			if !strings.HasPrefix(l[1], nm[1]+" · ") {
+				t.Errorf("%s 里这颗键的可及名 %q 没带组名 %q——读屏只听得见重复的那半句", gid, l[1], nm[1])
+			}
+		}
+		// 那颗动作键：有 name=apply_custom，但**没有** aria-pressed。
+		apply := regexp.MustCompile(`<button[^>]*prefs-swatch-apply[^>]*>`).FindString(form)
+		if apply == "" {
+			t.Fatalf("%s 那一行没找到「用这个颜色」那颗键", gid)
+		}
+		if strings.Contains(apply, "aria-pressed") {
+			t.Errorf("动作键带了 aria-pressed（%s）：它没有按下/没按下可言，状态该由取色器那一格说", apply)
+		}
+		// 而"现在生效的是自定义"这一维落在取色器身上：#123456 不在色板里 → 有环。
+		well := regexp.MustCompile(`<input[^>]*type="color"[^>]*>`).FindString(form)
+		if !strings.Contains(well, `data-active="1"`) {
+			t.Errorf("盘上是自定义色而取色器那一格没带 data-active：%s", well)
+		}
+		// 换回色板里的颜色，环要跟着撤——留着就是两颗键同时说"是我"。
+		setGroupAccent(t, h, "dad", gid, model.GroupAccentPalette[0])
+		well = regexp.MustCompile(`<input[^>]*type="color"[^>]*>`).FindString(groupForm(get(h, "/prefs", dadFormCookie).Body.String(), gid))
+		if strings.Contains(well, "data-active") {
+			t.Errorf("颜色在色板上了，取色器还挂着环：%s", well)
+		}
+	}
+}
+
 // 面板改得出颜色也改得出磁贴/单列，**且走的是书签写通路**。
 //
 // 后一半比前半更值钱：这两个字段落在 bookmarks.json 上，所以 rev 必须推进、

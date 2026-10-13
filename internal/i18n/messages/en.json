@@ -370,6 +370,7 @@
   "prefs.groups.broken": "The bookmarks file cannot be read, so this section is left out. Colour and arrangement stay locked until the file is fixed.",
   "prefs.groups.accentDefault": "Follow the page accent",
   "prefs.groups.customLabel": "Custom colour",
+  "prefs.groups.customOn": " — this one is in effect",
   "prefs.groups.customSave": "Use this colour",
   "app.cmdk.history": "See this profile’s change history"
 }
