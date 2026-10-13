@@ -265,7 +265,7 @@ section:has(.inline-edit){content-visibility:visible}
    "字与字之间有缝"——实拍里「自建服务」「读与收藏」四个字都是散着的。.04em 给拉丁
    分组名（NAS / Tools）留一点空气，中文读起来又不松。字号 13px 与 --ink2 不动：
    标题就该比内容弱，它不是要看的东西，是找东西时的路标。 */
-h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;
+h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 6px;
   display:flex;align-items:center;gap:8px}
 h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
 /* 裸 `ul` 只**复位样式**；网格挂在下面那一条的条目列表类上。
@@ -274,7 +274,7 @@ h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--
    结果表被排成三列之后，方向键按"下一个"走的是**右边那一格**而不是下面那一行
    （实拍：第 1 行三格 x=390/608/827，按一次下箭头选中从 x=390 那格跳到 x=608）。 */
 ul{list-style:none;margin:0;padding:0}
-.tiles,.rows,.profiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.tiles,.rows,.profiles{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 li{min-width:0}
 /* 卡片本体（spec §8.1：半透明 + blur + 1px 描边，hover 抬 3px、描边转亮蓝、图标微变换）。
    .plain 是"需手动打开"那条的非链接形态：与卡片同一张脸，只是不可点。
@@ -282,11 +282,16 @@ li{min-width:0}
    不触发重排（改的是 paint 而非几何），留着代价是零，去掉会让"描边转亮蓝"
    这条 §8.1 明写的效果消失。outline 只在 :focus-visible 上出现、不参与过渡：
    它每次都重绘整层，做过渡会掉帧。 */
-.card,.pick,.plain{display:flex;align-items:center;gap:10px;min-width:0;
-  padding:12px;border:1px solid var(--line);border-radius:14px;
+.card,.pick,.plain{display:flex;align-items:center;gap:8px;min-width:0;
+  padding:8px 10px;border:1px solid var(--line);border-radius:12px;
   background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  color:inherit;text-decoration:none;min-height:56px;
+  color:inherit;text-decoration:none;min-height:44px;
   transition:transform .16s ease,border-color .16s ease,background .16s ease}
+/* 44 不是随手挑的：它是 §7.5 触摸目标的下限，也是这一页能从"一屏 10 条"回到
+   "一屏 20 条"的那一格。**再往下就得动无障碍换密度，这笔不划算。**
+   紧凑是给书签卡片的，不是给所有借这张脸的东西的——进门那一页的卡片里装着
+   PIN 输入框与按钮，它仍要 56px。 */
+.pick{padding:12px;min-height:56px}
 .card:hover,.pick:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card-hi)}
 .card:hover .ic-svg,.card:hover .ic-img,.card:hover .ic{transform:scale(1.07) rotate(-2deg)}
 /* 按下态（§7.5 五态里的"静止/hover/按下/禁用/开着"那一格）。取景逐族量过：
@@ -383,7 +388,13 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .tags-row{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
 /* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。 */
 .plain{flex-wrap:wrap}
-.plain code{flex:1 0 100%;font-size:12px;color:var(--ink2);overflow-wrap:anywhere}
+.plain code{flex:1 0 100%;font-size:12px;color:var(--ink2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 地址从「整串换行」改成「一行省略号」（2026-10-13 真实数据 390 档实拍）：
+   同排卡片要等高（2026-10-11 那条判据），于是一条 chrome://extensions/ 这种
+   两行的地址把整排磁贴顶到 140px 高——一屏从 12 条掉到 6 条。
+   完整地址仍然在：title 上、复制键里、以及点开编辑那一格。
+   这一格要的是「认出是哪条 + 拿得到地址」，不是「把地址整行读一遍」。 */
 /* layout: list = 单行卡；tiles = 大磁贴（spec §8.3 的 min 158px 由 190px 的
    auto-fill 下限覆盖，窄屏两列时仍不至于把标题压成竖排）。
 
@@ -414,7 +425,12 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    改后几乎全截）。名字是这张卡上唯一必读的东西，标签与说明是次要元数据——
    让次要的换行，而不是让主要的消失。list 形态一行 966px，不需要这一套。 */
 .tiles .card{flex-wrap:wrap}
-.tiles .card b{flex:1 1 auto;min-width:0}
+.tiles .card b{flex:1 1 0;min-width:0}
+/* `1 1 auto` → `1 1 0`（2026-10-13 真实数据实拍）：basis 是 auto 时，flex 先按**内容宽**
+   排一行，放不下才换行——于是名字长一点的条目（「Chrome 网上应用店」）整块掉到第二行，
+   图标孤零零占着第一行，那一格从 44px 长到 99px，同排其它卡片被 grid 一起拉高。
+   basis 给 0 之后名字永远先收缩、再省略号，一行读完。次要的东西（说明、标签）仍然
+   自己换行：**让次要的换行，而不是让主要的消失**，这条判据没变，变的只是名字不该算次要。 */
 .tiles .pencil{margin-left:auto}
 .tiles .tags-row{flex:1 1 100%;order:8;margin-left:32px}
 .tiles .card i{flex:1 1 100%;order:9;margin-left:32px;max-width:none;text-align:left}
@@ -669,7 +685,11 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
    「主路由 · 192.168.x.x」，650px 档只剩「主路由」，而描述往往正是"这个地址是哪台
    机器"的那半句。 */
 @media (max-width:700px){.tiles .card i{display:none}}
-@media (max-width:430px){.tiles,.rows,.profiles{grid-template-columns:minmax(0,1fr)}}
+/* 单列的下限从 430 收到 340：430 那一档把 390（最常见的手机宽度）整个收成**一列**，
+   42 条书签拉到 4577px、一屏只见 10 条。340 以下才真的排不下两列 190px 的格子。
+   两列时每个格子约 180px——比 190 的下限窄一点点，靠的是 `minmax(0,1fr)` 允许收缩，
+   名字于是更早省略，而「少看半屏书签」不是省略能补回来的。 */
+@media (max-width:340px){.tiles,.rows,.profiles{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){
   body::before{animation:none}
   .card{animation:none}

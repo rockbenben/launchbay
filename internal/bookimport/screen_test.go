@@ -95,14 +95,19 @@ func Test书签栏靠属性判而不是名字(t *testing.T) {
 	for _, g := range res.Bookmarks.Groups {
 		layout[g.Title] = g.Layout
 	}
-	if got := layout["Bookmarks bar"]; got != model.LayoutTiles {
-		t.Errorf("浏览器声明的书签栏该拿 tiles，得到 %q（英文文件夹名——从前认中文后缀，这一格一直红不了）", got)
+	// 2026-10-13 改判：**导入的每一个分组都从磁贴开始**（用户口径"默认应该用磁吸"）。
+	// 从前这一格断的是"书签栏 tiles、普通文件夹 list"，那条区分现在归**顺序**管：
+	// toolbar 那一层排在最前面，排法不再由它决定。
+	for _, want := range []string{"Bookmarks bar", "我的书签栏（自己建的普通文件夹）", "Ordinary folder"} {
+		if got := layout[want]; got != model.LayoutTiles {
+			t.Errorf("分组 %q 该从磁贴开始，得到 %q", want, got)
+		}
 	}
-	if got := layout["我的书签栏（自己建的普通文件夹）"]; got != model.LayoutList {
-		t.Errorf("名字里带「书签栏」的普通文件夹不该被当成书签栏，得到 %q", got)
+	if n := len(res.Bookmarks.Groups); n != 3 {
+		t.Fatalf("夹具该出三个分组，实际 %d", n)
 	}
-	if got := layout["Ordinary folder"]; got != model.LayoutList {
-		t.Errorf("普通文件夹该是 list，得到 %q", got)
+	if first := res.Bookmarks.Groups[0].Title; first != "Bookmarks bar" {
+		t.Errorf("浏览器声明的书签栏那一层该排在最前（toolbar 现在管的就是这一格），实际第一组是 %q", first)
 	}
 }
 

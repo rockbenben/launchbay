@@ -189,9 +189,16 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 		seenTitle[title]++
 
 		gr := model.Group{
-			ID:     slugs[i].Slug,
-			Title:  title,
-			Layout: model.LayoutList,
+			ID:    slugs[i].Slug,
+			Title: title,
+			// **每一组都从磁贴开始**（2026-10-13 改判，用户口径：「默认应该用磁吸」）。
+			// 从前只有浏览器声明的"书签栏"那一层拿磁贴、子文件夹一律单列，
+			// 于是导完一棵树，人看到的第一屏是十几个单列长条——而这个产品的外观
+			// （极光玻璃卡片）本来就是为磁贴画的。
+			// 单列仍然是**可选**的：每组标题右边那颗键切得过去，机器也能改
+			// （ops 的 groups/<id>/layout）。默认值只是猜，猜错了要有人能改——
+			// 这一条与 ⑤ 那把键存在的理由同一条。
+			Layout: model.LayoutTiles,
 			Items:  []model.Item{},
 		}
 		if slugs[i].FellBack {
@@ -201,13 +208,6 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 			rep.SlugCollisions = append(rep.SlugCollisions, slugCollision{
 				slug: slugs[i].Slug, with: slugs[i].Displaced,
 			})
-		}
-		if fr.toolbar {
-			// 书签栏是用户最常看的一层，给 tiles 排法（§5 的极光玻璃外观在
-			// tiles 下才是它被设计出来的样子）。判据是浏览器打的
-			// PERSONAL_TOOLBAR_FOLDER 属性，不是文件夹名字——理由见
-			// nbFolder.toolbar：从前认中文后缀，英文浏览器导出的一直拿不到 tiles。
-			gr.Layout = model.LayoutTiles
 		}
 
 		for _, b := range fr.items {

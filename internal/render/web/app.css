@@ -114,11 +114,20 @@ li{position:relative}
    处置：盒子守住 44，字形在里面安安静静。代价是 h2（13px 小字）被这枚 44px 的
    孩子顶到 44px 高，分组标题那一行因此厚了一截；那一截换来的是手指够得着。
    边框平时不画：它常驻在每一组的标题行上，画出来就是满屏的框。 */
-.layoutbtn{flex:0 0 auto;width:44px;height:44px;
-  display:grid;place-items:center;font:inherit;font-size:11px;line-height:1;
+.layoutbtn{position:relative;flex:0 0 auto;width:32px;height:28px;
+  display:grid;place-items:center;font:inherit;font-size:14px;line-height:1;
   letter-spacing:0;text-transform:none;color:var(--ink2);
   background:transparent;border:1px solid transparent;border-radius:8px;
-  cursor:pointer;transition:color .16s ease,border-color .16s ease}
+  /* §7.5 的 44px 是**命中区**的下限，不是盒子的下限：盒子 32×28（分组标题那行
+     因此从 44 回到 28，八组一节省下的正是这一轮要还回去的那 130px），
+     上下各 -8px、左右各 -6px 的透明 ::before 把可点区域撑回 **44×44**。
+     横向只给 -6 不给 -8：再往左就压到分组名那几个字上了——名字是"这一组叫什么"，
+     不该被一颗换排法的键吃掉八个像素的点击。
+     量法见 design-preview batch7：elementFromPoint 在中心上下 ±14、左右 ±16 处
+     都命中这颗键，盒子外 20px 处不命中（扩展区就是那 8/6，没有更多）。
+     从前这条用"44px 的盒子"满足同一句话，代价是每一节的标题都比内容厚。 */
+  cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
+.layoutbtn::before{content:"";position:absolute;inset:-8px -6px}
 .layoutbtn:hover{color:var(--ink);border-color:var(--line);background:var(--card-hi)}
 @media (forced-colors:active){.layoutbtn{border:1px solid CanvasText}}
 li.drop{outline:2px dashed var(--accent);outline-offset:-2px}

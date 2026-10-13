@@ -1099,10 +1099,17 @@ const APP_I18N = {
     const cur = sec.dataset.layout === 'tiles' ? 'tiles' : 'list';
     const other = cur === 'tiles' ? 'list' : 'tiles';
     const name = h2.textContent.trim();
+    // 键上从前印的是**当前形态名**（「磁贴」/「单列」），于是分组标题那行读成
+    // 「● 应用 磁贴」——一个名词挂在另一个名词后面，既不是句子也不是按钮。
+    // 现在印字形（▦ 磁贴 / ☰ 单列），完整那句话进 title 与 aria-label：
+    // 看得见的人一眼认出这是"换排法"的开关，读屏与语音的人拿到的是整句。
+    const word = T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows');
+    const say = T('app.layout.aria', name, word, T(cur === 'tiles' ? 'app.layout.rows' : 'app.layout.tiles'));
     h2.append(el('button', {
       type: 'button', class: 'layoutbtn',
-      text: T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows'),
-      'aria-label': T('app.layout.aria', name, T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows'), other),
+      text: cur === 'tiles' ? '▦' : '☰',
+      title: say,
+      'aria-label': say,
       on: {
         click: async (e) => {
           e.preventDefault();

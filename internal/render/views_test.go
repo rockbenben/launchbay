@@ -190,10 +190,13 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 			joint = append(joint, r)
 		}
 	}
-	// 规则条数 == 族数。**⑤ 之后是 5，2026-10-10 变 6**：app.css 里那三族是
+	// 规则条数 == 族数。**⑤ 之后是 5，2026-10-10 变 6，2026-10-13 变 7**：app.css 里那三族是
 	// 交互界面的输入面（.fld，收浮层、⌘K、就地编辑三处）、⌘K 的**结果行**
 	// （.cmdk-list li，那是一排可点的行，§7.5 的「触摸目标 ≥ 44px」说的正是它），
 	// 以及顶栏那枚**由 app.js 创建的**「＋ 添加」按钮（header .add）。
+	// 第七族是**书签卡片本身**（.card/.pick/.plain）：紧凑那一轮把它从 56px 收到 44px，
+	// 而 44 正是这条闸的地板——**密度是往上顶到下限停，不是往下穿过它**。
+	// 那一轮要是把卡片收到 32px，这条闸必须红；它不红就说明卡片根本没被这条闸管过。
 	// 前两族不合并进 .fld：.fld 带着 input 专属的一堆属性（width/padding/border），
 	// 套到列表项上会把那一行撑变形——而一条形状坏掉的样式，比两条各自正确的规则糟得多。
 	// 第三族也不并进按钮族：那条联合规则带着边框与 padding，会把顶栏那枚实心按钮
@@ -201,8 +204,8 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 背一份每个页面都要付的字节。
 	// 多一条就是有人**又**开了一族（或把一族拆成两条）——上面那圈逐条断言对这种改法全绿，
 	// 只有数条规则抓得住。
-	if len(joint) != 6 {
-		t.Errorf("含 min-height:44px 的规则有 %d 条，要六族各 1 条（输入/按钮/导航/交互输入面/面板结果行/顶栏添加按钮）", len(joint))
+	if len(joint) != 7 {
+		t.Errorf("含 min-height:44px 的规则有 %d 条，要七族各 1 条（输入/按钮/导航/交互输入面/面板结果行/顶栏添加按钮/书签卡片）", len(joint))
 	}
 	var sels []string
 	for _, r := range joint {
@@ -218,7 +221,7 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 同样一张族都没进——实测 24px，与它左边 44px 的下拉并排时像两个产品。
 	// `.rename button`（同日第二批）：顶栏「改名」那一格的提交键，实测 21px 高，
 	// 同一条毛病——住在自己的容器里就没进过任何族名单。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add"} {
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".theme button", ".adm button", ".act button", ".langsel button", ".rename button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", "header .add", ".card", ".plain"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {
@@ -588,9 +591,13 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// 磁贴只有 190px 宽，没有下限就放不下一条完整 URL；列表行接近整幅宽，
 		// 没有上限则编辑一块就铺满半屏。
 		"编辑态宽度有上下限": `width:min(max(100%,300px),420px)`,
-		// 分组标题右端那枚布局切换键：**44×44 是 §7.5 的触摸目标硬线**，
-		// 而它看上去只有 11px 字形（盒子守住 44，与 .pencil 同一处置）。
-		"布局切换键触摸目标": `.layoutbtn{flex:0 0 auto;width:44px;height:44px`,
+		// 分组标题右端那枚布局切换键：**44 是 §7.5 的触摸目标硬线**，但 2026-10-13
+		// 那一轮把"盒子 44"换成了"盒子 28 + 透明 ::before 撑回 44"——因为盒子 44 的
+		// 代价是**每一节标题都比内容厚**（八组一节白吃 130px）。钉这条钉的是那圈
+		// 扩展区还在：把它删掉，命中区退回 28px，而这条闸必须红。
+		// 它到底是不是 44 高，由浏览器那一头量（design-preview batch7 的活格子：
+		// 在盒子上下各 8px 处 elementFromPoint，必须还命中这颗键）。
+		"布局切换键命中区扩展": `.layoutbtn::before{content:"";position:absolute;inset:-8px -6px}`,
 		// 这一条是**实测**逼出来的：选择器前多打了一个引号（`'.inline-edit .row{`），
 		// 浏览器把整条规则当无效选择器丢掉，`.row` 退回块级——「存」与「取消」各占
 		// 一整行 278px 宽（实测那一行 96px 高，横排后 48px），「删掉这条」再占一行。
