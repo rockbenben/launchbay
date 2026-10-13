@@ -208,10 +208,18 @@ func TestRebuild_坏档重建后书签快照历史一字不动(t *testing.T) {
 	if *got != *p {
 		t.Errorf("返回的档案与盘上那份不是同一份: %+v vs %+v", p, got)
 	}
-	// theme/layout/createdAt 按默认重建是能力边界，但必须**是**默认值而不是空串：
-	// 空串会让 §4.3 的校验与进门页的 themeAttr 各说各话。
+	// 按默认重建是能力边界，但必须**是**默认值而不是空串：
+	// 空 theme 会让 §4.3 的校验与进门页的 themeAttr 各说各话。
 	if got.Theme != "auto" || got.Layout != "sidebar" {
 		t.Errorf("默认值没落地: theme=%q layout=%q", got.Theme, got.Layout)
+	}
+	// 而 pageTitle / view 的默认**就是空串**（"没选过"），这两格不住在 RebuildProfile
+	// 那个字面量里，所以它们必须是零值——列在这里是为了：将来谁往那个字面量里
+	// 补一个 `PageTitle: …` 或 `View: …`，这条会当场说出是哪一格多写了。
+	// AGENTS.md 的 rebuild 那一行列的就是这五格，判据只有一份。
+	if got.PageTitle != "" || got.View != "" {
+		t.Errorf("rebuild 不该给台面偏好编一个值: pageTitle=%q view=%q，两个都要空（空 = 没选过）",
+			got.PageTitle, got.View)
 	}
 	if _, err := time.Parse(time.RFC3339, got.CreatedAt); err != nil {
 		t.Errorf("createdAt 该是 RFC3339（不是空串、不是别的形状）: %q", got.CreatedAt)
