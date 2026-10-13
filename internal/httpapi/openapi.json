@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.b0b3ee94c503.js": {
+    "/app.ce986baa8358.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -355,7 +355,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，**AI 不走这条**——机器改这两项打 `POST /api/v1/batch` 的 `set groups/<id>/accent` 与 `set groups/<id>/layout` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `accent` 与/或 `layout` **至少一个**。一张表单里并排摆着色板与磁贴/单列两组键，靠 HTML「只提交被按下的那个控件」分开，所以两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`——**一个分组内部的排法**，与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 403：这一页是给人看的。"
+        "description": "浏览器表单通路，**AI 不走这条**——机器改这两项打 `POST /api/v1/batch` 的 `set groups/<id>/accent` 与 `set groups/<id>/layout` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`——**一个分组内部的排法**，与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 403：这一页是给人看的。"
       }
     },
     "/revert": {

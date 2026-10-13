@@ -199,22 +199,52 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Field: "group", Reason: "要带 group，且必须是 ASCII slug"}})
 		return
 	}
+	// **一次按下 = 一个意图，判据是"名字"而不是"只提交被按下的那个控件"。**
+	//
+	// 这条通路上线时写的理由是"一张表单里两组键，靠 HTML 只提交被按下的那个控件
+	// 分开"——那句话漏了**不是控件的那一格**：命名过的输入框每一次提交都跟着走。
+	// 于是真浏览器按下一颗色块交出的是 `accent=#22b8a0&accent=#123456`（色块 +
+	// 那颗常驻的取色器），按「磁贴」交出的是 `layout=tiles&accent=#123456`：
+	// 前者被下面那道"恰好一个"判成形状错（人看到的是整屏裸 JSON），后者顺手把
+	// 颜色也改了。实测过这两条才改的判据。
+	//
+	// 现在的形状：取色器改名 `custom`，那颗动作键带 `name=apply_custom`。
+	// 于是四种按下各交得出什么，是**结构上定死的**，不是靠约定：
+	//   按色块          → accent=<hex>            （custom 也在，但没有 apply_custom，读不到）
+	//   按「跟随主色」   → accent=                 （同上）
+	//   按磁贴/单列      → layout=<值>              （同上）
+	//   按「用这个颜色」 → apply_custom=1 + custom=<hex>
+	// `accent` 出现两次仍然按形状错拒：那已经不是浏览器的形状，是有人在拼 body。
 	accent, hasAccent := r.Form["accent"]
 	layout, hasLayout := r.Form["layout"]
-	// 一张表单里摆着颜色与排法两组键，靠 HTML"只提交被按下的那个控件"分开。
-	// 所以"两样都没交"是真有人按了提交键却没有键被按下（curl 拼错字段名、
-	// 或按了没有 name 的那颗"用这个颜色"）——那不是"什么都不改然后成功"。
-	if !hasAccent && !hasLayout {
+	custom := r.Form["custom"]
+	_, wantsCustom := r.Form["apply_custom"]
+	if !hasAccent && !hasLayout && !wantsCustom {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Field: "accent", Reason: "要带 accent 或 layout 至少一个"},
-			{Field: "layout", Reason: "要带 accent 或 layout 至少一个"},
+			{Field: "accent", Reason: "要带 accent、layout，或按下「用这个颜色」"},
+			{Field: "layout", Reason: "要带 accent、layout，或按下「用这个颜色」"},
 		})
 		return
 	}
-	if hasAccent && (len(accent) != 1 || !model.ValidAccent(accent[0])) {
-		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Field: "accent", Reason: "空着 = 跟随页面主色，否则只能是 #rgb 或 #rrggbb"}})
-		return
+	// 颜色那一格：谁说话由名字定。apply_custom 在场 = 取色器说话；否则 accent 说话。
+	// 两个都不在 = 这一次只改排法，颜色一个字节不碰（从前它会被顺手写成取色器
+	// 里的默认值，而那一格屏上从来没说过它会被提交）。
+	var accentVal string
+	handlesAccent := wantsCustom || hasAccent
+	if wantsCustom {
+		if len(custom) != 1 || !model.ValidAccent(custom[0]) || custom[0] == "" {
+			writeFieldErrors(w, http.StatusUnprocessableEntity,
+				[]fieldError{{Field: "custom", Reason: "自定义那一格只能是 #rgb 或 #rrggbb"}})
+			return
+		}
+		accentVal = custom[0]
+	} else if hasAccent {
+		if len(accent) != 1 || !model.ValidAccent(accent[0]) {
+			writeFieldErrors(w, http.StatusUnprocessableEntity,
+				[]fieldError{{Field: "accent", Reason: "空着 = 跟随页面主色，否则只能是 #rgb 或 #rrggbb"}})
+			return
+		}
+		accentVal = accent[0]
 	}
 	if hasLayout && (len(layout) != 1 || !model.ValidGroupLayout(layout[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
@@ -222,9 +252,9 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var opList []ops.Op
-	if hasAccent {
+	if handlesAccent {
 		opList = append(opList, ops.Op{Op: "set", Path: "groups/" + gid + "/accent",
-			Value: json.RawMessage(strconv.Quote(accent[0]))})
+			Value: json.RawMessage(strconv.Quote(accentVal))})
 	}
 	if hasLayout {
 		opList = append(opList, ops.Op{Op: "set", Path: "groups/" + gid + "/layout",

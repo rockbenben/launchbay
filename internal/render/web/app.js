@@ -497,10 +497,9 @@ const APP_I18N = {
 
   // groupOpFromForm 把「哪一个控件被按下了」翻成一条 op。
   //
-  // 它必须**认形状而不是认顺序**：色板与排法两组键在同一张表单里，谁被按下
-  // 才是意图。submitter 带 name=accent / name=layout 时直接走那一条；
-  // 不带 name 的那颗「用这个颜色」提交的是旁边的 <input type=color>，
-  // 那是 accent 的自定义档。
+  // 它必须**认名字而不是认顺序**：色板、排法与取色器在同一张表单里，而命名过的
+  // 输入框每一次提交都跟着走。判据与 `httpapi/prefs.go` 那一处是同一份——
+  // `apply_custom` 在场 = 取色器说话，否则 `accent` 说话；两个都不在 = 只改排法。
   function groupOpFromForm(form, data) {
     const gid = form.querySelector('input[name=group]')?.value;
     if (!gid) return null;
@@ -508,9 +507,7 @@ const APP_I18N = {
     if (typeof layout === 'string' && layout) {
       return { op: 'set', path: `groups/${gid}/layout`, value: layout };
     }
-    // colorInput 在「按了自定义那颗键」与「别的路」两种情形下值都在，
-    // 所以判据只能是：submitter 是不是那颗键，或者 accent 是不是个 hex。
-    const accent = data.get('accent');
+    const accent = data.has('apply_custom') ? data.get('custom') : data.get('accent');
     if (typeof accent === 'string' && (accent === '' || /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(accent))) {
       return { op: 'set', path: `groups/${gid}/accent`, value: accent };
     }

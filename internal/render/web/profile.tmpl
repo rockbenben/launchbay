@@ -319,10 +319,12 @@
        `groups/<id>/layout`，而界面上一个入口都没有——于是每个类目的色块都是
        CSS 的 `--sec-accent,var(--accent)` 兜底值，一整页同一个蓝。
 
-       **一个分组一张表单**，表单里摆着颜色与排法两组键，靠 HTML"只提交被按下的
-       那个控件"这一条规则分开：按色块只交 `accent`，按磁贴只交 `layout`。
-       所以"一次按一下只改一件事"在这里仍然成立，而不必拆成两张表单、也不必
-       让两个字段互相覆盖。
+       **一个分组一张表单**，一张表单里两种意图。分开它们的判据是**名字**，不是
+       "HTML 只提交被按下的那个控件"——那句话漏了命名过的输入框：它每一次提交都
+       跟着走（实测按色块交出两个 `accent`、按磁贴交出 `layout` 加一个颜色）。
+       所以取色器那一格叫 `custom`，那颗动作键带 `name=apply_custom`：按色块只交
+       得出 `accent`，按排法只交得出 `layout`，只有按下那颗动作键才交得出颜色。
+       于是"一次按一下只改一件事"在**零 JS 的整页通路上**也成立。
 
        落点是 `POST /prefs/group`，不是 `/prefs`：这两个字段落在
        bookmarks.json 的分组上，走的是 applyBatch 那条书签写通路（快照、审计、
@@ -367,7 +369,7 @@
              改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那 9 颗
              已经占满 516px 的内容宽——硬塞进同一行只会让它折成第三行，
              而"这一组三件事"挤成三行就没人愿意往下翻了。 */}}
-        <button type="submit" class="prefs-swatch-apply"
+        <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
           aria-pressed="{{if and $cur (not $onPalette)}}true{{else}}false{{end}}"
           title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
       </div>
@@ -383,7 +385,11 @@
           aria-pressed="{{if eq $cur $c}}true{{else}}false{{end}}"
           aria-label="{{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
         {{end}}
-        <input type="color" class="prefs-color" name="accent"
+        {{/* 这一格**必须**叫 custom 而不是 accent：命名过的输入框每一次提交都跟着走，
+             与色板那颗键同名就会出现两个 `accent`——那正是把整条零 JS 通路堵死的形状
+             （实测：按色块 422 一屏裸 JSON）。它只在同一次提交里带上 `apply_custom`
+             时才说话，判据在 httpapi/prefs.go 那一处。 */}}
+        <input type="color" class="prefs-color" name="custom"
           value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
           aria-label="{{$.T "prefs.groups.customLabel"}}" title="{{$.T "prefs.groups.customLabel"}}">
       </div>

@@ -39,9 +39,17 @@ func TestPrefsGroup_色板画全且按下的就是盘上那个(t *testing.T) {
 	if !strings.Contains(html, `class="prefs-swatch prefs-swatch-none"`) {
 		t.Error("面板里没有「跟随页面主色」那一颗：从自定义色回不到默认，色板就成了单向门")
 	}
-	// 自定义那一格必须真的有原生取色器（accent 收任意 hex 的唯一入口）。
+	// 自定义那一格必须真的有原生取色器，而且**它不许与色板那颗键同名**：
+	// 命名过的输入框每一次提交都跟着走，同名就等于每一次按色块都交两个 accent。
+	// 这一格改名 custom 之后，颜色由 apply_custom 那颗键说话（判据在 prefs.go）。
 	if !strings.Contains(html, `type="color"`) {
 		t.Error("面板里没有取色器：色板之外的颜色一个都选不了")
+	}
+	if !strings.Contains(html, `name="custom"`) {
+		t.Error("取色器那一格没有改名成 custom：它会随每一次提交跟着走")
+	}
+	if !strings.Contains(html, `name="apply_custom" value="1"`) {
+		t.Error("「用这个颜色」那颗键没带 name=apply_custom：后端分不出人按的是哪一颗")
 	}
 	if got, want := pressedAccents(html, "nas"), model.GroupAccentPalette[3]; len(got) != 1 || got[0] != want {
 		t.Errorf("nas 这一行按下的色是 %v，要恰好是盘上那个 %q", got, want)
@@ -135,8 +143,69 @@ func TestPrefsGroup_形状错422点名且不写盘(t *testing.T) {
 	}
 }
 
-// 分组已经被删了 → **面板重画回来并说清为什么**，不是 303 去一个看起来像
-// 成功的页面。书签是别人也在改的东西，面板开着的时候那一组完全可能没了。
+// 逐颗键复放**浏览器真的会交出去的那份 body**。
+//
+// 这条测试是本格从实测里抱回来的：独立页 /prefs 一个 <script> 都不引（那条通路
+// 的成立前提就是裸 HTML），而同一张 form 里除被按下的那颗键之外还站着命名过的
+// 取色器——它每一次提交都跟着走。于是"按色块 = 只交 accent"、"按磁贴 = 只交
+// layout"这两句话从前是注释里的约定而不是结构：屏上按色块拿到的是整屏裸 JSON
+// （两个 accent 被判形状错），按磁贴则顺手把颜色改掉（一次按下写两条 op）。
+//
+// 判据只有一句：**一次按下改得出它说的那一件事，改不出别的**。所以每一段都断
+// 两头——要变的那一格变了，不该动的那一格一个字节没动，而 rev 只推进一格
+// （推进两格就说明这一次按下写了两条 op）。
+func TestPrefsGroup_逐颗键复放浏览器的载荷(t *testing.T) {
+	s, h := setupBatch(t)
+
+	// 起点：nas 有颜色 #dd6aa6，排法 tiles。
+	setGroupAccent(t, h, "dad", "nas", "#dd6aa6")
+	postForm(h, "/prefs/group", "group=nas&layout=tiles", dadFormCookie)
+
+	type presses struct {
+		name, body string
+		wantAccent *string
+		wantLayout string
+	}
+	empty := ""
+	teal := "#22b8a0"
+	custom := "#123456"
+	cases := []presses{
+		// 按色板「青」：色块交 accent，取色器同时交 custom——后者必须被无视。
+		{"色板那一颗", "group=nas&accent=%2322b8a0&custom=%23dd6aa6", &teal, model.LayoutTiles},
+		// 按「跟随页面主色」：交的是 accent=（空串合法），取色器那个值同样必须被无视。
+		{"回到默认那一颗", "group=nas&accent=&custom=%23dd6aa6", &empty, model.LayoutTiles},
+		// 按「单列」：只许改排法。这一条从前会连 accent 一起写（屏上亮两颗 pressed）。
+		{"排法那一颗", "group=nas&layout=list&custom=%23dd6aa6", &empty, model.LayoutList},
+		// 按「用这个颜色」：这一颗带 name=apply_custom，于是取色器那格才说话。
+		{"自定义那颗键", "group=nas&apply_custom=1&custom=%23123456", &custom, model.LayoutList},
+	}
+	for _, c := range cases {
+		before := currentRev(t, s, "dad")
+		if rec := postForm(h, "/prefs/group", c.body, dadFormCookie); rec.Code != http.StatusSeeOther {
+			t.Fatalf("%s：%q 要 303，得到 %d: %s", c.name, c.body, rec.Code, rec.Body)
+		}
+		if after := currentRev(t, s, "dad"); after != before+1 {
+			t.Errorf("%s：rev 从 %d 变成 %d，要只推进一格——多出来的那一格就是这一次按下顺手改的第二件事", c.name, before, after)
+		}
+		g := findGroup(t, s, "dad", "nas")
+		if g.Accent != *c.wantAccent {
+			t.Errorf("%s：盘上 accent = %q，要 %q", c.name, g.Accent, *c.wantAccent)
+		}
+		if g.Layout != c.wantLayout {
+			t.Errorf("%s：盘上 layout = %q，要 %q", c.name, g.Layout, c.wantLayout)
+		}
+	}
+
+	// 只交得出取色器、没按下那颗键 = 有人在拼 body，或表单被改了形状：仍然要说清缺什么。
+	rec := postForm(h, "/prefs/group", "group=nas&custom=%23123456", dadFormCookie)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("只给 custom 要 422，得到 %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"field": "accent"`) {
+		t.Errorf("那句 422 要点名 accent：%s", rec.Body)
+	}
+}
+
 func TestPrefsGroup_分组没了要说清而不是静默成功(t *testing.T) {
 	_, h := setupBatch(t)
 	rec := postForm(h, "/prefs/group", "group=ghost&accent=%23e0574f", dadFormCookie)
@@ -199,6 +268,20 @@ func loadBookmarks(t *testing.T, s *store.Store, id string) *model.Bookmarks {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// findGroup 取一个分组的**整份**盘上形状，好让"这一次按下只改了它说的那件事"
+// 能两头都断（颜色与排法各查一次，别只查变了的那一头）。
+func findGroup(t *testing.T, s *store.Store, profile, id string) *model.Group {
+	t.Helper()
+	b := loadBookmarks(t, s, profile)
+	for i := range b.Groups {
+		if b.Groups[i].ID == id {
+			return &b.Groups[i]
+		}
+	}
+	t.Fatalf("%s 里没有分组 %q", profile, id)
+	return nil
 }
 
 func currentRev(t *testing.T, s *store.Store, id string) int64 {
