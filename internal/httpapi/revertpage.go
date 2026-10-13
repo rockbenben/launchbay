@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/bookimport"
+	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -74,7 +76,12 @@ type snapshotChoice struct {
 	// 个数，于是有八个分组的人读到的是"等 3 组"——这一页唯一要说清的就是
 	// "那一版大概长什么样"，报少了就是把它没看全的事说成看全了。
 	Groups []string
-	Total  int
+	// SameGroups 为真：这一版的分组集合与**现在**一模一样，于是这一格不列组名。
+	// 实拍（2026-10-13，13 份快照）：12 行的组名一字不差地重复着，每行四成宽度
+	// 花在从不变化的信息上。真正要回答的问题是"退回去会不会连分组结构一起变了"，
+	// 所以只在**变了**的那些行上列组名。
+	SameGroups bool
+	Total      int
 }
 
 // maxChoiceGroupNames 是页面上印几个分组名。三个够认出"自建服务、常用、影音"
@@ -94,6 +101,14 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 	if err != nil {
 		return nil, 0, err
 	}
+	// 相邻两版**分组一字不差**时，后一版不再重印组名（见 snapshotChoice.SameGroups）。
+	// 判据是"和上一行一样吗"而不是"和现在一样吗"：前者只在**字面重复**时收起，
+	// 后者会把整张列表压成只有版本号——而「一个只有版本号的列表回答不了退哪一版」
+	// 正是这一页存在的理由（revertpage_test.go 里那条判据）。
+	// 实拍（2026-10-13，13 份快照）：12 行的组名一模一样，每行四成宽度花在
+	// 从不变化的信息上。收掉之后，第 1 行仍带组名（"这些是现在的分组"），
+	// 中间十二行只剩「第 N 版 · M 条书签」，而分组结构真的变过的那几行照旧带名字。
+	prevSig := ""
 	for _, rev := range revs {
 		raw, err := s.deps.Store.LoadSnapshot(id, rev)
 		if err != nil {
@@ -106,6 +121,12 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 			continue
 		}
 		c := snapshotChoice{Rev: rev, Items: bookimport.CountItems(b), Total: len(b.Groups)}
+		// 与**上一行**一字不差时，这一格不重印组名（见 SameGroups）。
+		sig := groupSig(b)
+		if prevSig != "" && sig == prevSig {
+			c.SameGroups = true
+		}
+		prevSig = sig
 		if when, ok := s.deps.Store.SnapshotMTime(id, rev); ok {
 			c.When = when.Local().Format("01-02 15:04")
 		}
@@ -120,6 +141,17 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 	return choices, unreadable, nil
 }
 
+// groupSig 是"这一版的分组是哪几个"。**按标题排序后拼起来**：改名也是改，
+// 而回退页上那一格要回答的正是"退回去会不会连分组名一起变了"。
+func groupSig(b *model.Bookmarks) string {
+	names := make([]string, 0, len(b.Groups))
+	for _, g := range b.Groups {
+		names = append(names, g.Title)
+	}
+	sort.Strings(names)
+	return strings.Join(names, "\x00")
+}
+
 // choiceLabel 把一格说成人话。
 // 它是 **Server 的**方法而不是 snapshotChoice 的：这一格要拼给人看的短名，
 // 而语言是机器级的、只有 Server 读得到 store。做成快照自己的方法就只能把
@@ -128,6 +160,13 @@ func (s *Server) choiceLabel(c snapshotChoice) string {
 	label := s.t("revert.choice.label", c.Rev, c.Items)
 	if c.When != "" {
 		label = c.When + " · " + label
+	}
+	// 分组集合与现在**一模一样**时，这一格到此为止：13 份快照的实拍里，
+	// 12 行的组名一字不差地重复，每行四成宽度花在从不变化的信息上。
+	// 这一格要回答的是"退回去会不会连分组结构一起变了"，而答案在这种情况下
+	// 是"不会"——所以那一截没有出现在页面上，正是它在回答。
+	if c.SameGroups {
+		return label
 	}
 	if len(c.Groups) == 0 {
 		return label + s.t("revert.choice.noGroups")

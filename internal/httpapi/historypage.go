@@ -174,7 +174,35 @@ func (s *Server) historyRow(e store.HistoryEntry, dict *historyDict) render.Hist
 		}
 		row.Ops = append(row.Ops, s.opPhrase(op, dict))
 	}
+	row.Ops = s.collapseRepeats(row.Ops)
 	return row
+}
+
+// collapseRepeats 把**相邻重复**的短句并成一句带次数。
+//
+// 为什么需要它：审计行只记 `{op, path}`，而"新增一个分组"那条的 path 就是
+// `groups` ——组名在 value 里，**根本没被记下来**（§4.4）。于是导入或 AI 一次
+// 建五组的那一行会印出五句一模一样的「新增了一个分组」，占掉六条里的五条，
+// 却一次也没说出是哪几个组。合并成「新增了一个分组 ×5」既省地方，又把
+// "发生了五次"这件本来就有用的事说出来。
+//
+// **只并相邻的**：不相邻的两句相同（改 A、改 B、改 A）并起来会让人以为
+// 中间那件事没发生过——这一页是审计线，宁可啰嗦不可撒谎。
+func (s *Server) collapseRepeats(ops []string) []string {
+	out := make([]string, 0, len(ops))
+	for i := 0; i < len(ops); {
+		j := i + 1
+		for j < len(ops) && ops[j] == ops[i] {
+			j++
+		}
+		if j-i > 1 {
+			out = append(out, s.t("history.op.times", ops[i], j-i))
+		} else {
+			out = append(out, ops[i])
+		}
+		i = j
+	}
+	return out
 }
 
 // opPhrase 把一条 `{op, path}` 说成一句人话。

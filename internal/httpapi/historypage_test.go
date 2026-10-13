@@ -352,13 +352,25 @@ func TestHistory_坏档不挡(t *testing.T) {
 	}
 }
 
-// 顶栏那一枚徽标与命令面板那一格都指向 /history：入口不在页面上，
+// 台面面板里那一行与命令面板那一格都指向 /history：入口不在页面上，
 // 这一屏就等于不存在（"人点不到的东西不算承诺"那条纪律）。
-func TestHistory_入口在档案页上画得出来(t *testing.T) {
+//
+// 2026-10-13：这一枚从**顶栏**搬进了台面面板（`GET /prefs`，档案页里那颗
+// 「台面」弹出的浮层渲染的是同一份标记）。判据没变——仍然是"从档案页出发，
+// 两步之内能点到 /history"——但"画得出来"要在**面板那份 HTML** 里查，
+// 而"档案页上有没有路通向面板"要在档案页那份 HTML 里查。两条都得钉：
+// 只钉后者，那一天面板渲染坏了会一路绿灯。
+func TestHistory_入口在台面面板上画得出来(t *testing.T) {
 	_, h := setupBatch(t)
-	page := get(h, "/", historyDadCookie).Body.String()
+	// 第一步：档案页上有一颗带可见文字的「台面」入口。
+	home := get(h, "/", historyDadCookie).Body.String()
+	if !strings.Contains(home, `id="lb-prefs-open"`) || !strings.Contains(home, "台面") {
+		t.Errorf("档案页顶栏少了进台面面板的那一枚：%s", firstBytes(home))
+	}
+	// 第二步：面板里画着通往 /history 的那一枚。
+	page := get(h, "/prefs", historyDadCookie).Body.String()
 	if !strings.Contains(page, `href="/history"`) {
-		t.Errorf("档案页顶栏少了进改动历史的那一枚：%s", page)
+		t.Errorf("台面面板少了进改动历史的那一枚：%s", firstBytes(page))
 	}
 	if !strings.Contains(page, "改动历史") {
 		t.Error("那一枚没有可见文字（读屏与语音输入的人都点不到它）")
@@ -369,9 +381,10 @@ func TestHistory_入口在档案页上画得出来(t *testing.T) {
 	if rec := post(h2, "/api/v1/profiles", `{"id":"open","title":"公屏","nopass":true}`, "", testAdminKey); rec.Code != 201 {
 		t.Fatalf("建档该 201, got %d %s", rec.Code, rec.Body)
 	}
-	fresh := get(h2, "/", "lb_profile=open").Body.String()
-	if !strings.Contains(fresh, `href="/history"`) {
-		t.Error("零改动的档案页少了这一枚（那一支页面答的是「还没有」，不是死路）")
+	if rec := get(h2, "/prefs", "lb_profile=open"); rec.Code != 200 ||
+		!strings.Contains(rec.Body.String(), `href="/history"`) {
+		t.Errorf("零改动的档案的面板少了这一枚（那一支页面答的是「还没有」，不是死路）：%d %s",
+			rec.Code, firstBytes(rec.Body.String()))
 	}
 	if hp := get(h2, "/history", "lb_profile=open"); hp.Code != 200 ||
 		!strings.Contains(hp.Body.String(), "还没有改动记录") {
