@@ -892,6 +892,22 @@ const APP_I18N = {
     const name = plain?.querySelector('b')?.textContent?.trim() || T('app.edit.fallbackName');
     if (!url) continue;
     const tip = badge.getAttribute('title') || '';
+    // **拖到书签栏这条路要带得上地址**（用户实测：拖过去的那一格没有 URL）。
+    // 提示里那句"拖到收藏夹栏再从那里打开"一直是真出路——Chrome 拦的只是
+    // "网页发起的跳转"，从书签栏点不经过那道闸。但这一行是 <span> 而不是
+    // <a href>：Go 的模板把 chrome:// 与 javascript: 一视同仁换成 #ZgotmplZ，
+    // 绕开它（template.URL）等于给"存进库的脚本在我们同源下变成活链接"开门，
+    // 而这一页带着会话 cookie。所以负载自己放：拖走的是地址，不是选中的文字。
+    if (plain) {
+      plain.setAttribute('draggable', 'true');
+      plain.addEventListener('dragstart', (e) => {
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        dt.effectAllowed = 'copy';
+        dt.setData('text/uri-list', url);
+        dt.setData('text/plain', url);
+      });
+    }
     let timer = 0;
     // **这一颗与 .pencil 同一张脸**（44×44 的幽灵键，app.css 的 .copybtn），
     // 不穿 .badge：实拍过一版带字的徽标，77×44 的框比同排的书签名还响——一个
