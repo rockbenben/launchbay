@@ -385,12 +385,21 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .tag{border:1px solid var(--line);color:var(--ink2)}
 .tags-row{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
 /* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。
-   `order:2` 是为**排在 code 后面的那些东西**说的：把手与「图标未匹配」徽标是
-   app.js/模板挂在行尾的，没有这一句它们会被那条 100% 宽的 URL 顶到第三行去，
-   看着像另一件事的键（list 档实拍过：✎ 孤零零悬在 URL 下面）。名字与键同在第一行。 */
+   `order:2` 是为**排在地址后面的那些东西**说的（把手、复制键、「图标未匹配」徽标、
+   标签），没有这一句它们会和那行地址挤在一起。`.addr` 是那一行的容器：地址先收缩、
+   两枚键在右边并排（flex，不参与栅格轨道，所以不会把名字压窄）。 */
 .plain{flex-wrap:wrap}
-.plain code{flex:1 0 100%;order:2;font-size:12px;color:var(--ink2);
+.plain .addr{order:2;flex:1 0 100%;display:flex;align-items:center;gap:4px;min-width:0}
+.plain .addr>code{flex:1 1 0;font-size:12px;color:var(--ink2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 两枚键并排待在地址那一行右端，**不再撑命中区**（2026-10-13 用户实拍后改判）。
+   44px 的盒子配 `.layoutbtn` 那种 `::before{inset:-6px}` 的透明扩展区，在**只有
+   一枚键**的行上是划算的（盒子小、命中大）；但这一行并排站着两枚，32+4+32 的间隙
+   4px 撑不起两个各 44px 的命中区——量到的是**互相重叠 8px**，两枚键在抢同一块
+   地方，指到那条缝上按下去按到谁取决于 DOM 顺序。这才是"打架"的真正来源：
+   不是重叠的两枚键，是两个重叠的命中区。
+   现在两枚键是一个尺寸（32，app.css 那条共用规则）、没有扩展区，指到哪颗是哪颗。 */
+.plain .addr>.copybtn,.plain .addr>.pencil{flex:0 0 32px}
 /* 地址从「整串换行」改成「一行省略号」（2026-10-13 真实数据 390 档实拍）：
    同排卡片要等高（2026-10-11 那条判据），于是一条 chrome://extensions/ 这种
    两行的地址把整排磁贴顶到 140px 高——一屏从 12 条掉到 6 条。
@@ -435,7 +444,19 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    选择器带上 `.plain b`（同日第二批）：「点不动那一行」与卡片同一张脸，行尾却站着
    **两枚** 44px 的键（复制 + 编辑）。basis auto 时它俩放不下就换行，整排磁贴被 grid
    一起拉高 52px——正是上面那段话里已经判过的那一种。收缩与省略号对两态是同一条规矩。 */
-.tiles .pencil{margin-left:auto}
+/* 「点不动那一行」在磁贴里改用栅格（2026-10-13 实拍后改判）。
+   那一行有两枚 44px 的键（复制 + 编辑），而 **CSS 栅格的轨道是被所有行共享约束的**
+   ——键放在第二行，第一行的中列照样被它压窄；反过来把键绝对定位到名字行右上角，
+   它 44px 的盒子会垂下来压到第二行（实拍：把手 `top:6px` 落到 y 6–50，第二行从
+   y 32 起算，纵向重叠 18px，两枚键叠在右下角）。
+
+   所以**两枚键一起收进地址那一行**（`.addr`，profile.tmpl 给的容器）：那一行是
+   `flex`，地址 `flex:1 1 0` 先收缩再省略号，右侧 4px 间隙后并排站着两枚 44px 的键。
+   名字那一行于是**一格都不让**，也不需要 `padding-right`——角上不再有绝对定位的东西。
+   实拍：名字从 42px 一路回到满宽，「群晖 Drive 外网直连」完整读出。 */
+.tiles .plain{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px}
+.tiles .plain>.addr{grid-row:2;grid-column:1/-1}
+.tiles .plain>.tags-row{grid-column:1/-1}
 .tiles .tags-row{flex:1 1 100%;order:8;margin-left:32px}
 .tiles .card i{flex:1 1 100%;order:9;margin-left:32px;max-width:none;text-align:left}
 /* list 形态：描述**不再被推到最右**（2026-10-11 实拍后改）。
@@ -455,6 +476,12 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
      wrap，标签行本身不再被压扁。空间够时仍然是一行。 */
   [data-layout=list] .card{flex-wrap:wrap}
   [data-layout=list] .tags-row{flex:0 0 auto}
+  /* 「点不动那一行」在 list 档欠了同一条底（2026-10-13 补上）。上面这段把 `.card`
+     的标签从"被压成竖排一列"救回来了，`.plain` 当时没跟上：它那一行行尾站着**两枚**
+     44px 的键，比 `.card` 还挤，`flex:0 0 auto` 的 `.tags-row` 于是被压到几十像素宽、
+     标签逐个竖成一列（与上面那段里 2026-10-11 实拍的四个标签那个形状一模一样）。
+     给的是磁贴那一档的同一形状：标签自己换一行，排在地址之后。 */
+  [data-layout=list] .plain .tags-row{flex:1 1 100%;order:8;margin-left:0}
   /* 同排的卡片要一样高（2026-10-11 实拍后改）。`ul` 是 grid，默认 stretch 拉的是
      **li**，卡片本身仍按内容高——于是同一排里标签多的那张高、标签少的矮，
      一眼看过去参差不齐。`.plain`（需手动打开那条的非链接形态）与卡片同一张脸，

@@ -178,16 +178,25 @@
         <span class="plain">
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
+        <span class="addr">
+          <code title="{{.URL}}">{{.URL}}</code>
           {{/* 不可点的地址（chrome:// 、file:// …）这一格。
                badge 上的 ext 是**给 app.js 的钩子**，不是样式：那一颗徽标由模板
-               渲染（关掉 JS 时它仍是唯一一句能读懂的话——「浏览器不让页面打开
-               这种地址」是真的），而**能按的复制键由 app.js 就地把它换成**。
+               渲染（关掉 JS 时它仍是那一行唯一一句能读懂的话——「浏览器不让页面
+               打开这种地址」是真的），而**能按的复制键由 app.js 就地把它换成**。
                模板里不渲染那颗按钮，同 §8.1 那条「点了没反应的东西不进界面」
                与顶栏「＋ 添加」同一处置（app.js 头部同一句纪律）。
                判据只有一处：地址取同一个 <code> 的 textContent，与 ⌘K 搜外部
-               条目时读的是同一处，模板与脚本都不再抄一份 URL。 */}}
+               条目时读的是同一处，模板与脚本都不再抄一份 URL。
+
+               **地址与两枚键同住这一行**（2026-10-13 实拍后改判）。从前是地址一行、
+               复制键在它右端、把手绝对定位在名字行右上角——看起来分处两行就
+               不可能相交，实拍恰恰相反：把手 `top:6px` 高 44px 落到 y 6–50，
+               而第二行从 y 32 起算，**纵向重叠 18px**（用户实拍图：两枚键叠在
+               右下角）。把两枚键收进这一行、地址给它们让出右边，才是真的不相交，
+               而不是"算下来应该不相交"。 */}}
           <span class="badge warn ext" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
-          <code>{{.URL}}</code>
+        </span>
           {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </span>

@@ -971,7 +971,13 @@ const APP_I18N = {
       type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
     });
-    card.append(pencil);
+    // 两枚键的落点：可点的那张卡上只有一把手，挂在卡片本体（角上）——
+    // 「点不动那一行」上**两枚键一起住进地址那一行**（`.addr`，模板给的容器），
+    // 把手就跟着复制键进去。分开放看着"分处两行就不可能相交"，实拍是它们叠在
+    // 右下角（把手 `top:6px` 高 44px 落到 y 6–50，而第二行从 y 32 起算，重叠 18px）。
+    // 同一行里并排是**结构上**不相交，不是算下来不相交。
+    const keys = card.querySelector('.addr') || card;
+    keys.append(pencil);
     // draggable 要**在拖之前就位**：从前它在 dragstart 的回调里才设上，而浏览器
     // 是在 pointer 按下那一刻读这个属性的——第一次拖根本不会开始，得人拖过一回
     // （属性已经留下了）第二次才动。

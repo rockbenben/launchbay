@@ -12,17 +12,16 @@
    1140px 超过一屏，面板看起来像换了页。 */
 .cmdk-list code{display:inline;font-size:12px;color:var(--ink2)}
 
-/* 顶栏上由 app.js 造出来的可点件是**一族**：「＋ 添加」与提醒条上的「知道了」。
-   44px 在这一族只写一遍；实心蓝底是 .add 自己的事，不并进来（并进来会把
-   「知道了」也刷成一颗主操作键，而它不是）。 */
-header .add,.notice .dismiss{min-height:44px}
-header .add{flex:0 0 auto;background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-/* 「＋ 添加」此前**没有 hover 态**（取景逐族量：26 个实例、18 个屏，命中 0 条
-   hover 规则），而它旁边每一枚按钮都有——主操作键反而是全站唯一一颗按之前
-   不回答"你能点我"的控件。这里只加抬升与投影，**不动那对配色**：
-   --accent/--on-accent 在两套主题下各自算过对比度（暗档深字浅底 6.3、亮档白字
-   5.8），拿 --ring 当 hover 填充会把亮档那侧压到 4.88，等于为了反馈吃掉了余量。 */
-header .add:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(4,6,10,.34)}
+/* 「＋ 添加」**并进全站按钮族**（base.css 那两条联合规则已把 `.add` 收进去）：
+   几何、padding、min-height、悬停填充全部共用。它此前不在族里，于是自己长成
+   一颗实心蓝块——4px 圆角、没有描边、悬停是抬升加投影——同一栏里「搜索」
+   「主题：自动」「全局视图」「顶栏导航」「回退」「改动历史」全是 9px 圆角的
+   半透明描边脸，只有一颗是实心的，看上去像另一个产品装进了这一栏。
+   主次改用**字色与描边**分：它是 --ink 实字 + --accent 描边，次要的那些是
+   --ink2 + --line。这一族两套主题的对比度都算过，换法一个变量也没碰。 */
+/* 提醒条上那颗「知道了」仍在服务端模板里、不在按钮族名单内，44px 在这一族
+   只写一遍（它不是主操作键，并进来会被刷成 --ink 实字）。 */
+.notice .dismiss{min-height:44px}
 /* 浮层里的按钮此前也没有 hover：`button:hover` 那族规则挂在 `.pick`/`.act`/`.adm`
    这些**服务端表单容器**上，而浮层是 app.js 造的，不在任何容器名单里。
    `.fld` 同时挂在输入框与按钮上（「保存并继续」那颗就是 button.fld），
@@ -79,32 +78,41 @@ header .add:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(4,6,10,.
    "要用时才找得到"的东西，不该抢主内容的第一眼。悬停/聚焦仍然回到 1。 */
 .card{position:relative}
 li{position:relative}
-.pencil{flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;font-size:13px;
+/* 行内那两枚键（编辑把手 + 复制键）是**一张脸**（2026-10-13 改判）。
+   它们此前各写一遍：字形 13px 与 14px 两档、`transition` 两份、悬停名单两份、
+   静息显形两份。于是同一行的两枚键看上去像两个系统凑在一处——这正是"互相打架"。
+   现在**盒子、字形、颜色、边框、圆角、过渡、悬停、聚焦、静息显形全部同一条规则**，
+   差别只剩字形本身与它们各自做的事。 */
+.pencil,.copybtn{flex:0 0 auto;width:32px;height:32px;display:grid;place-items:center;
+  font-size:13px;line-height:1;
   background:transparent;border:1px solid transparent;border-radius:8px;
-  color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease}
-.card:hover .pencil,.plain:hover .pencil,.pencil:hover,.pencil:focus-visible{opacity:1;border-color:var(--line);background:var(--card-hi)}
-/* 桌面这一档**静息不画把手**（2026-10-12）。用户要"更淡一些"，先量了一把：
-   .34 那档把手字形对卡片底只有 **1.82:1（暗）/ 1.70:1（亮）**，已经远低于
-   非文本控件的 3:1——再降透明度得到的不是"淡"，是"看不见一个本来就存在的功能"。
-   所以吵的来源不是**强度**而是**重复**：取景数到 556 枚常驻 ✎，每行一枚。
-   能同时满足"降噪"与上一轮那条判据（触摸设备与键盘用户要够得到）的写法是按指针能力分档：
-   有 hover 的精确指针 → 静息不画，指到这一行、或键盘走进这一行（li:focus-within）才显形；
-   触摸/粗指针 → 一字不改地常驻 .34。上一轮删掉的是"hover 才出现且触摸也看不见"，
-   不是"hover 时出现"本身——那条理由在触摸上不成立，这一版把它限定在不成立的那一档。 */
+  color:var(--ink2);opacity:.34;cursor:pointer;
+  transition:opacity .16s ease,color .16s ease,background .16s ease,border-color .16s ease}
+/* 显形名单**逐字对齐**：指到这一行、键盘走进这一行、指到/聚焦键本身，四个入口
+   给出**完全一样**的结果。上一版 `.plain:hover .copybtn` 只提亮字色而
+   `.card:hover .pencil` 画框，两枚键并排时一边带框一边不带——又是一次打架。 */
+.pencil:hover,.copybtn:hover,.pencil:focus-visible,.copybtn:focus-visible,
+.card:hover .pencil,.plain:hover .pencil,.plain:hover .copybtn,
+li:focus-within .pencil,li:focus-within .copybtn
+  {opacity:1;color:var(--ink);border-color:var(--line);background:var(--card-hi)}
+/* 桌面这一档**静息不画两枚键**（2026-10-12 那条判据，2026-10-13 扩到复制键）。
+   先前只对把手成立，于是「点不动那一行」静息看得见一枚复制键、看不见一枚把手，
+   同一行两种显隐规则。能同时满足"降噪"与"触摸设备与键盘用户要够得到"的写法是
+   按指针能力分档：有 hover 的精确指针 → 静息不画，指到这一行或键盘走进这一行
+   才一起显形；触摸/粗指针 → 一字不改地常驻 .34。 */
 @media (hover:hover) and (pointer:fine){
-  .pencil{opacity:0}
-  li:focus-within .pencil,.card:hover .pencil,.plain:hover .pencil{opacity:1}
+  .pencil,.copybtn{opacity:0}
+  .card:hover .pencil,.plain:hover .pencil,.plain:hover .copybtn,
+  li:focus-within .pencil,li:focus-within .copybtn{opacity:1}
 }
-/* 不可点地址（chrome:// 、file:// …）那一行的复制键。**与 .pencil 同一张脸**：
-   44×44 的幽灵键、--ink2 的字、悬停才画框——它是「这一条有个动作」，不是
-   「这一条有问题」，所以不穿警告橙。跟着 .pencil 一起静息压到 .34 是有意的：
-   一行里有两枚常驻控件时，它们都该退到书签名后面去。
-   字形 14px 而不是跟着 .pencil 的 13px：⧉ 满框比 ✎ 瘦，同尺寸实拍下来比把手还轻，
-   放大一档才配得上那 44×44。 */
-.copybtn{flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;font-size:14px;
-  background:transparent;border:1px solid transparent;border-radius:8px;
-  color:var(--ink2);opacity:.34;cursor:pointer;transition:opacity .16s ease,color .16s ease}
-.copybtn:hover,.copybtn:focus-visible{opacity:1;color:var(--ink);border-color:var(--line);background:var(--card-hi)}
+/* 高对比模式：两枚幽灵键必须**看得见**。上面那一档静息 `opacity:0`，而高对比把
+   border-color 之类压成 CanvasText、`opacity` 照旧生效——于是它们既没有框也没有
+   字形，只剩 Tab 过去才知道在那儿。`.layoutbtn` 早有同一处置，那两枚 44px 的键
+   当时漏了：它们比布局键更靠后加，而"高对比里要有一圈可见边框"这条判据是按元素
+   逐个点名收的，漏一个就少一个。 */
+@media (forced-colors:active){
+  .pencil,.copybtn{opacity:1;border-color:CanvasText}
+}
 /* 分组标题右端那枚布局切换键（⑤ 层，见 app.js 的同名那一支）。
    **它紧跟在分组名后面，不靠右**（2026-10-11 实拍后改）：先前是 margin-left:auto
    推到最右，于是 13px 的分组名与那枚键之间空出整条标题行——读起来像页面级的
@@ -142,22 +150,40 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
 
    **list 形态不改**：它一行读完、描述在右侧，把手本来就该在行尾。
 
-   **但「点不动那一行」的把手留在流里**（2026-10-13 用户实拍指出）。那一行的行尾
-   本来就站着一枚 44×44 的复制键，把手再绝对定位到右上角就正好**压在它身上**：
-   量到相交 25×42=1050px²，而 `elementFromPoint` 打在复制键中心返回的是
-   `button.pencil`——想复制，按下的是编辑。窄磁贴（390 那一档）今天没撞上，
-   只是因为名字长到把复制键挤去了第二行；名字一短（NAS 那种）同一处就会撞上，
-   所以那不是"窄屏没这个问题"，是"这一份数据恰好躲过去了"。
-   两枚键一起待在流里 = 它们永远是相邻的两格，不可能互相压。
-   挤不动的那一笔由名字承担（`.tiles .plain b{flex:1 1 0}`，同一轮改的），
-   不是由行高承担——同排磁贴会被 grid 一起拉高，那一笔 batch7 已经算过。 */
-.tiles .pencil{position:absolute;top:6px;right:6px}
-/* `margin-left:0` 收掉 base.css 那条 `.tiles .pencil{margin-left:auto}`：
-   主轴上的 auto 边距与名字的 `flex:1 1 0` 抢的是同一份剩余空间。Chrome 这边
-   量到的是名字拿到 56px（键贴着行尾），但这条次序换引擎不保证——名字被挤成
-   0 宽是看得见的事故，而两枚键本来就在行尾，这一格不需要 auto。 */
-.tiles .plain .pencil{position:static;margin-left:0}
-.tiles .card b{padding-right:44px}
+   **「点不动那一行」的把手也回右上角**（2026-10-13 实拍后改判）。它先前留在流里，
+   理由是"复制键在行尾，把手绝对定位会压在它身上"——那个量是真的（相交 25×42，
+   `elementFromPoint` 打在复制键中心返回 `button.pencil`）。**但解法选错了**：把复制键
+   从行尾挪走（base.css 那一组栅格规则，它现在在地址那一行的右端），碰撞就不复存在，
+   两枚键不必再靠"都待在流里"来互相避让。
+
+   留在流里的代价是名字：195px 那一档实拍到名字只剩 **42px**，「群晖 Drive 外网直连」
+   印成「群…」，而同排可点的那张「管理后台」四个字一个不少——同样的数据、同样的磁贴宽，
+   **差别只来自那枚点不动的键**。把手回右上角之后名字拿到 **91px**，两态齐平。
+
+   `.tiles .card` 与 `.tiles .plain` 于是**不写同一条**：
+   - `.card` 里只有一把手，右上角本来就是空的（徽标与描述都在第二行），所以绝对
+     定位在角上、第一行回到内容该有的高度，名字让出 32px 不被压在下面；
+   - `.plain` 里有**两枚**键，而绝对定位的那一把会垂下来压到第二行（实拍：重叠
+     18px），所以它们一起住进地址那一行（base.css 的 `.addr`），角上什么都不留，
+     名字也就**不需要** `padding-right` 了。
+   把 `.card` 那条写成 `.tiles .pencil` 会顺手把 `.plain` 的把手也绝对定位——
+   少写一个类名就够了，就是那 18px。
+
+   **`padding-right` 跟着盒子走**（32 不是 44）：盒子缩了就该同步让位，让 44 是
+   给一颗 32px 的键白留 12px 的空档。 */
+.tiles .card .pencil{position:absolute;top:6px;right:6px}
+.tiles .card b{padding-right:32px}
+/* **list 排法（`.rows`）的把手回行尾**——这一条是 2026-10-13 磁贴那一轮漏掉的。
+   那边把 `.tiles .pencil{margin-left:auto}` 连同角上定位一起收走时，只看了磁贴：
+   list 的 ul 是 `.rows`，`.tiles .card .pencil` 那条绝对定位盖不到它，于是把手
+   **既没有 auto 外边距、也没有定位**，就停在文档流末尾。
+   实拍（单列，990px 宽一行）：`[V] Vaultwarden 密码，别再用同一个 [✎] ──────`——
+   把手停在约 480px 处，离行尾还有半行空白；悬停时那一格的高亮框铺满整行，
+   把手孤零零浮在正中间，看着像忘了画完。
+   `margin-left:auto` 本来就是**为这一档写的**（把把手送到行尾），不是磁贴的。
+   注意 `.rows .plain` 不归这里管：那一行的两枚键住在 `.addr` 里，
+   地址 `flex:1 1 0` 撑开，键自然落在行尾（base.css 那条）。 */
+.rows .card .pencil{margin-left:auto}
 .tags-row:empty{display:none}
 /* 编辑一条书签的面板：**与「＋ 添加」同一族模态**（`.sheet`，app.js 那边写的是
    `class: 'sheet inline-edit'`）。
