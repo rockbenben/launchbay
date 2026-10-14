@@ -123,23 +123,34 @@
   <p><a class="badge" href="/import">{{.T "profile.import.link"}}</a></p>
   <p class="hint">{{.T "profile.import.hint"}}</p>
 {{end}}
-{{/* ── 大卡带（2026-10-14）─────────────────────────────────────────────────
-     设成「大卡」的那几个分组在这里独占一块，在**所有分组之前**。
+{{/* ── 大卡带（2026-10-14 建，2026-10-15 扩）───────────────────────────────
+     设成「大卡」的那几个分组在这里**合起来占一块**，位置在所有分组之前。
      判据在 exec.go：`Layout == model.LayoutFeature` 的已经不在
      `.Bookmarks.Groups` 里了，所以这里不是"再画一遍"而是**唯一一次**。
 
      为什么要它：磁贴与单列是同一套 44px 行的两种排法，八个分组排下来，
      "每天必点的那几个"和"一年点一次的那些"长得一样大——而这两样东西
-     需要的是完全不同的视觉权重。大卡这一档给的正是那个权重。
+     需要的是完全不同的视觉权重。
 
-     每一张卡的形状：图标 28px 在左上、名字 16px、下方一行主机名 12px。
+     **2026-10-15：带子从一个分组扩成任意多个**。原来一个分组一块，于是
+     想把"常用"与"影音"都提上来就得到两块一模一样的带子，中间夹着一条
+     分隔线——那不是"一个放大的区域"，是两块小区域。而**区域要大**，要
+     的是**一个能装下更多东西的地方**：现在所有大卡分组合在一块里，跨分组
+     一起扫过去，中间不再断开。
+
+     分组名因此从"整块的标题"变成"块内每一段自己的小标题"（`.feat-g`）：
+     合并之后仍然分得清哪几张属于谁——**合并是为了扫得更顺，不是为了把
+     分组信息丢掉**。
+
+     每张卡：图标 40px 在左、名字 18px、下方一行主机名 13px。
      **主机名那一行是这张卡与磁贴最大的差别**：磁贴里名字是唯一的字，
      而这里多一行灰色小字，于是扫过一排时眼睛先落在名字上、再顺带读到
      它去哪台机器——这正是选这一档的人要的信息。 */}}
+{{if .Featured}}
+<section class="feat" aria-label="{{.T "profile.featured"}}">
 {{range .Featured}}
-<section class="feat" aria-labelledby="f-{{.ID}}" data-gid="{{.ID}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>
-  <h2 id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n">{{len .Items}}</span></h2>
-  <ul class="feat-row">
+  <h2 class="feat-g" id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n">{{len .Items}}</span></h2>
+  <ul class="feat-row" data-gid="{{.ID}}">
   {{range .Items}}
     <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
@@ -158,10 +169,10 @@
     </li>
   {{end}}
   </ul>
+{{end}}
 </section>
 {{end}}
-{{range .Bookmarks.Groups}}
-{{/* 节标题按**叶名 + 弱化的父路径**排版（2026-10-12）：导入把嵌套文件夹拍平成
+{{range .Bookmarks.Groups}}{{/* 节标题按**叶名 + 弱化的父路径**排版（2026-10-12）：导入把嵌套文件夹拍平成
      "工作 / 项目 A / 会议记录"这样的标题，于是三十个分组的标题全是路径串，
      而"工作"与"工作 / 项目 A"看上去是两组并列——它们本来是一家的。
      磁盘上的标题一个字都没改，拆成两半只是为了读起来有层级（exec.go 的

@@ -861,7 +861,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		}
 		v.Bookmarks.Groups = append(v.Bookmarks.Groups, gv)
 	}
-	// 导航在**分组搬走之前**建：设成大卡不���让这一组从分组导航里消失
+	// 导航在**分组搬走之前**建：设成大卡不该让这一组从分组导航里消失
 	// （它只是换了位置，而"它不见了"才是真问题）。
 	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
 	// **大卡那一组从正文里拿走**（2026-10-14）：设成 feature 的分组不进

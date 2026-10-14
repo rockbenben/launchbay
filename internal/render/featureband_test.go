@@ -89,16 +89,24 @@ func Test大卡的主机名只认http与https(t *testing.T) {
 	}
 }
 
-// 全部都是大卡时不许出事：带子里装得下，正文空着。
-func Test每组都是大卡时正文空着而带子里全都在(t *testing.T) {
+// 多个分组都设成大卡时，它们**并进同一块**，而不是各占一块。
+//
+// 2026-10-15 改判：原来一个分组一块，于是想把两组都提上来就得到两块一模一样的
+// 带子、中间隔一条线——那不是"一个放大的区域"，是两块小区域。现在所有大卡分组
+// 共处一块，跨分组一起扫过去不再断开；分组名从整块的 h2 降成块内的 `.feat-g`，
+// **合并是为了扫得更顺，不是为了把分组信息丢掉**——所以段数仍然等于分组数。
+func Test多个大卡分组合进同一块(t *testing.T) {
 	s := seeded(t)
 	b := store.EmptyBookmarks()
 	b.Rev = 3
 	b.Groups = []model.Group{
 		{ID: "a", Title: "甲", Layout: model.LayoutFeature,
-			Items: []model.Item{{ID: "a1", Name: "一", URL: "http://10.0.0.1/"}}},
+			Items: []model.Item{{ID: "a1", Name: "一", URL: "http://10.0.0.1/"},
+				{ID: "a2", Name: "二", URL: "http://10.0.0.2/"}}},
 		{ID: "b", Title: "乙", Layout: model.LayoutFeature,
-			Items: []model.Item{{ID: "b1", Name: "二", URL: "http://10.0.0.2/"}}},
+			Items: []model.Item{{ID: "b1", Name: "三", URL: "http://10.0.0.3/"}}},
+		{ID: "c", Title: "丙", Layout: model.LayoutTiles,
+			Items: []model.Item{{ID: "c1", Name: "四", URL: "http://10.0.0.4/"}}},
 	}
 	if err := s.SaveBookmarks("dad", b); err != nil {
 		t.Fatal(err)
@@ -108,11 +116,28 @@ func Test每组都是大卡时正文空着而带子里全都在(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(p.Body)
-	if n := strings.Count(body, `<section class="feat"`); n != 2 {
-		t.Errorf("大卡带有 %d 条，要 2 条", n)
+
+	if n := strings.Count(body, `<section class="feat"`); n != 1 {
+		t.Errorf("大卡那块有 %d 段外壳，要 1 段（多个分组共用一块）：\n%s", n, bandOnly(body))
 	}
-	if strings.Contains(body, `<section aria-labelledby="g-`) {
-		t.Error("全是大卡时正文里还有分组 section")
+	// 分组信息不许被合并掉：块内每一段有自己的标题。
+	if n := strings.Count(body, `class="feat-g"`); n != 2 {
+		t.Errorf("块内只有 %d 个分段标题，要 2 个（每组一个）", n)
+	}
+	if n := strings.Count(body, `class="feat-row"`); n != 2 {
+		t.Errorf("块内只有 %d 个条目行，要 2 个", n)
+	}
+	// 三张卡一张都不许少（两段共 3 条）。数 class 名而不是数标签：带内的
+	// `<li>` 与正文的同构，用 li 会把正文的也算进来。
+	if n := strings.Count(body, "feat-card"); n != 3 {
+		t.Errorf("大卡张数不对：feat-card 出现 %d 次，要 3 次", n)
+	}
+	// 没设大档的那一组仍然在正文里。
+	if !strings.Contains(body, `<section aria-labelledby="g-c"`) {
+		t.Error("没设大卡的那一组被一起搬走了")
+	}
+	if strings.Contains(body, `<section aria-labelledby="g-a"`) || strings.Contains(body, `<section aria-labelledby="g-b"`) {
+		t.Error("大卡分组同时还在正文里")
 	}
 }
 
