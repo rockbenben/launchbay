@@ -80,6 +80,16 @@ func (s *Server) routes() []route {
 		// rev 一道闸不少），而 /prefs 只写 profile.json。
 		{Method: "POST", Pattern: "/prefs/group", Cred: credSession,
 			Summary: "改一个分组的颜色与排法（磁贴/单列，仅会话，表单通路；书签写通路）", H: s.handlePrefsGroup},
+		// 背景那一节（2026-10-14）。**必须 multipart**，所以不并进上面那条
+		// urlencoded 的 /prefs：两件事的 422 字段名单各管各的。三个动作
+		// （上传/移除/暂时不显示）共用这一个端点，一次按下 = 一个意图。
+		{Method: "POST", Pattern: "/prefs/background", Cred: credSession,
+			Summary: "改这一页自己的背景图（上传/移除/暂时不显示，仅会话，multipart 表单通路）", H: s.handlePrefsBackground},
+		// 「点开书签」那一格：当前标签页 / 新标签页。**它走 applyBatch 那条书签写
+		// 通路**（rev + 快照 + 审计），因为 openInNewTab 住在书签文档里而不是
+		// profile.json——与 /prefs/group 同一份收尾（applyPrefsOps）。
+		{Method: "POST", Pattern: "/prefs/tabs", Cred: credSession,
+			Summary: "点开一条书签是在当前标签页还是新标签页（仅会话，表单通路；书签写通路）", H: s.handlePrefsTabs},
 		{Method: "POST", Pattern: "/switch", Cred: credSession,
 			Summary: "会话动作：回选择页（免 PIN 直达已下线）", H: s.handleSwitch},
 		// 浏览器收藏夹导入（2026-10-10）：三步零 JS——选文件 → 看报告 →
@@ -150,8 +160,22 @@ func (s *Server) routes() []route {
 			Summary: "机器可读契约（无个人信息，公开）", H: s.handleOpenAPI},
 		{Method: "GET", Pattern: "/api/v1/icons", Cred: credNone,
 			Summary: "本地图标索引搜索（公开）", H: s.handleIconsSearch},
+		// 同一条搜索的**界面那一半**：吐的是画好的 HTML 方格，不是名字数组。
+		// 公开（credNone），与上面那条同族——它说不出任何人有什么书签。
+		// 为什么多一条而不是给上面那条加个 format 参数：这条的响应类型根本不是
+		// JSON（text/html），而 §4.3 那份契约按形状写形状，混在一个端点的两半里
+		// 会让"这条端点返回什么"在 openapi 里没法一句话说清。
+		{Method: "GET", Pattern: "/api/v1/icons/tiles", Cred: credNone,
+			Summary: "图标选择器那一格：同一条搜索，画好的 HTML 方格（公开）", H: s.handleIconTiles},
 		{Method: "GET", Pattern: "/icons/{name}", Cred: credNone,
 			Summary: "resolve 抓来的 favicon 缓存（内容哈希命名，immutable）", H: s.handleIconFile},
+		// 这一页自己的背景图。**与上面那条 favicon 通路相反**：那条是公开的
+		//（任何站都有的图标，而它不含任何档案信息），这一条要会话——背景图
+		// 是家里人自己放的图（很可能是孩子的照片），而 blob 按档案分目录，
+		// 于是 A 的会话连 B 的那张都读不到，哪怕他知道哈希。判据见
+		// background.go 那段三条。
+		{Method: "GET", Pattern: "/backgrounds/{name}", Cred: credSession,
+			Summary: "这一份档案自己的背景图（内容哈希命名，仅会话）", H: s.handleBackgroundFile},
 		{Method: "POST", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "建档（不带任何起步内容，模板机制 2026-10-10 整条拆掉）", H: s.handleCreateProfile},
 		{Method: "GET", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "档案元信息列表（零条目）", H: s.handleListProfiles},
 		{Method: "DELETE", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "删档（连快照，历史保留）", H: s.handleDeleteProfile},

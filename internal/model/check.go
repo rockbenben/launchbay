@@ -122,6 +122,23 @@ var accentHexRE = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 // "无色"要的是不画那个色块，那是另一件事、另一套判据。
 func ValidAccent(s string) bool { return s == "" || accentHexRE.MatchString(s) }
 
+// backgroundNameRE 是**这一页自己的背景图**那一个形状（Profile.Background），
+// 与 accent 同一处置：判据住在 model，写侧（上传那条端点算出来的）与读侧
+// （render 的净化）两处都够得着。
+//
+// **只收位图**：背景是铺满整屏的一块，svg 在这里没有任何理由（它要的是一张
+// 照片/壁纸），而省掉它就省掉一整类执行面——服务端仍按裁定 R9 带 CSP sandbox，
+// 但少一种后缀就少一处要守的形状。
+//
+// **哈希命名那半边也是这个形状的一部分**：不是 `<16hex>.<白名单后缀>` 的名字
+// 一律不当背景，于是 profile.json 被手改成 `../../secret` 或 `index.json` 时
+// 读侧只会说"这张背景不见了"，而不会去拼一条越界的路径。
+var backgroundNameRE = regexp.MustCompile(`^[0-9a-f]{16}\.(png|jpg|webp|gif)$`)
+
+// ValidBackground 认背景图那一个形状。**空串是合法的**（没设背景），与 ValidAccent
+// 同一条处置：清背景与没设过是同一个值，模板据它决定要不要写那一段 style。
+func ValidBackground(s string) bool { return s == "" || backgroundNameRE.MatchString(s) }
+
 // CheckURL 只验"这串能不能当 URL 用"，不验协议白名单：spec §6.2 明写
 // 非 http/https「允许存但标警告」，§9 要求 flare 的 chrome://extensions/
 // 与 chrome://apps 原样保留。协议该不该被浏览器拒绝跳转是渲染层的事
@@ -173,26 +190,40 @@ func CheckURL(u string) error {
 //
 //	scheme 转小写）。
 //
-// **名单是量出来的，不是印象**（2026-10-13 真点击实验）：在一个 http 页面上放一个
-// 链接、用真鼠标点下去（带用户手势，因为 Chrome 对这类放行看的正是手势），
-// 然后看地址走没走、控制台说了什么：
+// **名单是量出来的，不是印象**（2026-10-13 真点击实验，2026-10-14 扩到 28 个协议 ×
+// Chrome + Edge 两个引擎）：在一个 http 页面上放一个链接、用真鼠标点下去（带用户手势，
+// 因为 Chrome 对这类放行看的正是手势），然后看地址走没走、控制台说了什么：
 //
-//	chrome://extensions/   不走。security error「Not allowed to load local resource」
-//	chrome://settings/     同上
-//	file:///C:/...         同上
-//	mailto:nobody@…        走。「Launched external handler for 'mailto:…'」
+//	chrome://version/     不走。security error「Not allowed to load local resource」
+//	file:///C:/…          同上
+//	view-source:…         同上
+//	devtools://…           同上
+//	blob:http://…         同上
+//	edge://version        Edge 上同 chrome://（两个引擎把它当对方的内部页）
+//	mailto:nobody@…       走。「Launched external handler for 'mailto:…'」，且不留标签
 //	about:blank            走
 //	http://example.com/    走（对照）
 //
+// **自定义应用协议那一族（vscode:// obsidian:// notion:// slack:// discord:// zoomus://
+// msteams: spotify: steam:// whatsapp:// tg:// docker-desktop:// magnet: smb:// …）量出来
+// 的是第三种结果：浏览器确实把点击交给了操作系统（这是它的策略，与装没装应用无关），
+// 但**没装时用户看到的是"多一个停在 vscode://… 的死标签"**——有时控制台还会说
+// 「Failed to launch … because the scheme does not have a registered handler」，有时一句
+// 都不说。而**装没装应用，我们在渲染时无从知道**。
+//
 // 所以"能不能当普通链接点"与"我们认不认这个协议"是两件事，而**只有前者决定这一格
 // 画成链接还是画成"需手动打开 + 复制键"**。把 mailto: 画成一条点不动的行，
-// 是把一条本来会唤起邮件客户端的地址做成了一个假死链接；反过来把 chrome:// 画成
-// 链接，得到的是一按下去什么都不发生、只有控制台里一句报错——那正是 §8.1
-// 要避免的「点了没反应的东西」。
+// 是把一条本来会唤起邮件客户端的地址做成了一个假死链接；反过来把 chrome:// 或
+// vscode:// 画成链接，得到的要么是控制台里一句报错、要么是一个停在协议地址上的死标签
+// ——而这一类地址在 launchbay 里的真实用途几乎总是"给人一个能复制、能读的字符串"
+// （本地路径、浏览器内部页、某个应用的协议地址），不是"点一下就跑起来"。这正是
+// §8.1 要避免的「点了没反应的东西」。
 //
 // `tel:` 与 `sms:` 与 `mailto:` 走的是浏览器里同一条外部协议处理通路
-// （external handler），只是本机没装能收 tel: 的程序所以量不了；
-// 装了的机器上它与 mailto: 同命运，所以一起放行。
+// （external handler）：`mailto:` 在这台机器上量到的是干净交接（不留标签）。而
+// tel:/sms: 在 **headless** 下留下的标签看不出是"交接成功"还是"没装"——headless 没有
+// 系统 UI，那一档量不准；装了这两种处理器（Windows 的"手机连接"）的机器上它与 mailto:
+// 同命运，所以一起放行。
 func ExternalScheme(raw string) bool {
 	parsed, err := url.Parse(raw)
 	if err != nil {

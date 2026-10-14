@@ -105,4 +105,28 @@ type Profile struct {
 	// 住进 profile.json 还顺带避开了"batch 的 set 路径必须以 groups 开头"
 	// 那条判据要不要为档案级字段开特例的问题。
 	PageTitle string `json:"pageTitle"`
+	// Background 是**这一页自己的背景图**（2026-10-14）：形如
+	// `<16 位小写十六进制>.<png|jpg|webp|gif>`，指向 `data/backgrounds/<id>/`
+	// 下那个按内容哈希命名的文件；空 = 没设。
+	//
+	// 住 profile.json 而不是 bookmarks.json，理由与 PageTitle 同一句：它是台面
+	// 偏好，不是书签数据——改它不该产生 rev 与快照（§6.1 `/prefs` 只写
+	// profile.json），也该跟得上导出/导入的边界（导出只走 bookmarks.json，
+	// 所以背景**不随导出走**，它跟着这台机器走）。
+	//
+	// **哈希 + 按档案分目录**是两条判据的合：哈希那一半让同一张图在换背景时
+	// 换 URL（浏览器缓存立刻失效，不会拿旧图当新图）；按档案那半让"删掉背景"
+	// 只需要删自己那一个文件——两个人用同一张图时，各删各的（内容寻址的单份
+	// 存储会让 A 删掉之后 B 的背景跟着消失，而"谁在用"这个问题的答案会变）。
+	//
+	// BackgroundOff 是**暂时不显示**，不是删：家里来客人时不想让照片挂在电视
+	// 墙上，而不想删掉重传。它是这一份的事（电视上关了，手机上也该关），所以
+	// 存在档案里而不是浏览器的本地存储。
+	//
+	// 形状**不在 Validate 里卡**（与 icon 名同一纪律，§5/§6.2）：判据只在写侧
+	// （上传那条端点算出来的）与读侧的净化（render）两处，盘上写坏的值最多是
+	// "这张背景不见了"，而把档案判成坏档会让连得进这台机器的人都进不去。
+	// 那个形状由 check.go 的 ValidBackground 认（判据一份，写侧与读侧共用）。
+	Background    string `json:"background"`
+	BackgroundOff bool   `json:"backgroundOff"`
 }
