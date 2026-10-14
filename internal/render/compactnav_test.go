@@ -94,7 +94,7 @@ func TestPrefsPanel_紧凑档下说清那一列为什么不画(t *testing.T) {
 	// 分组视图（默认）：标签照旧，且**不解释**——那一列画得好好的
 	setView(t, s, "dad", "")
 	body := string(mustPrefs(t, s, "dad"))
-	if !strings.Contains(body, `name="layout" value="sidebar" aria-pressed="true" title="把分组导航放回左侧栏">侧栏</button>`) {
+	if !strings.Contains(body, `name="layout" value="sidebar" aria-pressed="true" title="把分组列表放回左边。">侧栏</button>`) {
 		t.Errorf("分组视图下那一颗该印「侧栏」：%.300s", body)
 	}
 	if strings.Contains(body, "sidebarNote") || strings.Contains(body, "没有需要跳过去的节") {
@@ -106,10 +106,10 @@ func TestPrefsPanel_紧凑档下说清那一列为什么不画(t *testing.T) {
 	for _, view := range []string{"wall", "dense"} {
 		setView(t, s, "dad", view)
 		body = string(mustPrefs(t, s, "dad"))
-		if !strings.Contains(body, `name="layout" value="sidebar" aria-pressed="true" title="把分组导航放回左侧栏">侧栏</button>`) {
+		if !strings.Contains(body, `name="layout" value="sidebar" aria-pressed="true" title="把分组列表放回左边。">侧栏</button>`) {
 			t.Errorf("%s 档下「侧栏」那颗变了样：可见文字必须稳定（标签随另一格的值变正是那条要挡的走样）", view)
 		}
-		if !strings.Contains(body, "没有需要跳过去的节") {
+		if !strings.Contains(body, "左边那列用不上") {
 			t.Errorf("%s 档下没有解释「那一列为什么不画」：人按了侧栏而屏上什么都没有", view)
 		}
 		if !strings.Contains(body, "想留着目录就选「顶栏」") {

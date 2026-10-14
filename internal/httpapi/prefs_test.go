@@ -120,7 +120,7 @@ func TestPrefs_排法改得动且页面带上属性(t *testing.T) {
 // 2026-10-13：这一条连同 `view` 那一组一起从**档案页顶栏**搬进了台面面板，
 // 并加上了 `theme` 那一组（三颗显式键，顶栏从前是一颗三态循环键）。所以
 // "扫哪份 HTML"与"名单里有几颗"两处都跟着变了——名单是**八颗**，不多不少。
-// 2026-10-14 加了「点开书签」那两颗（当前标签页 / 新标签页），名单变**十颗**：
+// 2026-10-14 加了「点书签时」那两颗（当前页 / 另开一页），名单变**十颗**：
 // 它与别处不同的一格是 `openInNewTab` 住在**书签文档**里，所以走 batch 而不是
 // /prefs（见 AGENTS.md 的 /prefs/tabs 那行）。这一条只管它的形状：标签稳定、
 // 状态走 aria-pressed，与另外八颗同一规矩。
@@ -138,16 +138,21 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		}
 		return out
 	}
-	want := []string{"分组=true", "全局=false", "密集=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false", "当前标签页=true", "新标签页=false"}
+	// 名单里那十个词是**文案契约**（2026-10-15 那一轮把「分组 / 全局 / 密集 /
+	// 当前标签页 / 新标签页」换成「按分组 / 并排 / 紧凑 / 当前页 / 另开一页」——
+	// 那三个视图名从前是内部词，家里人看不出分别是什么）。形状判据与它们无关：
+	// 标签稳定、状态走 aria-pressed。改文案时**记得连带改这一行**，那正是它
+	// 存在的理由——标签变了而这里没变，当场红。
+	want := []string{"按分组=true", "并排=false", "紧凑=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false", "当前页=true", "另开一页=false"}
 	got := panel()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("静息态的十颗键不对：%v，要 %v", got, want)
 	}
-	// 开全局视图：三颗视图键里 pressed 只翻一颗，标签一个字不动
+	// 开并排视图：三颗视图键里 pressed 只翻一颗，标签一个字不动
 	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("view=wall 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("开完全局视图：%v", got)
 	}
 	// 开顶栏导航：两维互不干涉（view 还开着，dense 那颗仍是 false）
@@ -155,7 +160,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		t.Fatalf("layout=topbar 要 303，得到 %d", rec.Code)
 	}
 	got = panel()
-	if strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
+	if strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("两维都开：%v", got)
 	}
 	page := get(h, "/", dadFormCookie).Body.String()
@@ -173,7 +178,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	if rec := postForm(h, "/prefs", "layout=sidebar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("切回 sidebar 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("关掉顶栏导航：%v", got)
 	}
 }

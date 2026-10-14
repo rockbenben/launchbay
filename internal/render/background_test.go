@@ -128,7 +128,7 @@ func TestPrefsPanel_背景那一节画得出来且三张表单各自只交自己
 	if strings.Contains(body, "/backgrounds/index.json") {
 		t.Error("坏引用被写进面板了")
 	}
-	if !strings.Contains(body, "这一页叫什么") {
+	if !strings.Contains(body, "页面名字") {
 		t.Error("坏背景不许挡台面")
 	}
 }
