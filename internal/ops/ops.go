@@ -255,7 +255,7 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		g.Items[at] = it
 		return warnsForItem(it), nil
 	}
-	return nil, fmt.Errorf("add 只能指向 groups 或 groups/<gid>/items")
+	return nil, fmt.Errorf("add 只能指向 groups 或 groups/<gid>/items（文档自己那几格标量用 set，例如 set path=openInNewTab）")
 }
 
 // decode 用严格模式解 op 的 value：未知键直接拒。AI 把 `aiNote` 写成
@@ -326,8 +326,54 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 			return nil, err
 		}
 		return setItemField(it, t.field, op.Value, icons)
+	case kindDocField:
+		return setDocField(b, t.field, op.Value)
+	case kindGroups:
+		// 单段 `groups` 落在 add/remove 的形状上，而 **set 到它就是整表替换**——
+		// §4.4 明写不给那种 op（AI 一次换整表会把别人的并发写入抹掉）。这一条要与
+		// 根级白名单那条分开说，否则调用方只会以为"路径写错了"。
+		return nil, errors.New("set 不能指向 groups：那是一次整表替换（§4.4 不给整表替换型 op），加一个分组用 add path=groups")
 	}
-	return nil, fmt.Errorf("set 只能指向 groups/<gid>/<field> 或 groups/<gid>/items/<iid>/<field>")
+	return nil, fmt.Errorf("set 只能指向文档的标量字段、groups/<gid>/<field> 或 groups/<gid>/items/<iid>/<field>")
+}
+
+// setDocField 改**文档自己**那一格（白名单见 path.go 的 docFields）。
+//
+// 类型必须在写侧卡住，而不只是"能解析"：`decode` 对 `"true"` 与 `true` 都放行
+// （前者是 JSON 字符串），而页面上的 `{{if .OpenInNewTab}}` 只认真布尔——写进去一个
+// 字符串，屏上就静默变成"还是当前标签页"，而这一发 op 是绿的。所以布尔那两格单独
+// 按 bool 解码，解不出来就说人话。
+func setDocField(b *model.Bookmarks, field string, raw json.RawMessage) ([]string, error) {
+	if docBoolFields[field] {
+		var v bool
+		if err := decode(raw, &v); err != nil {
+			return nil, fmt.Errorf("%s 只能是 true 或 false（写成字符串 %q 时页面会静默当假）", field, string(raw))
+		}
+		var warn []string
+		switch field {
+		case "openInNewTab":
+			warn = changed(b.OpenInNewTab == v)
+			b.OpenInNewTab = v
+		case "clock":
+			warn = changed(b.Clock == v)
+			b.Clock = v
+		}
+		return warn, nil
+	}
+	var s string
+	if err := decode(raw, &s); err != nil {
+		return nil, err
+	}
+	var warn []string
+	switch field {
+	case "title":
+		warn = changed(b.Title == s)
+		b.Title = s
+	case "footer":
+		warn = changed(b.Footer == s)
+		b.Footer = s
+	}
+	return warn, nil
 }
 
 func setItemField(it *model.Item, field string, raw json.RawMessage, icons IconSet) ([]string, error) {
@@ -410,7 +456,7 @@ func remove(b *model.Bookmarks, op Op) ([]string, error) {
 		}
 		return nil, kerr(apierr.MissingTarget, fmt.Errorf("分组 %q 里没有条目 %q", g.ID, t.itemID))
 	}
-	return nil, fmt.Errorf("remove 只能指向 groups/<gid> 或 groups/<gid>/items/<iid>")
+	return nil, fmt.Errorf("remove 只能指向 groups/<gid> 或 groups/<gid>/items/<iid>（文档自己那几格标量用 set，例如 set path=openInNewTab）")
 }
 
 // move 把条目挪到另一个分组（同组挪位也走它：to 填本组 id）。
@@ -425,7 +471,7 @@ func move(b *model.Bookmarks, op Op) ([]string, error) {
 		return nil, err
 	}
 	if t.kind != kindItem {
-		return nil, fmt.Errorf("move 只能指向 groups/<gid>/items/<iid>")
+		return nil, fmt.Errorf("move 只能指向 groups/<gid>/items/<iid>（文档自己那几格标量用 set，例如 set path=openInNewTab）")
 	}
 	if op.To == "" {
 		return nil, fmt.Errorf("move 必须带 to（目标分组 id）")

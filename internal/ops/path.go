@@ -20,6 +20,7 @@ const (
 	kindItems                      // groups/<gid>/items —— 条目表（add 条目用）
 	kindItem                       // groups/<gid>/items/<iid>
 	kindItemField                  // groups/<gid>/items/<iid>/<field>
+	kindDocField                   // <field> —— 文档自己的标量字段（set 用，见 docFields）
 )
 
 type target struct {
@@ -39,16 +40,69 @@ var itemFields = map[string]bool{
 	"alias": true, "tags": true, "aiNote": true,
 }
 
-// ParsePath 认 spec §4.4 的文法：groups/<groupId>[/items[/<itemId>]][/<field>]。
+// docFields 是**文档自己那几格**的可写白名单，与上面两张表同一条原则
+// （"能 set 什么就是写接口的攻击面"）。
+//
+// 2026-10-14 改判：**原来那道闸是「路径必须以 groups 开头」**，那是这条原则的
+// 一个粗粒度实现——它把整张文档的标量一并挡在外面，代价是 `openInNewTab` 这类
+// **页面上真的画得出来**的字段一个都改不了（2026-10-10 逐条探过，六条全拒，而
+// 那六条里有五条本来就不该拒）。原则从来没说过"set 只能碰树"，它说的是
+// "set 能碰的字段必须在表内"——而这本来就是靠白名单实现的机制。
+//
+// 在表内：`title` / `footer`（页脚那一行）、`openInNewTab`（点开一条书签是不是
+// 新标签页）、`clock`——都是**标量，且页面画得出来**。
+//
+// 不在表内，三条理由各不相同：
+//   - `rev`：**它是并发判据本身**（expectedRev 就跟它比），能 set 它等于让调用方
+//     自己宣布"我看过最新版本了"。
+//   - `groups`：树根。`add path=groups` 是加一个分组（既有形状）；若 `set path=groups`
+//     也能整表替换，那正是 §4.4 明写不给的「整表替换型 op」——一次换整表会把别人的
+//     并发写入抹掉。
+//   - `search` / `weather`：对象不是标量，而且**页面一次都不渲染它们**（最初计划里
+//     的搜索引擎与天气，没有做）。给一个画不出来的东西开写口，等于请人来填一个
+//     看不见的字段。
+var docFields = map[string]bool{
+	"title": true, "footer": true, "openInNewTab": true, "clock": true,
+}
+
+// docBoolFields 是 docFields 里**布尔**的那两格。类型要在写侧卡住：`openInNewTab`
+// 被写成字符串 "true" 时，页面上的 `{{if .OpenInNewTab}}` 会静默当假——症状是
+// 「按了新标签页，没反应」，而功能测试一条都不会红。
+var docBoolFields = map[string]bool{"openInNewTab": true, "clock": true}
+
+// ParsePath 认 spec §4.4 的文法：groups/<groupId>[/items[/<itemId>]][/<field>]，
+// 外加**根级标量字段** `<field>`（只认 docFields 里的四个，见上面那张表）。
 // 段里的 id 必须是 ASCII slug——数组下标在这里没有意义，插入一条之后
 // 下标就指错条目了。
 func ParsePath(path string) (target, error) {
 	parts := strings.Split(strings.TrimSpace(path), "/")
 	if parts[0] != "groups" {
-		return target{}, errors.New("路径必须以 groups 开头")
+		// 根级那一格：白名单外的字段在这里就拒掉，而**理由要说得出是哪一类**——
+		// "路径必须以 groups 开头"这句话对 rev/groups/search 三种拒绝是同一个答案，
+		// 而它们的理由完全不同（见 docFields 上面的三条）。笼统一句的话，调用方
+		// 改不动就会以为整条 ops 坏了。
+		if len(parts) == 1 && parts[0] != "" {
+			if docFields[parts[0]] {
+				return target{kind: kindDocField, field: parts[0]}, nil
+			}
+			if parts[0] == "rev" {
+				return target{}, errors.New("rev 不能改：它是并发判据本身（expectedRev 跟它比）")
+			}
+			if parts[0] == "groups" {
+				return target{}, errors.New("groups 不能整表替换（§4.4：一次换整表会把别人的并发写入抹掉）；加一个分组用 add path=groups")
+			}
+			if parts[0] == "search" || parts[0] == "weather" {
+				return target{}, fmt.Errorf("%q 是对象，且页面不渲染它——文档里能 set 的标量只有 %s", parts[0], docFieldList())
+			}
+			return target{}, fmt.Errorf("文档里没有 %q 这一格；能 set 的根级标量只有 %s", parts[0], docFieldList())
+		}
+		return target{}, errors.New("路径必须以 groups 开头，或者落在文档的标量字段上")
 	}
 	switch len(parts) {
 	case 1:
+		// 单段 `groups`：**add/remove 走它**（加一个分组、删一个分组），
+		// 而 `set` 会在这条分支之外被拒（见 ops.go 的 setDocField 与那句
+		// "整表替换"）。所以这里不再按 op 分流——分流的那一半在写侧。
 		return target{kind: kindGroups}, nil
 	case 2:
 		if err := idErr(parts[1]); err != nil {
@@ -155,4 +209,10 @@ func idErr(s string) error {
 		return fmt.Errorf("id %q 不是 ASCII slug", s)
 	}
 	return nil
+}
+
+// docFieldList 把根级白名单按**固定顺序**列成一句（给 422/解析失败时的那句话）。
+// 手写列表会与 docFields 漂，而这句话是给人读的——它必须说的是同一份表。
+func docFieldList() string {
+	return strings.Join([]string{"title", "footer", "openInNewTab", "clock"}, " | ")
 }
