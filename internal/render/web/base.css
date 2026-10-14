@@ -628,7 +628,11 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    换句话说：这一档对鼠标省，对手指不省。 */
 @media (hover:hover) and (pointer:fine){
   [data-profile-view=dense] .tiles,[data-profile-view=dense] .rows{grid-template-columns:1fr;gap:0}
-  [data-profile-view=dense] .card,[data-profile-view=dense] .plain{
+  /* :not(.feat-card)：**大卡不归这一档收**（理由见上面那条注释）。少了它，
+     带子里点不动的那几张卡在这一档会掉掉卡片底，而可点的那几张留着——同一个
+     带子两种脸。判据是"这是不是正文那些行"，不是"它叫什么"。 */
+  [data-profile-view=dense] .card:not(.feat-card),
+  [data-profile-view=dense] .plain:not(.feat-card){
     min-height:0;padding:3px 6px;gap:7px;border-radius:6px;
     border:1px solid transparent;background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
   [data-profile-view=dense] .card:hover{border-color:var(--line);background:var(--card-hi)}
@@ -636,10 +640,10 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
   [data-profile-view=dense] .card i,[data-profile-view=dense] .tags-row{display:none}
   /* 把手**回流到行尾**，不再是右上角那一枚：行只有 26px 高，32px 的键挂在角上
      会垂下来压到下一条。回流之后名字让出 32px，220px 的栏里还剩 ~150px 给名字。 */
-  [data-profile-view=dense] .pencil{position:static;top:auto;right:auto;margin-left:auto}
+  [data-profile-view=dense] .pencil:not(.feat-card .pencil){position:static;top:auto;right:auto;margin-left:auto}
   /* `.card b` 的右上角让位（`.tiles .card b{padding-right:32px}`）在这一档不该有——
      角上不再有键，那 32px 是白让的。 */
-  [data-profile-view=dense] .card b{padding-right:0}
+  [data-profile-view=dense] .card:not(.feat-card) b{padding-right:0}
   /* 「点不动的地址」那一行：地址要留（那是它唯一的正文），复制键与把手仍并排在
      地址行右端（app.css 那个 `.addr` 容器），只是行内衬收到 0。 */
   [data-profile-view=dense] .addr{padding:0}

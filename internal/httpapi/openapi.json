@@ -92,7 +92,7 @@
         }
       }
     },
-    "/app.77af7f26c580.css": {
+    "/app.9970c4d33d8e.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",

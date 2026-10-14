@@ -484,6 +484,28 @@ a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transf
 .feat-card .pencil{position:absolute;top:10px;right:10px}
 /* 大卡带在两档 view（全局 / 密集）下**照旧**：那一档的「紧凑」说的是分组之间
    不留大块空白，而不是把常用入口也缩小——它正是最需要一眼扫到的那一档。 */
+
+/* **但它必须横跨全部列**（2026-10-15 实拍后改）。两档多列视图各用各的机制，
+   所以是两句话而不是一条：
+ *
+ *   · 全局（wall）：`main` 是 CSS 多列（`column-width:300px`），而带子只是
+ *     `main` 的一个普通 `<section>`——于是它成了**并列的一栏**，317px 宽、
+ *     七张 112px 大卡竖着叠了 911px（实拍）。它换来的"一眼扫得到"在那一档里
+ *     正好丢光：它成了墙里最窄的一列，而隔壁两列是 44px 的紧凑行。
+ *   · 密集（dense）：`main` 是 grid（`repeat(auto-fill,minmax(200px,1fr))`，
+ *     1440 下每列只有 208px），而带子内部的 `.feat-row` 是
+ *     `minmax(300px,1fr)` —— **轨道比列宽还宽，于是那几张卡直接压在隔壁
+ *     「影音」那一栏上**（实拍：NAS/Portainer 盖住了 Emby/小雅影视…）。
+ *     这一条比"不好看"严重：它是两处内容重叠。
+ *
+ * 判据是**那一条机制**而不是 URL 或宽度：`wall` 是多列（column-span）、
+ * `dense` 是 grid（grid-column），而"分组"那一档 `main` 本来就是普通块级，
+ * 什么都不用写。 */
+[data-profile-view=wall] .feat{column-span:all}
+[data-profile-view=dense] .feat{grid-column:1/-1}
+/* 横跨之后那条下边线才说得通：它是"这一块到此为止"，而不是某一栏的底边。 */
+[data-profile-view=dense] .feat{margin-bottom:16px}
+
 @media (max-width:700px){
   .feat-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
   .feat-card{min-height:92px;padding:12px 14px}

@@ -129,7 +129,13 @@ func Test多个大卡分组合进同一块(t *testing.T) {
 	}
 	// 三张卡一张都不许少（两段共 3 条）。数 class 名而不是数标签：带内的
 	// `<li>` 与正文的同构，用 li 会把正文的也算进来。
-	if n := strings.Count(body, "feat-card"); n != 3 {
+	//
+	// **先摘掉内联的 `<style>`**（2026-10-15）：整页正文里含 base.css，而那里
+	// 已经有 `[data-profile-view=dense] .card:not(.feat-card)` 这样的选择器——
+	// 数 class 名于是把**样式里提到的**那个也算进来，一条也没少却数出 7。
+	// 这条闸要数的是卡片，不是提到卡片这个词的那些地方。
+	markup := stripStyle(body)
+	if n := strings.Count(markup, "feat-card"); n != 3 {
 		t.Errorf("大卡张数不对：feat-card 出现 %d 次，要 3 次", n)
 	}
 	// 没设大档的那一组仍然在正文里。
@@ -178,6 +184,30 @@ func Test大卡排之间有行距(t *testing.T) {
 	want := ".feat-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}"
 	if !strings.Contains(css[i:], want) {
 		t.Errorf("700 那一档的 .feat-row 不是 %q：\n%s", want, css[i:i+220])
+	}
+}
+
+// stripStyle 摘掉内联的 `<style>…</style>`，只留标记。
+//
+// **为什么这一族的几条判据需要它**：整页正文里含 base.css，而样式里**提到**
+// 某个 class 名是很正常的事（`[data-profile-view=dense] .card:not(.feat-card)`
+// 就提到了 feat-card）。于是"数这个名字出现几次"这种数法会把样式也算进去——
+// 一条卡片都没多，数出来却多了 4 次。判据是数**标记**，样式不是标记。
+func stripStyle(body string) string {
+	var out strings.Builder
+	rest := body
+	for {
+		i := strings.Index(rest, "<style>")
+		if i < 0 {
+			out.WriteString(rest)
+			return out.String()
+		}
+		out.WriteString(rest[:i])
+		j := strings.Index(rest[i:], "</style>")
+		if j < 0 {
+			return out.String()
+		}
+		rest = rest[i+j+len("</style>"):]
 	}
 }
 
