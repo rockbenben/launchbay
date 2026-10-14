@@ -949,8 +949,6 @@ select option{background:var(--bg);color:var(--ink)}
    **分节头不再由这一节自己画**（2026-10-14）：原来这三条给 `prefs-groups-head`
    画了一条分隔线 + 一个并排的小标签，于是同一屏里三个分节头长得像三种东西。
    现在它与另两节共用 `h3.prefs-sec`，分隔线也归那一条管——**分节线只有一份**。 */
-.prefs-groups-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;
-  padding-top:6px;border-top:1px solid var(--line)}
 .prefs-groups{display:flex;flex-direction:column;gap:10px}
 .prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 /* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。
@@ -1058,7 +1056,7 @@ select option{background:var(--bg);color:var(--ink)}
    而在 520 以上、860 以下那一段，两列并排仍然放得下（标签 92 + 控件 ≤ 420），
    更宽的地方色板自己回到名字同一行。断点跟着**内容宽**走，不是跟着某一台设备走。 */
 @media (max-width:520px){
-  .prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}
+  .prefs-row,.prefs-group{flex-direction:column;align-items:stretch;gap:6px}
   .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
   .prefs .prefs-group-name{flex-basis:auto}
   .prefs-group-colors{width:100%}

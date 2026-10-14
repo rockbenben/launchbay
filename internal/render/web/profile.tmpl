@@ -490,10 +490,15 @@
        bookmarks.json 的分组上，走的是 applyBatch 那条书签写通路（快照、审计、
        rev 一道闸不少），而 `/prefs` 只写 profile.json 的台面偏好。把两边混在
        一个端点里，422 的"至少给一个字段"就会开始管到不属于它的东西。 */}}
-  <div class="prefs-groups-head">
-    <span class="prefs-label">{{.T "prefs.groups"}}</span>
-    <p class="hint">{{.T "prefs.groups.hint"}}</p>
-  </div>
+  {{/* 分节头与另两节**同一种形状**（2026-10-14 实拍后改）。原来这一节用的是
+       `<div class="prefs-groups-head">` + 一个 `.prefs-label`：那条 div 是
+       `display:flex` 且 `align-items:baseline`，于是「分组」与它那句长说明**并排挤在
+       同一行**上（1440 实拍：标签 13px、说明 12px，中间 10px）。另两节是
+       `h3.prefs-sec`——13px 大写字、带一条分隔线、独占一行。于是同一屏里三个
+       分节头长得像三种东西，而"分组"那一节恰好是**唯一一节有分隔线以外的东西**。
+       判据是"它是分节头"，所以它就该与另两个分节头共用同一个类。 */}}
+  <h3 class="prefs-sec">{{.T "prefs.groups"}}</h3>
+  <p class="prefs-hint">{{.T "prefs.groups.hint"}}</p>
 
   {{if .PrefGroupsBroken}}
     <p class="hint" data-prefs-groups-broken>{{.PrefGroupsBroken}}</p>

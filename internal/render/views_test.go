@@ -815,9 +815,11 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 	}
 	css := string(raw)
 	for _, w := range []string{
-		// 一、标签列收掉
+		// 一、标签列收掉（`.prefs-groups-head` 从这条里去掉：那个 div 连同它的
+		// 竖排一起没了，2026-10-14 分组那节改用 `h3.prefs-sec`，它本来就是块级、
+		// 窄屏下自然成列，不欠这一条 flex-direction）
 		"@media (max-width:520px){",
-		".prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}",
+		".prefs-row,.prefs-group{flex-direction:column;align-items:stretch;gap:6px}",
 		".prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}",
 		// 二、翻成列向时把**行向写的 basis** 收回 auto（那 120px 不然就是高度）
 		".prefs .prefs-group-name{flex-basis:auto}",

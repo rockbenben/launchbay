@@ -154,7 +154,11 @@ func TestPrefsPanel_设置连成一片而出口在它们下面(t *testing.T) {
 		"主题":    `name="theme" value="auto"`,
 		"背景":    `class="prefs-bg"`,
 		"回退与历史": `href="/history"`,
-		"分组":    `class="prefs-groups-head"`,
+		// 「分组」这一节的锚点从 `prefs-groups-head` 换成 `prefs-groups`（2026-10-14）：
+		// 那个 div 只画了个并排的小标签，已被 `h3.prefs-sec` 取代——三个分节头现在
+		// 共用一个类，所以**不能拿分节头当锚点**（三处都匹配，取到的是第一处）。
+		// 节的**正文容器**仍然是唯一的那一个 div。
+		"分组": `class="prefs-groups"`,
 	} {
 		i := strings.Index(body, anchor)
 		if i < 0 {
