@@ -1122,7 +1122,7 @@ const APP_I18N = {
   //（域名是地址里不会变的那一半）。
   //
   // **裸 IP 的主机名不走可读那条路**（2026-10-14 实拍改判）。原来一律取
-  // `hostname` 的第一段，于是 `192.168.2.3:6789` / `:7080` / `:23333` **全部**
+  // `hostname` 的第一段，于是 `10.0.2.3:6789` / `:7080` / `:23333` **全部**
   // 变成 `192`——加第二个内网服务就撞 id，而 ops 撞 id 是硬错误（duplicate-id），
   // 症状是「明明填对了地址却存不进去」。而更早一版是整串 ascii，得到
   // `192-168-2-36789` 那种：它把**内网地址与端口烘进了 id**，而
@@ -1139,7 +1139,7 @@ const APP_I18N = {
       if (!u) return ascii(text) || hash36(String(text)) || 'item';
       const host = u.hostname.replace(/^www\./i, '');
       // **四段全是数字** = 裸 IP（IPv4）。判据是这个而不是「含数字」——
-      // `192.168.2.3.example.com` 那种仍走可读那条，而它不含私密信息。
+      // `10.0.2.3.example.com` 那种仍走可读那条，而它不含私密信息。
       const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
       if (isIPv4) return 'ip-' + (hash36(host + (u.port || '')) || 'item');
       const base = host.split('.')[0] + '-' +

@@ -19,9 +19,9 @@ func Test大卡那一组从正文搬进顶部而不是复制(t *testing.T) {
 	b.Rev = 3
 	b.Groups = []model.Group{
 		{ID: "hot", Title: "每天必点", Layout: model.LayoutFeature,
-			Items: []model.Item{{ID: "h1", Name: "NAS", URL: "http://192.168.2.3:5000"}}},
+			Items: []model.Item{{ID: "h1", Name: "NAS", URL: "http://10.0.2.3:5000"}}},
 		{ID: "cold", Title: "一年一次", Layout: model.LayoutTiles,
-			Items: []model.Item{{ID: "c1", Name: "旧的", URL: "http://192.168.2.3:9000"}}},
+			Items: []model.Item{{ID: "c1", Name: "旧的", URL: "http://10.0.2.3:9000"}}},
 	}
 	if err := s.SaveBookmarks("dad", b); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func Test大卡那一组仍然在分组导航里(t *testing.T) {
 	b.Rev = 3
 	b.Groups = []model.Group{
 		{ID: "hot", Title: "每天必点", Layout: model.LayoutFeature,
-			Items: []model.Item{{ID: "h1", Name: "NAS", URL: "http://192.168.2.3:5000"}}},
+			Items: []model.Item{{ID: "h1", Name: "NAS", URL: "http://10.0.2.3:5000"}}},
 	}
 	if err := s.SaveBookmarks("dad", b); err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func Test大卡那一组仍然在分组导航里(t *testing.T) {
 // 这条协议的路径段。
 func Test大卡的主机名只认http与https(t *testing.T) {
 	for _, tc := range []struct{ raw, want string }{
-		{"http://192.168.2.3:5000", "192.168.2.3:5000"},
+		{"http://10.0.2.3:5000", "10.0.2.3:5000"},
 		{"https://github.com/a/b", "github.com"},
 		{"chrome://extensions/", "chrome://extensions/"},
 		{"chrome://apps", "chrome://apps"},
