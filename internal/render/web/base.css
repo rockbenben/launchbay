@@ -217,7 +217,25 @@ details[open]>summary::before{content:"▾"}
    **三个数是同一份**：max-width / margin / padding 抄 header 与 .shell 那两行，
    抄错一个就重新错开——而这一处错了不会有人报，只是看着没对齐。 */
 .gnav.top{margin:0 auto 14px;padding:0 16px;max-width:1600px}
-.gnav.top ul{display:flex;gap:6px;overflow-x:auto}
+/* 顶栏那一行**折行，不横向滚**（2026-10-14 实拍后改判）。
+   原来是 `overflow-x:auto`：实测 714 那一档（8 个分组：应用 常用 NAS 应用 影视 工具 播客 娱乐 后端）
+   放不下，于是它开始滚 —— 而滚动的后果有三条：
+     1. **"后端"被截成「后」字**，而它下面就是那一节本身：看着像半个词；
+     2. **冒出一条灰色系统滚动条**，横贯整页压在第一条磁贴上面（截图实拍）；
+     3. **没有任何"右边还有"的提示** —— 没有渐隐、没有箭头，而 Windows 上
+        那条滚动条只在**有鼠标悬停/滚动时**才现形，触屏与平板上根本没有。
+   第 3 条是致命的：**隐藏掉一块导航，而没人知道它在那儿**，等于把主结构的
+   一部分变成了"找不到"。WCAG 1.4.10（Reflow）要的也是这个方向：窄宽度下
+   不该靠二维滚动才看得全（分栏内容是它列的例外，那一列说的是"按设计就需要
+   二维"）。
+   折行要多花 44px（多一行），而它换来的是**全部可见**。
+
+   **`flex-wrap:wrap` 而 `li` 仍 `flex:0 0 auto`**：折行的是**容器**排布，
+   每颗键本身不缩——而它们是 44px 的触摸目标（§7.5），缩了就踩不准。
+   `overflow-x` 一并撤掉：留着它，即使当前不触发滚动，它也会**把折行的
+   容器变成滚动容器**（`overflow` 非 visible 会建立新的 BFC，nowrap 的
+   内层一旦更长，父级静默裁掉），而"它现在没触发"不是一条判据。 */
+.gnav.top ul{display:flex;flex-wrap:wrap;gap:6px 8px}
 .gnav.top li{flex:0 0 auto}
 @media (min-width:1101px){.drawer{border:0;padding:0;background:none}.drawer>summary{display:none}}
 @media (max-width:1100px){.shell{grid-template-columns:minmax(0,1fr)}.side{position:static}}

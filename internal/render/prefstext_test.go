@@ -66,10 +66,13 @@ func Test顶栏那句不叫抽屉(t *testing.T) {
 			}
 		}
 	}
-	// 正向证人：它得说清**排不下时能左右滑**（那是那一行唯一的真实行为，
-	// 来自 `.gnav.top ul{overflow-x:auto}`）。
+	// 正向证人：它得说清**排不下时会发生什么**——那是这一行唯一该对人说的话。
+	// 2026-10-14 从「能左右滑」改成「折成两行」：顶栏改 `flex-wrap`（base.css
+	// `.gnav.top ul`），`.gnav:not(.top)` 那一档侧栏抽屉仍是 `overflow-x:auto`。
+	// 所以这里比的是**换行**那条，不是整个 `overflow-x` 是否还存在于 CSS 里——
+	// 侧栏那一档没改，它留着是应该的。
 	cssRaw, _ := webFS.ReadFile("web/base.css")
-	if !strings.Contains(stripCSSComments(string(cssRaw)), ".gnav.top ul{display:flex;gap:6px;overflow-x:auto}") {
+	if !strings.Contains(stripCSSComments(string(cssRaw)), ".gnav.top ul{display:flex;flex-wrap:wrap;gap:6px 8px}") {
 		t.Error("base.css 里那一行改了：文案要跟着改，别留着一句描述旧行为的话")
 	}
 }

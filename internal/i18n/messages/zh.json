@@ -18,7 +18,7 @@
   "profile.view.dense.label": "密集",
   "profile.view.dense.title": "磁贴去壳：每条一行「图标 + 名字」，一屏数得完（参考 Flare）",
   "profile.layout.label": "顶栏导航",
-  "profile.layout.toTopbar": "把分组导航换到顶栏（横向一行，挤不下时可左右滑）",
+  "profile.layout.toTopbar": "把分组导航换到顶栏（横向排开，屏幕窄时折成两行，不藏内容）",
   "profile.layout.toSidebar": "把分组导航放回左侧栏",
   "profile.nav.aria": "档案",
   "profile.switch.title": "回选择页换一个人（离开这一份）",

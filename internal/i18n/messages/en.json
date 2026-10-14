@@ -18,7 +18,7 @@
   "profile.view.dense.label": "Dense",
   "profile.view.dense.title": "Cards lose their shell: one line per entry, icon and name (like Flare)",
   "profile.layout.label": "Top bar nav",
-  "profile.layout.toTopbar": "Move the group nav into the top bar — one row across, scroll sideways when it does not fit",
+  "profile.layout.toTopbar": "Move the group nav into the top bar — laid out across, folding onto a second row on a narrow screen rather than hiding anything",
   "profile.layout.toSidebar": "Put the group nav back in the left sidebar",
   "profile.nav.aria": "Profile",
   "profile.switch.title": "Back to the picker to switch to someone else",
