@@ -128,20 +128,32 @@ func validatedAccent(s string) string {
 }
 
 // CSSAccent 把**已经过 validatedAccent** 的 hex 包成 template.CSS，供模板写进
-// `style="--sec-accent:{{.}}"`。
+// `style="--sec-accent:{{.AccentCSS}}"`。
 //
-// **为什么必须包**：html/template 在 `style` 属性位置上有自己的上下文转义，
-// 而它对一个看起来像颜色的值仍然判为不可信（实测 `#e8823c` 被替换成
-// `ZgotmplZ`，页面上那一格色点就退回 `--accent` 兜底的蓝——症状是"改了颜色、
-// 标题不变"，而数据与判据全都对）。仓库里已经栽过一次同族的：图标名走
-// `data-icon` 时也变成过 `#ZgotmplZ`。
+// **这一包防的是什么**（2026-10-14 修判，原因在同一天被重新量过一遍）：
+// 改之前那一行写的是 `style="--sec-accent:{{.}};--d:{{.Depth}}"` —— 而那里
+// **在 `{{range .Groups}}` 里面，`{{.}}` 是整个 groupView 结构体**，不是它
+// 的 Accent 字段。于是 html/template 把一个结构体塞进 CSS 上下文，判为不可信，
+// 整个 style 值变成 `ZgotmplZ`（连字面写的 `--d:0` 一起没了）。症状：改了颜色、
+// 标题色点不动，而数据与 validatedAccent 全都对。
 //
-// **为什么包它是安全的**：template.CSS 会**跳过全部转义**，所以安全性完全来自
+// **注意别记成"颜色值被判为不可信"**——那不是它。实测（Go 1.x 的
+// html/template）：`style="--sec-accent:{{.Accent}}"` 这种**字面部分由模板
+// 自己写、插值只占一个值的位置**的形状，一个 `#e8823c` 是过得去的；判为危险的
+// 是「插值占据了整个 style 值」。仓库里栽过一次同族的（图标名走 `data-icon`，
+// 那里的判据是 URL 属性，与 CSS 不同）。
+//
+// 换成 `{{.AccentCSS}}` 之后，模板读的是**一个类型就说明它是什么**的字段，
+// 而不是"在 range 里靠 `.` 拿到的、看起来像颜色的东西"。**这是双保险**：
+// 指错字段这一种错（真因）不再可能发生；而万一将来判据改了，类型会在编译期
+// 顶住——把一个裸 string 写进 CSS 上下文是编译器不管、运行时才炸的形状。
+//
+// **包它的代价与安全性**：template.CSS 会**跳过全部转义**，所以安全性完全来自
 // 上游那一份判据——`validatedAccent` 只放行 `#rgb` / `#rrggbb`
 // （model.ValidAccent 是唯一判据），其余一律返回空串。所以这里**不能**直接
 // `template.CSS(原始值)`，必须先过判据。
 //
-// 空串仍是空串：没设色的分组照旧不发这一格（模板的 `{{with}}` / `{{if}}`）。
+// 空串仍是空串：没设色的分组照旧不发这一格（模板的 `{{if .Accent}}`）。
 func CSSAccent(s string) template.CSS {
 	if v := validatedAccent(s); v != "" {
 		return template.CSS(v)

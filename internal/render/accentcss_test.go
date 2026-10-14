@@ -18,22 +18,31 @@ func readWeb(t *testing.T, name string) string {
 	return string(raw)
 }
 
-// 一条 hex 写进 `style="--sec-accent:…"` 时被 html/template 替换成 `ZgotmplZ`
-// （2026-10-14 实拍）。症状是**改了颜色、标题不变**：数据对了、`validatedAccent`
-// 也放行了，而屏上那一格色点退回 `--accent` 兜底的蓝。仓库里已经栽过一次同族
-// 的（图标名走 `data-icon`），所以这一条钉的是"别再栽"。
+// 一条 hex 到不了标题色点上（2026-10-14 实拍）。症状是**改了颜色、标题不变**：
+// 数据对了、`validatedAccent` 也放行了，而屏上那一格退回 `--accent` 兜底的蓝。
+//
+// **真因是模板里指错了东西**，不是"颜色值被判为不可信"：改之前写的是
+// `style="--sec-accent:{{.}}"`——而在 `{{range .Groups}}` 里 `{{.}}` 是**整个
+// groupView 结构体**，html/template 把结构体塞进 CSS 上下文就判为不可信，整个
+// style 值变成 `ZgotmplZ`（连字面写的 `--d:0` 一起没了）。实测：字面部分由模板
+// 自己写、插值只占一个值位置的形状，一个 `#e8823c` 是**过得去**的。
+//
+// 所以下面这条钉的不是"CSS 值要包一层"，而是**别再用 `{{.}}` 拿字段**——
+// 那个写法在任何一行都可能是循环项或根，换一行就静默指错。仓库里栽过一次同族
+// 的（图标名走 `data-icon`，那里的判据是 URL 属性）。
 func Test分组色必须作为CSS写进style而不是普通字符串(t *testing.T) {
 	tmpl := readWeb(t, "web/profile.tmpl")
 
-	// 一：两个挂载点都用**包过的那一份**（AccentCSS），不用裸字符串。
-	// 裸字符串在 style 属性位置会被判为不可信——这是 html/template 的上下文转义，
-	// 与值本身是不是颜色无关。
+	// 一：两个挂载点都用**包过的那一份**（AccentCSS）。它既是正确的读法，
+	// 也是双保险：字段名写着 AccentCSS 而不是 Accent，指错的那一种错不可能再发生；
+	// 而类型（template.CSS）会在将来判据改动时顶住——把裸 string 写进 CSS 上下文
+	// 是编译器不管、运行时才炸的形状。
 	for _, bad := range []string{
 		`style="--sec-accent:{{.}};`,
 		`style="--sec-accent:{{.Accent}}`,
 	} {
 		if strings.Contains(tmpl, bad) {
-			t.Errorf("模板里还有 %q：它会被 html/template 替换成 ZgotmplZ（实测颜色到不了屏上）", bad)
+			t.Errorf("模板里还有 %q：那是改之前的写法（`{{.}}` 拿的是整个结构体，颜色到不了屏上）", bad)
 		}
 	}
 	if !strings.Contains(tmpl, `style="--sec-accent:{{.AccentCSS}};--d:`) {
