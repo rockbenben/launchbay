@@ -184,7 +184,7 @@
   "app.clip.noread": "Could not read the clipboard (the system did not grant permission). Paste the address yourself.",
   "app.copy.aria": "Copy the link for %s",
   "app.copy.done": "Copied",
-  "app.copy.fail": "Could not copy it — the address is selected now, press Ctrl+C",
+  "app.copy.fail": "Could not copy it — the address is selected now, press ⌘ or Ctrl + C",
   "app.edit.aria": "Edit “%s”",
   "app.edit.fallbackName": "this bookmark",
   "app.layout.tiles": "Tiles",

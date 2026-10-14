@@ -184,7 +184,7 @@
   "app.clip.noread": "读不到剪贴板（系统没给这个权限），手动贴一下地址。",
   "app.copy.aria": "复制「%s」的链接",
   "app.copy.done": "已复制",
-  "app.copy.fail": "复制不了，已经帮你把地址选中了，按 Ctrl+C",
+  "app.copy.fail": "复制不了，已经帮你把地址选中了，按 ⌘ 或 Ctrl + C",
   "app.edit.aria": "改「%s」",
   "app.edit.fallbackName": "这一条",
   "app.layout.tiles": "磁贴",

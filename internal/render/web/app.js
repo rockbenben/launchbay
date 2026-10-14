@@ -81,7 +81,7 @@ const APP_I18N = {
     "app.clip.noread": "读不到剪贴板（系统没给这个权限），手动贴一下地址。",
     "app.copy.aria": "复制「%s」的链接",
     "app.copy.done": "已复制",
-    "app.copy.fail": "复制不了，已经帮你把地址选中了，按 Ctrl+C",
+    "app.copy.fail": "复制不了，已经帮你把地址选中了，按 ⌘ 或 Ctrl + C",
     "app.edit.aria": "改「%s」",
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
@@ -217,7 +217,7 @@ const APP_I18N = {
     "app.clip.noread": "Could not read the clipboard (the system did not grant permission). Paste the address yourself.",
     "app.copy.aria": "Copy the link for %s",
     "app.copy.done": "Copied",
-    "app.copy.fail": "Could not copy it — the address is selected now, press Ctrl+C",
+    "app.copy.fail": "Could not copy it — the address is selected now, press ⌘ or Ctrl + C",
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this bookmark",
     "app.layout.tiles": "Tiles",
@@ -584,7 +584,14 @@ const APP_I18N = {
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
     el('label', { text: T('app.field.title') }, [fTitle]),
     el('label', { text: T('app.field.desc') }, [fDesc]),
-    el('label', {}, [fGroup, fNewGroup, fGroupShapeWrap]),
+    // **这一格从前没有标签**（2026-10-14 实拍修掉）：`el('label', {}, [...])` 里
+    // 一个字都没有，于是下拉框在屏幕上是一个没有名字的控件，读屏里是
+    // 「组合框，应用」——听不出它管的是哪一维。旁边四格（地址/名字/描述/图标）
+    // 全都有标签，缺的就是这一格，看着像忘了写而不是有意的。
+    // `app.field.group` 这个 key **早就躺在四份词典里**（zh/en × 服务端/前端），
+    // 而全仓再没有第二处引用它——所以这不是新增文案，是把一条早就写好、
+    // 一直没人接的判据接回去。（写这一行注释时先 grep 过：它此前只被声明。）
+    el('label', { text: T('app.field.group') }, [fGroup, fNewGroup, fGroupShapeWrap]),
     el('div', { class: 'icrow' }, [
       el('label', { text: T('app.field.icon') }, [fIcon]),
       iconLibraryButton(fIcon),
