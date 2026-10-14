@@ -141,6 +141,26 @@ header .theme{flex:0 0 auto}
    内衬 16px 是**必需的**：上限大于屏幕宽度时（1440 的笔记本）内容会顶到屏幕
    边缘，卡片贴着边框看起来像排版坏了。 */
 main{max-width:1600px;margin:0 auto;padding:0 16px}
+/* **选择页这一族自己收窄**（2026-10-14 实拍后加）。上面那条 1600 是为档案页与
+   管理页那种"内容本来就铺满"的页面定的；选择页与建档页的内容是**两三张卡**，
+   1600 的后果是量到的东西：
+     - `ul.profiles` 在 1418 视口下排出**八栏各 161px**，而实际只有两份档案 ——
+       卡片挤在左上角，右边 76% 的宽度空着，看上去像排版坏了；
+     - 引导建档那张表单更是 1346px 宽、输入框 1321px（两个字段撑满一整屏）。
+   这两页是**装机与进门的第一块屏幕**，而"第一眼看上去像坏了"的代价最高。
+   760 是一个量出来的数：把这一族里 `ul.profiles` 的栏宽下限从 150 提到 180 之后，
+   728 的内容宽正好排三栏（194×3 + 14×2 = 610 ≤ 728，而 194×4 = 776 > 728），
+   每栏 233px ——「名字 + 服务图标」那一行头放得下，两份档案时右边剩下的空当也
+   不像原先那样空掉四分之三。
+
+   **栏宽下限只在这一族里改**：≤700 的平板档（内容宽 646）在 150px 下排 2 栏 ×
+   299px，那一档的卡更宽、更好点，本来就没坏，不该被顺手改掉。
+   adminlogin 与 broken 归进同一族：前者只有一把密钥，后者只有一段说明。 */
+.chooser{max-width:760px}
+.chooser .profiles{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+/* 建档表单比 760 再收一档：两格输入 + 一格勾选 + 一颗按钮，占满 760 仍是两倍宽的
+   框。460 是量出来的——`.pick input` 的最小可用宽约 300，加上 16px 内衬两侧。 */
+.chooser form.setup{max-width:460px}
 /* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
    把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
    侧栏的 ul 不需要再显式写 display：网格只挂在条目列表那三个类上（见裸 `ul`
@@ -716,6 +736,12 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    表单本身、输入框与按钮都不在这里开新规则：那个 form 同时带 pick 这个类，
    字号/颜色/44px 全部由上面与下面的族规则接。 */
 .setup label{display:flex;flex-direction:column;align-items:stretch;gap:6px;font-size:13px;color:var(--ink2)}
+/* 上面那条把**每一格**都排成竖的，而「不设 PIN」那一格是个勾选框：勾选框与它的
+   文字并排才是读得惯的形状，竖排会让人先看见一颗孤零零的方块、隔一行才读到它管
+   的是什么（1440 实拍：方块在 y=418，文字在 y=457，中间那 39px 是什么都没有）。
+   把这一格**单独**退回行向——判据是"这一格是不是一个输入框与它的标签"，
+   勾选框的标签本来就不在输入框下面。 */
+.setup label.chk{flex-direction:row;align-items:center;gap:8px}
 .hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
 .pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
   border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
@@ -919,11 +945,12 @@ select option{background:var(--bg);color:var(--ink)}
 /* 「分组」那一节（2026-10-13）：一个分组一行，行里左边是名字、右边是色板与
    磁贴/单列。**它不进 .prefs-row** ——那一行是一标签一控件，宽度由标签那一格
    说了算；而一个分组要装下十颗键，塞进 92px 标签后面只剩一列竖着的碎片。
-   所以这一节自己排：名字固定一块、键组吃剩下的。 */
+   所以这一节自己排：名字固定一块、键组吃剩下的。
+   **分节头不再由这一节自己画**（2026-10-14）：原来这三条给 `prefs-groups-head`
+   画了一条分隔线 + 一个并排的小标签，于是同一屏里三个分节头长得像三种东西。
+   现在它与另两节共用 `h3.prefs-sec`，分隔线也归那一条管——**分节线只有一份**。 */
 .prefs-groups-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;
   padding-top:6px;border-top:1px solid var(--line)}
-.prefs-groups-head .prefs-label{color:var(--ink)}
-.prefs-groups-head .hint{flex:1 1 240px;min-width:0;margin:0}
 .prefs-groups{display:flex;flex-direction:column;gap:10px}
 .prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 /* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。
