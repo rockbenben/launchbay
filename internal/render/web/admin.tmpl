@@ -76,6 +76,12 @@
                  CanSetPin / CanDelete 由 httpapi 算好传下来（§8.8 的两条形状闸），
                  **模板不判断**。给了而点了必被拒的入口就是死按钮，比没有更费人。 */}}
             <span class="acts">
+            {{if .IsActive}}
+              {{/* 三个 Can* 全假时这一格原本是个空 span。**空不是"没有动作"**，
+                   它是"按下去必然被拒"（/admin/delete 对自己 303 ?err=self），而
+                   屏上空格子与"没这回事"长得一模一样。把它说成它本来的样子。 */}}
+              <span class="plain">{{$.T "admin.act.active"}}</span>
+            {{end}}
             {{if .CanSetPin}}
               <a class="badge" href="/admin/pin?profile={{.ID}}">{{$.T "admin.act.setpin"}}</a>
             {{end}}

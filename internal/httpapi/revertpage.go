@@ -271,6 +271,14 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 		view.Choices = make([]render.AdminChoice, 0, len(choices))
 		view.ChoiceName = "to-rev"
 		view.ChoiceLegend = s.t("revert.legend")
+		// 只有**真的收起过组名**才说这句（判据：存在一行 SameGroups）。全部候选
+		// 都列了组名的时候，这一句是在解释一个页面上根本没发生的现象。
+		for _, c := range choices {
+			if c.SameGroups {
+				view.ChoiceNote = s.t("revert.choice.note")
+				break
+			}
+		}
 		for i, c := range choices {
 			view.Choices = append(view.Choices, render.AdminChoice{
 				Value: fmt.Sprintf("%d", c.Rev), Label: s.choiceLabel(c),

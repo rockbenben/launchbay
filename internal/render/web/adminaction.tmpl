@@ -49,6 +49,7 @@
     {{if .Choices}}
     <fieldset class="choices">
       <legend>{{.ChoiceLegend}}</legend>
+      {{with .ChoiceNote}}<p class="hint choice-note">{{.}}</p>{{end}}
       {{range .Choices}}
       <p class="choice"><label for="c-{{.Value}}">
         <input id="c-{{.Value}}" type="radio" name="{{$.ChoiceName}}" value="{{.Value}}"{{if .Checked}} checked{{end}}>

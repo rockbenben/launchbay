@@ -55,6 +55,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 			// 那一份"，而这一枚按钮今天是停还是启由 Disabled 翻（模板里翻）。
 			// 坏档不给——改不了 profile.json 就翻不动这个标志。
 			CanToggleDisabled: !isActive && !row.Broken,
+			IsActive:          isActive,
 		})
 	}
 	// ?err= 只当键用：不在白名单里的值一个字都不进页面（与进门页同一套，
