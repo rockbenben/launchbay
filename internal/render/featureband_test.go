@@ -141,6 +141,46 @@ func Test多个大卡分组合进同一块(t *testing.T) {
 	}
 }
 
+// 大卡排之间的行距（2026-10-15 用户实拍指出「多行间没有行距」）。
+//
+// `.feat-row` 原来写的是 `gap:0 12px`。那个 0 是当初为了压掉 `.plain` 漏进来的
+// `gap:8px` 顺手写的，而**压 8px 靠的不是它**：那是**卡内部**两行字之间的行距，
+// 由 `.feat-card{gap:0 12px}` 收掉（app.css 在 base.css 之后，同为 0,1,0 的
+// 它靠顺序赢）。`.feat-row` 的 gap 管的是**卡与卡之间**，两件事互不相干——
+// 于是行距被顺手当成 row-gap 收了 0，多排大卡上下贴着，390 那一档最明显。
+//
+// 钉的是「行距不许是 0」这个形状，不是 12/10 那两个数：那两个是量出来的
+// （行距与列距取同一个数），可调；归零不是可调，是**少了一样东西**。
+func Test大卡排之间有行距(t *testing.T) {
+	css := stripCSSComments(readWeb(t, "web/app.css"))
+
+	row := extractRule(css, ".feat-row{")
+	if row == "" {
+		t.Fatal("app.css 里找不到 .feat-row")
+	}
+	if !strings.Contains(row, "gap:12px") {
+		t.Errorf(".feat-row 少了 gap:12px（行距与列距同一个数）：\n%s", row)
+	}
+	// `.feat-card` 那一处仍然要写 `gap:0 12px`——那是**卡内部**的，别被顺手改成 12。
+	card := extractRule(css, ".feat-card{display:grid")
+	if card == "" {
+		t.Fatal("app.css 里找不到 .feat-card")
+	}
+	if !strings.Contains(card, "gap:0 12px") {
+		t.Errorf(".feat-card 的内部行距不是 gap:0 12px（.plain 的 gap:8px 会漏进来，两种卡差 6px）：\n%s", card)
+	}
+
+	// 窄屏那一档跟着列距一起收窄到 10，但**同样不许收成 0**。
+	i := strings.Index(css, "@media (max-width:700px){")
+	if i < 0 {
+		t.Fatal("app.css 里找不到 700 那一档")
+	}
+	want := ".feat-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}"
+	if !strings.Contains(css[i:], want) {
+		t.Errorf("700 那一档的 .feat-row 不是 %q：\n%s", want, css[i:i+220])
+	}
+}
+
 // bandOnly 在失败时只把带子附近那一段打出来：整页 HTML 太长，读不到点上。
 func bandOnly(body string) string {
 	i := strings.Index(body, `<main`)

@@ -413,14 +413,21 @@ ol.rep-list{list-style:decimal}
 .feat-g{margin:0 0 12px}
 .feat-g:first-child{margin-top:0}
 .feat-n{margin-left:8px;font-size:12px;font-weight:400;color:var(--ink2)}
-.feat-row{display:grid;gap:0 12px;margin-bottom:20px;
+/* 行距 = 列距，一个数两个方向（2026-10-15 用户实拍指出「多行间没有行距」）。
+   **这里原来写的是 gap:0 12px**，那个 0 是当初为了压掉 .plain 的 8px 顺手写的，
+   但**压 8px 根本不是靠它**：.plain 漏进来的 gap:8px 是**卡自己内部**两行字之间
+   的行距，由下面 `.feat-card{gap:0 12px}` 收掉（app.css 在 base.css 之后，
+   同为 0,1,0 的它靠顺序赢）。`.feat-row` 的 gap 管的是**卡与卡之间**，
+   两件事互不相干——于是那一处行距被顺手当成了 row-gap 收成 0，卡片上下贴着，
+   看过去像一张被裁掉几道的图（实拍：390 那一档最明显，两排大卡之间一条缝都没有）。 */
+.feat-row{display:grid;gap:12px;margin-bottom:20px;
   grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .feat-row:last-child{margin-bottom:0}
+/* 卡**内部**那两行字之间的行距显式收 0（实测踩过）：.plain 从 base.css 那条
+   .card/.pick/.plain 带进来的是 gap:8px，而普通大卡（<a class=feat-card>）没有
+   那个类 —— 于是同一排里两种卡差 6px（实拍 72 / 78）。不写清楚，同一份版式会按
+   有没有那个类长出两个高度。 */
 .feat-card{display:grid;grid-template-columns:auto minmax(0,1fr);
-  /* row-gap 显式收 0（实测踩过）：.plain 从 base.css 那条 .card/.pick/.plain
-     带进来的是 gap:8px，而普通大卡（<a class=feat-card>）没有那个类 —— 于是
-     同一排里两种卡差 6px（实拍 72 / 78）。不写清楚，同一份版式会按有没有
-     那个类长出两个高度。 */
   gap:0 12px;align-items:center;position:relative;
   min-width:0;min-height:112px;padding:16px 18px;
   border:1px solid var(--line);border-radius:16px;
@@ -450,7 +457,7 @@ a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transf
 /* 大卡带在两档 view（全局 / 密集）下**照旧**：那一档的「紧凑」说的是分组之间
    不留大块空白，而不是把常用入口也缩小——它正是最需要一眼扫到的那一档。 */
 @media (max-width:700px){
-  .feat-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0 10px}
+  .feat-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
   .feat-card{min-height:92px;padding:12px 14px}
   .feat-card b{font-size:16px}
   .feat-card .ic-svg,.feat-card .ic-img,.feat-card .ic{width:30px;height:30px}
