@@ -311,7 +311,15 @@
       <button type="submit" name="layout" value="sidebar" aria-pressed="{{if eq .Profile.Layout "topbar"}}false{{else}}true{{end}}" title="{{.T "profile.layout.toSidebar"}}">{{.T "prefs.layout.sidebar"}}</button>
       <button type="submit" name="layout" value="topbar" aria-pressed="{{if eq .Profile.Layout "topbar"}}true{{else}}false{{end}}" title="{{.T "profile.layout.toTopbar"}}">{{.T "prefs.layout.topbar"}}</button>
     </div>
-    {{if .Compact}}<p class="hint">{{.T "prefs.layout.sidebarNote"}}</p>{{end}}
+    {{/* 这一句只在**屏上真的没画那一列**时才出现，判据是
+       `layout=sidebar` **且** view 是紧凑档——与 base.css 那两条
+       `[data-profile-layout=sidebar][data-profile-view=…]` 是同一个事实。
+       从前它是 `.Compact`（只看 view），而 `topbar + dense` 那一档**顶栏已经在
+       导航了、侧栏压根没画**，面板却还在说"选『侧栏』时不画那一列"——一句为
+       另一档写的解释落在这一档，读起来像"我按了侧栏它就不见了"。
+       **判据与它解释的那段 CSS 必须同源**：解释一个条件，却在另一个条件成立时
+       出现，那比不解释更坏。 */}}
+    {{if and (eq .Profile.Layout "sidebar") .Compact}}<p class="hint">{{.T "prefs.layout.sidebarNote"}}</p>{{end}}
   </form>
 
   <form method="post" action="/prefs" class="prefs-row">
@@ -353,11 +361,26 @@
       {{end}}
       <div class="prefs-keys">
         <form method="post" action="/prefs/background" enctype="multipart/form-data" class="prefs-bg-upload">
+          {{/* 真 input 透明铺在按钮上（见 base.css .prefs-bg-file 那段），所以屏上露出来的
+               是一颗与全站同脸的 .fld，而读屏念到的仍是那个 label 的可及名。
+               **三样都要在**：input（提交与点开对话框）、label 的可及名（这一格是背景图，
+               不是"文件名"）、以及下面那颗可见按钮（人点的那个形状）。少一样症状各不相同：
+               少 input 点不开，少 label 读屏只念"选择文件"，少按钮屏上就还是原生控件。 */}}
           <label class="prefs-bg-file">
             <span class="prefs-visually-hidden">{{.T "prefs.bg.pick"}}</span>
+            <span class="fld" aria-hidden="true">{{.T "prefs.bg.chooseFile"}}</span>
             <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif">
           </label>
           <button type="submit" class="fld">{{if .BackgroundFile}}{{.T "prefs.bg.replace"}}{{else}}{{.T "prefs.bg.upload"}}{{end}}</button>
+          {{/* 选中的文件名。原生控件收起之后它没有别的地方可显示，所以自己管一行，
+               `.prefs-bg-picked:empty{display:none}` 让没选时不占位。
+               **这一行只在 JS 开着时才有内容**：app.js 在档案页会 fetch `/prefs`
+               注入同一份面板，那时它给这一行填上选中的文件名；而 `GET /prefs`
+               那张零 JS 的独立页里没人填它，于是看不见选了什么（表单照样能提交，
+               提交后这一节会重画并给出结果）。这是"用真按钮换掉原生控件"的代价，
+               明说在此，不假装它没有——而两处界面共用同一个 define，
+               少一个出口好过两个出口长得不一样。 */}}
+          <span class="prefs-bg-picked" aria-live="polite"></span>
         </form>
         {{if .BackgroundFile}}
         {{if .Profile.BackgroundOff}}

@@ -543,10 +543,38 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    密度是从**壳**里换来的，字号、行距、触摸目标一律没动（下一段的
    `@media (pointer:coarse)` 把触摸那一档拉回 44，§7.5 那条地板没有让路）。
    那一档里"点不动的地址"那一行反而是**最要紧**的：点不动意味着整行只剩地址，
-   地址与它的复制键必须一直在。 */
-[data-profile-view=dense] main{column-width:224px;column-gap:20px}
-@media (max-width:700px){[data-profile-view=dense] main{column-width:140px;column-gap:12px}}
-[data-profile-view=dense] section{break-inside:avoid;margin-bottom:16px;content-visibility:visible}
+   地址与它的复制键必须一直在。
+
+   **这一档用 grid 而不是 multi-column**（2026-10-14 改判）。原来写的是
+   `column-width:224px`，而 multi-column 的语义是"内容顺序灌进若干栏、每栏**高度平分**"
+   ——于是**栏数由内容高度封顶**：实测（用户真实数据 8 组 41 条、1440 那一档）
+   内容只灌满 2 栏，第 3 栏及以后压根不存在，而右边还空着 700 多 px。
+   症状正是"密集档没占满全宽"：**这一档的名字承诺的是尽可能多栏，而它给的是
+   "每栏 224px、至于几栏由内容够不够决定"**。
+
+   `repeat(auto-fill,minmax(224px,1fr))` 是**按宽度**算栏数：容器多宽就排几栏，
+   每栏至少 224px，余量由 `1fr` 均分。于是窄到放不下时它自己降栏，宽时它自己多栏——
+   这才是"auto"。`auto-fill` 而不是 `auto-fit`：后者在有剩余时会**拉宽最后几栏**
+   （一行里两栏各占一半），而密集档要的是**栏宽稳定**（224 一栏一眼能扫）。
+   1fr 兜住余量，所以最后一行不满时不会留下半栏空白——那与"没占满"是同一种不满。 */
+/* 那一档的栏宽下限是**能读**的下限，不是最好看的数。算过一遍（内容宽 = 视口 −32，
+   gap 20，auto-fill 的栏数 = ⌊(cw+20)/(min+20)⌋，1fr 再把余量均分，**实测不是估算**）：
+     390→1栏358   500→2栏224   714→3栏214   900→4栏202   1100→4栏252
+     1440→6栏218   1920→8栏218
+   **200 是这条曲线的拐点**：再宽则 1440 上掉到 5 栏（每栏 274，稀疏），
+   再窄则「Chrome 网上应用店」那一类（这份数据 41 条里有 5 条超过 12 个字）
+   在 1440 上就被截成「Chrome 网上应…」。这一档的名字是"密集"，而**密集不是省宽度**
+   ——密度是从壳里换来的（下一段把边框/内衬/毛玻璃全撤），宽度留给读。 */
+[data-profile-view=dense] main{display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:16px 20px;align-items:start}
+@media (max-width:700px){[data-profile-view=dense] main{
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}}
+/* grid 那一档的间距**已经由 main 的 gap 管**（行 16 / 列 20），而 `margin-bottom:16px`
+   留着会叠成 32px——那一格是分栏时代的写法（分栏时 section 之间没有 gap，全靠它）。
+   `content-visibility:visible` 仍要留着：密集档本来就是一屏装完，"跳过屏外渲染"
+   那笔收益不存在，而它开着会让没渲染的节先占一段高度、把 grid 的行高算错。 */
+[data-profile-view=dense] section{margin-bottom:0;content-visibility:visible}
 /* 组标题变成**栏头**：小字 + 主色（Flare 的分组名就是这么读的）。这一档里
    它是唯一还在划分结构的东西，所以给它颜色而不是一个色点。 */
 [data-profile-view=dense] section h2{font-size:12px;color:var(--accent);letter-spacing:.02em;
@@ -795,12 +823,30 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-row:has(.prefs-bg){align-items:flex-start}
 .prefs-bg-preview{display:block;width:160px;height:90px;object-fit:cover;
   border:1px solid var(--line);border-radius:10px;background:var(--card)}
-/* 选文件那一格。**label 是给读屏的可及名**（`<input type=file>` 自己念出来是
-   "文件名 / 浏览…"，而这台机器上没人知道那是背景图），44px 由输入族那条 joint
-   规则接，这里不开新的 44。宽度给个上限：原生文件选择器默认占 250px 上下，
-   不收着的话它与旁边两颗键挤不到一行去。 */
-.prefs-bg-file{display:inline-flex}
-.prefs-bg-upload input[type=file]{max-width:240px}
+/* 选文件那一格（2026-10-14 改判：原生控件收起来，换一颗与全站同脸的按钮）。
+   **为什么原生控件不能直接用**：`<input type=file>` 的那颗「选择文件」按钮由浏览器
+   自己画，`color-scheme` 管不到它（管得到的是下拉与滚动条），实测暗色页上它是一块
+   浅灰底 + 系统字体的东西，压在暗色面板里像另一个产品贴上来的零件。CSS 能改的只有
+   外框（`::-webkit-file-upload-button` 一族 + Firefox 的 `::file-selector-button`），
+   而那等于给两个引擎各写一份外观、再被第三方浏览器落空——所以**不写那一份**。
+   改判的方向是反过来：**让真 input 隐形**，它仍然在 DOM 里、仍然可点、仍然是读屏
+   认的那一个，屏幕上露出来的是一颗 `.fld`（全站按钮同一张脸，只差 --ink/--accent 两个 token）。
+   输入框铺满那颗按钮，所以点按钮的**任何一点**都真的打开了文件对话框——
+   而 `<label for>` 只在点到 label 本身时生效，label 比按钮小是这一族常见的漏点。
+   `position:absolute` + `inset:0` 铺满：文件选择器的点击热区必须是整颗键。
+   **文件名仍然看得见**：input 透明了，而选完之后控件自己的那一行会另起一行（见下面
+   `.prefs-bg-picked`），所以"选了什么"没有丢——把文件名写在 input 里看不见，
+   写在我们自己管的一行里才读得出来。 */
+.prefs-bg-file{display:inline-flex;position:relative;align-items:center}
+/* 选完之后出现的那一行文件名。`max-width:0` 不是笔误：没选文件时它必须**不占位**
+   （否则那一行留一段空白），而 transition 到 max-width 的做法是让高度跟着塌——
+   关键是 `overflow:hidden` + 固定行高，空的时候高度是 0。 */
+.prefs-bg-picked{max-width:240px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-size:12px;color:var(--ink2)}
+.prefs-bg-picked:empty{display:none}
+.prefs-bg-file .fld{pointer-events:none}
+.prefs-bg-file input[type=file]{position:absolute;inset:0;width:100%;height:100%;
+  opacity:0;cursor:pointer;min-height:0}
 .prefs-visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
   overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 /* 上传那一组：**表单**（不是一颗裸按钮）在流里，于是那颗「上传/换一张」与
@@ -873,8 +919,23 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-swatch-none::before{background:var(--accent);opacity:.45;box-shadow:none}
 /* 原生取色器：尺寸与色块对齐，浏览器自带的那个小色块已经就是一枚色块了，
    只把它撑到同一行的节奏上。它是**输入面**，44px 由输入族那条 joint 规则接
-   （见上面那条），这里不开新的 44。 */
-.prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer}
+   （见上面那条），这里不开新的 44。
+
+   **边框要自己给**（2026-10-14 实拍后补）：`<input type=color>` 的那一圈框是
+   **浏览器画的**，而这份 CSS 从前只写了尺寸与 cursor——于是暗色面板上凭空冒出
+   八个亮蓝方框（实测：8 个分组、8 个框），与旁边十颗半透明 + 1px `--line` 的
+   色块完全不是一族。蓝框不是设计，是**疏漏**：全站其它控件的边框都是 `--line`，
+   唯独它由 UA 代劳。
+
+   **`background:none` 是承重的那一半**：原生那层是 `background-color` 画在色块
+   **之外**的，不清掉就会在 `--line` 之外再多一圈，等于把疏漏修成两圈。
+   圆角 9px 与 `.fld` 同一档，而 44−2×(1+2) = 40 正好是色块本身——所以这一格与
+   十颗色块**同尺寸同外框**，一眼看得出是同一族里的一颗。
+
+   **「现在生效的是自定义色」那一维仍走 `data-active` 的环**（下面那条）：边框
+   归全站，状态归这一格，两件事各归各处。 */
+.prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer;
+  border:1px solid var(--line);border-radius:9px;background:none}
 /* 「现在生效的是自定义那一格」这一维**得有个载体**：那颗「用这个颜色」是动作键，
    不该装成开关（它没有按下/没按下可言），所以状态落在取色器自己身上——盘上的颜色
    不在色板表里时给这一格一圈环。环之外还有取色器自己画着的那个色块，两者说的

@@ -78,9 +78,16 @@ func TestAppJS_图标库那一格两处都进得去(t *testing.T) {
 		// 图库给的名字多半不在 resolve 的候选里（候选至多 5 条），所以要自己补一颗
 		// option——少了它，点完方格下拉框**值没有变**，看着像「点了没反应」。
 		"选完补一颗 option": `sel.append(el('option', { value: name, text: iconLabel(name) }))`,
-		// Esc 那一层要排在通用 `.sheet` 分支**之前**：那一支是 `dlg.remove()`，
+		// 图库那一层要排在通用 `.sheet` 分支**之前**：那一支是 `dlg.remove()`，
 		// 摘掉 DOM 却不同步 syncTrap，整页会留在 inert 里（面板没了，一个字都点不动）。
-		"Esc 先关图标库": `if (iconPick.panel) { closeIconPicker(); return; }`,
+		//
+		// 2026-10-14：这行从 Esc 的内联分支搬进了 `closeTopLayer()`——Esc 与「点外面」
+		// 现在共用那一份（点外面那一支是后加的，两处各写一份必然漂）。判据跟着搬家：
+		// **仍然要在这个函数里、仍然排在 dlg 那一支之前、仍然带 syncTrap 的收尾**。
+		"图标库排在通用 sheet 之前": "if (iconPick.panel) { closeIconPicker(); return true; }",
+		// 它比通用分支靠前这件事本身要钉住：顺序反了的那次症状是"按 Esc 摘掉了
+		// 添加面板而不是图标库"，而那一次一次按键毁掉了两个状态。
+		"closeTopLayer 里有这一层": "function closeTopLayer()",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("app.js 少了 %q（%s）", want, name)

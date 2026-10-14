@@ -41,6 +41,7 @@ const APP_I18N = {
     "app.icon.libTitle": "从图标库里挑一个",
     "app.icon.libPh": "搜名字，比如 docker、github 或 tabler:box",
     "app.icon.libHint": "图标库是随程序一起装上的那一份：品牌图标（simple-icons）与概念图标（tabler）。",
+    "app.icon.libStart": "在上面搜一个名字，图标就出现在这里。",
     "app.icon.libNone": "图标库里没有叫「%s」的",
     "app.icon.libMore": "共 %s 个，先看前 %s 个",
     "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）",
@@ -123,6 +124,9 @@ const APP_I18N = {
     "app.ops.move": "移动",
     "app.ops.layout": "这一组的排法",
   "app.ops.group": "这一下",
+  "app.ops.tabs": "点开书签",
+  "app.ops.prefs": "这一格设置",
+  "app.ops.bg": "背景图",
     "app.ops.bulkMove": "批量移动",
     "app.ops.bulkTags": "批量打标签",
     "app.ops.delete": "删除",
@@ -173,6 +177,7 @@ const APP_I18N = {
     "app.icon.libTitle": "Pick one from the icon library",
     "app.icon.libPh": "Search by name — docker, github, or tabler:box",
     "app.icon.libHint": "The library ships with the program: brand marks (simple-icons) and concept icons (tabler).",
+    "app.icon.libStart": "Search for a name above and the icons show up here.",
     "app.icon.libNone": "Nothing in the library is called %s",
     "app.icon.libMore": "%s in all, showing the first %s",
     "app.icon.libFail": "The icon library could not be reached (try again in a moment)",
@@ -255,6 +260,9 @@ const APP_I18N = {
     "app.ops.move": "The move",
     "app.ops.layout": "The group's layout switch",
   "app.ops.group": "That change",
+  "app.ops.tabs": "opening a bookmark",
+  "app.ops.prefs": "that setting",
+  "app.ops.bg": "the background",
     "app.ops.bulkMove": "The bulk move",
     "app.ops.bulkTags": "The bulk tagging",
     "app.ops.delete": "The deletion",
@@ -340,6 +348,16 @@ const APP_I18N = {
   };
   const STATUS_KEY = { 401: 'app.opsGone', 403: 'app.opsWrongProfile', 409: 'app.opsConflict', 422: 'app.opsRejected', 507: 'app.opsNoSnap' };
 
+  // isURLProblem 判这一次失败说的是不是**地址本身不行**。
+  //
+  // 判据只收 `url-incomplete` 与 `field-invalid` 两个 kind，**不按 HTTP 码判**：
+  // resolve 的地址类失败是 422，而 422 同时也是"这一批没写进去"的码（batch）。
+  // 按码判会把一次保存失败也贴到地址那一格去——那一格没有问题，是别的地方有问题。
+  // `target-unreachable`（抓不下来）也**不算**：地址是对的，是那台机器没应答，
+  // 它说的是"这一次读取"而不是"你敲错了"。
+  const URL_KINDS = new Set(['url-incomplete', 'field-invalid']);
+  const isURLProblem = (r) => URL_KINDS.has(r && (r.kind || ''));
+
   // kindOf：这一发该按哪一码说话。batch 的外壳 kind 说的是**这一族**
   // （ops-invalid = 整批未写入），具体哪一条、为什么在 errors[0] —— 所以先读明细。
   function kindOf(data) {
@@ -371,10 +389,26 @@ const APP_I18N = {
     for (const c of [].concat(kids)) n.append(c);
     return n;
   };
-  const say = (msg, kind = 'info') => {
-    if (!msg) { status.textContent = ''; status.className = 'sheet-status'; return; }
-    status.textContent = msg;
-    status.className = 'sheet-status ' + kind;
+  // say 把一句话写到**某一行状态里**。第三参数是落点：不给就是底部那条
+  // （`status`，答"这次读取/保存整体怎么样了"），给了就写到那一格自己下面
+  // （答"哪一格不对"）。两种答案同时在场不冲突——它们说的不是一件事。
+  //
+  // **为什么按参数分流而不是分两个函数**：一个叫 say 一个叫 sayField 的话，
+  // 第三个调用点开始就有人挑错，而挑错的后果是"字段错误飘到表单最底端"——
+  // 那正是 2026-10-14 实拍到的那个位置（地址是第一格，红字在「保存」下面）。
+  const say = (msg, kind = 'info', into = null) => {
+    const node = into || status;
+    if (!msg) {
+      // 清空**两条**：只清落点那一条会让上一句挂在别的行上不走——那句话
+      // 描述的是上一轮的字段状态，留着就是对着已经改对的地址继续报错。
+      status.textContent = '';
+      status.className = 'sheet-status';
+      if (into) { node.textContent = ''; node.className = 'sheet-status fieldmsg'; }
+      return;
+    }
+    node.textContent = msg;
+    node.className = 'sheet-status fieldmsg ' + kind;
+    if (into && into !== node) { status.textContent = ''; status.className = 'sheet-status'; }
   };
 
   // ── 顶栏按钮 ──────────────────────────────────────────────────────────────
@@ -393,11 +427,78 @@ const APP_I18N = {
     // 查 DOM 而不是引用闭包里的 help/cmdk：bookmarklet 那条路径会在它们声明之前就
     // 调用 openSheet，而 module 里提前读一个还没初始化的 const 是 TDZ 报错。
     // DOM 里的顺序天然就是叠放顺序：最后面出现的那一层是最上层。
-    const top = [...document.querySelectorAll('#lb-sheet, .cmdk, .sheet')].filter((n) => !n.hidden).pop();
+    // 判据本身在 topLayer() 里——「哪些算一层」只有一份，syncTrap 与「点外面关」
+    // 共用它（两份会漂，而漂的症状各自都不响）。
+    const top = topLayer();
     for (const el of document.body.children) {
       if (!top || el === top) el.removeAttribute('inert');
       else el.setAttribute('inert', '');
     }
+  }
+
+  // closeTopLayer 关掉**最上面**那一层，返回它是不是关掉了什么。
+  //
+  // **它为什么必须是"最上面"而不是"全部"**：在图标库那一层里再点开添加面板，
+  // 一次 Esc 应当只关图标库；连浮层和面板一起关掉是一次按键毁掉两个状态。
+  //
+  // Esc 与"点外面"共用这一份（2026-10-14）：从前 Esc 那一支是内联在 keydown 里的，
+  // 而"点外面"根本不存在——只有 Esc 与 × 能关，于是唤出 ⌘K 之后点了页面别处，
+  // 面板纹丝不动，而背后整页还被 inert 摘掉了可聚焦性（点不动、Tab 也出不去）。
+  // 两处各写一份顺序的判据，早晚会漂，所以只留这一份。
+  function closeTopLayer() {
+    // 多选排第一：进多选时那句提示明写「按 Esc 退出」，而从前这一支里
+    // 根本没有 exitMulti——说了没做。编辑面板比它更靠上层，先关它。
+    // 判据读 openEdit 而不是查 DOM：这一层如今挂在 body 上，
+    // `editing.closest('li')` 那套"从面板找回它那一行"的写法已经不成立。
+    if (openEdit) { closeEdit(); return true; }
+    // 多选**不在这条"关掉"的路上**：它是页面的一部分（顶栏一条多选带），
+    // 点外面去不叫"关掉弹层"，而 Esc 要管它——所以这里 return false，
+    // 让"点外面"那半句继续往下的层找，而不是把整条多选带撤掉。
+    if (multi.on) { return false; }
+    // 台面浮层要排在下面那个通用 `.sheet` 分支**之前**：它就是一个 `.sheet`，
+    // 而那一支是 `dlg.remove()`——那是为"用完即弃"的挑组/标签/确认框写的
+    // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
+    // remove 掉等于第二次打开要重新拉一次，而且 DOM 里那个空壳被摘走了。
+    if (prefsSheet && !prefsSheet.hidden) { prefsClose(); return true; }
+    // 图标库那一层要排在下面那个通用 `.sheet` 分支**之前**：它就是 `.sheet`，
+    // 而那一支是 `dlg.remove()`——摘掉 DOM 却不同步 syncTrap，页面会整片留在
+    // inert 里（面板没了，一个字都点不动）。它的收尾还要把焦点还给打开它的那颗键。
+    if (iconPick.panel) { closeIconPicker(); return true; }
+    // 那些"用完即弃"的小层（挑组 / 挑标签 / 确认）：DOM 里现找，摘掉。
+    const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
+    if (dlg) { dlg.remove(); syncTrap(); return true; }
+    for (const n of [help, cmdk, sheet]) {
+      if (!n.hidden) { n.hidden = true; syncTrap(); return true; }
+    }
+    const banner = $('#lb-banner');
+    if (banner) { banner.remove(); return true; }
+    return false;
+  }
+
+  // 点层外 = 关掉最上面那一层（2026-10-14）。
+  //
+  // **为什么用 pointerdown 而不是 click**：click 要等 mouseup 落在同一个目标上，
+  // 而人在"点外面"时经常是按下、拖一点、松开——那一下 click 压根不发生，
+  // 于是"甩一下关掉"这种最自然的动作反而关不掉。pointerdown 立即响应。
+  //
+  // **为什么判据是 `contains` 而不是坐标**：这一层盖着整屏，层外就是它自己那张
+  // 遮罩；用坐标要去量 rect，而层内元素被重排时 rect 会变——`contains` 问的是
+  // "这一下点在谁身上"，DOM 结构说了算，不受布局影响。
+  //
+  // **为什么不用捕获阶段**：冒泡阶段就够了。inert 让层外的元素收不到事件，
+  // 也就是说这一下的 target **永远落在最上面那一层之内或之上**——判据成立。
+  document.addEventListener('pointerdown', (e) => {
+    if (!topLayer()) return;
+    const top = topLayer();
+    if (top.contains(e.target)) return;
+    closeTopLayer();
+  });
+
+  // topLayer 是"现在最上面那一层"，与 syncTrap 用的是**同一份 DOM 判据**。
+  // 两个函数各自写一遍"哪些算层"是这一族最容易漂的地方：syncTrap 少认一层，
+  // 症状是那一层开着时背后整页仍可聚焦；这里少认一层，症状是点了外面关不掉它。
+  function topLayer() {
+    return [...document.querySelectorAll('#lb-sheet, .cmdk, .sheet')].filter((n) => !n.hidden).pop() || null;
   }
 
   function openSheet() {
@@ -458,13 +559,27 @@ const APP_I18N = {
   const fIcon = el('select', { id: 'lb-icon', class: 'fld' });
 
   const status = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite' });
+  // 「地址」自己的那一行错误（2026-10-14）。**为什么它不能只靠底部那一条**：
+  // 实拍——地址是表单第一格，而消息挂在最后（在「保存」下面），中间隔着名字、
+  // 描述、分组、排法、图标五格；而且 resolve 是 blur 触发的，那时焦点已经跳到
+  // 「名字」，所以人正看着的那一格下面什么都没有，红字在最远的一端。
+  //
+  // 判据是**归位**而不是搬走：错误属于哪一格就贴在那一格下面。底部那条留给
+  // 「已读到标题」这类**整张表单**的进度与结果（它答的是"这次读取怎么样了"，
+  // 不是"哪一格不对"）。两句可能同时在场，而它们说的不是一件事。
+  const urlErr = el('p', { class: 'sheet-status bad fieldmsg', role: 'alert' });
+  // 一敲就撤：地址改了之后上一句就过期了，而留着它等于让人对着已经改对的地址
+  // 继续被告知它不对。focus 也算——回到这一格就是要改它。
+  const clearUrlErr = () => { urlErr.textContent = ''; };
+  fUrl.addEventListener('input', clearUrlErr);
+  fUrl.addEventListener('focus', clearUrlErr);
   const saveBtn = el('button', { type: 'submit', class: 'fld', text: T('app.save') });
   const moreBtn = el('button', { type: 'button', class: 'fld more', text: T('app.saveMore'), on: { click: () => submit(true) } });
 
   const form = el('form', {
     on: { submit: (e) => { e.preventDefault(); submit(false); } },
   }, [
-    el('label', { text: T('app.field.url') }, [fUrl]),
+    el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [fUrl]), urlErr]),
     // 字段名与就地编辑统一成「名称」（数据里就是 name）。这里从前叫「标题」、
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
     el('label', { text: T('app.field.title') }, [fTitle]),
@@ -509,6 +624,26 @@ const APP_I18N = {
   const prefsSheet = $('#lb-prefs');
   let prefsLoaded = false;
 
+  // 背景那一格的文件名回显（2026-10-14）。原生 `<input type=file>` 被 CSS 收起来
+  // 之后（见 base.css .prefs-bg-file：它是浏览器自己画的按钮，color-scheme 管不到，
+  // 暗色页上一块浅灰像别的产品），"选中了哪个文件"就没有别的地方能显示了。
+  //
+  // **只在这一条路上做**：档案页的面板是 JS 注入的，所以能绑；`GET /prefs` 那张
+  // 零 JS 的独立页没人绑，于是它看不见文件名（表单照样能提交，提交后台面重画）。
+  // 绑定用 `on: {change: …}` 与这一份脚本里其余事件同一处置，且**只绑一次**——
+  // 面板是注入一次就长期在 DOM 里（prefsLoaded 那一闩），重复绑会挂出多个监听。
+  function wireBgFileName(root) {
+    const input = root.querySelector('.prefs-bg-file input[type=file]');
+    const out = root.querySelector('.prefs-bg-picked');
+    if (!input || !out || input.dataset.lbWired) return;
+    input.dataset.lbWired = '1';
+    input.addEventListener('change', () => {
+      // **只取最后一段**：完整路径在这台机器上可能是 C:\Users\…\某张图.png，
+      // 一行放不下而被省略号吃掉，露出来的恰好是用户最不需要看的那部分。
+      out.textContent = input.files && input.files[0] ? input.files[0].name : '';
+    });
+  }
+
   async function prefsOpen() {
     if (!prefsSheet) return;
     if (!prefsLoaded) {
@@ -522,6 +657,7 @@ const APP_I18N = {
           type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
           on: { click: prefsClose },
         }));
+        wireBgFileName(prefsSheet);
         prefsLoaded = true;
       } catch {
         location.href = '/prefs';
@@ -549,7 +685,7 @@ const APP_I18N = {
     prefsOpen();
   });
 
-  // 面板里「分组」那一节的表单（POST /prefs/group）在这里被拦下，改走
+  // 面板里**改书签数据**的表单（POST /prefs/group）在这里被拦下，改走
   // /api/v1/batch——**落点与那张表单完全相同**（都是 applyBatch：快照、审计、
   // rev 一道闸不少），只是不必为按一颗色块把整页导航一次。
   //
@@ -572,6 +708,107 @@ const APP_I18N = {
       const ok = await applyOps([op], T('app.ops.group'));
       if (ok) reloadKeepingPlace();
     });
+    // 「点开书签」那一格（POST /prefs/tabs，2026-10-14 补上）。
+    //
+    // **它从前是原生提交的**，而服务端答 303 回 `/prefs`——于是在浮层里按一下
+    // 「新标签页」，整页导航到独立页（实拍复现）。症状读作「设置变成单独页面了」。
+    // 而 `/prefs/group` 那条早就在走 applyOps，**落点与这张表单完全相同**
+    // （applyPrefsOps → applyBatch，快照与审计一道不少），所以这条只是漏了同一份
+    // 委托，不是新通路。
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action="/prefs/tabs"]');
+      if (!form) return;
+      e.preventDefault();
+      const v = e.submitter?.value;
+      if (v !== '0' && v !== '1') return; // 只认这两个（服务端同一条纪律）
+      await applyOps([{ op: 'set', path: 'openInNewTab', value: v === '1' }], T('app.ops.tabs'));
+      // **不整页刷新**：这一格只改一个布尔，而整页重载会把面板整个重建
+      // （prefsLoaded 那一闩只在首次 fetch 后才为真，重载后要重新拉一次），
+      // 于是「按一下 → 面板消失」与「整页跳走」是同一种丢失。
+      // 改完就地按一下那颗键的 aria-pressed：那是这一格唯一的可见状态。
+      markPressed(form, v);
+    });
+    // 改名 / 怎么看 / 分组导航 / 主题那四张（POST /prefs，2026-10-14 补上）。
+    //
+    // **它们不能走 applyOps**：那四格改的是 `profile.json`（台面偏好），不产生
+    // rev、不做快照——而 applyOps 走的是 `/api/v1/batch`（书签文档），那是**另一份
+    // 文件**。所以这一族是普通 fetch + 就地改，不假装它是 batch。
+    //
+    // 为什么要就地改而不是整页重载：这一格按完，屏上要变的**只有那颗键的
+    // aria-pressed**（标签是稳的，见 TestPrefs_开关的标签稳定而状态走aria）。
+    // 整页重载会把面板整个重建（`prefsLoaded` 那一闩只在首次 fetch 后为真），
+    // 于是「按一下 → 面板消失」与「整页跳走」是同一种丢失。
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action="/prefs"]');
+      if (!form) return;
+      e.preventDefault();
+      const btn = e.submitter;
+      const data = new FormData(form, btn || undefined);
+      const payload = {};
+      // **只交被按下的那一格**：命名过的输入框每次提交都跟着走，
+      // 而一次提交就是"改一件事"。
+      for (const k of ['theme', 'view', 'layout', 'title']) {
+        if (btn && btn.name === k) payload[k] = String(data.get(k) ?? '');
+      }
+      if (!Object.keys(payload).length) return;
+      const body = new URLSearchParams(payload);
+      try {
+        // 手动跟随 303：fetch 默认不跟，而这一族成功回的就是 303。
+        // 我们不关心它跳去哪儿（面板留在原地），只关心它有没有成功——
+        // fetch 对 3xx 仍然算 ok，所以真正的失败是网络异常与 4xx/5xx。
+        const res = await fetch('/prefs', {
+          method: 'POST', body, credentials: 'same-origin', redirect: 'follow',
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (btn && btn.name === 'theme' && payload.theme) {
+          // 主题要**立刻见效**：这一格是"按一下就生效，不产生快照"（面板上原话），
+          // 而整页不重载的话，只有 html 上的 data-theme 得自己换。
+          document.documentElement.dataset.theme =
+            payload.theme === 'auto' ? '' : payload.theme;
+        }
+        if (btn && btn.value != null) markPressed(form, btn.value);
+      } catch (err) {
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+      }
+    });
+    // 背景那一节（POST /prefs/background，2026-10-14 补上）。
+    //
+    // 它**必须 multipart**（文件走不了 urlencoded），所以不能像上一族那样把
+    // FormData 转成 URLSearchParams——直接交 FormData，让浏览器自己带那一份
+    // multipart boundary。这一族含文件，fetch 的体比 URLSearchParams 大一号，
+    // 而它一年也就按几次。
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action="/prefs/background"]');
+      if (!form) return;
+      e.preventDefault();
+      const data = new FormData(form, e.submitter || undefined);
+      const file = form.querySelector('input[type=file]')?.files?.[0];
+      // 空提交没有意义：没有文件、没按 remove、也没按 hidden。
+      if (!file && !data.has('remove') && !data.has('hidden')) return;
+      try {
+        const res = await fetch('/prefs/background', {
+          method: 'POST', body: data, credentials: 'same-origin', redirect: 'follow',
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // 背景的三个动作各自要面板**重画**（预览图、按钮组、那句"正在用它"都会变），
+        // 而这一格画不出自己——所以这一族是唯一必须整页重载的：
+        // 留在原地的话，屏上那一节会是**按下去之前的样子**，看着像没生效。
+        location.reload();
+      } catch (err) {
+        showBanner(T('app.applyOps.fail', T('app.ops.bg'), String(err.message || err)));
+      }
+    });
+  }
+
+  // markPressed 就地把「哪一颗按下了」改过来——**不重载、不关面板**。
+  //
+  // 为什么它够：这一格只有两颗键，状态就写在自己的 aria-pressed 上
+  // （TestPrefs_开关的标签稳定而状态走aria 钉的就是这一条）。
+  // 服务端答 200/303 都说明写成了，而 applyOps 失败时会自己在屏上说话。
+  function markPressed(form, value) {
+    for (const b of form.querySelectorAll('button[aria-pressed]')) {
+      b.setAttribute('aria-pressed', String(b.value === value));
+    }
   }
 
   // groupOpFromForm 把「哪一个控件被按下了」翻成一条 op。
@@ -666,12 +903,16 @@ const APP_I18N = {
     const input = el('input', { type: 'search', class: 'fld', autocomplete: 'off',
       placeholder: T('app.icon.libPh'), 'aria-label': T('app.icon.libPh') });
     const grid = el('div', { class: 'icpick-grid' });
-    const note = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite', text: T('app.icon.libHint') });
+    // 空态说「先搜个名字」，而不是讲图库是怎么来的：面板打开时网格是空的，
+    // 而那时候人要知道的**只有一件事**——往上面打字。libHint 那句来源说明
+    // 另有位置常驻（网格下面），它是背景知识，不是此刻缺的那条指令。
+    const note = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite', text: T('app.icon.libStart') });
     const panel = el('div', {
       class: 'sheet icpick', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.icon.libTitle'),
     }, [
       el('h2', { text: T('app.icon.libTitle') }),
       input, grid, note,
+      el('p', { class: 'hint icpick-hint', text: T('app.icon.libHint') }),
       el('button', { type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
         on: { click: closeIconPicker } }),
     ]);
@@ -720,7 +961,7 @@ const APP_I18N = {
     };
     if (!q) {
       grid.replaceChildren();
-      show(T('app.icon.libHint'));
+      show(T('app.icon.libStart'));
       return;
     }
     let markup = '';
@@ -784,6 +1025,7 @@ const APP_I18N = {
   async function resolveNow() {
     const url = fUrl.value.trim();
     if (!url) return;
+    // 读之前先说"正在读…"——那是**这一次读取的状态**，归底部那条。
     say(T('app.reading'), 'busy');
     try {
       const r = await api('/api/v1/resolve', { url, profile });
@@ -792,9 +1034,15 @@ const APP_I18N = {
         // 英文界面里冒出一句中文、还不说这是哪一步，等于让人自己猜。
         const key = msgKeyFor(r, r.code);
         console.warn('lb: resolve answered with an error body', r.code, r.kind || '', r.detail || '');
-        say(T(KIND_KEY[r.kind] || (key === 'app.opsServerError' ? 'app.readFail' : key)), 'bad');
+        const msg = T(KIND_KEY[r.kind] || (key === 'app.opsServerError' ? 'app.readFail' : key));
+        // **地址类的错归地址那一格**：它是在说"你刚敲的那个地址不行"，
+        // 而 resolve 又是 blur 触发的——那时焦点已经离开这一格，红字挂在
+        // 表单最底端（隔着五格）等于没有。别的（读取失败之类）留在底部，
+        // 因为它们说的是"这一次读取"而不是"哪一格不对"。
+        say(msg, 'bad', isURLProblem(r) ? urlErr : null);
         return;
       }
+      say(''); // 读成了：把上一轮任何一行状态都清掉（两行一起清，见 say 的注释）
       if (!fTitle.value) fTitle.value = r.title || '';
       if (!fDesc.value) fDesc.value = r.desc || '';
       if (r.suggestedGroup && fGroup.value !== NEW_GROUP) {
@@ -813,7 +1061,8 @@ const APP_I18N = {
       // ——两句叠一句，实测英文站上就是 "Could not read it: That address isn't
       // complete yet"。没有 status 的才是真·意外（网络断了、脚本自己抛的），那时
       // 前面那句"读不出来："带着上下文才有用。
-      say(e && e.status ? e.message : T('app.readErr', e.message), 'bad');
+      say(e && e.status ? e.message : T('app.readErr', e.message), 'bad',
+        e && e.status && isURLProblem(e) ? urlErr : null);
     }
   }
 
@@ -867,7 +1116,10 @@ const APP_I18N = {
 
   async function submit(keepOpen) {
     const url = fUrl.value.trim();
-    if (!url) { say(T('app.err.url'), 'bad'); return; }
+    // 空地址同样归那一格（与 resolve 的地址类失败同一处）：它说的是这一格，
+    // 而这一格下面就是它自己。人按了「保存」得到一句飘在五格之外的话，
+    // 得自己判断那句是在说哪一格——而这一格是唯一可能空的那一格。
+    if (!url) { say(T('app.err.url'), 'bad', urlErr); fUrl.focus(); return; }
     const name = fTitle.value.trim() || url;
     const value = { id: slug(url, true), name, url };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
@@ -1088,6 +1340,10 @@ const APP_I18N = {
         (first && (first.reason || first.field)) || data.detail || '');
       const e = new Error(why);
       e.status = res.status;
+      // **kind 一并带走**：屏上判断"这句话说的是不是地址本身不行"靠它，
+      // 而不是靠状态码——422 同时是 batch 的"那一组已经不在了"，按码判就会
+      // 把一次保存失败贴到地址那一格去。抛出时丢掉它，调用方就只能猜。
+      e.kind = kindOf(data) || (first && first.kind) || '';
       throw e;
     }
     return data;
@@ -1843,31 +2099,8 @@ const APP_I18N = {
       return;
     }
     if (e.key === 'Escape') {
-      // 一层一层关：先关最上面浮起来的那一个。顺序反了的话，在浮层里按 Esc
-      // 会连浮层和面板一起关掉——那是一次按键毁掉两个状态。
-      //
-      // 多选排第一：进多选时那句提示明写「按 Esc 退出」，而从前这一支里
-      // 根本没有 exitMulti——说了没做。编辑面板比它更靠上层，先关它。
-      // 判据读 openEdit 而不是查 DOM：这一层如今挂在 body 上，
-      // `editing.closest('li')` 那套"从面板找回它那一行"的写法已经不成立。
-      if (openEdit) { closeEdit(); return; }
-      if (multi.on) { exitMulti(); return; }
-      // 台面浮层要排在下面那个通用 `.sheet` 分支**之前**：它就是一个 `.sheet`，
-      // 而那一支是 `dlg.remove()`——那是为"用完即弃"的挑组/标签/确认框写的
-      // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
-      // remove 掉等于第二次打开要重新拉一次，而且 DOM 里那个空壳被摘走了。
-      if (prefsSheet && !prefsSheet.hidden) { prefsClose(); return; }
-      // 图标库那一层要排在下面那个通用 `.sheet` 分支**之前**：它就是 `.sheet`，
-      // 而那一支是 `dlg.remove()`——摘掉 DOM 却不同步 syncTrap，页面会整片留在
-      // inert 里（面板没了，一个字都点不动）。它的收尾还要把焦点还给打开它的那颗键。
-      if (iconPick.panel) { closeIconPicker(); return; }
-      const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
-      if (dlg) { dlg.remove(); return; }
-      for (const n of [help, cmdk, sheet]) {
-        if (!n.hidden) { n.hidden = true; syncTrap(); return; }
-      }
-      const banner = $('#lb-banner');
-      if (banner) banner.remove();
+      e.preventDefault();
+      closeTopLayer();
       return;
     }
     if (typing || mod(e) || e.altKey) return;

@@ -7,6 +7,13 @@
   font:inherit;font-size:14px;color:var(--ink);background:var(--card);
   border:1px solid var(--line);border-radius:8px;min-height:44px}
 .sheet label{display:block;font-size:12px;color:var(--ink2)}
+/* 一格 = 标签 + 控件 + **它自己那一行的错误**（`.fld-group`）。加上这一层是因为
+   `.sheet label{display:block}` 把整个 label 收成一块，而错误那一行**必须在控件
+   下面**而不是和它并排——贴在这一格下面才是"错在这一格"，飘到表单最底端就没人
+   知道该改哪一格（2026-10-14 实拍：地址是第一格，而红字在「保存」下面）。
+   gap 8 与 `.sheet` 那一列的行距同源，`fieldmsg` 空的时候不占位（见下）。 */
+.sheet .fld-group{display:flex;flex-direction:column;gap:8px}
+.sheet .fieldmsg:empty{display:none}
 /* ⌘K 结果行里的地址是**行内**的次级信息，不是标签。它原先与 label 共用一条
    `display:block`，于是每条命中都被 URL 顶成第二行——实测行高 114px，十行
    1140px 超过一屏，面板看起来像换了页。 */
@@ -356,6 +363,11 @@ body[data-multi] main{padding-bottom:96px}
 /* 方格里那枚 SVG 要比卡片上的 22px 大一档：它是**用来认的**，认不出来就等于没画。
    字色走 `.fld` 的 --ink，于是 SVG 的 currentColor 有值（描边层就是它）。 */
 .icpick-tile .ic-svg,.icpick-tile .ic-img{width:28px;height:28px}
+/* 图库来源说明（`app.icon.libHint`）常驻在网格下面，而上面那一行 note 归搜索状态
+   管（空态"先搜个名字" / 命中几个 / 没查到 / 连不上）。**两者不是同一句**：
+   网格空着的时候人要知道的只有"往上面打字"，而图库是怎么装进来的属于背景知识——
+   把它塞进状态行，空态就变成一句不回答问题的科普，于是读作"什么都没有"。 */
+.icpick-hint{margin:0;font-size:12px;color:var(--ink2)}
 
 
 /* 报告里那些列表要**带回符号**：全局把 list-style 复位了，不显式要回来，
