@@ -212,15 +212,12 @@ func normalize(b *model.Bookmarks) {
 		if g.Items == nil {
 			g.Items = []model.Item{}
 		}
-		for ii := range g.Items {
-			it := &g.Items[ii]
-			if it.Alias == nil {
-				it.Alias = []string{}
-			}
-			if it.Tags == nil {
-				it.Tags = []string{}
-			}
-		}
+		// **Alias / Tags 的归一 2026-10-14 删了**：它存在的唯一理由是
+		// 「写 [] 不写 null」——磁盘上人或 AI 写下的 `"alias": null` 解码成 nil，
+		// 原样写回就是 null，一次读→写往返之后 diff 全变。而 `Item.Alias/Tags`
+		// 换上 `omitempty` 之后，**null 与空集合都不写**，那个理由不再成立：
+		// 留着它只是「读进来补成 []、写出去又省掉」的空转。
+		// 真要区分「没有别名」与「别名是空集」，那是**另一个字段**的事。
 	}
 	if b.Search.Engines == nil {
 		b.Search.Engines = []model.SearchEngine{}

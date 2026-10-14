@@ -11,13 +11,26 @@ const (
 // Item 是一条书签。数组顺序即显示顺序，所以没有 order 字段：
 // 两个真相迟早会打架（spec §4.3）。
 type Item struct {
-	ID     string   `json:"id"`
-	Name   string   `json:"name"`
-	URL    string   `json:"url"`
-	Icon   string   `json:"icon,omitempty"`
-	Desc   string   `json:"desc,omitempty"`
-	Alias  []string `json:"alias"`
-	Tags   []string `json:"tags"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	URL  string `json:"url"`
+	Icon string `json:"icon,omitempty"`
+	Desc string `json:"desc,omitempty"`
+	// Alias 与 Tags 带 `omitempty`（2026-10-14）：**空集合不落盘**。
+	//
+	// 实测（用户真实数据 8 组 41 条）：`alias: []` 与 `tags: []` **41/41 全空**，
+	// 而每条都照写不误——一份 10 KB 的文件里有 41 对空数组，而它们承载的信息量
+	// 是零。加了它之后这份文件是 9.5 KB，且**读侧完全等价**：
+	// 搜索（render/filter.go）只 `range` 这两格，nil 与 `[]` 走同一条路；
+	// 模板的 `{{if .Alias}}` 对 nil 与 `[]` 都是假；ops 的 sameStrings 逐项比。
+	//
+	// **它顺带作废了一处读侧归一**（store/load.go 的 normalize）：那一段
+	// 存在的唯一理由是"写 [] 不写 null"——磁盘上人为写下的 `"alias": null`
+	// 解码成 nil，原样写回就是 null，**一次读→写往返之后稳定 diff 就废了**。
+	// 而 omitempty 让 null 与空集合**都不写**，那个理由不再成立；留着它只会变成
+	// 「读进来补成 []、写出去又省掉」的一次空转。null 的防护由 omitempty 接手。
+	Alias  []string `json:"alias,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
 	AINote string   `json:"aiNote,omitempty"`
 }
 

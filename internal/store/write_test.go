@@ -248,9 +248,17 @@ func TestNullSurvivesNoRoundTrip(t *testing.T) {
 	if strings.Contains(got, "null") {
 		t.Fatalf("读→写往返后仍把 null 写回磁盘（违反 §4.3 写出契约）:\n%s", got)
 	}
-	for _, want := range []string{`"items": []`, `"alias": []`, `"tags": []`, `"engines": []`} {
+	// 仍在写 `[]` 的两格：它们的读侧归一还在（Groups.Items 与 Search.Engines）。
+	for _, want := range []string{`"items": []`, `"engines": []`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("缺 %q（null 必须写成空数组）:\n%s", want, got)
+		}
+	}
+	// 而 alias/tags 走 omitempty：**空集合整个键都不写**。实测那份真实数据
+	// （8 组 41 条）两格 41/41 全空，每条都写就是 41 对空数组、信息量是零。
+	for _, gone := range []string{`"alias"`, `"tags"`} {
+		if strings.Contains(got, gone) {
+			t.Fatalf("%s 出现了（空集合该整个不写）:\n%s", gone, got)
 		}
 	}
 	// 再读回来必须仍是合法数据（normalize 不能把内容读坏）。
@@ -259,7 +267,9 @@ func TestNullSurvivesNoRoundTrip(t *testing.T) {
 		t.Fatalf("往返后重读失败: %v", err)
 	}
 	if len(again.Groups) != 2 || again.Groups[1].Items[0].ID != "dsm" ||
-		len(again.Groups[0].Items) != 0 || again.Groups[1].Items[0].Alias == nil || again.Search.Engines == nil {
+		// Alias 现在**可以是 nil**——读侧不再补 `[]`，而 nil 与 `[]` 对搜索、
+		// 模板的 `{{if .Alias}}`、ops 的 sameStrings 都等价。
+		len(again.Groups[0].Items) != 0 || len(again.Groups[1].Items[0].Alias) != 0 || again.Search.Engines == nil {
 		t.Fatalf("往返后形状不对: %+v", again)
 	}
 }
