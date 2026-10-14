@@ -895,7 +895,12 @@ const APP_I18N = {
   // 一次浮层开合不该为了拿一份没变的数据多发一个请求，而它还会带来"两处分组列表"
 // 迟早不同步的那一类 bug。
   for (const h2 of document.querySelectorAll('main h2[data-group]')) {
-    fGroup.append(el('option', { value: h2.dataset.group, text: h2.textContent.trim() }));
+    // **读 groupName 而不是 h2.textContent**（2026-10-15 实拍）：大卡那一档的组标题
+    // 后面挂着一枚条目数徽标（".feat-n"），而 textContent 把它一起读进来——
+    // 于是下拉里第一项是「常用7」，别的组（正文标题没有徽标）是干净的。
+    // groupName 只取标题那一份文字，它是同一族几处（拖拽时的 aria-label、删除确认
+    // 句里那一句）已经在用的判据。
+    fGroup.append(el('option', { value: h2.dataset.group, text: groupName(h2) }));
   }
   // 末尾那颗「＋ 新分组…」是**建组唯一的入口**。从前新分组只在"一个分组都还没有"
   // 的时候问（fNewGroup.hidden = fGroup.options.length > 0），于是有了书签之后

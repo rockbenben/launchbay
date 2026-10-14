@@ -183,6 +183,23 @@ li:focus-within .pencil,li:focus-within .copybtn
    处置：盒子守住 44，字形在里面安安静静。代价是 h2（13px 小字）被这枚 44px 的
    孩子顶到 44px 高，分组标题那一行因此厚了一截；那一截换来的是手指够得着。
    边框平时不画：它常驻在每一组的标题行上，画出来就是满屏的框。 */
+/* 命中区那圈扩展：**上边被裁掉了，下边是好的**（1440 逐像素打点：左/右/下
+   3px 外都还命中这颗键，上边 1–14px 一律落到 main）。原因是它住在分组的 `<h2>`
+   里，而 h2 紧贴 section 的上沿，base.css 那条 `section{content-visibility:auto}`
+   （= layout/style/paint 三重 containment）把溢出裁到 section 的盒子。
+   全局与密集两档是 `content-visibility:visible`，所以那两档一直是好的——
+   差的是**默认那一档**。
+
+   **诚实的实测数字**：盒子 32×28、命中区 45×**34**，离 §7.5 那条 44px 还差 10px
+   竖向。补满它有两条路，两条都要动版式，所以**都不在这一处做**：
+     · 盒子加到 36 → 命中 45×42（仍差 2px），代价是每个分组标题行高 8px；
+     · 给标题行加上下内衬 → 能真到 44+，代价是整页高度按分组数增长。
+   这颗键是**同一件事的快捷方式而不是唯一出口**——设置面板「分组」那一节里每一组
+   都有 磁贴 / 单列 / 大卡 三颗 44px 的键，那才是全尺寸的那条路，所以 34px 不构成
+   「只有这一处能改」。真要补满，该改的是标题行的内衬，而不是这一圈扩展。
+
+   扩展给到 -9/-7 而不是 -8/-6：逐像素量到的边缘会差一两像素（布局的小数取整），
+   上下各留 1px 余量，别让"够不够"取决于取整的运气。 */
 .layoutbtn{position:relative;flex:0 0 auto;width:32px;height:28px;
   display:grid;place-items:center;font:inherit;font-size:14px;line-height:1;
   letter-spacing:0;text-transform:none;color:var(--ink2);
@@ -196,7 +213,7 @@ li:focus-within .pencil,li:focus-within .copybtn
      都命中这颗键，盒子外 20px 处不命中（扩展区就是那 8/6，没有更多）。
      从前这条用"44px 的盒子"满足同一句话，代价是每一节的标题都比内容厚。 */
   cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
-.layoutbtn::before{content:"";position:absolute;inset:-8px -6px}
+.layoutbtn::before{content:"";position:absolute;inset:-9px -7px}
 .layoutbtn:hover{color:var(--ink);border-color:var(--line);background:var(--card-hi)}
 @media (forced-colors:active){.layoutbtn{border:1px solid CanvasText}}
 /* 拖拽落点的三种标法（2026-10-15）。三种落点必须**画得不一样**，否则"插到这一条
@@ -511,4 +528,10 @@ a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transf
   .feat-card{min-height:92px;padding:12px 14px}
   .feat-card b{font-size:16px}
   .feat-card .ic-svg,.feat-card .ic-img,.feat-card .ic{width:30px;height:30px}
+  /* 主机名收成 12px（700 实测：`chrome://extensions/` 需要 122、只有 119，差 3px
+     就被截成「chrome://extension…」）。**12px 不是新数**：正文磁贴的第二行
+     （说明与地址）本来就是 12px，而这一行在大卡里的地位与它一样——它认得出
+     "哪台机器"就行，不必与名字抢字号。比把内衬再收 2px 好的地方是：内衬一收，
+     触摸目标与卡片那圈描边一起变，而字号只动这一行。 */
+  .feat-card .host{font-size:12px}
 }
