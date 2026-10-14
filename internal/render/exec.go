@@ -269,6 +269,10 @@ type profileView struct {
 	// 选择页、解释页与管理页**没有**这个字段——它们不属于任何档案，没有主题可说，
 	// 页面跟系统（见 pickerView 上面那段注释）。
 	Theme string
+	// Compact 是 view ∈ {wall, dense}：**所有分组都摆在同一屏**的那两档。
+	// 判据只有 compactView 那一份，页面（CSS 那两条）与面板（文案）共用它——
+	// 不写两遍"或"是这一族的老规矩（themeAttr / paintedBackground 同一处置）。
+	Compact bool
 	// Query 非空 = 这一页是搜索结果。模板靠它决定说"没有匹配"还是"还没有书签"，
 	// 也靠它决定要不要在顶栏搜索框里回填。
 	Query string
@@ -326,6 +330,43 @@ type profileView struct {
 	// （model 里的 init 会 panic 兜住它们不同数的情形）。
 	PrefPalette      []string
 	PrefPaletteNames []string
+	// Background 是**这一页画背景用的** URL（`/backgrounds/<名字>`），空串 = 不画。
+	// BackgroundFile 是**盘上那一份**的 URL，不管画不画。
+	//
+	// **为什么是两格**：面板要能说出「图还在，只是这一页暂时不画它」，而那一句话
+	// 要求"盘上有"，页面要的是"画不画"——后者含 BackgroundOff 那一维，两者不是
+	// 同一个事实。把它们并成一格的结果是：暂时不显示时面板也跟着说「还没有背景图」，
+	// 于是「恢复显示」那颗键连同整节一起消失（屏上读作"我的背景没了"）。
+	//
+	// **净化在读侧**（model.ValidBackground 那一份判据），不是渲染时"大概没问题"：
+	// 这一格的去向是 `<html style=…>` 与面板里那张预览 `<img src>`，前者会被拼进
+	// 一段 CSS 属性值、后者会被浏览器当 URL 取——盘上一个写坏的值（手改
+	// profile.json 塞进来的 `../../secret`）最坏的结果必须是"这张背景不见了"。
+	//
+	// 背景**不进渲染缓存键**：profile.json 的内容指纹（profFp）已经在键里，而
+	// 背景就住在那个文件里——改它必然改指纹（见 render.go cacheKey 那一维）。
+	Background     string
+	BackgroundFile string
+}
+
+// backgroundFile 算盘上那一份的 URL（空 = 没有：没设 / 形状坏）。
+// 判据只有形状与"有没有"，**不看 BackgroundOff** ——那一位说的是"画不画"，
+// 而这一格问的是"还在不在"。
+func backgroundFile(p *model.Profile) string {
+	if p == nil || p.Background == "" || !model.ValidBackground(p.Background) {
+		return ""
+	}
+	return "/backgrounds/" + p.Background
+}
+
+// paintedBackground 是这一页**要画**的那一张（空 = 不画）：形状坏与「暂时不显示」
+// 都归成空串，于是模板那边只有"有/没有"两种形状——与那个 8.6 的教训是同一条：
+// **留一半判断在模板里，下一个改模板的人就要把两处判据对齐一遍**。
+func paintedBackground(p *model.Profile) string {
+	if p == nil || p.BackgroundOff {
+		return ""
+	}
+	return backgroundFile(p)
 }
 
 // themeAttr 把 theme 枚举里的 "auto" 归一成空串。
@@ -340,6 +381,16 @@ type profileView struct {
 // {{with .Theme}} 对非空串取真 → 页面发出 data-theme="auto"；CSS 的亮色通路是
 // [data-theme=light] 与 :root:not([data-theme])，属性在则媒体查询那条不匹配，
 // 值不是 light/dark 则显式那条也不匹配——系统偏好亮色的默认档案被钉死在暗色上。
+// compactView 回答"这一页是不是**全在一屏**的那一档"。
+//
+// 两档的共同点是**所有分组同时在场**：wall 把它们排成多栏、dense 把每条压成一行，
+// 而分组视图是一长页一节接一节——导航的职责是"跳到你看不见的那一节"，前两档里
+// 没有看不见的节（判据与 base.css 那两条 `[data-profile-view=…]` 是同一个事实的
+// 两个出口，一个给样式一个给文案）。
+//
+// 空串（没选过 = 分组视图）**不是**紧凑档：升级前每一份 profile.json 都没有 view。
+func compactView(v string) bool { return v == "wall" || v == "dense" }
+
 func themeAttr(theme string) string {
 	if theme == "auto" {
 		return ""
@@ -737,9 +788,10 @@ func sameDay(a, b time.Time) bool {
 // 权限判断不在这里、更不在模板。
 func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, cat *i18n.Catalog) ([]byte, error) {
 	fb, hits, total := matches(query, b)
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
+	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
+		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
 	// 这一页的名字：起了就用，没起就按语言给通用默认（见 profileView.PageTitle）。
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
@@ -846,10 +898,16 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 //
 // 视图复用 profileView：面板要读的 `.T`、`.Profile`、`Lang`、`.Theme`、`.CSS`
 // 与 `HasSnapshots` 全在那上面，另建一个结构体只会多一份要同步的字段清单。
-func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, cat *i18n.Catalog) ([]byte, error) {
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), CSS: e.cssT,
+//
+// openInNewTab 走 `v.Bookmarks`（**不是**新增一个字段）：面板上凡是书签文档里的
+// 格子都该从同一处读——`.Bookmarks` 已经是那个容器，而档案页上它装的是 Title/
+// Footer/OpenInNewTab。为它另开一个字段，模板上就会有两种写法指同一份数据。
+func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog) ([]byte, error) {
+	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
 		PrefGroups: gs, PrefGroupsBroken: broken,
+		Bookmarks:  profileData{OpenInNewTab: openNewTab},
+		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
 		PrefPalette: model.GroupAccentPalette}
 	// 色名在这里算，不在 model 里写死：那张表只给键名后缀，句子在语言包里。
 	// 英文界面上那八颗从前印的是「蓝 青 绿…」，因为名字住在 Go 的一侧。

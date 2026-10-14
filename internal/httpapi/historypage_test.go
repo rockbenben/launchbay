@@ -366,10 +366,16 @@ func TestHistory_入口在台面面板上画得出来(t *testing.T) {
 	//
 	// 2026-10-13 那一屏把这颗键的话从「台面」换成了「外观」——"台面"是这个项目
 	// 内部对那一组台面偏好的称呼，新用户第一次看见它并不知道那能改什么，
-	// 而判据是"没读过文档的人一眼懂不懂"。钉的字跟着换成屏上真的印着的那两个字，
-	// id 仍是 lb-prefs-open（id 是内部形状，不跟着界面词漂）。
+	// 而判据是"没读过文档的人一眼懂不懂"。
+	//
+	// 2026-10-14 再换一次：「外观」→「设置」。同一判据又轮了一回——这一屏里
+	// 有一半不是外观：主题/怎么看/分组导航是，分组颜色与排法是，而「回退与改动
+	// 历史」根本不是设置、是两个出口。「外观」承诺的只有它能给的一半，「设置」
+	// 是这族界面里最不会说谎的那个词（英文侧从 "Look" 改成 "Settings" 同理）。
+	// 钉的字跟着换成屏上真的印着的那两个字，id 仍是 lb-prefs-open
+	// （id 是内部形状，不跟着界面词漂）。
 	home := get(h, "/", historyDadCookie).Body.String()
-	if !strings.Contains(home, `id="lb-prefs-open"`) || !strings.Contains(home, "外观") {
+	if !strings.Contains(home, `id="lb-prefs-open"`) || !strings.Contains(home, "设置") {
 		t.Errorf("档案页顶栏少了进台面面板的那一枚：%s", firstBytes(home))
 	}
 	// 第二步：面板里画着通往 /history 的那一枚。

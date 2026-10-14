@@ -798,14 +798,16 @@ func stripAttrBrackets(sel string) string {
 // 每个分组 688 高、整块面板 5041px（390 ≈6 屏，20 个分组那一份 14813 = 21.3 屏）。
 // 同档还有一个 `.prefs-group-name{flex:1 1 120px}`：`flex-basis` 是主轴上的量，
 // `.prefs-group` 翻成 column 之后那 120 就成了**高度**（实测名字行 120 高，
-// 收回 auto 之后 21）。
+// 收回 auto 之后 21）。2026-10-14 那一轮把名字改成 `flex:1 1 auto`（见下面那条
+// 宽屏判据），窄屏这一档仍然要把 basis 收回 auto——auto 在列向说的是内容高。
 //
 // 两处算术（都从屏上量的，别再抄注释）：独立页 320 档的面板内容宽是 **280**
-// （320 − 主区左右内衬），浮层那一层才是 248（min(560,100vw−28) − 22×2）；
-// 色板一行放平要 **512**（10 颗 ×44 + 9 个 gap ×8）。
+// （320 − 主区左右内衬），浮层那一层才是 248（min(920,100vw−28) 在 320 上仍取
+// 292 − 22×2）；色板一行放平要 **512**（10 颗 ×44 + 9 个 gap ×8）。
 //
 // **44px 一颗都不许缩**：那是 §7.5 的触摸地板，而窄屏正是最需要它的时候。
-// 断点选 520 而不是 320：520 到 560 那一小段两列并排放得下（标签 92 + 控件 ≤ 420）。
+// 断点选 520 而不是 320：520 到 860 那一段两列并排仍然放得下（标签 92 + 控件 ≤ 420），
+// 再宽的地方色板自己回到名字同一行——断点跟着**内容宽**走。
 func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 	raw, err := webFS.ReadFile("web/base.css")
 	if err != nil {
@@ -819,7 +821,7 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 		".prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}",
 		// 二、翻成列向时把**行向写的 basis** 收回 auto（那 120px 不然就是高度）
 		".prefs .prefs-group-name{flex-basis:auto}",
-		// 三、色板"另起一行"这件事用 width，不用 basis（同一条判据的底座那一行）
+		// 三、色板在**这一档**占满整行（width，不用 basis：同一条判据的底座那一行）
 		".prefs-group-colors{width:100%}",
 	} {
 		if !strings.Contains(css, w) {
@@ -840,6 +842,111 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 	// 底座那一行也不许退回 basis：`flex:1 1 100%` 在这一族里就是"高度占满"的别名。
 	if strings.Contains(css, ".prefs-group-colors{flex:1 1 100%}") {
 		t.Error(".prefs-group-colors 又写成 flex:1 1 100% 了：列向那一档会把它当成高度")
+	}
+}
+
+// 宽屏上**一个分组占一行**（2026-10-14）。这一条钉的是**排法**，不是那两个像素：
+// 色板一旦被 `width:100%` 推回第二行，八个分组就是十六行、面板 1027 高、要滚一屏半——
+// 而这个症状在功能测试里**一条都不会红**（每颗键都还在，每张表单都还提交得出去）。
+//
+// 一行要装下（1440 那一档实测量出来的三个数）：
+//
+//	色板    10 颗 × 44 + 9 个 gap × 8 = 512
+//	排法三颗  磁贴 51 + 单列 50 + 用这个颜色 95 + 两个 gap 16 = 212
+//	名字下限 96（再窄就压成省略号）
+//	两个 gap 16                                  合计 836
+//
+// 面板内容宽要 ≥ 836：浮层那一层是 `width` 减内衬 44 与竖向滚动条 17，`GET /prefs`
+// 那张整页是 `.prefs` 的 max-width 减页面自己的滚动条。两者都从 CSS 里读出来再算，
+// 所以以后有人把哪一处调窄了，这条闸会当场红——而不是等到"看起来有点挤"。
+func TestCSS_宽屏一个分组一行(t *testing.T) {
+	base, err := webFS.ReadFile("web/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := webFS.ReadFile("web/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseCSS, appCSS := stripCSSComments(string(base)), stripCSSComments(string(app))
+
+	// 一、色板在底座那一行**不许**再被强制占满整行（窄屏那一档有，见上一条测试）。
+	// 二、名字改成"吃完余量"：按各自名字长度排时，每一行的磁贴键各自错开，
+	//     而上面五行对齐的那条竖线在这一节里就没了。
+	for _, want := range []string{
+		".prefs-group-colors{flex:0 1 auto}",
+		".prefs .prefs-group-name{flex:1 1 auto;min-width:96px",
+	} {
+		if !strings.Contains(baseCSS, want) {
+			t.Errorf("base.css 少了 %q：一个分组要能在一行里排下「名字 ｜ 排法 ｜ 色板」", want)
+		}
+	}
+	if i := strings.Index(baseCSS, ".prefs-group-colors{width:100%"); i >= 0 &&
+		i < strings.Index(baseCSS, "@media (max-width:520px){") {
+		t.Error("色板又被写回底座那一行了：宽屏上它要跟着名字与排法并排，每组一行")
+	}
+
+	// 三、两处宽度预算都装得下 836。这两个数从 CSS 里读，不写死在测试里——
+	// 写死就是把随手可调的像素抬成了规格（与列表形态那条同一个教训）。
+	const need = 836
+	sheet := cssPxAfter(t, appCSS, "#lb-prefs.sheet{width:min(")
+	if got := sheet - 44 - 17; got < need {
+		t.Errorf("浮层内容宽 %d（%d − 内衬 44 − 滚动条 17）装不下一个分组那一行（需要 %d）", got, sheet, need)
+	}
+	page := cssPxAfter(t, baseCSS, ".prefs{display:flex;flex-direction:column;gap:14px;max-width:")
+	if got := page - 17; got < need {
+		t.Errorf("GET /prefs 那张整页的内容宽 %d（%d − 滚动条 17）装不下一个分组那一行（需要 %d）", got, page, need)
+	}
+}
+
+// cssPxAfter 读出 `prefixNNNpx` 里的那个 N。**读不到就当场红**：上面两条判据要的是
+// 真实的宽度预算，一个读不出数字的闸会给出"通过"这种最没用的答案。
+func cssPxAfter(t *testing.T, css, prefix string) int {
+	t.Helper()
+	i := strings.Index(css, prefix)
+	if i < 0 {
+		t.Fatalf("CSS 里找不到 %q：这道闸此刻是空转的", prefix)
+	}
+	rest := css[i+len(prefix):]
+	j := strings.Index(rest, "px")
+	if j < 0 {
+		t.Fatalf("%q 后面不是 px 打头的数字：%q", prefix, rest[:min(len(rest), 40)])
+	}
+	n, err := strconv.Atoi(rest[:j])
+	if err != nil {
+		t.Fatalf("%q 后面读不出整数：%q", prefix, rest[:j])
+	}
+	return n
+}
+
+// 下拉**弹出来的那张候选列表**要跟着主题走（2026-10-14）。
+//
+// 这一条是被实拍打回来的：`:root{color-scheme:dark}` 只管到控件自己，而弹出的那张
+// 列表是浏览器在控件之外另画的——**底**走 UA 的系统色（在暗色页上仍是白的），**字**
+// 却从 `<select>` 继承 `--ink`（近白）。于是添加浮层的「分组」那一格拉下来是一张
+// 白底浅灰字的表，字几乎看不见，而页面其余部分全是暗色：弹层与页面两套配色。
+//
+// 形状上它错得很有代表性：`<select>` 自己那圈边框、字号、悬停全对（上面那三条族
+// 规则都命中了），只有弹出来的那一层是白的——功能测试一条都不会红，截图里也只是
+// "这个下拉看着怪"。所以按规则在场钉住。
+func TestCSS_下拉弹出的选项跟着主题走(t *testing.T) {
+	raw, err := webFS.ReadFile("web/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := stripCSSComments(string(raw))
+	// 判据是"**全站每一颗** select 的选项都带自己的底与字"，不是某一个容器：
+	// 按容器点名过一次（只有 `.pick select`），那次规则整条没匹配上，而屏上的
+	// 症状只是"看着没生效"。底用 --bg 而不是半透明的 --card：弹层画在页面之外，
+	// 底下垫的是浏览器自己那层系统底，半透明叠上去仍是白的。
+	if !strings.Contains(css, "select option{background:var(--bg);color:var(--ink)}") {
+		t.Error("base.css 里少了 `select option{background:var(--bg);color:var(--ink)}`：" +
+			"弹出的候选列表会退回 UA 的亮底，而它的字仍从 select 继承近白的 --ink")
+	}
+	// 反向证人：`--card` 那条是这一族最容易被"顺手改成一致"重新写回来的形状，
+	// 而它正是原病的根（半透明叠在浏览器的白底上还是白）。
+	if strings.Contains(css, "select option{background:var(--card)") {
+		t.Error("选项的底又写回半透明的 --card 了：弹层不在页面里，半透明底下是浏览器的白底")
 	}
 }
 
@@ -2044,7 +2151,7 @@ func TestProfilePage_侧栏抽屉是原生details(t *testing.T) {
 		t.Errorf("侧栏抽屉必须是 <details>/<summary>:\n%.400s", body)
 	}
 	// 抽屉不许带脚本来开合：`strings.Contains(body, "<script")` 在 ⑤ 之后量的是
-	// **整页**，而整页从此有一个应用脚本——于是这条断言会在 ⑤ 落地时红，���它红的
+	// **整页**，而整页从此有一个应用脚本——于是这条断言会在 ⑤ 落地时红，而它红的
 	// 理由跟抽屉无关。真正要守的是"**这个 details 元素上没有**开合脚本"，
 	// 判据因此落到那一段上。
 	seg := detailsSegment(t, body)

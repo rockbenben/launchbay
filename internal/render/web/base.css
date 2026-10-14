@@ -10,6 +10,13 @@
      浮层状态行那种"只有字没有块"的报错色：#ff7a7a 压在卡片上 3.95:1 不够。 */
   --on-accent:#071223;--on-bad:#2b0b05;--bad-text:#ffb9b9;
   --aurora-1:rgba(76,141,255,.30);--aurora-2:rgba(150,80,255,.22);--aurora-3:rgba(0,200,180,.18);
+  /* --scrim 是**背景图上面那层压暗**（2026-10-14），值是"页面底色铺在图上的
+     不透明度"。它必须够厚：§7.5 的对比度是按纯底色算的，而一张照片的明暗是
+     人给的——最坏情况是**纯白照片**（证件照、白板、截图），实测（TestCSS_压暗层不许
+     薄到白照片上的正文读不出来 用同一份算法量）：暗档 0.80 时正文仍有 **9.13:1**，
+     亮档 0.84 时是 **15.02:1**。这一档比"看起来合适"更要紧：薄一点立刻好看，
+     而用户挑的恰恰可能是最亮的那张图。 */
+  --scrim:rgba(11,14,20,.80);
 }
 /* theme 只有三个合法值（model.Profile.Theme 的枚举）。data-theme 属性存在 =
    用户显式选了 dark|light，不存在 = auto（交回媒体查询）："auto" 由 exec.go 的
@@ -33,6 +40,7 @@
   --line:#e3ddd1;--card:#fff;--card-hi:#fff;
   --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+  --scrim:rgba(246,244,239,.84);
   --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 [data-theme=dark]{color-scheme:dark}
 @media (prefers-color-scheme:light){
@@ -40,8 +48,13 @@
     --line:#e3ddd1;--card:#fff;--card-hi:#fff;
     --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+    --scrim:rgba(246,244,239,.84);
     --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 }
+/* 背景图在场时**关掉极光**：那三层径向渐变是给纯色底加一点深度用的，而压在一张
+   照片上就是三团彩色光斑糊在人挑的那张图上——"自己的背景"与"页面自己的装饰"
+   打架时输的是后者（判据：这一层是装饰，而装饰不该让人以为图花了）。 */
+html[data-bg] body::before{display:none}
 /* 类名契约（模板与这份 CSS 共同遵守，Task 10 的 Produces 那一行）：
    .card / .plain / .pick / .badge / .tag / .ic / .ic-svg / .ic-fill / .ic-img /
    section[data-layout] / html[data-theme]。其中两个是 **marker 类，故意零规则**，
@@ -570,6 +583,30 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
   [data-profile-view=dense] .ic-svg{width:15px;height:15px;border-radius:4px;font-size:9px}
 }
 .profiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+/* ── 分组导航：全局/密集这两档下不占那一列（2026-10-14）─────────────────────
+   判据是**两个属性同时成立**：`layout=sidebar`（导航是侧栏形态）且 view 是
+   wall/dense（所有分组都摆在同一屏）。`layout=topbar` 的那一档**一个字都不改**
+   ——它本来就是顶部横排一行（names + 计数都在），而"想留着目录的人选它"正是
+   这一条要给的出路。
+
+   为什么这两档该没有它，三条：
+   1. **职责不成立**：导航的活是"跳到你看不见的那一节"，而这两档的前提恰恰是
+      全都在一屏（分组变成栏头）。没有看不见的节，目录就只是一张重复的目录。
+   2. **它最贵**：那一列 206px + 24px 的缝 = 230px，1440 上占 16%；而密集那一档
+      栏宽 224px，于是这 230px 正好是**一整栏条目**。实测（8 组 × 6 条，1440）：
+      收掉之后 dense 从 5 栏变 6 栏（见下面那条 media 旁的注释）。
+   3. **但计数只在它里面**（节标题只印名字），所以彻底删掉是丢信息——这就是
+      为什么出路是「顶部一行」而不是「没有」。
+
+   **为什么不顺手把 profile.json 的 layout 归位**：改设置就是改那个字段，而在
+   同一格里改两个字段（视图 + 导航形态）正是 `/prefs/group` 那条"按排法顺手改了
+   颜色"的同族病。这里一个字都不写盘，屏上那一颗在紧凑档下改印「不显示」——
+   键还是那颗键、值还是那个值，只是那一档的名字说实话（见 profile.tmpl 那段）。
+*/
+[data-profile-layout=sidebar][data-profile-view=wall] .side,
+[data-profile-layout=sidebar][data-profile-view=dense] .side{display:none}
+[data-profile-layout=sidebar][data-profile-view=wall] .shell,
+[data-profile-layout=sidebar][data-profile-view=dense] .shell{grid-template-columns:minmax(0,1fr)}
 .notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
   background:rgba(255,157,108,.12);color:var(--ink)}
 /* .explain 是确认页的后果说明，**以前根本没有规则**——句子里带的 \n\n 被 HTML
@@ -661,6 +698,26 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .pick select,.adm select,.langsel select{font:inherit;color:inherit;background:transparent;
   border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto;cursor:pointer}
 .pick select:hover,.adm select:hover,.langsel select:hover{border-color:var(--accent)}
+/* 下拉**弹出来的那张候选列表**要自己带色（2026-10-14）。上面三条只管到控件**自己**
+   （边框、字号、内衬、悬停），弹出的那张列表是浏览器在控件之外另画的：底走 UA 的
+   系统色，而字是从 `<select>` 继承下去的 `--ink`（近白）——实拍是一张**白底浅灰字**
+   的表，字几乎看不见。弹层与页面成了两套配色，而 `color-scheme` 只管到控件自己。
+
+   **对照实验在同一台机器上跑过**（CDP 点开真弹层 + `fromSurface` 截图，那一版去掉
+   这一条就是白底浅灰字，加上就是暗底浅字）——不是从注释推的。**注意**：用
+   `<select size=N>` 的页内列表去验是**验错的**，它在页面里画，弹层那一层根本没参与。
+
+   判据只写这一处，**不按容器点名**：全站五颗 select（建档那枚、`/admin` 那枚、切换语言
+   那枚、浮层里的分组与图标那两颗）共用它，坏的也只有这一个原因。按容器点名过一次
+   （只有 `.pick select`），那次的症状是"规则整条没匹配上，而屏上只表现为看着没生效"。
+
+   底用 `--bg` 而不是 `--card`：`--card` 是半透明白，弹层画在页面之外、底下垫的是浏览器
+   自己那层系统底（暗色页上仍是白的），半透明叠上去还是白的——这正是原来那一档的病。
+
+   **选中的那一行（浅蓝底 + 浅字，约 1.5:1）救不了**：它的高亮底色与字色都由浏览器自己
+   画，`option:checked` 上写 background 或 color 都试过，两次都无效（浏览器把选择态整个
+   接管）。它是"当前值"，而同一个值就写在下面收起的那个框上——那里看得见。 */
+select option{background:var(--bg);color:var(--ink)}
 /* select 的焦点环不在这里——它在 base.css 顶部那条**按元素收口**的
    `:focus-visible` 联合规则里（2026-10-12）。这里从前另写了一条 2px 的，
    后果是：名单里没有的容器（浮层那颗图标下拉）拿不到环，而拿到的那三个
@@ -700,7 +757,8 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
 
 /* 台面面板（2026-10-13）：一列**等宽的行**，每行左边一个标签、右边一组控件。
-   宽度上限 560px 是照着 `.sheet` 那个数定的——浮层里那一份与 `GET /prefs`
+   宽度上限 900px 是照着 `.sheet` 那个数定的（浮层 960 − 内衬 44 − 滚动条 17 = 899，
+   这条 900 接着它）——浮层里那一份与 `GET /prefs`
    那张整页渲染的是同一个 define，而**降级路径不许长得像另一个产品**，
    所以骨架必须是同一条规则写在 base.css 里（浮层那份在 app.css 加载之前
    就要有个能看的样子，而整页那份根本没有 app.css 可依赖）。
@@ -708,7 +766,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    标签固定 92px：五行的控件起点对齐成一条竖线，一眼能扫下来"哪一行是哪一行"。
    窄屏上放不下就靠 flex-wrap 换行（`prefs-keys` 自己也会换），不再开一条
    媒体查询把布局搬成另一套——两套排法迟早不同步。 */
-.prefs{display:flex;flex-direction:column;gap:14px;max-width:560px;margin:0 auto}
+.prefs{display:flex;flex-direction:column;gap:14px;max-width:900px;margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0}
 /* 两级选择器是**必需的**：app.css 里 `.sheet label{display:block;font-size:12px}`
@@ -718,7 +776,45 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs .prefs-label{flex:0 0 92px;font-size:13px;color:var(--ink2)}
 .prefs-field{flex:1 1 200px;min-width:0}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
-.prefs-back{margin:16px auto 0;max-width:560px}
+/* 某一行键下面的说明（2026-10-14：分组导航那一格在紧凑档下多一句"为什么不画"）。
+   与 `.prefs-groups-head .hint` 同一处置——hint 自己没有 flex 基准，挂在
+   `flex-wrap:wrap` 的行里会按内容宽缩成一小块，而这两处都要它占满余量换行一行。 */
+.prefs-row>.hint{flex:1 1 240px;min-width:0;margin:0}
+.prefs-back{margin:16px auto 0;max-width:900px}
+
+/* 「背景」那一节（2026-10-14）：预览 + 三个动作（上传/换、暂时不显示、移除）。
+   预览那一张走的是**与页面同一个端点** `/backgrounds/<name>`，所以它同时是
+   "这张图真的还在盘上"的证人——图没了就是一张空图，而面板其余部分照常可用
+   （坏背景不许挡台面，与"坏档不挡"同一条纪律）。 */
+.prefs-bg{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1 1 420px}
+/* 标签与整节**顶对齐**：这一节比上面那些行高得多（预览 + 四个动作 + 说明），
+   而 `.prefs-row` 默认居中——居中之后「背景」两个字飘在整节中间，看上去像
+   另一个控件的标题。用 `:has()` 选中**这一行**而不是给标签换写法：判据在
+   "这一行里有没有背景那一节"，模板与这份 CSS 已经共用同一个 .prefs-bg 类名
+   （与下面 `.act .choice:has(input:checked)` 那条同一处置：选中由**原生元素**持有，样式打在它所在的行上）。 */
+.prefs-row:has(.prefs-bg){align-items:flex-start}
+.prefs-bg-preview{display:block;width:160px;height:90px;object-fit:cover;
+  border:1px solid var(--line);border-radius:10px;background:var(--card)}
+/* 选文件那一格。**label 是给读屏的可及名**（`<input type=file>` 自己念出来是
+   "文件名 / 浏览…"，而这台机器上没人知道那是背景图），44px 由输入族那条 joint
+   规则接，这里不开新的 44。宽度给个上限：原生文件选择器默认占 250px 上下，
+   不收着的话它与旁边两颗键挤不到一行去。 */
+.prefs-bg-file{display:inline-flex}
+.prefs-bg-upload input[type=file]{max-width:240px}
+.prefs-visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* 上传那一组：**表单**（不是一颗裸按钮）在流里，于是那颗「上传/换一张」与
+   文件选择器并排，而"三张独立表单"（上传 / 隐藏 / 移除）各自只提交自己的字段。
+   `width:auto` 是承重的：`.fld` 的 `width:100%` 是给"整幅铺开"写的，
+   不收着的话那颗键会撑满整张表单（实测 297 宽的一行里只写着「换一张」四个字）。 */
+.prefs-bg-upload{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.prefs-bg-upload>button{width:auto}
+/* 「移除」是**危险动作**，而它穿的是**实心红**（base.css 的 `button.danger`），
+   与就地编辑那颗「删掉这条」的「静息不穿红」**有意不同**：那颗要先武装一下才真删
+   （两步），而这一颗按下去就删，没有第二次机会——base.css 那条「会直接删东西的那一下
+   要实心」说的正是它。代价说在它的 title 上（文件真的没了、没有回收站），
+   而不是靠一句「删掉之后记得重传」留在别人心里。 */
+.prefs-bg form{margin:0}
 
 /* 「分组」那一节（2026-10-13）：一个分组一行，行里左边是名字、右边是色板与
    磁贴/单列。**它不进 .prefs-row** ——那一行是一标签一控件，宽度由标签那一格
@@ -730,21 +826,38 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .prefs-groups-head .hint{flex:1 1 240px;min-width:0;margin:0}
 .prefs-groups{display:flex;flex-direction:column;gap:10px}
 .prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
-/* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。 */
-.prefs .prefs-group-name{flex:1 1 120px;min-width:0;display:flex;align-items:center;gap:7px;
+/* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。
+   **`1 1 auto` 而不是 `1 1 120px`**（2026-10-14 改判）：这一格改成"吃完余量"之后，
+   八行的排法键与色板起点对齐成同一条竖线——那一列对齐正是上面五行的读法，而按
+   固定 basis 排时它是按**各自名字的长度**排的（「NAS 应用」比「应用」宽 30px，
+   于是每行的磁贴键各自错开）。min-width 96px 是它让位的那条线：再窄名字就压到
+   省略号，而 96 之下连两个字都放不下。 */
+.prefs .prefs-group-name{flex:1 1 auto;min-width:96px;display:flex;align-items:center;gap:7px;
   font-weight:600;font-size:13px}
 .prefs-group-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:3px;background:var(--sw)}
-/* 名字那行右端：磁贴/单列/「用这个颜色」三颗跟着名字走，色板另起一行。
-   **另起一行这件事用 width:100%，不用 flex-basis:100%**：下面那条窄屏媒体查询
-   把 `.prefs-group` 翻成 `flex-direction:column`，而 basis 是**主轴**上的量——
-   行向写的 100% 翻成列向就成了"这一格要占满整个高度"（实测同一处容器高 512、
-   每一颗色块 44×252）。width:100% 在两个方向上说的都是那一行占满，不猜主轴。
+/* 宽屏上**一个分组占一行**：名字 ｜ 磁贴/单列/用这个颜色 ｜ 十颗色板 + 取色器。
+   这一格以前是 `width:100%`（强制另起一行），那是 560 那一档逼出来的：内容宽 559
+   装不下 836，于是每个分组的色板被推到第二行，八个分组成了十六行，面板 1027 高、
+   要滚一屏半——**"面板太窄"的真症状不是宽度上限难看，是每个分组被折成了两行**。
 
-   宽度算术（实测，不是估）：10 颗 × 44 + 9 个 gap × 8 = **512px** 才放得下这一行。
-   独立页给到 560 ✓；档案页那一层浮层要等 U3 那条宽度对齐之后才够（原来 499）。 */
+   宽度算术（实测，不是估，1440 那一档量出来）：
+   - 色板 10 颗 × 44 + 9 个 gap × 8 = **512**
+   - 排法三颗：磁贴 51 + 单列 50 + 用这个颜色 95 + 两个 gap 16 = **212**
+   - 名字下限 96 + 两个 gap 16
+   - 合计 **836**；面板内容宽 899（浮层 960 − 内衬 44 − 滚动条 17），余下 63 全部
+     由名字吃掉 → 名字那一格实得 159，八行对齐。
+   放不下时 flex-wrap 自己把它折回两行，620 那一档正是这样——**没有媒体查询，
+   断点跟着内容宽自己走**（与这条文件里别处的处置同一条纪律）。
+
+   余量为什么给到 63 而不是贴着 836：排法那三颗是中文按钮，宽度随字体走，212 是
+   这一台机器上的数；余量是留给"别的机器上字宽不同"这件事的。
+
+   **`width:100%` 挪进窄屏那一档**（那里 `.prefs-group` 翻成 column，色板本就该占满
+   整行）；它**不用 flex-basis:100%**：basis 是**主轴**上的量，行向写的 100% 翻成
+   列向就成了"这一格要占满整个高度"（实测同一处容器高 512、每一颗色块 44×252）。 */
 .prefs-group-shape{flex:0 0 auto}
-.prefs-group-colors{width:100%}
+.prefs-group-colors{flex:0 1 auto}
 
 /* 色块：**看得见的只有中间那一颗圆点**，键本身留着按钮族那 44px 的触摸目标。
    44px 见方的一整块实色在这一行里会盖过分组名，而色点加一圈按下的描边已经够说
@@ -791,16 +904,22 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 
    **三、每组的名字行拆开，并把它的 basis 收回 auto。** 名字 + 磁贴/单列/用这个颜色
    在 248px 下装不下同一行，折出来的第二行只有三颗键、左边空一大块——不如让名字自己
-   占一行。而 `.prefs .prefs-group-name{flex:1 1 120px}` 那个 120 是**行向**的宽度，
-   翻成列向就成了高度（实测名字行 120 高，比它管的三颗键还高；收回 auto 之后 21）。
+   占一行。而 `.prefs .prefs-group-name` 的 basis 是**行向**的量，翻成列向就成了高度
+   （原先 `flex:1 1 120px` 那个 120：实测名字行 120 高，比它管的三颗键还高；收回 auto
+   之后 21）。
+
+   **四、色板在这一档占满整行**（`width:100%`，2026-10-14 从底座那一行挪进来）。
+   底座那一行已经不再写它——宽屏上一个分组就一行，色板与名字、排法并排；这一档翻成
+   column，它才是"自己占一行"的那一格。仍然是 width 而不是 basis，理由见上面那条。
 
    为什么是 520px 而不是 320px：这一档在 520 与 320 之间都读作"窄屏台面"，
-   而在 520 以上、560 以下那一小段，两列并排仍然放得下（标签 92 + 控件 ≤ 420）。
-   断点跟着**内容宽**走，不是跟着某一台设备走。 */
+   而在 520 以上、860 以下那一段，两列并排仍然放得下（标签 92 + 控件 ≤ 420），
+   更宽的地方色板自己回到名字同一行。断点跟着**内容宽**走，不是跟着某一台设备走。 */
 @media (max-width:520px){
   .prefs-row,.prefs-group,.prefs-groups-head{flex-direction:column;align-items:stretch;gap:6px}
   .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
   .prefs .prefs-group-name{flex-basis:auto}
+  .prefs-group-colors{width:100%}
 }
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"

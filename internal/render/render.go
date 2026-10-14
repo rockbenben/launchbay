@@ -549,8 +549,11 @@ func (r *Renderer) PrefsPage(id string) (Page, error) {
 	snaps, err := r.s.ListSnapshots(id)
 	hasSnaps := err != nil || len(snaps) > 0
 	cat := i18n.Load(r.s.Language())
-	gs, broken := r.prefsGroups(id, cat)
-	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, cat)
+	// 面板上凡是**书签文档里**的格子都从这一次读里来（分组清单与「点开书签」的
+	// openInNewTab）：两次读之间文件被人换掉的话，屏上那两个格子会来自同一份
+	// 读数——而它们都只是显示，写入侧仍在锁内重读（applyBatch）。
+	gs, broken, openNewTab := r.prefsGroups(id, cat)
+	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, openNewTab, cat)
 	if err != nil {
 		return Page{}, err
 	}
@@ -567,15 +570,15 @@ func (r *Renderer) PrefsPage(id string) (Page, error) {
 // 读不出来**不算失败**：把这一节撤掉并说清为什么，其余四行照常可用。这与
 // `/prefs` 的"坏档不挡"是同一条纪律——改台面只写 profile.json，而书签文件读坏了
 // 正是最需要改排版看看的时候。
-func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string) {
+func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string, bool) {
 	b, err := r.s.LoadBookmarks(id)
 	if err != nil {
-		return nil, cat.T("prefs.groups.broken")
+		return nil, cat.T("prefs.groups.broken"), false
 	}
 	out := make([]groupView, 0, len(b.Groups))
 	for _, g := range b.Groups {
 		out = append(out, groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
 			Accent: validatedAccent(g.Accent)})
 	}
-	return out, ""
+	return out, "", b.OpenInNewTab
 }

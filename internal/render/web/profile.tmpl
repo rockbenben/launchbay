@@ -1,5 +1,5 @@
 {{define "profile"}}<!doctype html>
-<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}{{with .Background}} data-bg="1" style="background-image:linear-gradient(var(--scrim),var(--scrim)),url({{.}})"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -303,9 +303,15 @@
   <form method="post" action="/prefs" class="prefs-row">
     <span class="prefs-label">{{.T "prefs.layout"}}</span>
     <div class="prefs-keys">
+      {{/* 「侧栏」这两个字**在紧凑档下也不改**（2026-10-14 改判）：这一格有两条
+           不变量——TestPrefs_开关的标签稳定而状态走aria 钉的是"可见文字稳定，
+           状态走 aria-pressed"，而"标签随另一格的值变"正是那条要挡的走样。
+           人要能指着"写着侧栏的那颗"说话，而那颗一直都在。
+           "紧凑档下这一列不画"这件事写进**下面那一句说明**——它是解释，不是控件名。 */}}
       <button type="submit" name="layout" value="sidebar" aria-pressed="{{if eq .Profile.Layout "topbar"}}false{{else}}true{{end}}" title="{{.T "profile.layout.toSidebar"}}">{{.T "prefs.layout.sidebar"}}</button>
       <button type="submit" name="layout" value="topbar" aria-pressed="{{if eq .Profile.Layout "topbar"}}true{{else}}false{{end}}" title="{{.T "profile.layout.toTopbar"}}">{{.T "prefs.layout.topbar"}}</button>
     </div>
+    {{if .Compact}}<p class="hint">{{.T "prefs.layout.sidebarNote"}}</p>{{end}}
   </form>
 
   <form method="post" action="/prefs" class="prefs-row">
@@ -317,6 +323,65 @@
     </div>
   </form>
 
+  {{/* ── 背景：这一页自己的那张图 ────────────────────────────────────────────
+       上传/换一张、移除、暂时不显示，三个动作是**三张独立的表单**——它们
+       同落一个端点 `POST /prefs/background`，但字段不同，而一次按下只改一件事
+       （与上面「分组」那一节同一条纪律）。
+
+       文件那一格必须 `enctype=multipart/form-data`：文件走不了 urlencoded，
+       而**这也是它不并进 POST /prefs 的原因**——那一条的字段名单是
+       auto|dark|light|view|title，把一张几 MB 的图塞进去，那句 422 就会开始
+       管到不属于它的东西（判据见 httpapi/prefs.go）。
+
+       「暂时不显示」是这一格里最容易被当成多余的：它不改文件、也不删，
+       只是**不画**。家里来客人时不想让照片挂在电视墙上，而不想删掉重传。
+       它存在 profile.json 里而不是浏览器本地存储——电视上关了，手机上也该关。 */}}
+  <div class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.bg"}}</span>
+    <div class="prefs-bg">
+      {{if .BackgroundFile}}
+      {{/* 预览图用的是**同一个端点**：它只发给会话所指的那一份，于是这一格
+           同时也是"这张图真的还在盘上"的证人（图没了就是 404 一张空图，
+           而面板其余部分照常可用——坏背景不许挡台面）。
+           判据是 BackgroundFile（盘上有没有）而不是 Background（画不画）——
+           后者在「暂时不显示」时是空的，于是这一节会连同「恢复显示」一起消失，
+           屏上读作"我的背景没了"。 */}}
+      <img class="prefs-bg-preview" src="{{.BackgroundFile}}" alt="" width="160" height="90" loading="lazy">
+      <p class="hint">{{if .Profile.BackgroundOff}}{{.T "prefs.bg.hidden"}}{{else}}{{.T "prefs.bg.on"}}{{end}}</p>
+      {{else}}
+      <p class="hint">{{.T "prefs.bg.none"}}</p>
+      {{end}}
+      <div class="prefs-keys">
+        <form method="post" action="/prefs/background" enctype="multipart/form-data" class="prefs-bg-upload">
+          <label class="prefs-bg-file">
+            <span class="prefs-visually-hidden">{{.T "prefs.bg.pick"}}</span>
+            <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif">
+          </label>
+          <button type="submit" class="fld">{{if .BackgroundFile}}{{.T "prefs.bg.replace"}}{{else}}{{.T "prefs.bg.upload"}}{{end}}</button>
+        </form>
+        {{if .BackgroundFile}}
+        {{if .Profile.BackgroundOff}}
+        <form method="post" action="/prefs/background">
+          <button type="submit" name="hidden" value="0" class="fld">{{.T "prefs.bg.show"}}</button>
+        </form>
+        {{else}}
+        <form method="post" action="/prefs/background">
+          <button type="submit" name="hidden" value="1" class="fld">{{.T "prefs.bg.hide"}}</button>
+        </form>
+        {{end}}
+        <form method="post" action="/prefs/background">
+          <button type="submit" name="remove" value="1" class="fld danger" title="{{.T "prefs.bg.removeTitle"}}">{{.T "prefs.bg.remove"}}</button>
+        </form>
+        {{end}}
+      </div>
+      <p class="hint">{{.T "prefs.bg.hint"}}</p>
+    </div>
+  </div>
+
+  {{/* 「回退与历史」不是设置，是**两个出口**——它排在上面四行"这一页长什么样"
+       （改名/怎么看/分组导航/主题/背景）之后，而不在它们中间：
+       2026-10-14 之前背景那一节落在它下面，于是这屏读成
+       「四行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
   <div class="prefs-row">
     <span class="prefs-label">{{.T "prefs.elsewhere"}}</span>
     <div class="prefs-keys">
@@ -324,6 +389,18 @@
       <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
     </div>
   </div>
+
+  {{/* 「点开书签」：**当前标签页 / 新标签页**（openInNewTab）。它排在「分组」那节
+       上面而不是上面那几行里，因为它改的是**书签文档**（走 batch：rev + 快照 +
+       审计，能在「回退」里退回来），而上面几行改的是台面偏好（只写 profile.json）。
+       两族落点不同，混在一屏里却不说清哪一族有快照，人按错了会以为都能退。 */}}
+  <form method="post" action="/prefs/tabs" class="prefs-row">
+    <span class="prefs-label">{{.T "prefs.tabs"}}</span>
+    <div class="prefs-keys">
+      <button type="submit" name="tabs" value="0" aria-pressed="{{if .Bookmarks.OpenInNewTab}}false{{else}}true{{end}}" title="{{.T "prefs.tabs.sameTitle"}}">{{.T "prefs.tabs.same"}}</button>
+      <button type="submit" name="tabs" value="1" aria-pressed="{{if .Bookmarks.OpenInNewTab}}true{{else}}false{{end}}" title="{{.T "prefs.tabs.newTitle"}}">{{.T "prefs.tabs.new"}}</button>
+    </div>
+  </form>
 
   {{/* ── 分组：颜色 + 这一组自己的排法 ──────────────────────────────────────
        这是"能配却没有出口"的那一格。`ops` 一直认 `groups/<id>/accent` 与
@@ -424,7 +501,7 @@
 {{end}}
 
 {{define "prefs-page"}}<!doctype html>
-<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<html lang="{{.Lang}}"{{with .Theme}} data-theme="{{.}}"{{end}}{{with .Background}} data-bg="1" style="background-image:linear-gradient(var(--scrim),var(--scrim)),url({{.}})"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
