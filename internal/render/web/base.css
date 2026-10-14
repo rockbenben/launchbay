@@ -792,43 +792,71 @@ select option{background:var(--bg);color:var(--ink)}
    放前面就会被族的 background:var(--card) 静默盖掉（与危险键那一族同一条层叠判据）。 */
 .prefs button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
 
-/* 台面面板（2026-10-13）：一列**等宽的行**，每行左边一个标签、右边一组控件。
+/* 台面面板（2026-10-13 初版；2026-10-14 参考 Flare 那一屏重排）：
+   一列**等宽的行**，每行一个 `.prefs-field`——**说明在上、控件在下**。
    宽度上限 900px 是照着 `.sheet` 那个数定的（浮层 960 − 内衬 44 − 滚动条 17 = 899，
    这条 900 接着它）——浮层里那一份与 `GET /prefs`
    那张整页渲染的是同一个 define，而**降级路径不许长得像另一个产品**，
    所以骨架必须是同一条规则写在 base.css 里（浮层那份在 app.css 加载之前
    就要有个能看的样子，而整页那份根本没有 app.css 可依赖）。
 
-   标签固定 92px：五行的控件起点对齐成一条竖线，一眼能扫下来"哪一行是哪一行"。
-   窄屏上放不下就靠 flex-wrap 换行（`prefs-keys` 自己也会换），不再开一条
-   媒体查询把布局搬成另一套——两套排法迟早不同步。 */
+   **为什么从「标签在左」改成「说明在上」（2026-10-14）**：从前标签列固定 92px，
+   控件起点对齐成一条竖线，一眼能扫下"哪一行是哪一行"——那是好的。而坏处是
+   **92px 放不下任何解释**，于是每一行的解释只能在悬停 title 里，而屏上真放不下的
+   那句（分组导航"紧凑档不画这一列"）只能另起一行——它与那两颗键**视觉脱节**，
+   读起来像面板底部多了一段不相干的话。Flare 那一屏把每一项做成「小字说明 + 控件」
+   成对，于是说明有地方待、控件拿满整行的宽。
+
+   **代价量过**：一行 44 → 70（说明 18 + gap 8 + 控件 44），六行 324 → 420（+96）。
+   面板可用高约 1100，改后这一段 784，仍在一屏内——**而那一屏从"看得见有哪些设置"
+   变成"看得懂每一格是干什么的"**。
+
+   `prefs-row` 自己已经 `flex-wrap:wrap`，所以窄屏那档由内容自己换行，
+   不再开一条媒体查询把布局搬成另一套——两套排法迟早不同步。 */
 .prefs{display:flex;flex-direction:column;gap:14px;max-width:900px;margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
+/* 分节小标题（Flare 的「通用设置」「模块设置」那一种）。**它替的是分节线**：
+   从前八行平铺，读的人要自己判断哪几行是一类；一个 13px 的小标题 + 一条线
+   就把"这一页长什么样 / 出口 / 分组"三段说清了。字号与字色取节标题那一档，
+   而 margin-top 只在**第二个及以后**的分节上留（第一个紧跟 h2 不留）。 */
+.prefs h3.prefs-sec{margin:6px 0 -4px;font-size:13px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink2);
+  border-top:1px solid var(--line);padding-top:14px}
+.prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0}
+/* 一格 = 说明 + 控件（列）。`min-width:0` 是承重的：它让这一格在窄屏上能缩到
+   父级的窄度，而不是被自己那行说明的 min-content 撑破。 */
+.prefs .prefs-field{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:8px}
 /* 两级选择器是**必需的**：app.css 里 `.sheet label{display:block;font-size:12px}`
    是给添加浮层那五格字段写的，而 `.prefs-label` 在浮层里正好也是 label。
    写 `.prefs-label`（0,1,0）会被它（0,1,1）压掉，于是浮层里那列标签 12px、
-   整页那列 13px——同一份标记在两条路上长得不一样，那正是这条规则要防的。 */
-.prefs .prefs-label{flex:0 0 92px;font-size:13px;color:var(--ink2)}
-.prefs-field{flex:1 1 200px;min-width:0}
+   整页那列 13px——同一份标记在两条路上长得不一样，那正是这条规则要防的。
+   **从 92px 的固定列宽改成跟随内容**：说明在上时标签不必再占一条竖线。 */
+.prefs .prefs-label{flex:none;font-size:13px;color:var(--ink)}
+/* 那一行说明。`--ink2` 而非 `--ink`：它是解释不是控件名，**不该与那颗键抢
+   读法的优先级**；12px 是它与 13px 标签之间的那半档。 */
+.prefs .prefs-hint{margin:0;font-size:12px;color:var(--ink2);line-height:1.45}
+/* 改名那一行的控件（输入框 + 保存键）并排，其余各行只有一组键。 */
+.prefs .prefs-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.prefs .prefs-ctl>.fld{flex:1 1 200px;min-width:0}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
-/* 某一行键下面的说明（2026-10-14：分组导航那一格在紧凑档下多一句"为什么不画"）。
-   与 `.prefs-groups-head .hint` 同一处置——hint 自己没有 flex 基准，挂在
-   `flex-wrap:wrap` 的行里会按内容宽缩成一小块，而这两处都要它占满余量换行一行。 */
-.prefs-row>.hint{flex:1 1 240px;min-width:0;margin:0}
+/* 这一行**下面**的 hint（分组那一节的长说明、背景那一句约束）。
+   它不在 `.prefs-field` 里——背景与分组那两节自己多一层内容，说明留在那一格
+   的最下方，横跨整格；`.prefs-field` 里的 `.prefs-hint` 才是"标签与控件之间"
+   那一句。别把两处混成一条：一个是**这一格是什么**，一个是**这一格下面还有什么**。 */
+.prefs-field>.hint{flex:1 1 240px;min-width:0;margin:0}
 .prefs-back{margin:16px auto 0;max-width:900px}
 
 /* 「背景」那一节（2026-10-14）：预览 + 三个动作（上传/换、暂时不显示、移除）。
    预览那一张走的是**与页面同一个端点** `/backgrounds/<name>`，所以它同时是
    "这张图真的还在盘上"的证人——图没了就是一张空图，而面板其余部分照常可用
    （坏背景不许挡台面，与"坏档不挡"同一条纪律）。 */
-.prefs-bg{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1 1 420px}
-/* 标签与整节**顶对齐**：这一节比上面那些行高得多（预览 + 四个动作 + 说明），
-   而 `.prefs-row` 默认居中——居中之后「背景」两个字飘在整节中间，看上去像
-   另一个控件的标题。用 `:has()` 选中**这一行**而不是给标签换写法：判据在
-   "这一行里有没有背景那一节"，模板与这份 CSS 已经共用同一个 .prefs-bg 类名
-   （与下面 `.act .choice:has(input:checked)` 那条同一处置：选中由**原生元素**持有，样式打在它所在的行上）。 */
-.prefs-row:has(.prefs-bg){align-items:flex-start}
+.prefs-bg{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+/* 「标签与整节顶对齐」那条 `:has(.prefs-bg){align-items:flex-start}` **2026-10-14 删了**：
+   它是为「标签与背景整节并排」写的，而重排之后背景与其它各行一样是
+   `.prefs-field` 的**列**（说明在上、控件在下），`.prefs-row` 里只剩一层，
+   默认的 `align-items:center` 已经对齐。留着它不会红——`:has` 仍然匹配——
+   但它是一句**已经不成立的解释**，而下一个人会照它去推理"为什么这行要顶对齐"。 */
 .prefs-bg-preview{display:block;width:160px;height:90px;object-fit:cover;
   border:1px solid var(--line);border-radius:10px;background:var(--card)}
 /* 选文件那一格（2026-10-14 改判：原生控件收起来，换一颗与全站同脸的按钮）。
