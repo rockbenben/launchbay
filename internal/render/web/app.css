@@ -206,6 +206,24 @@ li:focus-within .pencil,li:focus-within .copybtn
                   卡片自己的下沿描边上，于是两个落点看上去像同一张卡被框了两次。
      · .drop-tail  落在组标题上 → 追加到那一组末尾。
    两处 dashed 也不是随手：实线读成"边界"，虚线读成"可以放这儿"。 */
+/* 分组名那一格（2026-10-15）：**它平时就该长得像那行字**，聚焦与悬停时才浮出边框。
+   为什么不给它一个常驻的输入框外观：面板这一节是"每组一行十四颗键"，1440 实拍名字
+   那格只有 98px（min-width:96px 顶着，整行没有余量）——再加一圈常驻边框与内衬，
+   那一格就变成整行唯一一件"这里要填东西"的东西，而它恰恰是七行里唯一不能填的
+   （分组名有值）。而"看起来像字、点进去就是能改"是就地编辑该有的样子。
+   边框**始终占位**（transparent 而不是 none）：否则聚焦时那 2px 会把这一格的文字
+   横向推 2px，手感上是一次可见的抖动。
+   放在本文件而不是 base.css：这一格是输入框族，而 `/prefs` 独立页已经按 §7.3 的
+   理由引了 app.css（骨架在 base.css 是因为零 JS 也要长这样，输入框族不需要）。 */
+.prefs-group-rename{flex:1 1 auto;min-width:0;width:100%;
+  font:inherit;color:var(--ink);text-align:start;
+  background:transparent;border:1px solid transparent;border-radius:9px;
+  padding:0 7px;margin-left:-7px;   /* 内衬往左抵回来：左边那 7px 是 swatch 的 gap */
+  min-height:36px}
+.prefs-group-rename:hover{border-color:var(--line)}
+.prefs-group-rename:focus{outline:0;border-color:var(--accent);background:var(--card-hi)}
+@media (forced-colors:active){.prefs-group-rename{border:1px solid CanvasText}}
+
 li.drop{outline:2px dashed var(--accent);outline-offset:-2px}
 li.drop-after{outline:2px solid var(--accent);outline-offset:4px}
 h2[data-group].drop-tail{outline:2px dashed var(--accent);outline-offset:3px;border-radius:6px}

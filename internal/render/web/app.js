@@ -669,6 +669,7 @@ const APP_I18N = {
           on: { click: prefsClose },
         }));
         wireBgFileName(prefsSheet);
+        wireGroupRename(prefsSheet);
         prefsLoaded = true;
       } catch {
         location.href = '/prefs';
@@ -717,7 +718,12 @@ const APP_I18N = {
       const op = groupOpFromForm(form, data);
       if (!op) return;
       const ok = await applyOps([op], T('app.ops.group'));
-      if (ok) reloadKeepingPlace();
+      if (ok) {
+        // 重载之后把面板重新拉起来（见 OPEN_KEY 那段注释）。只在这一族记，
+        // 因为只有它会"改完还想接着改下一组"。
+        try { sessionStorage.setItem(OPEN_KEY, '1'); } catch { /* 存不下就当没记 */ }
+        reloadKeepingPlace();
+      }
     });
     // 「点开书签」那一格（POST /prefs/tabs，2026-10-14 补上）。
     //
@@ -851,7 +857,38 @@ const APP_I18N = {
     if (typeof accent === 'string' && (accent === '' || /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(accent))) {
       return { op: 'set', path: `groups/${gid}/accent`, value: accent };
     }
+    const box = form.querySelector('input[name=rename]');
+    if (box && box.value !== box.defaultValue) {
+      const t = box.value.trim();
+      // 空着交给服务端去 422 并点名 rename：这里自己吞掉的话，人只看到
+      // "按了没反应"，而那句 422 会说清是名字那一格没填。
+      if (t) return { op: 'set', path: `groups/${gid}/title`, value: t };
+      return null;
+    }
     return null;
+  }
+
+  // 分组名那一格只挂两件事：**回车提交、Esc 撤回**。
+  //
+  // **为什么不在失焦时提交**（2026-10-15 实拍后改判）："点一颗色块"这个动作是
+  // mousedown 先让输入框失焦、mouseup 再按那颗键——于是人只点了**一下**，屏幕上
+  // 却有两个提交（改名 + 颜色），而它们带的是同一个 expectedRev：并行发出去第二个
+  // 必然 409，那句 409 说的是"别人改过了"。要串行化就得给这一族加一条请求队列，
+  // 而它要解决的是一个自己造出来的问题。
+  //
+  // 于是提交时机只有回车——和这一节自己那句「名字改完按回车」一致。没提交的那半句
+  // 在按色块之后会随重载消失：**这是明说的**（hint 里写着），不是静默丢弃。
+  function wireGroupRename(root) {
+    for (const box of root.querySelectorAll('input[name=rename]')) {
+      if (box.dataset.lbWired) continue;
+      box.dataset.lbWired = '1';
+      box.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        e.preventDefault();
+        box.value = box.defaultValue;
+        box.blur();
+      });
+    }
   }
 
   // 分组下拉的选项来自**服务端已经渲染在页面上的分组**。不重新拉一次 /api/v1/data：
@@ -1404,6 +1441,14 @@ const APP_I18N = {
   // 服务端渲染的列表改完必须重载才看得见，但"重载"在 200 条的台子上等于把人
   // 正在看的那一屏扔回顶部。存一个滚动位置，回来时接着放。
   const SCROLLKEY = 'lb-scroll-' + profile;
+  // 「改完接着改下一组」那个一次性口令：/prefs/group 那一族按完会记它，重载回来
+  // 之后再打开设置浮层。**读一次就删**（见下面 load 那处），它不是"用户开着
+  // 设置"的状态——那个状态本来就该由浮层自己在 DOM 里表示。
+  //
+  // **它必须带 profile**：这一页是按档案渲染的，而 sessionStorage 是**这台机器
+  // 这台浏览器**的。不带档案名的话，在 A 的页面上改一个颜色会顺手把 B 的设置
+  // 面板也弹出来——而那次重载落点是 A，读到的是"有人要我开着面板"，它分不出是谁。
+  const OPEN_KEY = 'lb-prefs-open-' + profile;
   function reloadKeepingPlace() {
     try { sessionStorage.setItem(SCROLLKEY, String(scrollY)); } catch { /* 存不下就退回最上面 */ }
     location.reload();
@@ -1412,6 +1457,13 @@ const APP_I18N = {
   if (back) {
     sessionStorage.removeItem(SCROLLKEY);
     addEventListener('load', () => scrollTo(0, back), { once: true });
+  }
+  // 「改完接着改下一组」那个口令（/prefs/group 那一族按完会记它）。
+  // 读完即删——留着的话，下一次**手动**刷新也会把设置面板弹出来，而没有人
+  // 想要那样。取不到就算了：拉不到面板时 prefsOpen 自己会退回整页 /prefs。
+  if ((() => { try { return sessionStorage.getItem(OPEN_KEY) === '1'; } catch { return false; } })()) {
+    try { sessionStorage.removeItem(OPEN_KEY); } catch { /* 存不下就当没记 */ }
+    addEventListener('load', () => { prefsOpen(); }, { once: true });
   }
 
   // ── ⌘/Ctrl K 命令面板（§8.6）───────────────────────────────────────────

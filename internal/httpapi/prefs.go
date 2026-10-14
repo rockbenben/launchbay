@@ -225,10 +225,43 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	layout, hasLayout := r.Form["layout"]
 	custom := r.Form["custom"]
 	_, wantsCustom := r.Form["apply_custom"]
-	if !hasAccent && !hasLayout && !wantsCustom {
+	// **改名**（2026-10-15）：分组名此前在界面上一个出口都没有——ops 一直认
+	// `set path=groups/<gid>/title`，而面板只画得出颜色与排法。
+	//
+	// 这一格**常驻**在表单里（输入框每一次提交都跟着走，与取色器同一性质），
+	// 所以「只在真的改了时才算一次改名」这个判据必须落在**值**上而不是名字上：
+	// 按一颗色块也会带上 `rename=<原名>`，若照单全收就变成"改个颜色顺手把名字
+	// 重写一遍"。于是下面按当前值把它压掉。
+	rename, hasRename := r.Form["rename"]
+	// onlyRename：**这一次按下说的就是改名**（没夹带颜色或排法）。它同时管住
+	// 422 那一支与"要不要发这条 op"，两处判据必须同一个，否则会出现"报错说名字
+	// 那一格不对、而屏上按的是色块"。
+	onlyRename := hasRename && !hasAccent && !hasLayout && !wantsCustom
+	if len(rename) > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename", Reason: "rename 只能有一个值"}})
+		return
+	}
+	if onlyRename {
+		if !hasRename {
+			writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
+				{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或改分组名"},
+				{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或改分组名"},
+			})
+			return
+		}
+		// 空着就是"想改成一个空名字"，那是形状错，要点名 rename —— 而**不**是继续
+		// 往下走让 ops 报一句「title 为空」，那句话说的是文档校验，说不出
+		// "是这一格没填"。
+		if strings.TrimSpace(rename[0]) == "" {
+			writeFieldErrors(w, http.StatusUnprocessableEntity,
+				[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename", Reason: "分组名不能空着"}})
+			return
+		}
+	} else if !hasAccent && !hasLayout && !wantsCustom {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或按下「用这个颜色」"},
-			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或按下「用这个颜色」"},
+			{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或改分组名"},
+			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或改分组名"},
 		})
 		return
 	}
@@ -257,19 +290,81 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.FieldInvalid, Field: "layout", Reason: "只能是 " + strings.Join(model.GroupLayoutValues, "/")}})
 		return
 	}
+	// 当前值读一次（groupNow 那一支的解释在它自己头上）。
+	curTitle, curAccent, curLayout, haveCur := s.groupNow(id, gid)
 	var opList []ops.Op
-	if handlesAccent {
+	if handlesAccent && (!haveCur || accentVal != curAccent) {
 		opList = append(opList, ops.Op{Op: "set", Path: "groups/" + gid + "/accent",
 			Value: json.RawMessage(strconv.Quote(accentVal))})
 	}
-	if hasLayout {
+	if hasLayout && (!haveCur || layout[0] != curLayout) {
 		opList = append(opList, ops.Op{Op: "set", Path: "groups/" + gid + "/layout",
 			Value: json.RawMessage(strconv.Quote(layout[0]))})
+	}
+	// 改名那一格的值上限在这里判，理由与 maxPageTitleRunes 同源：表单上的
+	// maxlength 只有浏览器认，curl 与扩展不认。
+	//
+	// 改名那一格的值上限在这里判，理由与 maxPageTitleRunes 同源：表单上的
+	// maxlength 只有浏览器认，curl 与扩展不认。
+	//
+	// **校验只在「它就是那一次的全部意图」时生效**（onlyRename）：输入框里留着
+	// 一次敲完没提交的内容时，按一颗色块会把那半句一起带上——那是"顺手被另一格
+	// 拦下"，说清是哪一格该比说清它超了几十个字有用，而颜色那一格必须照改。
+	// 反过来，只交了名字那一格（回车）时它就是全部意图，空着与超长都要点名 rename。
+	if hasRename {
+		t := strings.TrimSpace(rename[0])
+		if onlyRename {
+			if t == "" {
+				writeFieldErrors(w, http.StatusUnprocessableEntity,
+					[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename", Reason: "分组名不能空着"}})
+				return
+			}
+			if len([]rune(t)) > model.MaxGroupTitleRunes {
+				writeFieldErrors(w, http.StatusUnprocessableEntity,
+					[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename",
+						Reason: fmt.Sprintf("最多 %d 个字", model.MaxGroupTitleRunes)}})
+				return
+			}
+		}
+		// 一个字节都没变的**不发**：发出去 ops 会回一句「设的值与当前值相同」，
+		// 而 applyBatch 只看 opList 非空，仍会**存一版快照并把 rev +1**——于是
+		// "按一下已经在用的那颗色块"会在「回退」里留下一条什么都没改的版本。
+		// 这一节自己写着「每按一次会存一版」，那句话得是真的。
+		// 混着别的意图（onlyRename 为假）时也不发：一次按下只改一件事。
+		if t != "" && (!haveCur || t != curTitle) {
+			opList = append(opList, ops.Op{Op: "set", Path: "groups/" + gid + "/title",
+				Value: json.RawMessage(strconv.Quote(t))})
+		}
 	}
 	// expectedRev 传 nil：面板是**服务端渲染**的，它画出来的那一刻的 rev 未必
 	// 是人按下那一刻的 rev（另一个人刚改过、或这一页开着很久）。冲突在这里不是
 	// 危险——两件事改的是不同字段，ops 在锁内重读当前值再改。
+	//
+	// opList 可能**是空的**（按了一下已经在用的那颗色块）：applyBatch 那一支
+	// 直接早退，不写快照也不加 rev，于是「什么都没改」就是真的什么都没发生。
 	s.applyPrefsOps(w, r, id, opList)
+}
+
+// groupNow 读这一组当前那三个可改的标量（标题 / 颜色 / 排法）与"读得到吗"。
+//
+// 唯一的用处是**把"值没变"的那些 op 压掉**（2026-10-15）。applyBatch 只看
+// opList 非空：只要有一条 op 落进去，它就**一定**写一版快照并把 rev +1，于是
+// "按一下已经在用的那颗色块"会在「回退」里留下一条什么都没改的版本——而这一节
+// 自己写着「每**改**一次会存一版」，那句话得是真的。
+//
+// 读不到时 ok=false：那三个判据全部跳过，于是照单发出去，让 ops 在锁内用权威值
+// 说话（那里报出来的错才是对的），而不是猜一个值把别人的改动压掉。
+func (s *Server) groupNow(profile, gid string) (title, accent, layout string, ok bool) {
+	b, err := s.deps.Store.LoadBookmarks(profile)
+	if err != nil {
+		return "", "", "", false
+	}
+	for i := range b.Groups {
+		if b.Groups[i].ID == gid {
+			return b.Groups[i].Title, b.Groups[i].Accent, b.Groups[i].Layout, true
+		}
+	}
+	return "", "", "", false
 }
 
 // applyPrefsOps 是台面面板里**改书签数据**的那几节共用的落点与收尾

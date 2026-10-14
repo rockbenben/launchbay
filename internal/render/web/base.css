@@ -970,7 +970,10 @@ select option{background:var(--bg);color:var(--ink)}
    整行）；它**不用 flex-basis:100%**：basis 是**主轴**上的量，行向写的 100% 翻成
    列向就成了"这一格要占满整个高度"（实测同一处容器高 512、每一颗色块 44×252）。 */
 .prefs-group-shape{flex:0 0 auto}
-.prefs-group-colors{flex:0 1 auto}
+/* 色板在宽屏上**独占第二行**（2026-10-15 改判，见 views_test.go 那条判据的
+   新注释）。flex-basis:100% 是结构性的：靠"装不下"折行的话，改任何一个宽度
+   都会让版式在"一行"与"两行"之间悄悄翻面，而那一翻 nobody 会发现。 */
+.prefs-group-colors{flex:1 0 100%}
 
 /* 色块：**看得见的只有中间那一颗圆点**，键本身留着按钮族那 44px 的触摸目标。
    44px 见方的一整块实色在这一行里会盖过分组名，而色点加一圈按下的描边已经够说

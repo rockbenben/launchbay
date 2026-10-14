@@ -576,10 +576,16 @@
            "这一组叫什么、用哪种排法"是一句话，而九颗色块与它们放在同一行
            就得折成两行——五个分组的面板已经两屏高，四十个分组时那是一堵墙。
            排法那两颗跟着名字走，读起来也正好是"这一组：磁贴"。 */}}
-      <b class="prefs-group-name" title="{{.Title}}">
+      {{/* 名字那一格（2026-10-15）：**它就是分组名本身**，不是标签。
+           maxlength 只在浏览器认，所以上限还在服务端（maxGroupTitleRunes）；
+           两处同源同一个数，改一处要改另一处——那条 422 会点名 rename。 */}}
+      <div class="prefs-group-name">
         <i class="prefs-swatch-preview" style="--sw:{{if .Accent}}{{.Accent}}{{else}}var(--accent){{end}}" aria-hidden="true"></i>
-        <span>{{.Title}}</span>
-      </b>
+        <input type="text" name="rename" class="prefs-group-rename" value="{{.Title}}"
+          maxlength="{{$.MaxGroupTitleRunes}}" autocomplete="off" spellcheck="false"
+          aria-label="{{$gname}} · {{$.T "prefs.groups.rename"}}"
+          title="{{$.T "prefs.groups.rename.hint"}}">
+      </div>
       <div class="prefs-keys prefs-group-shape">
         {{/* 每一颗键的可及名都带上"这一组叫什么"：一块面板里 13 个名字各重复
              六遍（磁贴/单列/用这个颜色/跟随主色/八色/自定义颜色 ×6 组），读屏

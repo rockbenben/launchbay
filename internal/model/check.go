@@ -34,6 +34,20 @@ var (
 	// 写进名字里。判据仍然只有一份：`ValidGroupLayout` 与 `ValidLayout`。
 	GroupLayoutValues = []string{LayoutTiles, LayoutList, LayoutFeature}
 
+	// MaxGroupTitleRunes 是**分组名**的长度上限，按字（rune）数而不是按字节——
+	// 这一格写中文是常态，按字节算会让中文比英文少 3 倍额度而没人说得清为什么。
+	//
+	// **它住在 model 而不是某一层**：同一个数要出现在三处——服务端那条表单通路
+	// 判它、模板上那个 maxlength 印它、openapi 若要写契约也得是它。三处各写一个
+	// 字面量的话，改一处要记得改另外两处，而漏掉的那一处症状是"界面上限与实际
+	// 判的对不上"（要么浏览器拦住了 curl 拦不住，要么反过来）。
+	//
+	// 为什么分组名要上限：它印在**每一个**分组标题、分组导航与导出文件里，
+	// 而分组是这一页的一级结构——一个 800 字的组名会把导航那一行撑破。
+	// 与 `Profile.PageTitle` 的上限（httpapi 的 maxPageTitleRunes = 60）同数，
+	// 但那是两件事：那是"这一页叫什么"，这一格是"这一组叫什么"。
+	MaxGroupTitleRunes = 60
+
 	// GroupAccentColorKeys 给 GroupAccentPalette 那一排色块各配一个**语言包键名后缀**。
 	// **它必须与 palette 一一对应、同序**：色块是看得见的颜色，看不见的名字，
 	// 而读屏与色觉障碍的人拿到的只有这个名字——所以"这一颗叫什么"不是可选项。

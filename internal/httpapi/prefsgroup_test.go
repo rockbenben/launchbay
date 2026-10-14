@@ -84,7 +84,10 @@ func TestPrefsGroup_每颗键带组名而动作键不装开关(t *testing.T) {
 		if form == "" {
 			t.Fatalf("面板里没有 %s 那张 form", gid)
 		}
-		nm := regexp.MustCompile(`class="prefs-group-name" title="([^"]*)"`).FindStringSubmatch(form)
+		// 组名从**那个输入框的 value** 读（2026-10-15 起名字那一格就是它自己，
+		// 不再是一段印死的字 + 一个 title）。判据的意图没变：组名与键读的是同一份，
+		// 写死一个名字就会在改档案标题那天假红。
+		nm := regexp.MustCompile(`name="rename" class="prefs-group-rename" value="([^"]*)"`).FindStringSubmatch(form)
 		if len(nm) != 2 {
 			t.Fatalf("%s 那一行没读到组名", gid)
 		}
@@ -188,7 +191,11 @@ func TestPrefsGroup_颜色与排法都改得动且推进rev(t *testing.T) {
 	if loc := rec.Header().Get("Location"); loc != "/prefs" {
 		t.Errorf("Location = %q，要 /prefs（改颜色是要连着改好几组的事，回首页就断了）", loc)
 	}
-	postForm(h, "/prefs/group", "group=nas&layout=list", dadFormCookie)
+	// **排法要挑一个真的不等于当前值的**（2026-10-15）：夹具里 nas 本来就是 list，
+	// 而服务端现在会把"值没变"的 op 压掉（applyBatch 只看 opList 非空，不压的话
+	// 按一下已经在用的那颗色块也会存一版快照并 +1 rev）。这条断言要守的是
+	// "真改动会推进 rev"，用一个没改的排法去测它，测到的其实是压掉那件事。
+	postForm(h, "/prefs/group", "group=nas&layout="+model.LayoutFeature, dadFormCookie)
 	b := loadBookmarks(t, s, "dad")
 	var nas *model.Group
 	for i := range b.Groups {
@@ -202,8 +209,8 @@ func TestPrefsGroup_颜色与排法都改得动且推进rev(t *testing.T) {
 	if nas.Accent != "#e0574f" {
 		t.Errorf("盘上 accent = %q，要 #e0574f", nas.Accent)
 	}
-	if nas.Layout != model.LayoutList {
-		t.Errorf("盘上 layout = %q，要 list", nas.Layout)
+	if nas.Layout != model.LayoutFeature {
+		t.Errorf("盘上 layout = %q，要 %s", nas.Layout, model.LayoutFeature)
 	}
 	if after := currentRev(t, s, "dad"); after != before+2 {
 		t.Errorf("rev = %d，要 %d：两次改动各推进一格，不推进就等于没写进书签文件", after, before+2)

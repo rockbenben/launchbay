@@ -348,6 +348,10 @@ type profileView struct {
 	// （model 里的 init 会 panic 兜住它们不同数的情形）。
 	PrefPalette      []string
 	PrefPaletteNames []string
+	// MaxGroupTitleRunes 是「分组名」那一格的长度上限，**原样带上 model 那个数**
+	// （不为模板抄一份，也不为它加一个 setter）。模板把它印成那个 maxlength：
+	// 服务端那条通路判的是同一个数，两处不同数时症状是"浏览器拦住了、curl 拦不住"。
+	MaxGroupTitleRunes int
 	// Background 是**这一页画背景用的** URL（`/backgrounds/<名字>`），空串 = 不画。
 	// BackgroundFile 是**盘上那一份**的 URL，不管画不画。
 	//
@@ -972,7 +976,7 @@ func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, br
 		PrefGroups: gs, PrefGroupsBroken: broken,
 		Bookmarks:  profileData{OpenInNewTab: openNewTab},
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
-		PrefPalette: model.GroupAccentPalette}
+		PrefPalette: model.GroupAccentPalette, MaxGroupTitleRunes: model.MaxGroupTitleRunes}
 	// 色名在这里算，不在 model 里写死：那张表只给键名后缀，句子在语言包里。
 	// 英文界面上那八颗从前印的是「蓝 青 绿…」，因为名字住在 Go 的一侧。
 	v.PrefPaletteNames = make([]string, len(model.GroupAccentColorKeys))
