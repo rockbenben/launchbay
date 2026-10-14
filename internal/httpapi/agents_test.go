@@ -46,7 +46,31 @@ func knownAPIPath(s *Server, p string) bool {
 // 这一条闸把第三种形状变成当场红，并顺手报出该填的那个路径。**js 与 css 两条
 // 都查**：它们是两个独立的内容哈希，改了样式忘了改文档，与改了脚本忘了改文档
 // 是同一种错，而两者都在同一段文字里。
+//
+// ── 为什么不写泛指（`/app.<hash>.js`）────────────────────────────────────
+// 泛指会让这道闸**彻底失效**，而且正好失效在它要防的那一种上：文档与路由
+// **一致地**指向一个具体值才是最难发现的那种漂移，泛指把它变成默认状态。
+// 泛指还让照抄的人必然 404——而脚本本来就该从页面 HTML 的 `<script src>` 读那个
+// 路径，不该硬编码它。所以**这里记具体值**：它今天有用（能被照抄、能被校验），
+// 代价是每改一次前端要同步两处——而那份重复由 LB_SYNC_FINGERPRINT 消掉，
+// 不用拿契约的有效性去换省事。
+//
+// ── LB_SYNC_FINGERPRINT=1：让测试自己把两处改对 ────────────────────────
+// 一次改前端本来要手改两个文档，而**两处都是机械替换**——而机械替换正是最该由
+// 机器做、最容易被人做漏的那一类（漏一处，闸在下一轮才红，而那轮可能隔了几天）。
+// 于是 `LB_SYNC_FINGERPRINT=1 go test ./...` 把两份文档同步成当前字节算出的
+// 那一个，然后**继续跑同一条校验**——所以这条命令既是"改"也是"验"，不会变成
+// 一个只会写不读的开关。
+//
+// **为什么用环境变量而不是 `-update` 这类 flag**：flag 是每个包各自注册的，
+// `go test ./... -update.fingerprint` 会让**没定义它的那些包**因未知 flag 而失败。
+// 环境变量没有这个问题，全量跑一遍即可，而全量跑正是这个动作该被执行的场合。
+var syncFingerprint = os.Getenv("LB_SYNC_FINGERPRINT") != ""
+
 func Test静态资产指纹三处一致(t *testing.T) {
+	if syncFingerprint {
+		syncAssetFingerprints(t)
+	}
 	doc, err := os.ReadFile("../../AGENTS.md")
 	if err != nil {
 		t.Fatal(err)
@@ -76,6 +100,62 @@ func Test静态资产指纹三处一致(t *testing.T) {
 	for _, m := range regexp.MustCompile(`/app\.[0-9a-f]{12}\.(js|css)`).FindAllString(string(doc), -1) {
 		if m != render.AppJSPath && m != render.AppCSSPath {
 			t.Errorf("AGENTS.md 里还残留 %s——它已经不是任何一条静态资产的路径了", m)
+		}
+	}
+}
+
+// syncAssetFingerprints 把两份文档里的静态资产指纹换成当前字节算出的那一个。
+//
+// **按后缀分派**（`.js` → AppJSPath、`.css` → AppCSSPath）而不是按"当前值反推
+// 旧值"：后者要求先知道旧的是什么，而"文档里残留着上一个指纹"正是这道闸要抓的
+// 那种漂移——按位置抓，它一次能收干净（文档里可能同时有当前值与更旧的值）。
+//
+// 只在**两份文档**上动手，路由表不用改（它是算出来的）。
+func syncAssetFingerprints(t *testing.T) {
+	t.Helper()
+	// 两条各自一条：字符类里的 12 是"恰好十二位"，而结尾的 (js|css) 是这一条只管
+	// 自己那一种——**不能把 js 换成 css**，而一个不带分 alternation 的正则会。
+	pairs := []struct {
+		file string
+		re   *regexp.Regexp
+		want string
+	}{
+		{"../../AGENTS.md", regexp.MustCompile(`/app\.[0-9a-f]{12}\.js`), render.AppJSPath},
+		{"../../AGENTS.md", regexp.MustCompile(`/app\.[0-9a-f]{12}\.css`), render.AppCSSPath},
+		{"openapi.json", regexp.MustCompile(`/app\.[0-9a-f]{12}\.js`), render.AppJSPath},
+		{"openapi.json", regexp.MustCompile(`/app\.[0-9a-f]{12}\.css`), render.AppCSSPath},
+	}
+	// 同一份文件可能被两条正则各改一次，所以先读完再一次性写回。
+	byFile := map[string]*strings.Builder{}
+	order := []string{}
+	for _, p := range pairs {
+		b, ok := byFile[p.file]
+		if !ok {
+			raw, err := os.ReadFile(p.file)
+			if err != nil {
+				t.Fatalf("读 %s: %v", p.file, err)
+			}
+			b = &strings.Builder{}
+			b.Write(raw)
+			byFile[p.file] = b
+			order = append(order, p.file)
+		}
+		before := b.String()
+		after := p.re.ReplaceAllString(before, p.want)
+		if after == before {
+			t.Logf("%s 里没有 %s 要替换的（已经是 %s）", p.file, p.re, p.want)
+			continue
+		}
+		n := len(p.re.FindAllString(before, -1))
+		t.Logf("%s：把 %d 处 %s 换成 %s", p.file, n, p.re, p.want)
+		b.Reset()
+		b.WriteString(after)
+	}
+	for _, file := range order {
+		// 无 BOM 的 UTF-8：这两份文件本来就没有 BOM（.gitattributes 管着 eol），
+		// 而加一个 BOM 会让 openapi.json 在某些解析器里多出一个键。
+		if err := os.WriteFile(file, []byte(byFile[file].String()), 0o644); err != nil {
+			t.Fatalf("写 %s: %v", file, err)
 		}
 	}
 }
