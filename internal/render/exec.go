@@ -137,7 +137,11 @@ type groupView struct {
 	Depth  int
 	Items  []itemView
 	Accent string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
-	Layout string // tiles|list 原样带出，Task 10 的 CSS 靠它
+	// AccentCSS 是同一个值包成 template.CSS 的那一份，供模板写进 section 的
+	// `style="--sec-accent:…"`（见 CSSAccent）。Accent 留给形状判据与比较，
+	// 模板上色用这一份——**同源，不是各自算一遍**。
+	AccentCSS template.CSS
+	Layout    string // tiles|list 原样带出，Task 10 的 CSS 靠它
 }
 
 // pathSep 是导入器拍平嵌套文件夹时用的分隔符。它在这里被**认出**，不是为了再去
@@ -170,7 +174,13 @@ type navNode struct {
 	Href   string
 	Count  int
 	Accent string
-	Depth  int
+	// AccentCSS 是**同一个值**包成 template.CSS 之后的那一份，供模板写进
+	// `style="--sec-accent:{{.}}"`（见 CSSAccent：html/template 会把一个像
+	// 颜色的值判为不可信并替换成 ZgotmplZ，而色点就是靠这一个变量上色的）。
+	// Accent 与 AccentCSS 同时留着：前者的形状判据/比较仍走它，模板那一处用
+	// 后者——**两份同源，不各自算**。
+	AccentCSS template.CSS
+	Depth     int
 	// Leaf/Parents 与 groupView 同一份拆法：父级节点自己也要显示成"叶子 + 弱化的
 	// 前缀"，否则"工具 / 同步"这一行在树里又会变回一长串。
 	Leaf    string
@@ -220,6 +230,7 @@ func groupNav(groups []groupView) []navNode {
 				node.Href = "#g-" + g.ID
 				node.Count = len(g.Items)
 				node.Accent = g.Accent
+				node.AccentCSS = CSSAccent(g.Accent)
 			}
 			out = append(out, node)
 		}
@@ -803,7 +814,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		// 分组色经 --sec-accent 进 CSS，挂载点两处（section 与侧栏色点），
 		// 都由同一个 groupView.Accent 喂（Task 10 与 P1-④ §7 的色点消费）。
 		gv := groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
-			Accent: validatedAccent(g.Accent)}
+			Accent: validatedAccent(g.Accent), AccentCSS: CSSAccent(g.Accent)}
 		gv.Parents, gv.Leaf = pathSplit(g.Title)
 		gv.Depth = strings.Count(g.Title, pathSep)
 		for _, it := range g.Items {

@@ -208,7 +208,15 @@ details[open]>summary::before{content:"▾"}
    不是"这一条叫什么"——眼睛该落在叶名上。 */
 .sec-path{color:var(--ink2);font-weight:400;opacity:.75;margin-right:2px}
 [data-profile-layout=topbar] .shell{grid-template-columns:minmax(0,1fr)}
-.gnav.top{margin:0 0 14px}
+/* 顶栏那一行**要跟下面的内容同一条左边线**（2026-10-14 实拍后补）。
+   这一处是 `{{if $top}}` 写在 `.shell` **之外**的（模板那处的形状：顶栏一行常驻、
+   侧栏那一列整个不画），而 `header` 与 `.shell` 都带
+   `max-width:1600px;margin:0 auto;padding:0 16px`——唯独它什么都没写，
+   于是它顶到屏幕 0，而下面那屏是居中的：视口宽于 1600 时左边线差出
+   (100vw−1600)/2 + 16（1440 那一档是居中后各留 16，看起来是"顶栏更靠左"）。
+   **三个数是同一份**：max-width / margin / padding 抄 header 与 .shell 那两行，
+   抄错一个就重新错开——而这一处错了不会有人报，只是看着没对齐。 */
+.gnav.top{margin:0 auto 14px;padding:0 16px;max-width:1600px}
 .gnav.top ul{display:flex;gap:6px;overflow-x:auto}
 .gnav.top li{flex:0 0 auto}
 @media (min-width:1101px){.drawer{border:0;padding:0;background:none}.drawer>summary{display:none}}

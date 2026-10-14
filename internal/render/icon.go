@@ -127,6 +127,28 @@ func validatedAccent(s string) string {
 	return ""
 }
 
+// CSSAccent 把**已经过 validatedAccent** 的 hex 包成 template.CSS，供模板写进
+// `style="--sec-accent:{{.}}"`。
+//
+// **为什么必须包**：html/template 在 `style` 属性位置上有自己的上下文转义，
+// 而它对一个看起来像颜色的值仍然判为不可信（实测 `#e8823c` 被替换成
+// `ZgotmplZ`，页面上那一格色点就退回 `--accent` 兜底的蓝——症状是"改了颜色、
+// 标题不变"，而数据与判据全都对）。仓库里已经栽过一次同族的：图标名走
+// `data-icon` 时也变成过 `#ZgotmplZ`。
+//
+// **为什么包它是安全的**：template.CSS 会**跳过全部转义**，所以安全性完全来自
+// 上游那一份判据——`validatedAccent` 只放行 `#rgb` / `#rrggbb`
+// （model.ValidAccent 是唯一判据），其余一律返回空串。所以这里**不能**直接
+// `template.CSS(原始值)`，必须先过判据。
+//
+// 空串仍是空串：没设色的分组照旧不发这一格（模板的 `{{with}}` / `{{if}}`）。
+func CSSAccent(s string) template.CSS {
+	if v := validatedAccent(s); v != "" {
+		return template.CSS(v)
+	}
+	return ""
+}
+
 // chipHue 由名字哈希出一个稳定色相。用 fnv 而不是 maphash：后者每次进程
 // 启动随机化种子，色块会在一夜之间换色，而 spec §5 要的是"同一个名字同个颜色"。
 func chipHue(name string) int {

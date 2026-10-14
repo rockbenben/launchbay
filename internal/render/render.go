@@ -578,7 +578,7 @@ func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, strin
 	out := make([]groupView, 0, len(b.Groups))
 	for _, g := range b.Groups {
 		out = append(out, groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
-			Accent: validatedAccent(g.Accent)})
+			Accent: validatedAccent(g.Accent), AccentCSS: CSSAccent(g.Accent)})
 	}
 	return out, "", b.OpenInNewTab
 }

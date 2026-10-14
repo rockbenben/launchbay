@@ -760,13 +760,26 @@ const APP_I18N = {
           method: 'POST', body, credentials: 'same-origin', redirect: 'follow',
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
+        // **这一族必须重渲染**（2026-10-14 实拍后改判）。先前只给 theme 做了就地更新，
+        // 于是 view/layout/title 按下去**屏上一动不动**——症状是"设置改了没生效"，
+        // 而服务端明明答了 303、数据也写进去了。
+        //
+        // 判据是**这一格的效果画在哪里**，不是"能不能不重载"：
+        //   - `data-theme` 是 `<html>` 上的一个属性，换掉它整页立刻变色 → **能就地**；
+        //   - view / layout / title 决定的是**整页怎么画**（分几栏、侧栏在不在、
+        //     标题叫什么），没有一个属性可以单独换 → **只能重渲染**。
+        // 「留在浮层」在这里赢不了「立刻见效」：屏上没变化时，人不会去想"要不要刷新"，
+        // 他会以为没保存成功，然后按第二遍——第二遍同样没变化。
+        //
+        // 所以：**theme 就地，其余重载**。重载后回到当前 URL（档案页或 /prefs），
+        // 落在**新**的那一档视图上，这正是"按一下就生效"。
         if (btn && btn.name === 'theme' && payload.theme) {
-          // 主题要**立刻见效**：这一格是"按一下就生效，不产生快照"（面板上原话），
-          // 而整页不重载的话，只有 html 上的 data-theme 得自己换。
           document.documentElement.dataset.theme =
             payload.theme === 'auto' ? '' : payload.theme;
+          if (btn.value != null) markPressed(form, btn.value);
+          return;
         }
-        if (btn && btn.value != null) markPressed(form, btn.value);
+        location.reload();
       } catch (err) {
         showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
       }
