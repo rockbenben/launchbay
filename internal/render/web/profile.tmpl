@@ -25,6 +25,7 @@
   <h1 title="{{.PageTitle}}">{{.PageTitle}}</h1>
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
+    {{if .Query}}<a href="/" aria-label="{{.T "profile.nomatch.all"}}" title="{{.T "profile.nomatch.all"}}">✕</a>{{end}}
     <button type="submit" class="primary">{{.T "profile.search.submit"}}</button>
   </form>
   {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，

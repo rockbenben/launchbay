@@ -47,13 +47,13 @@
                所以一个用中性徽标、一个用 warn 色的 .badge 本色。 */}}
           {{if .Disabled}}<span class="badge">{{$.T "admin.badge.disabled"}}</span>{{end}}
           {{if .Broken}}<span class="badge warn">{{$.T "admin.badge.broken"}}</span>{{end}}</td>
-        <td data-k="{{$.T "admin.col.items"}}">{{if .Broken}}—{{else}}{{.Items}}{{end}}</td>
-        <td data-k="{{$.T "admin.col.rev"}}">{{if .Broken}}—{{else}}{{.Rev}}{{end}}</td>
+        <td data-k="{{$.T "admin.col.items"}}" class="col-metric">{{if .Broken}}—{{else}}{{.Items}}{{end}}</td>
+        <td data-k="{{$.T "admin.col.rev"}}" class="col-metric">{{if .Broken}}—{{else}}{{.Rev}}{{end}}</td>
         {{/* 这一格从前直接印 statusRows 给的 RFC3339 UTC 原文
              （`2026-10-10T09:33:08Z`）：家里人说"什么时候改的"要自己解析 T 与 Z。
              格式化放在渲染侧（shortTime），判据仍只有一份——数据那头不动。 */}}
         <td data-k="{{$.T "admin.col.modified"}}" class="col-time">{{if .Modified}}{{shortTime $.Lang .Modified}}{{else}}—{{end}}</td>
-        <td data-k="{{$.T "admin.col.snapshots"}}">{{.Snapshots}}</td>
+        <td data-k="{{$.T "admin.col.snapshots"}}" class="col-metric">{{.Snapshots}}</td>
         <td data-k="{{$.T "admin.col.actions"}}">
           {{if .Broken}}
             {{/* 点了没反应的东西不进界面：坏档改不了（④.6 的 rebuild 那条路才要改），

@@ -949,6 +949,15 @@ const APP_I18N = {
       if (e.key === 'Enter') {
         e.preventDefault();
         grid.querySelector('.icpick-tile')?.click();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        grid.querySelector('.icpick-tile')?.focus();
+      }
+    });
+    grid.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' && document.activeElement === grid.querySelector('.icpick-tile')) {
+        e.preventDefault();
+        input.focus();
       }
     });
     grid.addEventListener('click', (e) => {
@@ -2140,6 +2149,7 @@ const APP_I18N = {
     if (e.key === 'Escape') {
       e.preventDefault();
       closeTopLayer();
+      if (multi.on) exitMulti();
       return;
     }
     if (typing || mod(e) || e.altKey) return;

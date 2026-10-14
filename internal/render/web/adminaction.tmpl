@@ -57,7 +57,7 @@
       {{end}}
     </fieldset>
     {{end}}
-    <button{{if .Danger}} class="danger"{{end}}>{{.Submit}}</button>
+    <button class="{{if .Danger}}danger{{else}}primary{{end}}">{{.Submit}}</button>
   </form>
   {{end}}
 </main>

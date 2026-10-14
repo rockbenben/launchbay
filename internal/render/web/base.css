@@ -126,6 +126,8 @@ header .theme{flex:0 0 auto}
    这里只补布局；.hits 是搜索态的读数，不搜索时整行不渲染。 */
 .search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
 .search input{min-width:0;flex:1 1 auto}
+.search a{color:var(--ink2);text-decoration:none;font-size:14px}
+.search a:hover{color:var(--ink)}
 .hits{flex:0 0 100%;margin:0;font-size:13px;color:var(--ink2)}
 /* 满幅上限（2026-10-12 从 1180 放大到 1600）：这三处**必须同数**——`header`
    此前压根没有上限，于是顶栏满幅、正文封顶 1180 居中，1440 档上「ben」贴着屏幕
@@ -157,6 +159,7 @@ main{max-width:1600px;margin:0 auto;padding:0 16px}
    299px，那一档的卡更宽、更好点，本来就没坏，不该被顺手改掉。
    adminlogin 与 broken 归进同一族：前者只有一把密钥，后者只有一段说明。 */
 .chooser{max-width:760px}
+.act{max-width:760px}
 .chooser .profiles{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 /* 建档表单比 760 再收一档：两格输入 + 一格勾选 + 一颗按钮，占满 760 仍是两倍宽的
    框。460 是量出来的——`.pick input` 的最小可用宽约 300，加上 16px 内衬两侧。 */
@@ -168,7 +171,7 @@ main{max-width:1600px;margin:0 auto;padding:0 16px}
    "必须显式覆盖"。 */
 .shell{display:grid;grid-template-columns:206px minmax(0,1fr);gap:24px;align-items:start;
   max-width:1600px;margin:0 auto;padding:0 16px}
-.shell>main{max-width:none;margin:0}
+.shell>main{max-width:none;margin:0;padding:0}
 .side{position:sticky;top:12px;align-self:start;min-width:0}
 /* 侧栏与主区之间的那道线（**只在桌面档**，2026-10-11 加）。
    侧栏在 ≥1101px 是"裸文字悬在背景上"——四个分组名和右边的卡片不在同一层，
@@ -339,11 +342,7 @@ li{min-width:0}
    不触发重排（改的是 paint 而非几何），留着代价是零，去掉会让"描边转亮蓝"
    这条 §8.1 明写的效果消失。outline 只在 :focus-visible 上出现、不参与过渡：
    它每次都重绘整层，做过渡会掉帧。 */
-.card,.pick,.plain{display:flex;align-items:center;gap:8px;min-width:0;
-  padding:8px 10px;border:1px solid var(--line);border-radius:12px;
-  background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  color:inherit;text-decoration:none;min-height:44px;
-  transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.card,.pick,.plain{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:inherit;text-decoration:none;min-height:44px;transition:transform .16s ease,border-color .16s ease,background .16s ease}
 /* 44 不是随手挑的：它是 §7.5 触摸目标的下限，也是这一页能从"一屏 10 条"回到
    "一屏 20 条"的那一格。**再往下就得动无障碍换密度，这笔不划算。**
    紧凑是给书签卡片的，不是给所有借这张脸的东西的——进门那一页的卡片里装着
@@ -351,6 +350,7 @@ li{min-width:0}
 .pick{padding:12px;min-height:56px}
 .card:hover,.pick:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card-hi)}
 .card:hover .ic-svg,.card:hover .ic-img,.card:hover .ic{transform:scale(1.07) rotate(-2deg)}
+.card:active,.pick:active{transform:scale(.985);background:var(--card-hi)}
 /* 按下态（§7.5 五态里的"静止/hover/按下/禁用/开着"那一格）。取景逐族量过：
    卡片 0/358、把手 0/360、badge 0/182、按钮 0/182、布局键 0/100、复制键 0/48——
    **整站一条 :active 都没有**。触屏上没有 hover，按下去那一瞬是用户唯一的
@@ -377,8 +377,7 @@ a:active,button:active,input[type=submit]:active,summary:active{transform:transl
    .card 之后，"需手动打开"那条（.plain）的长名字会换行而不是省略号——两态在类名
    契约里是同一张脸，规则就该一起写（修复轮 1 的 M-4）。 */
 .card b,.plain b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card i{font-style:normal;font-size:12px;color:var(--ink2);margin-left:auto;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;max-width:38%}
+.card i{font-style:normal;font-size:12px;color:var(--ink2);margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;max-width:38%}
 /* 图标：尺寸下限 20px（§7.5）。22px 是实测选值——20px 时 tabler 的 2px 线在
    渐变底上已经发糊，而再大就会把 190px 的磁贴挤成两行标题。 */
 .ic-svg,.ic-img{width:22px;height:22px;flex:0 0 auto;border-radius:6px;transition:transform .16s ease}
@@ -386,9 +385,7 @@ a:active,button:active,input[type=submit]:active,summary:active{transform:transl
 .ic-fill{fill:currentColor;stroke:none}
 .tiles .ic-svg{stroke-width:2.5} /* §7.5：磁贴里线条加粗，list 形态保持 2 */
 .ic-img{object-fit:contain;background:var(--card-hi);padding:1px}
-.ic{width:22px;height:22px;flex:0 0 auto;border-radius:7px;display:grid;place-items:center;
-  font-size:12px;font-weight:700;color:#fff;transition:transform .16s ease;
-  background:hsl(var(--chip-h,222) 62% 28%)}
+.ic{width:22px;height:22px;flex:0 0 auto;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;transition:transform .16s ease;background:hsl(var(--chip-h,222) 62% 28%)}
 /* 色块底为什么是 28% 而不是最初定的 46%：白字压在 hsl(色相 62% 46%) 上，色相来自
    条目名的 fnv 哈希（icon.go 的 chipHue，全域分布），遍历 h=0..359 的最差一处落在
    黄区 h≈60°，只有 1.98:1 —— 12px 粗体够不上 WCAG 的大字号门槛，要 4.5:1。
@@ -422,9 +419,7 @@ li:nth-child(11) .card{animation-delay:.12s}
 li:nth-child(12) .card{animation-delay:.132s}
 /* 网点纹理压在极光之上（spec §8.1 那句"叠一层 3px 网点"）。
    pointer-events:none 不是装饰：固定层盖住内容会把整页点击吃掉。 */
-body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
-  background-size:3px 3px}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:3px 3px}
 /* 别名/标签是 flex 行里的短词：不给 nowrap + 不许收缩，窄屏上会被挤成一列竖字
    （Task 12 手机档实拍发现，部署验收 #1 的另一半）。 */
 .badge,.tag{font-size:11px;border-radius:6px;padding:2px 6px;white-space:nowrap;flex:0 0 auto}
@@ -435,9 +430,7 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
    状态那一半默认安静，只有 `.badge.warn` 才用告警色。 */
 .badge{border:1px solid var(--line);color:var(--ink2);background:transparent}
 .badge.warn{border-color:var(--warn);color:var(--warn)}
-a.badge,button.badge{font-size:13px;padding:8px 12px;border-radius:9px;
-  border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;
-  transition:transform .16s ease,border-color .16s ease,background .16s ease}
+a.badge,button.badge{font-size:13px;padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;transition:transform .16s ease,border-color .16s ease,background .16s ease}
 a.badge:hover,button.badge:hover{background:var(--card-hi);border-color:var(--accent)}
 a.badge.danger,button.badge.danger{border-color:var(--bad);color:var(--bad)}
 a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);border-color:var(--bad)}
@@ -449,8 +442,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    两枚键在右边并排（flex，不参与栅格轨道，所以不会把名字压窄）。 */
 .plain{flex-wrap:wrap}
 .plain .addr{order:2;flex:1 0 100%;display:flex;align-items:center;gap:4px;min-width:0}
-.plain .addr>code{flex:1 1 0;font-size:12px;color:var(--ink2);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plain .addr>code{flex:1 1 0;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 两枚键并排待在地址那一行右端，**不再撑命中区**（2026-10-13 用户实拍后改判）。
    44px 的盒子配 `.layoutbtn` 那种 `::before{inset:-6px}` 的透明扩展区，在**只有
    一枚键**的行上是划算的（盒子小、命中大）；但这一行并排站着两枚，32+4+32 的间隙
@@ -687,7 +679,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    默认折成空格，于是"现在是这样"与"回退会怎样"挤成一段，而这一页存在的意义
    就是让人把"会发生什么"读清楚。pre-line 让空行真的断成段（单换行仍折行，
    不用 pre-wrap，免得一堆空行把版撑开）。 */
-.explain{white-space:pre-line}
+.explain{white-space:pre-line;max-width:760px}
 .pick{font:inherit;color:inherit;flex-direction:column;align-items:stretch;gap:10px;min-height:0}
 /* 选择页那张卡的头：**服务图标 + 名字**，横排（2026-10-12）。
 
@@ -743,8 +735,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    勾选框的标签本来就不在输入框下面。 */
 .setup label.chk{flex-direction:row;align-items:center;gap:8px}
 .hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
-.pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);
-  border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+.pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
 /* 「不设 PIN」那一格勾选框（2026-10-12）。上面那条 `.pick input` 是**通配到所有
    input** 的族规则，而引导表单正好带 pick 这个类——于是这一格勾选框会吃到文本框的
    边框、圆角、内衬和 flex:1，被拉成一条又宽又扁的横杠。`.newprofile` 那边当初就是
@@ -826,8 +817,7 @@ select option{background:var(--bg);color:var(--ink)}
    模板里了，而面板里三组三态/两态的键要**同一张脸**——那正是收进面板的第二个
    好处（以前这几颗分属三个不同的控件族：改名是 details 里的表单、主题是一颗
    循环键、视图与形态才是 pressed 单选钮。同族不同形是最难维护的一种排法）。 */
-.pick button,.search button,.prefs button,.adm button,.act button,.langsel button,.add{font:inherit;cursor:pointer;color:inherit;background:var(--card);
-  border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
+.pick button,.search button,.prefs button,.adm button,.act button,.langsel button,.add{font:inherit;cursor:pointer;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
 .pick button:hover,.search button:hover,.prefs button:hover,.adm button:hover,.act button:hover,.langsel button:hover,.add:hover{background:var(--card-hi);border-color:var(--accent)}
 /* 三态/两态键的**按下态**（`aria-pressed="true"`）。这些键的文字是稳定标签
    （"分组"/"全局"/"密集"），所以"现在开没开"不能靠文字说，得有个形状：
@@ -863,9 +853,7 @@ select option{background:var(--bg);color:var(--ink)}
    从前八行平铺，读的人要自己判断哪几行是一类；一个 13px 的小标题 + 一条线
    就把"这一页长什么样 / 出口 / 分组"三段说清了。字号与字色取节标题那一档，
    而 margin-top 只在**第二个及以后**的分节上留（第一个紧跟 h2 不留）。 */
-.prefs h3.prefs-sec{margin:6px 0 -4px;font-size:13px;font-weight:600;letter-spacing:.04em;
-  text-transform:uppercase;color:var(--ink2);
-  border-top:1px solid var(--line);padding-top:14px}
+.prefs h3.prefs-sec{margin:6px 0 -4px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
 .prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0}
 /* 一格 = 说明 + 控件（列）。`min-width:0` 是承重的：它让这一格在窄屏上能缩到
@@ -1159,17 +1147,18 @@ fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
    所以 ≤700 改成一行一张卡、每格前面挂列名（列名来自 td 的 data-k，与表头同一份
    文字，由 admin.tmpl 负责）。表头整条隐藏——列名已经在每一格里了。 */
 @media (max-width:700px){
-  .adm,.adm tbody,.adm tr,.adm td{display:block;width:auto}
+  .adm,.adm tbody{display:block;width:auto}
   .adm thead{display:none}
-  .adm tr{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px}
-  .adm td{border:0;padding:3px 0;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .adm tr{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px}
+  .adm td{border:0;padding:3px 0;display:flex;width:100%;gap:10px;align-items:center;justify-content:space-between}
   .adm td::before{content:attr(data-k);color:var(--ink2);font-size:12px;flex:0 0 auto}
   .adm td .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
   /* 三个数字格（条目/rev/快照）挤回同一行：实测一行一张卡时它们各占一行，
      档案行高从 149 涨到 209——竖排治好了"读不出"，却把表变成了六屏。
      短数并排、长内容（名字/时间/动作）各占一行，才是窄屏要的形状。 */
-  .adm td[data-k="条目"],.adm td[data-k="rev"],.adm td[data-k="快照"]{
-    display:inline-flex;width:auto;gap:6px;margin:0 12px 0 0;border:0}
+  .adm td.col-metric{order:2;display:inline-flex;width:auto;gap:6px;margin:0 12px 0 0;border:0}
+  .adm td.col-time{order:3}
+  .adm td:last-child{order:4}
 }
 @media (forced-colors:active){.adm th,.adm td{border:1px solid CanvasText}
   fieldset.choices,.act .choice label{border:1px solid CanvasText}}
