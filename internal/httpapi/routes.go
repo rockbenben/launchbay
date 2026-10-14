@@ -52,6 +52,8 @@ func (s *Server) routes() []route {
 		// 而首页正是离线要保的那一张。
 		{Method: "GET", Pattern: "/sw.js", Cred: credNone,
 			Summary: "⑥ 的 Service Worker（根路径，作用域覆盖整站）", H: s.handleSWJS},
+		{Method: "GET", Pattern: "/manifest.webmanifest", Cred: credNone,
+			Summary: "⑥ 的 Web App Manifest（PWA 独立窗口安装，支持添加到主屏幕）", H: s.handleManifest},
 		// ⑥ 的 bookmarklet（§6.3）：吐出那段拖进书签栏的 JS，**里面没有令牌**——
 		// 家里人不需要在任何地方配令牌，写走会话 cookie。
 		{Method: "GET", Pattern: "/bookmarklet", Cred: credNone,

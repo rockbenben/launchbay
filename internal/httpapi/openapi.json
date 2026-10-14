@@ -118,6 +118,19 @@
         }
       }
     },
+    "/manifest.webmanifest": {
+      "get": {
+        "summary": "⑥ 的 Web App Manifest（PWA 独立窗口安装，支持添加到主屏幕）",
+        "x-credential": "none",
+        "security": [],
+        "description": "P1-⑥ 的 Web App Manifest：平板/手机「添加到主屏幕」即成独立全屏应用（spec §6.3）。\n\n提供 name、short_name、start_url、display: standalone、主题色与内嵌 SVG 图标。配合已有的 Service Worker 离线回退，安装后即可拥有独立无边框窗口原生质感，适配家庭客厅中控屏与床头/厨房平板。",
+        "responses": {
+          "200": {
+            "description": "manifest JSON 内容（public 缓存）"
+          }
+        }
+      }
+    },
     "/bookmarklet": {
       "get": {
         "summary": "⑥ 的 bookmarklet（零令牌，拖进书签栏即用）",

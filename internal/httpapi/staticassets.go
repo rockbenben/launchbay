@@ -27,6 +27,30 @@ func (s *Server) handleAppJS(w http.ResponseWriter, r *http.Request) {
 	w.Write(render.AppJS())
 }
 
+var manifestBytes = []byte(`{
+  "name": "Launchbay",
+  "short_name": "Launchbay",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121417",
+  "theme_color": "#121417",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23388bfd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13a8 8 0 0 1 7 7 6 6 0 0 0 3-5 6 6 0 0 0-6-6 6 6 0 0 0-4 4z'/%3E%3Cpath d='m14.5 9.5 5-5'/%3E%3Cpath d='m17 7 2-2'/%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}`)
+
+// handleManifest 吐出 Web App Manifest（PWA 独立窗口运行所需）。
+func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(manifestBytes)
+}
+
 // handleAppCSS 吐出 ⑤/⑥ 的交互样式。**与 handleAppJS 完全同款**：内容指纹命名 +
 // immutable，不给 ETag。
 func (s *Server) handleAppCSS(w http.ResponseWriter, r *http.Request) {
