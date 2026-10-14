@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.4e1917be700d.js": {
+    "/app.53ad906d4acf.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -92,7 +92,7 @@
         }
       }
     },
-    "/app.2e7da7237709.css": {
+    "/app.66315764247a.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -220,7 +220,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**为什么有这一页**：档案页里那一枚「台面」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 403：令牌发给 AI/扩展/CLI，而这一页是给人看的。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的四行是四张**独立的表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。最后一行是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。",
+        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**为什么有这一页**：档案页里那一枚「设置」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 **303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是 `redirectPicker`，浏览器通路的权限拒绝一律 303，见 spec §6.1；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的四行是四张**独立的表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。最后一行是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。",
         "responses": {
           "200": {
             "description": "no-store 的 HTML 页面（台面面板）",
@@ -233,10 +233,7 @@
             }
           },
           "303": {
-            "description": "会话指的档案整个没了：回选择页（不带 ?err=，见 /setup 那条「窗口已关」的同一种形状）"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
+            "description": "浏览器通路的权限类拒绝一律 303 回选择页（不带 ?err=）：**带任何令牌**、无凭证、会话指的档案整个没了，都是同一句（见 spec §6.1 与 selfProfileOnly）。实测 2026-10-14：管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303，所以这一族没有 403 响应"
           }
         }
       },
@@ -269,7 +266,8 @@
                     "enum": [
                       "sidebar",
                       "topbar"
-                    ]
+                    ],
+                    "description": "**分组导航住在哪**（侧栏 / 顶部横排一行），落 profile.json 的 layout。**在 `view` 为 `wall` 或 `dense` 时，选 `sidebar` 表示那一列不画**（2026-10-14）：这两档所有分组本来就摆在同一屏，导航的职责「跳到你看不见的那一节」不成立，而那 206px + 24px 的缝在 1440 上占 16%——实测密集档里它正好是**一整栏条目**（dense 从 4 栏变 5 栏，一屏 107 → 121 条）。选 `topbar` 的那一档**一个字都不改**：它是「想留着目录的人」的那条出路（名字与条数都在）。判据由渲染层的 `compactView`（view ∈ {wall,dense}）与 base.css 的两条选择器共用；**服务端不因为它改任何数据**——`layout` 仍只是那两个字，而面板里那颗键的可见文字也**不随视图变**（见 prefs_test 那条「标签稳定而状态走 aria」），「紧凑档下这一列不画」写在下面那句说明里。"
                   },
                   "view": {
                     "type": "string",
@@ -355,7 +353,31 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，**AI 不走这条**——机器改这两项打 `POST /api/v1/batch` 的 `set groups/<id>/accent` 与 `set groups/<id>/layout` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`——**一个分组内部的排法**，与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 403：这一页是给人看的。"
+        "description": "浏览器表单通路，**AI 不走这条**——机器改这两项打 `POST /api/v1/batch` 的 `set groups/<id>/accent` 与 `set groups/<id>/layout` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`——**一个分组内部的排法**，与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
+      }
+    },
+    "/prefs/tabs": {
+      "post": {
+        "summary": "点开一条书签是在当前标签页还是新标签页（仅会话，表单通路；书签写通路）",
+        "x-credential": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "改台面面板里「点开书签」那一格：body `tabs=0`（当前标签页）或 `tabs=1`（新标签页），落 `Bookmarks.OpenInNewTab`，页面据此给 `<a>` 加 `target=\"_blank\"`。\n\n**走 applyBatch 那条书签写通路**（快照、审计线、rev 一道闸不少，收尾与 `POST /prefs/group` 同一份 `applyPrefsOps`），**不是**并进 `POST /prefs` 的字段名单：那一格改的是台面偏好，只写 profile.json、不产生版本；而这一格住在**书签文档**里（跟着导出/导入走），能在「回退」里退回来。两族落点不同，混在一处会让那句「四个字段至少给一个」开始管到不属于它的东西。\n\n只认 `0`/`1`：把 `true`/`yes`/`2` 一并收下等于让人以为按了而其实没按（枚举写侧严）。别的形状 → 422 点名 `tabs` 且**不写盘**（不产生 rev、不留快照）。带令牌一律 **303 回选择页**（这一族只认会话，`selfProfileOnly` 对 bearer 的答法是 redirectPicker，不是 403）。档案没了 → 303 回选择页；坏档 → 把面板重画回来并在顶部说清为什么。\n\n**它对 `chrome://` 与 `file://` 那一行不生效**：那类地址从 http 页面点链接会被浏览器挡掉（2026-10-14 实测控制台 `Not allowed to load local resource`），所以它们继续是「需手动打开 + 复制键」那一行，见 `model.ExternalScheme`。"
+      }
+    },
+    "/prefs/background": {
+      "post": {
+        "summary": "改这一页自己的背景图（上传/移除/暂时不显示，仅会话，multipart 表单通路）",
+        "x-credential": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "浏览器表单通路，**AI 不走这条**（本产品没有为背景图开 JSON 面：没有脚本或扩展会替人挑自己的壁纸）。**三件事共用这一个端点**：上传/换一张、移除、暂时不显示/恢复显示——一次按下 = 一个意图（与 `/prefs/group` 同一处置）。\n\n**必须 `multipart/form-data`**：文件走不了 urlencoded；而这正是不并进 `POST /prefs` 的原因——那一条的字段名单是 theme|view|layout|pageTitle，把一张几 MB 的图塞进去，那句「至少给一个字段」就会开始管到不属于它的东西。面板上那三张表单里只有「上传」那一张带文件字段，另两张（移除 / 暂时不显示）是 urlencoded，本端点两种编码都收。\n\n字段：`<input type=file name=file>`（**按魔数嗅探类型，不信浏览器给的 Content-Type**；只认 png/jpg/webp/gif——**svg 一律拒**，背景是铺满整屏的位图，而 svg 是一整类执行面；上限 4 MiB）、`remove=1`、`hidden=1|0`。\n\n落点 `data/backgrounds/<档案 id>/<16 位内容哈希>.<后缀>`：**按档案分目录**，于是「删除」只需要删自己那一个文件（单份内容寻址会让 A 删掉之后 B 的背景跟着消失，而「还有谁在用」这个问题的答案会变）；内容寻址那一半让换一张必然换一个 URL（immutable 缓存立刻失效，不会把上一张当这一张端出来）。\n\n写 profile.json 的 `background` / `backgroundOff` 两个键：**不动 rev、不做快照、不写审计行**（与那四条台面动作同类），而它**不随书签导出走**（导出只带 bookmarks.json，背景跟着这台机器与这一份档案走）。换一张会自动把 `backgroundOff` 归位——「暂时不显示」说的是「我不想看**那张**」，而人刚给了新的一张。\n\n形状错 / 不是位图 / 太大 / 零字节 → **422 点名 `file`**（这一格的值不合法，与「这台机器坏了」是两件事，人能自己改）；什么都没带 → 422（不是静默 303，那会让拼错的字段名返回成功）。成功 303 回 `/prefs`——背景这一节在面板上，改完接着还能按下一颗。档案读不出来（坏档）走与 `/prefs` 同一条分诊（503）；带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
       }
     },
     "/revert": {
@@ -1883,6 +1905,59 @@
         }
       }
     },
+    "/api/v1/icons/tiles": {
+      "get": {
+        "summary": "图标选择器那一格：同一条搜索，画好的 HTML 方格（公开）",
+        "x-credential": "none",
+        "security": [],
+        "description": "`GET /api/v1/icons` 的**界面那一半**：同一个 q、同一个内嵌索引，吐的却是一段**已经画好的 HTML**——每格一个 `<button type=button class=\"fld icpick-tile\" data-icon=\"<名字>\">`，里面是页面自己画卡片图标时用的同一份内联 SVG（render.svgMarkup 是全案唯一把图标拼成 markup 的地方），于是挑的时候看见的形状与存下去之后卡片上那一枚逐像素相同。参数：?q= 必填（缺了 400；空查询回一张空图而不是全量六千条）、?limit= 1..120（默认 24，超了钳到 120——它是给人看的一格，给 AI 的那条是 200）。**响应不是 JSON**：Content-Type: text/html; charset=utf-8 且带 X-Content-Type-Options: nosniff；落在 `/api/v1/` 前缀下，no-store 由前缀中间件给。**X-LB-Icons-Total 报命中总数**（不是画出来的条数）：界面据此说「共 N 个，先看前 M 个」——截断必须说出来，否则人会以为库里只有那几十个。零命中是 200 且正文为空（不是 404）。这条端点给界面用，脚本要名字数组仍走 GET /api/v1/icons。",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "关键词，也可带集合前缀做整键回查（如 tabler:box）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120,
+              "default": 24
+            },
+            "description": "最多画多少格；超上限钳到 120"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "一串 button（零命中时正文为空）；另带 X-LB-Icons-Total: <命中总数>",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "缺 q / limit 不是 1 以上的整数",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/icons/{name}": {
       "get": {
         "summary": "resolve 抓来的 favicon 缓存（内容哈希命名，immutable）",
@@ -1915,6 +1990,59 @@
           },
           "404": {
             "description": "形状不对，或缓存里没有这个文件——对调用方是同一句话，不回显为什么",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backgrounds/{name}": {
+      "get": {
+        "summary": "这一份档案自己的背景图（内容哈希命名，仅会话）",
+        "x-credential": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "端出**会话所指那一份**的背景图（profile.json 的 `background` 指着它）。\n\n**与 `GET /icons/{name}` 那条公开通路相反**，理由是 §11「各人一份，别人看不见」：favicon 是任何站都有的图标，而背景图是家里人自己放的图（很可能是孩子的照片）——「64 位哈希 URL 当秘密」我们没必要顺手造出来。而**按档案分目录**（`data/backgrounds/<id>/`）让 A 的会话连 B 的那张都读不到，哪怕他知道那个哈希。\n\n形状即边界：`^[0-9a-f]{16}\\.(png|jpg|webp|gif)$`，形状非法与盘上没有是**同一句 404**（这里不是诊断通路，回显「为什么没有」等于告诉探测者他猜对了形状）。带令牌 **403**（认出来了，而令牌不带这个门——与 `self/pin` 同一句，不是 401）、无凭证 401。\n\n`Cache-Control: private, max-age=31536000, immutable`：名字是内容哈希，换一张必然换一个 URL，所以 immutable 名副其实；而这份字节不进任何公共缓存。响应另带 `X-Content-Type-Options: nosniff` 与 `Content-Security-Policy: sandbox`（裁定 R9 的同一个理由：谁把 URL 直接开进地址栏，响应就是他自己的一个文档）。\n\n**它不进 Service Worker 的预缓存清单**（那份只有静态资产），所以离线首屏若没命中浏览器自己的 HTTP 缓存，症状是「背景不见了」而不是页面坏掉。",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}\\.(png|jpg|webp|gif)$"
+            },
+            "description": "<16 位小写十六进制哈希>.<png|jpg|webp|gif>；大写、缺位、多位、后缀不在表内都算不存在"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "磁盘上的原字节，不改写不重编码；Content-Type 按后缀查表，另带 nosniff、private+immutable 与 CSP sandbox",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "形状不对，或这一份的目录里没有这个文件——对调用方是同一句话，不回显为什么",
             "content": {
               "application/json": {
                 "schema": {
