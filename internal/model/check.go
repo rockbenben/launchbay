@@ -26,12 +26,13 @@ var (
 	// wall = 全局视图，各组作为列头、条目压成紧凑单行，多栏流式排满一屏。
 	ViewValues = []string{"groups", "wall", "dense"}
 
-	// GroupLayoutValues 是**一个分组内部**条目的排法：tiles 磁贴 / list 单列。
+	// GroupLayoutValues 是**一个分组内部**条目的排法：tiles 磁贴 / list 单列 /
+	// feature 大卡（大卡那一档会被渲染层挪到页面顶部独占一块，见 LayoutFeature）。
 	//
 	// 它与 LayoutValues（sidebar/topbar，分组**导航**放在哪）不是一件事，两个
 	// 枚举都叫 "Layout" 是历史遗留——所以这一张带 Group 前缀，把"排的是哪一层"
 	// 写进名字里。判据仍然只有一份：`ValidGroupLayout` 与 `ValidLayout`。
-	GroupLayoutValues = []string{LayoutTiles, LayoutList}
+	GroupLayoutValues = []string{LayoutTiles, LayoutList, LayoutFeature}
 
 	// GroupAccentColorKeys 给 GroupAccentPalette 那一排色块各配一个**语言包键名后缀**。
 	// **它必须与 palette 一一对应、同序**：色块是看得见的颜色，看不见的名字，

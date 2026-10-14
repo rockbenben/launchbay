@@ -189,6 +189,8 @@
   "app.edit.fallbackName": "this bookmark",
   "app.layout.tiles": "Tiles",
   "app.layout.rows": "Single column",
+  "app.layout.feature": "Feature",
+  "app.layout.featureTitle": "moves to a band of its own at the top: bigger cards with the host under the name. This group no longer appears in the body sections",
   "app.layout.aria": "Switch the group “%s” from %s to %s",
   "app.multi.aria": "Bulk actions",
   "app.multi.move": "Move to (%d)",

@@ -380,3 +380,77 @@ ol.rep-list{list-style:decimal}
 .rep code{font-size:12px;word-break:break-all;direction:ltr}
 .rep b{font-weight:600}
 @media (forced-colors:active){.rep{border:1px solid CanvasText}}
+
+/* ── 大卡带（2026-10-14）───────────────────────────────────────────────────
+   设成「大卡」的那几个分组在页面顶部独占一块。**它为什么住在这个文件里而不是
+   内联的 base.css**：按 base.css 自己那条理由——内联的那一份是**每一页首屏都要
+   背的**，而大卡只出现在档案页。放进 base.css 会让选择页/引导页/管理页/坏档页
+   各白带这 1.5 KB，而档案页本来就已经引本文件（不必多一次往返）。
+
+/* ── 大卡带（2026-10-14）───────────────────────────────────────────────────
+   设成「大卡」的那几个分组在页面顶部独占一块。**这是三种排法里唯一一块有
+   自己版式的**：磁贴与单列共用同一套 44px 行的尺寸，只有大卡能给"每天必点的
+   那几个"一个一眼扫得到的视觉权重。
+
+   版式取自一张参考实拍（大卡在上、紧凑分组在下），但**没有照搬它的壳**：
+   那一套靠纯黑底 + 无边框 + 全大写字，靠字号分层；这里全站是半透明毛玻璃，
+   于是大卡也用同一张脸（`.card` 的描边与内衬），只把**尺寸与层次**拉开——
+   一张 96px 高的卡、28px 的图标、16px 的名字、12px 的主机名。
+
+   **尺寸是量出来的，不是"看着大"**：
+   - 卡 96px 高：装下 28 图标 + 两行字（16 + 12 + 两个 6px 间隙 = 68），
+     再留 28px 内衬。矮到 80 就压线，高到 120 一屏只剩两行。
+   - 栏宽 240px：名字一行放得下「Nginx Proxy Manager」（实测 202px 处截断
+     成「Nginx Proxy Man…」），而再宽这一屏就排不下 5 栏。
+   - 图标 28px：磁贴是 22px。大 6px 而不是翻倍——翻倍（44）会让一行只排得下
+     三张，而"一屏看到几个"正是这一档要给的。 */
+.feat{margin:0 0 22px;padding:0 0 20px;border-bottom:1px solid var(--line)}
+.feat h2{margin:0 0 12px}
+.feat-n{margin-left:8px;font-size:12px;font-weight:400;color:var(--ink2)}
+.feat-row{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.feat-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 10px;
+  /* row-gap 显式收 0（2026-10-14 实拍）：`.plain` 从 base.css 那条
+     .card/.pick/.plain 带进来的是 `gap:8px`，而普通大卡（<a class=feat-card>）
+     没有那个类 —— 于是同一排里两种卡差 6px（实拍 72 / 78）。不写清楚，
+     同一份版式会按有没有那个类长出两个高度。 */
+  align-items:center;position:relative;
+  min-width:0;min-height:72px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:14px;
+  background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  color:inherit;text-decoration:none;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease}
+a.feat-card:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card-hi)}
+a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transform:scale(1.08)}
+.feat-card:active{transform:scale(.985)}
+/* 大卡里的图标单独放大。**不复用磁贴那条 22px 的规则**：那一档的字要留地方，
+   44px 的图标会把 240px 的卡宽挤到只剩 130px 给名字。28 是量出来的折中。 */
+.feat-card .ic-svg,.feat-card .ic-img,.feat-card .ic{width:28px;height:28px;border-radius:8px}
+.feat-card .ic{grid-row:1/3}
+/* 名字一行读完（**不换行**）：大卡已经够宽，而"Chrome 网上应用店"这类名字
+   换行之后第二行只落两三个字，看起来像坏掉。给两行的余地留给主机名那一行。 */
+.feat-card b{grid-column:2;font-size:16px;font-weight:600;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+  /* 38 不是随手写的：让位给右上角那颗 44px 的编辑把手，其中 6px 落在卡内，
+     于是名字那一行要躲开 44-6=38。磁贴那条 `padding-right:32px` 是同一个
+     算式在它自己的盒子尺寸下的结果。 */
+  padding-right:38px}
+/* 编辑把手**绝对定位到右上角**（2026-10-14 实拍后改）。大卡是列向 flex，
+   而把手是 app.js 就地插进来的一个子元素——留在文档流里它就**整整多占一行**
+   （实拍：106px 的卡长成 144px，那一行是空的，只有一枚 32px 的键）。
+   磁贴那一档早就是绝对定位（`.tiles .card .pencil`），这里是同一处置。
+   触摸目标 44×44 一个像素都没少——`.pencil::before` 那圈 −6px 的外扩还在，
+   绝对定位换的是位置，不是盒子。 */
+.feat-card .pencil{position:absolute;top:8px;right:8px}
+/* 主机名（没有说明时）那一行：**它是这张卡与磁贴最大的差别**——磁贴里名字是
+   唯一的字，而这里多一行灰的，于是扫过一排时先看见名字、再顺带读到去哪台机器。 */
+.feat-card .host{display:block;grid-column:2;width:100%;min-width:0;
+  font-size:12px;color:var(--ink2);line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 大卡带在两档 view（全局 / 密集）下**照旧**：那一档的"紧凑"说的是分组之间
+   不留大块空白，而不是把常用入口也缩小——它正是最需要一眼扫到的那一档。 */
+@media (max-width:700px){
+  .feat-row{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+  .feat-card{min-height:68px;padding:10px 12px}
+  .feat-card b{font-size:15px}
+  .feat-card .ic-svg,.feat-card .ic-img,.feat-card .ic{width:24px;height:24px}
+}

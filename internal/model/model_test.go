@@ -225,17 +225,20 @@ func TestValidThemeLayout_枚举只有一份(t *testing.T) {
 			t.Errorf("ValidView(%q) = %v，要 %v", v, got, want)
 		}
 	}
-	// 分组自己的排法（2026-10-13）：**与 ValidLayout 分开钉**，因为这两个
-	// "layout" 改的是不同层的东西。合并成一个谓词的那一天，422 的拒绝语就会
-	// 开始报出一句与调用方无关的枚举——而 `sidebar`/`topbar` 在这里必须是 false。
-	for ly, want := range map[string]bool{"tiles": true, "list": true,
+	// 分组自己的排法（2026-10-13 建立；2026-10-14 加第三档 `feature`/大卡）：
+	// **与 ValidLayout 分开钉**，因为这两个 "layout" 改的是不同层的东西。合并成
+	// 一个谓词的那一天，422 的拒绝语就会开始报出一句与调用方无关的枚举——
+	// 而 `sidebar`/`topbar` 在这里必须是 false。
+	for ly, want := range map[string]bool{"tiles": true, "list": true, "feature": true,
 		"": false, "Tiles": false, "sidebar": false, "topbar": false} {
 		if got := ValidGroupLayout(ly); got != want {
 			t.Errorf("ValidGroupLayout(%q) = %v，要 %v", ly, got, want)
 		}
 	}
-	if strings.Join(GroupLayoutValues, ",") != LayoutTiles+","+LayoutList {
-		t.Errorf("GroupLayoutValues = %v，要与两个常量同序", GroupLayoutValues)
+	// 顺序也要钉：AGENTS.md 是 AI 的词汇表，它印的那份清单走这张表，
+	// 顺序一漂，文档里那份就与代码对不上（agents_test 那条枚举闸会红）。
+	if want := strings.Join([]string{LayoutTiles, LayoutList, LayoutFeature}, ","); strings.Join(GroupLayoutValues, ",") != want {
+		t.Errorf("GroupLayoutValues = %v，要与三个常量同序 %s", GroupLayoutValues, want)
 	}
 }
 

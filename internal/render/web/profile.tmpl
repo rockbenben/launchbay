@@ -123,6 +123,43 @@
   <p><a class="badge" href="/import">{{.T "profile.import.link"}}</a></p>
   <p class="hint">{{.T "profile.import.hint"}}</p>
 {{end}}
+{{/* ── 大卡带（2026-10-14）─────────────────────────────────────────────────
+     设成「大卡」的那几个分组在这里独占一块，在**所有分组之前**。
+     判据在 exec.go：`Layout == model.LayoutFeature` 的已经不在
+     `.Bookmarks.Groups` 里了，所以这里不是"再画一遍"而是**唯一一次**。
+
+     为什么要它：磁贴与单列是同一套 44px 行的两种排法，八个分组排下来，
+     "每天必点的那几个"和"一年点一次的那些"长得一样大——而这两样东西
+     需要的是完全不同的视觉权重。大卡这一档给的正是那个权重。
+
+     每一张卡的形状：图标 28px 在左上、名字 16px、下方一行主机名 12px。
+     **主机名那一行是这张卡与磁贴最大的差别**：磁贴里名字是唯一的字，
+     而这里多一行灰色小字，于是扫过一排时眼睛先落在名字上、再顺带读到
+     它去哪台机器——这正是选这一档的人要的信息。 */}}
+{{range .Featured}}
+<section class="feat" aria-labelledby="f-{{.ID}}" data-gid="{{.ID}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>
+  <h2 id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n">{{len .Items}}</span></h2>
+  <ul class="feat-row">
+  {{range .Items}}
+    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
+      {{if .External}}
+        <span class="feat-card plain">
+          {{template "icon" .}}
+          <b title="{{.Name}}">{{.Name}}</b>
+          <span class="host">{{hostOf .URL}}</span>
+        </span>
+      {{else}}
+        <a class="feat-card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
+          {{template "icon" .}}
+          <b title="{{.Name}}">{{.Name}}</b>
+          <span class="host" title="{{.URL}}">{{if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}</span>
+        </a>
+      {{end}}
+    </li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
 {{range .Bookmarks.Groups}}
 {{/* 节标题按**叶名 + 弱化的父路径**排版（2026-10-12）：导入把嵌套文件夹拍平成
      "工作 / 项目 A / 会议记录"这样的标题，于是三十个分组的标题全是路径串，
@@ -538,13 +575,21 @@
              听得到"按下/没按下"，听不到"这是哪一组"。屏上仍然只印短标签——
              WCAG 2.5.3 要的是可及名**包含**看得见的字，"NAS 与存储 · 磁贴"包得住。 */}}
         <button type="submit" name="layout" value="tiles"
-          aria-pressed="{{if eq .Layout "list"}}false{{else}}true{{end}}"
+          aria-pressed="{{if eq .Layout "list"}}false{{else if eq .Layout "feature"}}false{{else}}true{{end}}"
           aria-label="{{$gname}} · {{$.T "app.layout.tiles"}}"
           title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</button>
         <button type="submit" name="layout" value="list"
           aria-pressed="{{if eq .Layout "list"}}true{{else}}false{{end}}"
           aria-label="{{$gname}} · {{$.T "app.layout.rows"}}"
           title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</button>
+        {{/* **第三颗：大卡**（2026-10-14）。磁贴与单列是同一套 44px 行的两种排法，
+             而"每天必点的那几个"要的是一眼扫到——它换的是版式与位置（顶部独占
+             一块），不是同一套尺寸的另一种排法，所以它必须自己一颗键。
+             title 说清代价：设成大卡的组**不在正文里**出现了。 */}}
+        <button type="submit" name="layout" value="feature"
+          aria-pressed="{{if eq .Layout "feature"}}true{{else}}false{{end}}"
+          aria-label="{{$gname}} · {{$.T "app.layout.feature"}}"
+          title="{{$.T "app.layout.featureTitle"}}">{{$.T "app.layout.feature"}}</button>
         {{/* 自定义：原生取色器收任意 hex（色板**不是白名单**），这一格就是那条路的
              入口。按下的不是色块本身而是这颗「用这个颜色」，免得调色器一开就立刻
              改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那一行需要

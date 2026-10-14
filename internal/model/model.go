@@ -6,6 +6,12 @@ package model
 const (
 	LayoutTiles = "tiles"
 	LayoutList  = "list"
+	// LayoutFeature 是**第三种分组排法**：大卡。设成它的分组不再出现在正文的
+	// 分组序列里，而是被挪到页面顶部独占一块（判据在 render 的 exec.go，
+	// 判据的**名字**在这里）。2026-10-14 加：磁贴与单列是同一套 44px 行的两种
+	// 排法，谁点都得眯着眼找；而"每天必点的那几个"要的是**一眼扫到**，不是
+	// 排在第七组。
+	LayoutFeature = "feature"
 )
 
 // Item 是一条书签。数组顺序即显示顺序，所以没有 order 字段：

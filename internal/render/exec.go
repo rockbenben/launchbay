@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -295,7 +296,13 @@ type profileView struct {
 	Add       string
 	AddTitle  string
 	Bookmarks profileData
-	CSS       template.CSS
+	// Featured 是**排成大卡的那几个分组**，页面顶部独占一块。判据在下面那句
+	// `Layout == model.LayoutFeature`，它们同时**不在** `Bookmarks.Groups` 里
+	// （挪走而不是复制——同一组在一页里出现两次，那才是真的坏）。
+	//
+	// 与 Nav 的关系是**导航照旧**：设成大卡只换位置，不让这一组从分组导航里消失。
+	Featured []groupView
+	CSS      template.CSS
 	// AppJS 是 ⑤ 脚本的**指纹路径**（`/app.<hash>.js`），模板用它拼 <script src>。
 	// 指纹只由内容决定（见 assets.go）：改一个字换一条 URL，immutable 缓存才成立。
 	// 页面不引它时它是空串，模板 `{{if .AppJS}}` 自然不发那个标签。
@@ -510,7 +517,7 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	// shortTime 给管理页那一格「最近改动」、clockTime 给改动历史的每一行。
 	// 模板的函数名单只有这一份，别在 httpapi 那头再格式化一次——
 	// 同一件事两处做，两处就会漂移。
-	funcs := template.FuncMap{"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML}
+	funcs := template.FuncMap{"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf}
 	parse := func(name string) *template.Template {
 		data, err := webFS.ReadFile("web/" + name)
 		if err != nil {
@@ -656,8 +663,31 @@ func InlineCSS() []byte {
 	return []byte(safeCSS(stripCSSComments(string(raw))))
 }
 
-// shortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间
-// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
+// hostOf 从一条地址里取出**主机名**（连端口），给大卡那一行灰色小字用。
+//
+// **为什么不是整条地址**：大卡上那一行是给人"扫一眼知道去哪台机器"的，
+// 而 `http://192.168.2.3:49160/dashboard` 这么一整条塞进去，一行放不下、
+// 也不成扫——人读的是 `192.168.2.3:49160`。
+//
+// **只认 http/https**（2026-10-14 实拍后补）：`url.Parse("chrome://extensions/")`
+// 会把 `extensions` 当成 Host——那不是主机名，那是这条协议的路径段，而屏上
+// 显示成「extensions」看上去像一个域名。判据与 `model.ExternalScheme` 分家：
+// 那一条判"点不点得开"，这一条判"这一行显示什么"。
+//
+// 解析不出来或不是 http/https 时**原样返回**：那一格宁可显示一个看不出是地址
+// 的词，也不该显示一个编出来的主机名。
+func hostOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return raw
+	}
+	return u.Host
+}
+
+// shortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
 // 也不能编一个时间出来。
 //
 // **按语言走形状**：同一个 `01-02 15:04` 在中文读者那里读成"10 月 11 日"，
@@ -831,7 +861,30 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		}
 		v.Bookmarks.Groups = append(v.Bookmarks.Groups, gv)
 	}
+	// 导航在**分组搬走之前**建：设成大卡不���让这一组从分组导航里消失
+	// （它只是换了位置，而"它不见了"才是真问题）。
 	v.Bookmarks.Nav = groupNav(v.Bookmarks.Groups)
+	// **大卡那一组从正文里拿走**（2026-10-14）：设成 feature 的分组不进
+	// `v.Bookmarks.Groups`，而是进 `v.Featured`——它在页面顶部独占一块，
+	// 而不是排在第七组等着被滚到。
+	//
+	// 判据只有这一句 `Layout == model.LayoutFeature`，而它用的常量与写侧
+	// `ValidGroupLayout` 是同一个名字，所以"哪些分组是大卡"在盘上、ops 与
+	// 页面上是同一件事。
+	//
+	// **顺序**：大卡之间保持盘上的次序，正文之间也是（都按各自那一份的顺序），
+	// 而"挪"这件事本身不重排任何人——把第三组设成大卡不会把第五组往前顶。
+	{
+		rest := v.Bookmarks.Groups[:0]
+		for _, gv := range v.Bookmarks.Groups {
+			if gv.Layout == model.LayoutFeature {
+				v.Featured = append(v.Featured, gv)
+				continue
+			}
+			rest = append(rest, gv)
+		}
+		v.Bookmarks.Groups = rest
+	}
 	// ⑤ 的脚本与 rev 由执行器填，不从视图结构体带进来：指纹路径由内容算出，
 	// 而 rev 就在 b 上（渲染这一页读的就是它）。视图结构体要是能带这两个，
 	// 就会多出"调用方忘了填 → 页面静默没有添加按钮"这种形状。
