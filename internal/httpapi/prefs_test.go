@@ -120,6 +120,10 @@ func TestPrefs_排法改得动且页面带上属性(t *testing.T) {
 // 2026-10-13：这一条连同 `view` 那一组一起从**档案页顶栏**搬进了台面面板，
 // 并加上了 `theme` 那一组（三颗显式键，顶栏从前是一颗三态循环键）。所以
 // "扫哪份 HTML"与"名单里有几颗"两处都跟着变了——名单是**八颗**，不多不少。
+// 2026-10-14 加了「点开书签」那两颗（当前标签页 / 新标签页），名单变**十颗**：
+// 它与别处不同的一格是 `openInNewTab` 住在**书签文档**里，所以走 batch 而不是
+// /prefs（见 AGENTS.md 的 /prefs/tabs 那行）。这一条只管它的形状：标签稳定、
+// 状态走 aria-pressed，与另外八颗同一规矩。
 func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	s, h := setup(t)
 	// 起点：dad 是 sidebar + 没选过 view（盘上没有那个键）+ auto 主题
@@ -134,16 +138,16 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		}
 		return out
 	}
-	want := []string{"分组=true", "全局=false", "密集=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false"}
+	want := []string{"分组=true", "全局=false", "密集=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false", "当前标签页=true", "新标签页=false"}
 	got := panel()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("静息态的八颗键不对：%v，要 %v", got, want)
+		t.Fatalf("静息态的十颗键不对：%v，要 %v", got, want)
 	}
 	// 开全局视图：三颗视图键里 pressed 只翻一颗，标签一个字不动
 	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("view=wall 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false" {
+	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
 		t.Errorf("开完全局视图：%v", got)
 	}
 	// 开顶栏导航：两维互不干涉（view 还开着，dense 那颗仍是 false）
@@ -151,7 +155,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		t.Fatalf("layout=topbar 要 303，得到 %d", rec.Code)
 	}
 	got = panel()
-	if strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false" {
+	if strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
 		t.Errorf("两维都开：%v", got)
 	}
 	page := get(h, "/", dadFormCookie).Body.String()
@@ -169,7 +173,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	if rec := postForm(h, "/prefs", "layout=sidebar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("切回 sidebar 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false" {
+	if got = panel(); strings.Join(got, ",") != "分组=false,全局=true,密集=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前标签页=true,新标签页=false" {
 		t.Errorf("关掉顶栏导航：%v", got)
 	}
 }
@@ -186,6 +190,85 @@ func headLines(html string, n int) string {
 
 // 非法值与"没说改什么"都是 422，而且要**点名是哪个字段**——422 不指字段，
 // 调用方只能猜；而"两个字段都不给"静默 303 会让一个拼错的字段名假装成功。
+// 台面面板这一族带令牌一律 **303 回选择页**，不是 403。
+//
+// **为什么值得钉**：文档（AGENTS.md `/prefs` 行、openapi 的 `/prefs` 描述）与
+// `handlePrefsPage` 的注释曾经三处都写"令牌一律 403"，而实现走 `selfProfileOnly`
+// ——它对 bearer 的第一句就是 redirectPicker。2026-10-14 实测四种长相（管理员令牌、
+// 档案令牌、令牌+会话、无凭证）全是 303，于是那三句话把 AI 教成"带令牌会拿到 403"。
+// 浏览器通路的权限拒绝一律 303 回选择页（spec §6.1）——令牌与无会话答同一句，
+// 因为这一页只由页面里的链接/表单走进来，走到这里就没有 JSON 错误可消费。
+//
+// **这里量的是状态码不是"没写盘"**：写盘那半由 TestPrefs_令牌与无会话都不写盘
+// 守着（它打的是 POST /prefs）。GET 这一条本来就没写盘能力，守它等于量空气。
+func TestPrefs_面板带令牌一律送回选择页不是403(t *testing.T) {
+	_, h := setup(t)
+	for _, tc := range []struct {
+		name, cookie string
+		tok          bool
+	}{
+		// 三种长相都要试：只带令牌时 sess.Active 是空串，与"管理员令牌带着 dad 的
+		// 会话"走的是不同分支，而两条分支都必须答 303。
+		{"管理员令牌", "", true},
+		{"档案令牌", "", true},
+		{"令牌加会话", dadFormCookie, true},
+		{"无凭证", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/prefs", nil)
+			if tc.tok {
+				req.Header.Set("Authorization", "Bearer "+adminTok)
+			}
+			if tc.cookie != "" {
+				req.Header.Set("Cookie", tc.cookie)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf("带令牌的 GET /prefs 要 303（不是 403），得到 %d：%s", rec.Code, rec.Body)
+			}
+			if loc := rec.Header().Get("Location"); loc != "/" {
+				t.Errorf("Location = %q，要 /（选择页就是 /）", loc)
+			}
+		})
+	}
+}
+
+// headLines 上一节；这里补一条：面板这一族的**页面**与**表单**对令牌答同一句，
+// 而两者都不该退化成 403——403 在浏览器里表现为"一片裸 JSON"或"一个死页"。
+func TestPrefs_面板这一族对令牌没有403(t *testing.T) {
+	_, h := setup(t)
+	for _, tc := range []struct {
+		path, body string
+		ct         string
+	}{
+		{"/prefs", "", ""},
+		{"/prefs", "theme=dark", "application/x-www-form-urlencoded"},
+		{"/prefs/group", "group=nas&accent=%23e0574f", "application/x-www-form-urlencoded"},
+		{"/prefs/tabs", "tabs=1", "application/x-www-form-urlencoded"},
+		{"/prefs/background", "hidden=1", "application/x-www-form-urlencoded"},
+	} {
+		t.Run(tc.path+tc.body, func(t *testing.T) {
+			var req *http.Request
+			if tc.ct == "" {
+				req = httptest.NewRequest(http.MethodGet, tc.path, nil)
+			} else {
+				req = httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
+				req.Header.Set("Content-Type", tc.ct)
+			}
+			req.Header.Set("Authorization", "Bearer "+adminTok)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
+				t.Errorf("带令牌要 303 回选择页（spec §6.1），得到 %d：%s", rec.Code, rec.Body)
+			}
+			if rec.Code != http.StatusSeeOther {
+				t.Errorf("带令牌要 303，得到 %d：%s", rec.Code, rec.Body)
+			}
+		})
+	}
+}
+
 func TestPrefs_非法与缺字段都422且点名(t *testing.T) {
 	_, h := setup(t)
 	for _, tc := range []struct {

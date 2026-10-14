@@ -142,7 +142,12 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 //
 // 准入与 /revert、/history 同一族（selfProfileOnly）：档案从会话推导、不接受申报，
 // 所以管理员带 cookie 进得了这一页也只能改自己那一份——管理员管账号、不碰内容。
-// 带令牌一律 403：令牌发给 AI/扩展/CLI，而这一页是给人看的浏览器通路。
+// 令牌一律 303 回选择页，**不是 403**（2026-10-14 实测后改判）：`selfProfileOnly`
+// 对 bearer 的第一句就是 redirectPicker，而这一族四条（/prefs、/prefs/group、
+// /prefs/tabs、/prefs/background）都走它。浏览器通路的权限拒绝一律 303（spec §6.1）——
+// 令牌与无会话答同一句，因为这一页只由链接与表单走进来，走到这里没有 JSON 错误可消费。
+// 文档曾在这三处写"令牌一律 403"，实测四种长相全是 303；`TestPrefs_面板这一族对令牌没有403`
+// 与 `TestPrefs_面板带令牌一律送回选择页不是403` 是那次实测留下的钉子。
 func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.selfProfileOnly(w, r)
 	if !ok {
@@ -264,6 +269,17 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	// expectedRev 传 nil：面板是**服务端渲染**的，它画出来的那一刻的 rev 未必
 	// 是人按下那一刻的 rev（另一个人刚改过、或这一页开着很久）。冲突在这里不是
 	// 危险——两件事改的是不同字段，ops 在锁内重读当前值再改。
+	s.applyPrefsOps(w, r, id, opList)
+}
+
+// applyPrefsOps 是台面面板里**改书签数据**的那几节共用的落点与收尾
+// （2026-10-14：`/prefs/group` 与 `/prefs/tabs` 共用一份）。
+//
+// **为什么不并进 `POST /prefs` 的字段名单**：那一条是 urlencoded 的台面偏好表单，
+// 落点是 profile.json（改完不产生 rev、不做快照）；而 `openInNewTab` 住在**书签文档**
+// 里——它跟着导出走，改它要过 rev 与快照，能在「回退」里退回来。两族落点不同，
+// 混在一处会让那句「四个字段至少给一个」开始管到不属于它的东西。
+func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string, opList []ops.Op) {
 	out, err := s.applyBatch(id, id, "web", nil, opList)
 	if err != nil {
 		writeInternalError(w, err)
