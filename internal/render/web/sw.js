@@ -21,7 +21,12 @@
 //
 // **不静默 skipWaiting**（§7.1）：检测到新版本时不抢占，等页面自己决定。
 
-const VERSION = 'lb-sw-1';
+const VERSION = 'lb-sw-2';
+// 代次从 1 跳到 2 的原因（2026-10-15）：上面那条「面板 fetch 不进资产缓存」是
+// 这一次才补的，而**已经被钉住的那一份还在 lb-sw-1 里**。按 §7.1 的规矩，sw.js
+// 变了就得换代次——activate 那一支只清 assets-<别的代次>，于是旧桶连同那份
+// 陈旧的面板 HTML 一起被删掉。不换代次的话，那份脏数据会一直躺在设备上，
+// 而将来谁把判断顺序调回去，它会立刻变成同一个 bug。
 const ASSET_CACHE = 'assets-' + VERSION;
 // 超时：够 LAN 里一次往返，不够等到用户以为它死了。
 const HTML_TIMEOUT_MS = 1500;
@@ -138,6 +143,26 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(htmlFirst(req));
     return;
   }
+
+  // **面板那一路 fetch 不是导航**（2026-10-15 修）。app.js 的 prefsOpen 注入设置
+  // 面板时用的是 `fetch('/prefs', {Accept: 'text/html'})`——同源 fetch，mode 不是
+  // navigate，于是从前落到下面那条 cacheFirst。而 ASSET_CACHE 那一族是**指纹
+  // 资源**的缓存（immutable），存进去的东西按设计永远不过期，于是面板**第一次
+  // 取到的那一份被永久钉住**。
+  //
+  // 症状（实测）：改完一个颜色再打开设置，屏上还是第一次打开时的颜色——而
+  // `GET /api/v1/data` 与盘上都是新值。于是"设置改了没生效"与"按了没反应"
+  // 在同一件事上同时成立，而它们指向的都不是原因。
+  //
+  // **判据是 Accept 而不是 URL 形状**：与上面那条「mode 而不是 URL 形状」同一条
+  // 纪律——`/prefs` 只是眼下唯一一处，而将来任何一段"取一段 HTML 注入页面"
+  // （导入报告、坏档说明）都该走同一条路。
+  //
+  // **不接管**（而不是给它一条 network-first）：网络不通时 fetch 会抛，
+  // prefsOpen 的 catch 已经写着 `location.href = '/prefs'` —— 那是一次**导航**，
+  // 于是自动落到上面那条 htmlFirst，仍然有离线回退。两条路各管一段。
+  if ((req.headers.get('Accept') || '').includes('text/html')) return;
+
   e.respondWith(cacheFirst(req));
 });
 
