@@ -20,9 +20,11 @@ func TestAppJS_拖出去的是地址不是内部id(t *testing.T) {
 
 	const mime = "application/x-lb-item"
 	wants := []string{
-		// 排序通道：写侧与读侧
+		// 排序通道：写侧与读侧。**读侧现在在 srcOf 里**（2026-10-15）：落点要算
+		// 源组，得先把"这次拖的是哪一条"对出来，而那条判据（只认自己那套 MIME）
+		// 就住在读的那一处。
 		"dt.setData('application/x-lb-item', li.dataset.item);",
-		"const moved = e.dataTransfer.getData('application/x-lb-item');",
+		"const id = e.dataTransfer.getData('application/x-lb-item');",
 		// 真地址：卡片从自己的 href 取，点不动那行从 <code> 取
 		"const href = card.getAttribute('href') || '';",
 		"dt.setData('text/uri-list', href);",

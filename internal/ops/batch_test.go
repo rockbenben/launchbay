@@ -301,6 +301,7 @@ func TestMoveAcrossGroupsAndMissingTargets(t *testing.T) {
 		t.Fatalf("搬完两边形状不对: %+v %+v", b.Groups[0].Items, b.Groups[1].Items)
 	}
 	// 目标组不存在 / 缺 to / 越界 index 三样：前两条的错误按 path 归责
+
 	// （fieldOf 只认 op 自己的路径段），越界那条由 fieldErr 钉出 index。
 	for _, tc := range []struct {
 		name  string
@@ -319,4 +320,49 @@ func TestMoveAcrossGroupsAndMissingTargets(t *testing.T) {
 			t.Errorf("%s 的错误该归到 %q，got %q (%+v)", tc.name, tc.field, errs[0].Field, errs[0])
 		}
 	}
+}
+
+// 「挪到队尾」那条通路：**index 缺席就是追加到目标组末尾**。
+//
+// 2026-10-15 前端加了「拖到组标题上 = 排到那组最后」那个落点，它发出去的 op
+// **刻意不带 index**——把"末尾"再自己算一遍下标，正是队尾那个 bug 当初的来路
+// （客户端按下标插，而下标永远算不出一条能落在最后面的）。所以这条判据必须在这儿
+// 钉住：它是那条 UI 唯一的地基，两种方向都验。
+func TestMoveWithoutIndexAppendsToTheEnd(t *testing.T) {
+	withTarget := func() *model.Bookmarks {
+		b := seedThree() // nas: dsm, qbit, jelly
+		b.Groups = append(b.Groups, model.Group{
+			ID: "read", Title: "读", Layout: model.LayoutTiles,
+			Items: []model.Item{{ID: "book", Name: "书", URL: "http://10.0.0.8", Alias: []string{}, Tags: []string{}}},
+		})
+		return b
+	}
+	// 跨组：源组三条，目标组一条，搬过去要落在**目标组最后**（不是开头）。
+	b, errs, _ := Run(withTarget(), []Op{{Op: "move", Path: "groups/nas/items/dsm", To: "read"}}, nil)
+	if len(errs) != 0 {
+		t.Fatalf("跨组且不带 index 的 move 失败: %+v", errs)
+	}
+	if got := ids(b.Groups[1].Items); got != "book,dsm" {
+		t.Errorf("目标组 = %q，要 %q（book 在前，搬过去的落在末尾）", got, "book,dsm")
+	}
+	if got := ids(b.Groups[0].Items); got != "qbit,jelly" {
+		t.Errorf("源组 = %q，要 %q", got, "qbit,jelly")
+	}
+	// 同组：把首条拖到组标题上（末尾）。源与目标是同一张活切片，摘除会让它短一格，
+	// 这条最容易在"bound"那一处写错。
+	b, errs, _ = Run(withTarget(), []Op{{Op: "move", Path: "groups/nas/items/dsm", To: "nas"}}, nil)
+	if len(errs) != 0 {
+		t.Fatalf("同组且不带 index 的 move 失败: %+v", errs)
+	}
+	if got := ids(b.Groups[0].Items); got != "qbit,jelly,dsm" {
+		t.Errorf("同组 = %q，要 %q", got, "qbit,jelly,dsm")
+	}
+}
+
+func ids(items []model.Item) string {
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		out = append(out, it.ID)
+	}
+	return strings.Join(out, ",")
 }

@@ -1459,7 +1459,7 @@ const APP_I18N = {
     // 选中它并按回车，把这个词交给页面上那个搜索框（整页搜是服务端渲染那条路）。
     let total = 0;
     for (const li of document.querySelectorAll('li[data-item]')) {
-      const a = li.querySelector('.card');
+      const a = li.querySelector('.card, .feat-card');
       const name = (li.querySelector('b')?.textContent || '').toLowerCase();
       const url = (a?.getAttribute('href') || li.querySelector('code')?.textContent || '').toLowerCase();
       // 判据与 `filter.go` 的 matchItem 是**同一组字段**：名字、地址、说明、每一个
@@ -1468,7 +1468,7 @@ const APP_I18N = {
       // 「NAS」整页 8 条 / 面板 2 条，「影音」（那是组名）3 条 / 0 条，「pt」「备份」
       // 「对象存储」都是服务端有、面板回一句"没有叫「X」的书签"。
       // 值从 li 上的 data-desc / data-alias / data-tags 读，多个值以换行连接。
-      const gtitle = (li.closest('section')?.querySelector('.sec-leaf')?.textContent || '').toLowerCase();
+      const gtitle = groupName(groupOf(li)).toLowerCase();
       const extra = [li.dataset.desc || '', ...(li.dataset.alias || '').split('\n'), ...(li.dataset.tags || '').split('\n')];
       if (!q || name.includes(q) || url.includes(q) || gtitle.includes(q)
         || extra.some((x) => x && x.toLowerCase().includes(q))) {
@@ -1562,14 +1562,30 @@ const APP_I18N = {
   // 这一组叫什么。**取 h2 的 title 而不是 textContent**：那一行里还住着布局切换键
   // （「磁贴」/「单列」），按 textContent 会念成「文档与账号单列」——实测到的。
   // title 挂的是完整分组名，截断与悬停都不丢信息（模板那边写死的）。
-  function groupName(sec) {
-    const h2 = sec?.querySelector('h2');
-    if (!h2) return sec?.dataset.gid || '';
-    return (h2.getAttribute('title') || h2.querySelector('.sec-leaf')?.textContent || sec.dataset.gid || '').trim();
+  // ── 拖拽落点的坐标（2026-10-15 三个洞都出在这一族）─────────────────────────
+  //
+  // **认 [data-gid] 而不是 section**：正文组是 section[data-gid]，而大卡带是
+  // ul.feat-row[data-gid]——带子里一段段共用同一个 <section class="feat">，
+  // 那一段没有自己的 section。从前这里写的是 `li.closest('section').dataset.gid`，
+  // 症状很具体：大卡带里取到 undefined，于是发出去的 op 是
+  // `groups/undefined/items/…`，服务端回「没有分组 undefined」，拖一下弹一条红条。
+  const groupOf = (node) => node.closest('[data-gid]');
+  const itemsOf = (group) => [...group.querySelectorAll('li[data-item]')];
+
+  // 一个组的显示名。判据是「离这一组最近的那个 h2」——正文组是 section 自己的第一个
+  // h2，大卡带那一段没有 h2（它在上一条 h2.feat-g 上），而从前写的是
+  // `sec.querySelector('h2')`：大卡带里一段段共用同一个 section，于是带子里任何一条
+  // 拿到的都是**第一段**的组名，编辑模态里「我改的是哪一组」会答错组。
+  function groupName(group) {
+    if (!group) return '';
+    const head = group.tagName === 'H2' ? group
+      : group.querySelector(':scope > h2') || group.previousElementSibling;
+    if (!head || head.tagName !== 'H2') return group.dataset.gid || '';
+    return (head.getAttribute('title') || head.querySelector('.sec-leaf')?.textContent || group.dataset.gid || '').trim();
   }
 
   function opsFor(li, fields) {
-    const gid = li.closest('section')?.dataset.gid;
+    const gid = groupOf(li)?.dataset.gid;
     const iid = li.dataset.item;
     return Object.entries(fields)
       .filter(([, v]) => v !== null)
@@ -1625,6 +1641,30 @@ const APP_I18N = {
   // 同一族里的 `✎`（把手）已经在每一张卡上跑了很久——一枚字形能显示的系统，
   // 另一枚基本也能；万一不显示，它 44×44 的空盒子仍在，而旁边的地址一字不少。
   const COPY = '\u29C9';
+  // 落在这一行的**上半还是下半**——队尾能不能够着，全看这一句。
+  // 从前只有一种落点（index = 被指着那条的下标，也就是"插到它前面"），
+  // 于是能插到任何一条前面，却插不到任何一条后面。
+  const dropAfter = (li, e) => {
+    const r = li.getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2;
+  };
+  const clearDropMarks = () => document.querySelectorAll('.drop, .drop-after, .drop-tail')
+    .forEach((n) => n.classList.remove('drop', 'drop-after', 'drop-tail'));
+
+  // 拖起来的那一条：**源组 id 在拖起那一刻就记住**。跨组时落点算出来的是**目标**
+  // 组，而 op 的 path 指源组——两件事的答案不在同一个地方，而 dataTransfer 里只有
+  // 条目 id（那是跨组唯一对得上的键），组只能从被拖的这一行自己读。
+  let dragSrc = null;
+  // 落点读源组时**必须与 MIME 对上**：只认自己那套 MIME 是原来的判据（从桌面或
+  // 另一个标签页拖进来的东西不该动书签顺序），而 MIME 对上了却找不到源组时宁可
+  // 不动——猜错的后果是把条目写进另一个组。
+  const srcOf = (e) => {
+    const id = e.dataTransfer.getData('application/x-lb-item');
+    if (!id) return null;
+    if (!dragSrc || dragSrc.id !== id) return null;
+    return dragSrc;
+  };
+
   for (const badge of document.querySelectorAll('.plain .badge.warn.ext')) {
     const plain = badge.parentElement;
     const code = plain?.querySelector('code');
@@ -1694,8 +1734,8 @@ const APP_I18N = {
     // 就地编辑写的是 name/desc/url，与协议无关；把把手摘掉等于让一条 chrome://
     // 或 file:// 的书签在界面上永远改不了名、换不了说明，而浏览器收藏夹导入
     // 恰好会把这类地址成批收进来（AGENTS.md：file: 照收）。
-    const card = li.querySelector('.card') || li.querySelector('.plain');
-    if (!card) continue; // 两种形态都不是（坏档那一屏根本没有 li）才真的没有把手
+    const card = li.querySelector('.card, .feat-card, .plain');
+    if (!card) continue; // 三种形态都不是（坏档那一屏根本没有 li）才真的没有把手
     const pencil = el('button', {
       type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
@@ -1724,25 +1764,71 @@ const APP_I18N = {
         dt.setData('text/plain', href);
       }
       dt.effectAllowed = 'copyMove';
+      dragSrc = { id: li.dataset.item, gid: groupOf(li)?.dataset.gid || '' };
     });
-    li.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('drop'); });
-    li.addEventListener('dragleave', () => li.classList.remove('drop'));
+    card.addEventListener('dragend', () => { dragSrc = null; });
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      // 组标题那一级的处理器挂在**另一棵子树**上，但组容器的 dragover 仍会冒泡到
+      // 祖先 —— 不挡一下，同一次悬停会有两个落点同时亮着。
+      e.stopPropagation();
+      const after = dropAfter(li, e);
+      e.dataTransfer.dropEffect = 'move';
+      li.classList.toggle('drop', !after);
+      li.classList.toggle('drop-after', after);
+    });
+    li.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
+      li.classList.remove('drop', 'drop-after');
+    });
     li.addEventListener('drop', async (e) => {
       e.preventDefault();
-      li.classList.remove('drop');
-      // 只认自己那套 MIME：从别处（桌面、别的标签页）拖进来的东西没有它，
-      // 那种情况下不该动书签的顺序。
-      const moved = e.dataTransfer.getData('application/x-lb-item');
-      if (!moved || moved === li.dataset.item) return;
-      const gid = li.closest('section')?.dataset.gid;
-      const sibs = [...li.closest('section').querySelectorAll('li[data-item]')];
-      let index = sibs.indexOf(li);
+      e.stopPropagation();
+      const after = dropAfter(li, e);
+      clearDropMarks();
+      const src = srcOf(e);
+      const group = groupOf(li);
+      if (!src || !group) return;
+      if (src.id === li.dataset.item) return;
+      const dst = group.dataset.gid;
+      const sibs = itemsOf(group);
+      // **插到它前面还是后面，看指针在这一行的上半还是下半**（2026-10-15 改判）。
+      // 从前只有一种落点，index 就是被指着那条的下标——队尾因此永远够不着。
+      let index = sibs.indexOf(li) + (after ? 1 : 0);
       // 同组往下挪时，被拖的那一条**还算在列表里**：直接落到目标下标会插到
       // 它后面去（想放第 3 位，结果停在第 4 位）。取走它之后的位置才是答案。
-      const from = sibs.findIndex((x) => x.dataset.item === moved);
-      if (from >= 0 && from < index) index -= 1;
-      // 同组排序靠 to=自己那组 + index；跨组是 §8.4 的批量移动那条路。
-      const ok = await applyOps([{ op: 'move', path: `groups/${gid}/items/${moved}`, to: gid, index }], 'app.ops.move');
+      const from = sibs.findIndex((x) => x.dataset.item === src.id);
+      if (src.gid === dst && from >= 0 && from < index) index -= 1;
+      // **path 指源组、to 指目标组**。从前两个都填了目标组——同组时两者相等，
+      // 于是那条 bug 在同组下完全隐形，一跨组就变成"那个组里没有这条"，整批不写。
+      const ok = await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst, index }], 'app.ops.move');
+      if (ok) reloadKeepingPlace();
+    });
+  }
+
+  // 组级落点：**拖到组标题上 = 追加到那一组末尾**（2026-10-15）。
+  //
+  // 为什么要有这一级：从前唯一的落点是某一条，于是「挪到队尾」根本没有出口
+  // （插到任何一条前面都行，插到任何一条后面都不行），而**空的组一次都落不进去**
+  // ——它里面一个 li 都没有。组标题是每一组都有的那一件（正文 section 与大卡带
+  // 都是 h2[data-group]），所以它当队尾落点。
+  for (const head of document.querySelectorAll('h2[data-group]')) {
+    head.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      head.classList.add('drop-tail');
+    });
+    head.addEventListener('dragleave', () => head.classList.remove('drop-tail'));
+    head.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      clearDropMarks();
+      const src = srcOf(e);
+      const dst = head.dataset.group;
+      if (!src || !dst) return;
+      // **不给 index**：服务端 move 在 index 缺席时就是"追加到目标组末尾"
+      // （ops.go 里 pos = bound）。自己再算一个下标，等于把"末尾"重算一遍——
+      // 而队尾那个 bug 正是这么来的。
+      const ok = await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst }], 'app.ops.move');
       if (ok) reloadKeepingPlace();
     });
   }
@@ -1778,17 +1864,19 @@ const APP_I18N = {
   function editItem(li) {
     if (openEdit && openEdit.li === li) return;
     if (openEdit) closeEdit();
-    const a = li.querySelector('.card');
+    const a = li.querySelector('.card, .feat-card');
     const name = li.querySelector('b')?.textContent || '';
     // 地址从**这一行本来显示它的那个元素**上读：链接形态读 href，点不动的那一行
     // 读 <code> 的文本（模板与复制键读的是同一处，不另抄一份 URL）。
     const url = a ? (a.getAttribute('href') || '') : (li.querySelector('code')?.textContent || '').trim();
-    const desc = li.querySelector('i')?.textContent || '';
-    const sec = li.closest('section');
-    const gid = sec?.dataset.gid || '';
+    // 正文那一行用 <i>，大卡那一行没有 <i>（说明与主机名合成一行 .host）——
+    // 读不到就填空，存下去等于把说明抹掉，所以回退到 data-desc（⌘K 读同一份）。
+    const desc = li.querySelector('i')?.textContent || li.dataset.desc || '';
+    const group = groupOf(li);
+    const gid = group?.dataset.gid || '';
     // 分组那一行不是装饰：面板浮起来之后底下整屏都不可点，"我在改哪一组的哪一条"
     // 只剩这里能说，而删除那一步的确认句要引用它。
-    const gname = groupName(sec);
+    const gname = groupName(group);
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
     // 图标这一格从前只在「＋ 添加」那一层有——于是"给一条已经在库里的书签换个图标"
@@ -2007,7 +2095,9 @@ const APP_I18N = {
   async function pickMoveTarget() {
     const picked = pickedItems();
     if (!picked.length) return;
-    const groups = [...document.querySelectorAll('section[data-gid]')];
+    // **每一组都要在**：[data-gid] 而不是 section[data-gid]——大卡带的组容器是
+    // ul.feat-row，写成 section 时「移动到」那一份名单里**根本没有大卡组**。
+    const groups = [...document.querySelectorAll('[data-gid]')];
     const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.move.aria') }, [
       el('h2', { text: T('app.move.title', picked.length) }),
       el('div', { class: 'sheet-actions' }, groups.map((g) => el('button', {
@@ -2018,7 +2108,7 @@ const APP_I18N = {
             const to = g.dataset.gid;
             const ops = picked.map((li) => ({
               op: 'move',
-              path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}`,
+              path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}`,
               to, index: 0,
             }));
             if (await applyOps(ops, 'app.ops.bulkMove')) reloadKeepingPlace();
@@ -2050,7 +2140,7 @@ const APP_I18N = {
               dlg.remove();
               const ops = picked.map((li) => ({
                 op: 'set',
-                path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}/tags`,
+                path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}/tags`,
                 value: list,
               }));
               if (await applyOps(ops, 'app.ops.bulkTags')) reloadKeepingPlace();
@@ -2089,7 +2179,7 @@ const APP_I18N = {
               dlg.remove();
               const ops = picked.map((li) => ({
                 op: 'remove',
-                path: `groups/${li.closest('section').dataset.gid}/items/${li.dataset.item}`,
+                path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}`,
               }));
               if (await applyOps(ops, 'app.ops.bulkDelete')) reloadKeepingPlace();
             },
