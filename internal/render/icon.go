@@ -177,3 +177,44 @@ func svgMarkup(ic icons.Icon) template.HTML {
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String()) //lint:ignore 只由白名单常量与转义值拼成
 }
+
+// IconTiles 把图标库的命中画成「挑图标」那一格的方格。**每格是页面自己的那枚内联
+// SVG**——svgMarkup 是本包唯一把图标拼成 markup 的地方，这里不再写第二份，于是
+// 挑的时候看见的形状与存下去之后卡片上画出来的那一枚逐像素相同。
+//
+// 返回 markup 与 **total**（命中的全量，不是画出来的条数）：截断要由界面说出来
+// （§4.3 那条"零命中"与"命中很多被截断"必须能分开判），而 total 只有搜索层知道。
+// 一次搜索同时给这两样，端点就不必为了拿总数再搜一遍。
+//
+// 为什么不走 `/icons/{name}` 那个 <img>：它服务的是 resolve 抓来的 favicon（第三方
+// 字节，永远不内联），而库里的图标是**描边 + currentColor** 的——进 <img> 之后
+// currentColor 拿不到页面的字色，于是暗色页上是深色图标压在深色卡片上。
+//
+// 为什么不把索引搬进 app.js 让前端画：索引是内嵌产物（六千多个名字），让**只看
+// 首屏的每一页**都背一份图库，正是 §7.3 那条操作线要挡的事。按搜索词要一小格，
+// 就只要一小格。
+//
+// 每格是 `<button type=button>`：选择器常常整个建在**表单里**（添加浮层），一个没写
+// type 的按钮点下去会提交那个表单。`aria-label` 不能省——里面的 SVG 是 aria-hidden 的，
+// 去掉它这一格对读屏就是一个没有名字的按钮。
+func IconTiles(ix *icons.Index, q string, limit int) (template.HTML, int) {
+	res := ix.Search(q, "", limit)
+	var b strings.Builder
+	for _, name := range res.Icons {
+		ic, ok := ix.Get(name)
+		if !ok {
+			continue // 索引与搜索结果同一个快照，这一条走不到；不发一个空格子
+		}
+		esc := html.EscapeString(name)
+		b.WriteString(`<button type="button" class="fld icpick-tile" data-icon="`)
+		b.WriteString(esc)
+		b.WriteString(`" title="`)
+		b.WriteString(esc)
+		b.WriteString(`" aria-label="`)
+		b.WriteString(esc)
+		b.WriteString(`">`)
+		b.WriteString(string(svgMarkup(ic)))
+		b.WriteString(`</button>`)
+	}
+	return template.HTML(b.String()), res.Total //lint:ignore 名字来自内嵌索引、其余走 svgMarkup 的白名单
+}

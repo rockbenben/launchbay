@@ -37,6 +37,13 @@ const APP_I18N = {
     "app.icon.auto": "抓这个网站的图标",
     "app.icon.currentSuffix": "（现在的）",
     "app.icon.fetch": "去看这一站的图标",
+    "app.icon.lib": "图标库…",
+    "app.icon.libTitle": "从图标库里挑一个",
+    "app.icon.libPh": "搜名字，比如 docker、github 或 tabler:box",
+    "app.icon.libHint": "图标库是随程序一起装上的那一份：品牌图标（simple-icons）与概念图标（tabler）。",
+    "app.icon.libNone": "图标库里没有叫「%s」的",
+    "app.icon.libMore": "共 %s 个，先看前 %s 个",
+    "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）",
     "app.save": "保存",
     "app.saveMore": "保存并继续",
     "app.close": "关闭",
@@ -162,6 +169,13 @@ const APP_I18N = {
     "app.icon.auto": "Fetch this site's icon",
     "app.icon.currentSuffix": " (current)",
     "app.icon.fetch": "Look up this site's icons",
+    "app.icon.lib": "Icon library…",
+    "app.icon.libTitle": "Pick one from the icon library",
+    "app.icon.libPh": "Search by name — docker, github, or tabler:box",
+    "app.icon.libHint": "The library ships with the program: brand marks (simple-icons) and concept icons (tabler).",
+    "app.icon.libNone": "Nothing in the library is called %s",
+    "app.icon.libMore": "%s in all, showing the first %s",
+    "app.icon.libFail": "The icon library could not be reached (try again in a moment)",
     "app.save": "Save",
     "app.saveMore": "Save and continue",
     "app.close": "Close",
@@ -456,7 +470,10 @@ const APP_I18N = {
     el('label', { text: T('app.field.title') }, [fTitle]),
     el('label', { text: T('app.field.desc') }, [fDesc]),
     el('label', {}, [fGroup, fNewGroup, fGroupShapeWrap]),
-    el('label', { text: T('app.field.icon') }, [fIcon]),
+    el('div', { class: 'icrow' }, [
+      el('label', { text: T('app.field.icon') }, [fIcon]),
+      iconLibraryButton(fIcon),
+    ]),
     el('div', { class: 'sheet-actions' }, [saveBtn, moreBtn]),
     status,
   ]);
@@ -619,6 +636,129 @@ const APP_I18N = {
   }
   function iconChoices(candidates) { fillIconChoices(fIcon, candidates, ''); }
   iconChoices([]);
+
+  // ── 图标库：挑一枚图标（2026-10-14）────────────────────────────────────
+  //
+  // 内嵌索引有六千多个名字（品牌层 simple-icons + 概念层 tabler），而两个浮层原本
+  // 只给三样：不选图标 / 自动按网址抓 / resolve 给的至多 5 条候选。库里那六千个
+  // 于是**在界面上一个出口都没有**——ops 认 icon 字段、CLI 能查名字，而"给一条书签
+  // 换个图标"只能去打接口。
+  //
+  // **图库不进 app.js、也不进首屏**：按搜索词向 `/api/v1/icons/tiles` 要一小格
+  // **服务端画好的 HTML**（§7.3 那条操作线管的就是"只看首屏的每一页不该背一份图库"）。
+  // 那一格用的是页面画卡片图标时同一个 svgMarkup，于是挑的时候看见的形状与存下去
+  // 之后卡片上那一枚逐像素相同。
+  const iconTilesLimit = 24;
+  const iconPick = { sel: null, panel: null, input: null, grid: null, note: null, timer: 0, seq: 0, opener: null };
+
+  // 「图标库…」那颗键。**它不进 <label> 里**：label 包着的控件是那个 <select>，
+  // 而点 label 里的任何一点都会连带激活它——于是点「图标库…」会顺带把那颗下拉
+  // 弹开，两件事一起发生，人看到的是一个说不清的界面。
+  function iconLibraryButton(target) {
+    return el('button', {
+      type: 'button', class: 'fld', text: T('app.icon.lib'),
+      on: { click: () => openIconPicker(target) },
+    });
+  }
+
+  function openIconPicker(target) {
+    closeIconPicker();
+    const input = el('input', { type: 'search', class: 'fld', autocomplete: 'off',
+      placeholder: T('app.icon.libPh'), 'aria-label': T('app.icon.libPh') });
+    const grid = el('div', { class: 'icpick-grid' });
+    const note = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite', text: T('app.icon.libHint') });
+    const panel = el('div', {
+      class: 'sheet icpick', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.icon.libTitle'),
+    }, [
+      el('h2', { text: T('app.icon.libTitle') }),
+      input, grid, note,
+      el('button', { type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
+        on: { click: closeIconPicker } }),
+    ]);
+    body.append(panel); // 最后 append 的一层就是最上层：syncTrap 按 DOM 顺序判
+    Object.assign(iconPick, { sel: target, panel, input, grid, note, opener: document.activeElement });
+    syncTrap();
+    input.focus();
+    input.addEventListener('input', () => {
+      clearTimeout(iconPick.timer);
+      iconPick.timer = setTimeout(runIconSearch, 180);
+    });
+    input.addEventListener('keydown', (e) => {
+      // 回车取第一格：搜出来的常常只有一个想要的名字，而手已经在回车上了
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        grid.querySelector('.icpick-tile')?.click();
+      }
+    });
+    grid.addEventListener('click', (e) => {
+      const tile = e.target.closest('.icpick-tile');
+      if (tile) pickIcon(tile.dataset.icon);
+    });
+    runIconSearch();
+  }
+
+  function closeIconPicker() {
+    clearTimeout(iconPick.timer);
+    const opener = iconPick.opener;
+    if (iconPick.panel) {
+      iconPick.panel.remove();
+      syncTrap(); // 不调这一句，整页会留在 inert 里——面板没了，页面却还不能点
+      opener?.focus();
+    }
+    // seq 归零同样重要：关掉之后还在飞的答复回来时不该去写已经不在的那一格
+    Object.assign(iconPick, { sel: null, panel: null, input: null, grid: null, note: null, opener: null, seq: 0 });
+  }
+
+  async function runIconSearch() {
+    const { input, grid, note } = iconPick;
+    if (!input) return;
+    const q = input.value.trim();
+    const seq = ++iconPick.seq;
+    const show = (msg, bad) => {
+      note.textContent = msg;
+      note.className = 'sheet-status' + (bad ? ' bad' : '');
+    };
+    if (!q) {
+      grid.replaceChildren();
+      show(T('app.icon.libHint'));
+      return;
+    }
+    let markup = '';
+    let total = 0;
+    try {
+      const res = await fetch('/api/v1/icons/tiles?q=' + encodeURIComponent(q) + '&limit=' + iconTilesLimit,
+        { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      total = Number(res.headers.get('X-LB-Icons-Total') || 0);
+      markup = await res.text();
+    } catch {
+      if (iconPick.seq === seq) show(T('app.icon.libFail'), true);
+      return;
+    }
+    // **迟到的答复丢掉**：先敲的词可能后到，不丢就会盖掉最后敲的那个，
+    // 而这一格显示的是"你正在搜的那个词的结果"——盖错了等于答非所问。
+    if (iconPick.seq !== seq) return;
+    // 插入走 DOMParser 而不是 innerHTML：那一段是本服务自己画的（路径数据来自内嵌
+    // 索引、属性值在 svgMarkup 里逐个转义），但它终究跨了一次 fetch，而 parse 出来
+    // 再 replaceChildren 顺带把 script 与内联事件一起丢掉——"它是我们自己画的"是
+    // 注释，parse 是机制。
+    const tiles = [...new DOMParser().parseFromString(markup, 'text/html').body.children];
+    grid.replaceChildren(...tiles);
+    if (!tiles.length) show(T('app.icon.libNone', q));
+    else if (total > tiles.length) show(T('app.icon.libMore', total, tiles.length));
+    else show('');
+  }
+
+  function pickIcon(name) {
+    const sel = iconPick.sel;
+    if (!sel || !name) return;
+    // 图库给的名字多半不在 resolve 的候选里（候选至多 5 条），所以要自己补一颗
+    if (![...sel.options].some((o) => o.value === name)) {
+      sel.append(el('option', { value: name, text: iconLabel(name) }));
+    }
+    sel.value = name;
+    closeIconPicker();
+  }
 
   // ── bookmarklet 带进来的一条（§6.3）────────────────────────────────────
   // 页面已经渲染完并带着 data-add（服务端透传，见 PageRequest）。这里只**预填**
@@ -1429,7 +1569,7 @@ const APP_I18N = {
         el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
         el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
         el('label', { text: T('app.field.icon') }, [ic]),
-        el('p', { class: 'edit-icon-row' }, [lookIcon]),
+        el('p', { class: 'edit-icon-row' }, [lookIcon, iconLibraryButton(ic)]),
         el('div', { class: 'row' }, [
           el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
           el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit() } }),
@@ -1717,6 +1857,10 @@ const APP_I18N = {
       // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
       // remove 掉等于第二次打开要重新拉一次，而且 DOM 里那个空壳被摘走了。
       if (prefsSheet && !prefsSheet.hidden) { prefsClose(); return; }
+      // 图标库那一层要排在下面那个通用 `.sheet` 分支**之前**：它就是 `.sheet`，
+      // 而那一支是 `dlg.remove()`——摘掉 DOM 却不同步 syncTrap，页面会整片留在
+      // inert 里（面板没了，一个字都点不动）。它的收尾还要把焦点还给打开它的那颗键。
+      if (iconPick.panel) { closeIconPicker(); return; }
       const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
       if (dlg) { dlg.remove(); return; }
       for (const n of [help, cmdk, sheet]) {

@@ -37,14 +37,22 @@
   background:var(--bg);border:1px solid var(--line);border-radius:16px;
   box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .sheet[hidden],.cmdk[hidden]{display:none}
-/* 台面面板那一层要**比别的浮层宽一档**，理由是一个数：色板那一行需要
-   10 颗 × 44 + 9 个 gap × 8 = **512px**，而 `.sheet` 的 560 减掉内衬 44、再减
-   竖向滚动条那 17，给到 499 —— 差的正好 13px。症状实测过：同一份 define 在
-   `GET /prefs`（560 内容宽）一行放得下，在浮层里每组折成两行，每个分组 94→146、
-   整块面板 1027→1339。所以只有这一层加宽到 620（576−17=559 ≥ 512），而里面那块
-   面板仍由 base.css 的 `.prefs{max-width:560px}` 收着——两处落地是同一个数。
-   添加与编辑那两层不动：它们没有一行 512 的东西，加宽只是让字段拉得散。 */
-#lb-prefs.sheet{width:min(620px,calc(100vw - 28px))}
+/* 台面面板那一层要**比别的浮层宽两档**，理由是一个数：宽屏上**一个分组要占一行**
+   （2026-10-14 实拍后改判，算术在 base.css 那一段），而那一行是
+   色板 512 + 排法三颗 212 + 名字下限 96 + 两个 gap 16 = **836**。
+   这一层给到 960：减内衬 44、减竖向滚动条那 17，内容 899，余下 63 全给名字
+   （名字那一格实得 159，八行的排法键与色板起点对齐成一条竖线）。里面那块面板仍由
+   base.css 的 `.prefs{max-width:900px}` 收着——两处落地是同一个数
+   （960 − 44 − 17 = 899 ≈ 900）。多出来的余量不是凑整：排法那三颗是中文按钮，
+   宽度随字体走（量到 212 是这一台机器上的数），余量给的是"别的机器上字宽不同"
+   这件事，留 60 就够它变成 272 而不必把名字压到省略号。
+
+   从前的 620 只够放**色板那一行**（559 ≥ 512），于是每个分组被折成两行、八个分组
+   十六行、面板 1027 高要滚一屏半：**"面板太窄"的真症状不是宽度上限本身难看，
+   是每个分组被折成了两行**，加宽就是它的解。放不下 836 的那些视口（620 上下与
+   平板竖屏）由 flex-wrap 自己折回两行，**没有为它开媒体查询**。
+   添加与编辑那两层不动：它们没有一行 836 的东西，加宽只是让字段拉得散。 */
+#lb-prefs.sheet{width:min(960px,calc(100vw - 28px))}
 /* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
    浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
    与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是
@@ -317,6 +325,37 @@ body[data-multi] main{padding-bottom:96px}
    三条队列就变成三条横贯页面的大按钮，看着像分隔条而不像"撤掉这一条"。 */
 .qlist button{flex:0 0 auto;width:auto}
 @media (forced-colors:active){.multibar button{border:1px solid CanvasText}}
+
+/* 图标库那一格（2026-10-14）：那个 <select> 右边跟一颗「图标库…」。
+   **那颗键不在 <label> 里**（点了 label 会连带把下拉弹开，见 app.js 那条注释），
+   于是这一行要自己排：下拉吃掉剩下的宽，键守住自己的固有宽度。
+   `align-items:flex-end` 让键与输入框**底边**齐——键上面没有 12px 的标签，
+   按顶边齐会高一截，按底边齐才是同一行里两件东西该有的样子。 */
+.icrow{display:flex;align-items:flex-end;gap:8px}
+.icrow label{flex:1 1 auto;min-width:0}
+/* `width:auto` 不是可有可无的：**它必须盖住 `.fld` 的 `width:100%`**——那一格是给
+   表单里整幅铺开的输入框与按钮写的，而这一颗是要和下拉并排的。带着 100% 时它的
+   flex 基准宽度就是整行（`flex:0 0 auto` 又不许它缩），于是 label 被压成 0px、
+   下拉只剩 22px——实测出来的那样。 */
+.icrow>button{flex:0 0 auto;width:auto}
+/* 就地编辑那一行本来就是「抓这个网站的图标」一颗；现在是两颗，同一排。
+   **两行都要写 width:auto**：`.fld` 的 `width:100%` 是给"整幅铺开"写的，而这两行里
+   的键都要和别的控件并排——带着 100% 时每颗的 flex 基准宽度就是整行，于是它们把
+   旁边那一格压成 0px（就地编辑那一行实测 104 高、每颗 514 宽）。 */
+.edit-icon-row{display:flex;gap:8px;flex-wrap:wrap}
+.edit-icon-row>button{width:auto}
+/* 挑图标的面板：比添加那一层**窄一档**。它是"从一堆小方格里挑一个"，宽了只是把
+   同一屏摊得更稀——而列数由 `.icpick-grid` 自己的 `minmax(56px,1fr)` 定，与面板宽
+   解耦，于是 460 与 620 两种宽下都是**同样大**的方格、都不缩。
+   **56 而不是 44**：§7.5 的 44 是触摸地板（不许低于它），而这一格是"认图标"用的，
+   拿一张 22px 的缩略图给人挑等于让人猜。56 是往上留的余量，44 那条闸只管"不许更小"。 */
+.icpick{width:min(460px,calc(100vw - 28px))}
+.icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:8px;
+  margin-top:4px;max-height:min(52vh,360px);overflow:auto}
+.icpick-tile{min-height:56px;padding:0}
+/* 方格里那枚 SVG 要比卡片上的 22px 大一档：它是**用来认的**，认不出来就等于没画。
+   字色走 `.fld` 的 --ink，于是 SVG 的 currentColor 有值（描边层就是它）。 */
+.icpick-tile .ic-svg,.icpick-tile .ic-img{width:28px;height:28px}
 
 
 /* 报告里那些列表要**带回符号**：全局把 list-style 复位了，不显式要回来，
