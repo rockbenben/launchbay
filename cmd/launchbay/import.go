@@ -26,7 +26,7 @@ import (
 //	不预置任何内容，也就没有"一份共用的清单往各个档案里铺"这件事可做。
 //
 // **目标档案必须是空的**：导入的语义是"把浏览器那套导进来"，不是"往现有档案上
-// 叠加"。对着一个已经装了几十条书签的档案跑一遍 replace，那几���条会无声消失。
+// 叠加"。对着一个已经装了几十条书签的档案跑一遍 replace，那几十条会无声消失。
 // 撞上了就报错让人自己选，而不是替他决定。
 func cmdImportBookmarks(args []string, cfg config, out io.Writer) int {
 	fs := flag.NewFlagSet("import-bookmarks", flag.ContinueOnError)
