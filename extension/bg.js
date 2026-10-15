@@ -20,7 +20,7 @@
 // 每一个错误码在这儿都有交代"）。服务端答的那些 detail / reason 是给脚本读的
 // 协议话，不进通知——它们进 console，那里有排查的人与 AI。
 
-import { t, httpErr, kindOf, serverNote } from './i18n.js';
+import { t, httpErr, httpErrKey, kindOf, serverNote, noteTarget } from './i18n.js';
 
 const CFG_KEY = 'lb-config';
 const DEFAULTS = { base: '', tokens: {}, defaultProfile: '' };
@@ -49,14 +49,14 @@ async function send(c, path, body, profile) {
   } catch (e) {
     // 地址写错、机器没起、端口没开，拿到的都是 "Failed to fetch" 这一句英文——
     // 而那是这条流水线上**最常被读到的一句**，贴原文等于让人去猜。
-    throw new Error(t('netFail', e.message));
+    throw Object.assign(new Error(t('netFail', e.message)), { where: noteTarget('netFail') });
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     // 通知里说的是**出路**（按 kind 查表，见 i18n.js），服务端那句 detail/reason
     // 是给脚本对照的协议话，只进 console：排查的人要原话，正要点下去的人要下一步。
     console.warn('lb: ' + path + ' → ' + res.status, kindOf(data), serverNote(data));
-    throw new Error(httpErr(res, data, profile));
+    throw Object.assign(new Error(httpErr(res, data, profile)), { where: noteTarget(httpErrKey(res, data)) });
   }
   return data;
 }
@@ -82,7 +82,12 @@ async function tellOK(text) {
 
 // tellNote：一整句读得完的话。`!` 那个角标在这里说的是"什么都没写进去"，
 // 不只是"出事了"——"这一窗本来就没有新东西"也归它管。
-async function tellNote(title, message, profile) {
+// `where` 是"点这条通知该落到哪儿"（'page' | 'settings'，判据见 i18n.js 的
+// NOTE_TARGET）。不传就当 settings——那是一句说不清出路的失败该有的默认。
+let lastNoteWhere = 'settings';
+
+async function tellNote(title, message, profile, where) {
+  lastNoteWhere = where === 'page' ? 'page' : 'settings';
   await chrome.action.setBadgeText({ text: '!' });
   await chrome.action.setBadgeBackgroundColor({ color: '#b3261e' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 6000);
@@ -102,8 +107,21 @@ async function tellNote(title, message, profile) {
   }
 }
 
-chrome.notifications?.onClicked?.addListener((id) => {
-  if (id === 'lb-fail') chrome.runtime.openOptionsPage();
+// 点通知 = 走那句话教的那条路（2026-10-16）。从前这里无条件开设置页，于是
+// 一句"去页面上在那一条上按编辑"配着一颗把人带去设置页的按钮——**一句话不许
+// 同时指两个地方**。设置类失败照旧开设置页，那才是它的出路。
+chrome.notifications?.onClicked?.addListener(async (id) => {
+  if (id !== 'lb-fail') return;
+  if (lastNoteWhere !== 'page') {
+    await chrome.runtime.openOptionsPage();
+    return;
+  }
+  const c = await cfg();
+  if (!c.base) {
+    await chrome.runtime.openOptionsPage();
+    return;
+  }
+  await chrome.tabs.create({ url: c.base });
 });
 
 // saveOne 的三种结果：`null` = 存进去了；`{dup:true}` = 这一条本来就在这份里，
@@ -113,8 +131,8 @@ chrome.notifications?.onClicked?.addListener((id) => {
 // 翻译成人话，比在这儿看一眼已经拿到手的数据贵。
 async function saveOne(page, profile) {
   const c = await cfg();
-  if (!c.base) return { why: t('noBase') };
-  if (!profile || !c.tokens[profile]) return { why: t('noToken') };
+  if (!c.base) return { why: t('noBase'), where: noteTarget('noBase') };
+  if (!profile || !c.tokens[profile]) return { why: t('noToken'), where: noteTarget('noToken') };
   // 先 resolve 一次：它把标题、描述、建议分组与图标候选都填好，而服务端据此
   // 拒掉/收下每一条。**不要在扩展里自己造分组** —— 那是服务端那份映射的职责，
   // 两处各判一次就会分家。
@@ -142,7 +160,7 @@ async function saveOne(page, profile) {
   if (groups.some((g) => (g.items || []).some((it) => it.url === page.url))) return { dup: true };
   const wanted = groups.find((g) => g.id === picked.group);
   const gid = (wanted && wanted.id) || (groups[0] && groups[0].id) || '';
-  if (!gid) return { why: t('noGroup') };
+  if (!gid) return { why: t('noGroup'), where: noteTarget('noGroup') };
 
   const value = { id: idFor(page.url, picked.name), name: picked.name, url: page.url };
   if (picked.desc) value.desc = picked.desc;
@@ -194,15 +212,15 @@ refreshMenus();
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const c = await cfg();
   const profile = currentProfile(c);
-  const fail = (message) => tellNote(t('failTitle'), message, profile);
+  const fail = (message, where) => tellNote(t('failTitle'), message, profile, where);
   if (info.menuItemId === 'lb-save') {
     const page = info.linkUrl ? { url: info.linkUrl, title: info.linkUrl } : { url: tab.url, title: tab.title };
     try {
       const r = await saveOne(page, profile);
-      if (r) throw new Error(r.why || t('alreadySaved'));
+      if (r) throw Object.assign(new Error(r.why || t('alreadySaved')), { where: r.where });
       await tellOK(t('badgeSaved'));
     } catch (e) {
-      await fail(e.message);
+      await fail(e.message, e.where);
     }
     return;
   }
@@ -212,15 +230,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // 回来发现一个都没存上"，比停在第 7 条难查得多。
     // 「本来就在这份里」的那几条**不算失败、跳过接着存**（见 saveOne 的三态）。
     const pages = (await chrome.tabs.query({ currentWindow: true })).filter((p) => p.url && /^https?:/.test(p.url));
-    let ok = 0, dup = 0, firstErr = null;
+    let ok = 0, dup = 0, firstErr = null, firstErrWhere = null;
     for (const p of pages) {
       try {
         const r = await saveOne({ url: p.url, title: p.title }, profile);
         if (!r) { ok++; continue; }
         if (r.dup) { dup++; continue; }
-        firstErr = firstErr || r.why;
+        if (!firstErr) { firstErr = r.why; firstErrWhere = r.where; }
         break;
-      } catch (e) { firstErr = firstErr || e.message; break; }
+      } catch (e) { if (!firstErr) { firstErr = e.message; firstErrWhere = e.where; } break; }
     }
     const left = pages.length - ok - dup;
     if (!firstErr) {
@@ -228,7 +246,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       // 而它其实是最正常的一种结果（这一窗刚存过）。
       // 角标只有那么宽：三位以上收在 99+，与主站那一族一致。
       if (ok) { await tellOK(t('badgeSavedN', ok > 99 ? '99+' : ok)); return; }
-      await tellNote(t('failTitle'), t('nothingNew', pages.length), profile);
+      await tellNote(t('failTitle'), t('nothingNew', pages.length), profile, 'page');
       return;
     }
     // "停在第 7 条"这句话必须连"后面还有 5 条没存"一起说：只报已存数会让人
@@ -236,6 +254,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // 有 2 条是"本来就有的"，剩下的数目对不上。
     const lines = [t('stoppedAt', ok, firstErr), t('windowTotals', pages.length, left)];
     if (dup) lines.push(t('skippedDup', dup));
-    await fail(lines.join('\n'));
+    await fail(lines.join('\n'), firstErrWhere);
   }
 });

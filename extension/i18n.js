@@ -89,6 +89,54 @@ export function serverNote(body) {
 //
 // `body` 是解析过的响应（认不出来就传 `{}`）；`profile` 给那几句需要点名档案的话。
 export function httpErr(res, body, profile) {
-  const key = KIND[kindOf(body)] || STATUS[res.status];
-  return key ? t(key, profile) : t('errServer', res.status);
+  const key = httpErrKey(res, body);
+  return key === 'errServer' ? t('errServer', res.status) : t(key, profile);
+}
+
+// httpErrKey：那句人话是**按哪个 key 说的**。调用方要它，是因为"点这条通知该
+// 落到哪儿"跟着的是出路而不是那句话的译文——拿译文去比字符串，等于把判据建在
+// 两份语言包的字面上（换一句措辞就悄悄失效）。
+export function httpErrKey(res, body) {
+  return KIND[kindOf(body)] || STATUS[res.status] || 'errServer';
+}
+
+// NOTE_TARGET：通知点下去落在哪儿，**按出路分**。
+//
+// 从前 bg.js 的 onClicked 无条件 openOptionsPage()，而 errDuplicate /
+// errGoneTarget / errOpsBatch / errIconName 那几句教的是"去页面上在那一条上
+// 按编辑"——人照着做，点一下通知却落到设置页。一句说得出出路的失败，
+// 它自己的可点部分不许把人说走。
+//
+// 'settings' = 这台机器还没配对（地址、令牌、档案本身不在了）；
+// 'page'     = 配对是对的，要做的事在导航页上（改那一条、建那个分组、刷新再看）。
+// 这张表由 internal/i18n/extnotify_test.go 逐 key 钉住：KIND 与 STATUS 里
+// 每一个值都要在这儿有一格，漏一个就是那条出路又变回"点了不知道去哪"。
+export const NOTE_TARGET = {
+  noBase: 'settings',
+  noToken: 'settings',
+  noProfileToken: 'settings',
+  needToken: 'settings',
+  err401: 'settings',
+  err403: 'settings',
+  err404: 'settings',
+  errAdminOnly: 'settings',
+  errBroken: 'settings',
+  errDisabled: 'settings',
+  errServer: 'settings',
+  netFail: 'settings',
+  errNoBookmarks: 'settings',
+  errPlanGone: 'settings',
+  noGroup: 'page',
+  errDuplicate: 'page',
+  errGoneTarget: 'page',
+  errIconName: 'page',
+  errBadUrl: 'page',
+  errConflict: 'page',
+  errNoSnap: 'page',
+  errOpsBatch: 'page',
+  errNothingAccepted: 'page',
+};
+
+export function noteTarget(key) {
+  return NOTE_TARGET[key] || 'settings';
 }
