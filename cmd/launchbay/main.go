@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,7 +21,50 @@ import (
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
+// dispatchAction 是 preConfigDispatch 的三种结论。
+type dispatchAction int
+
+const (
+	// dispatchServe：什么都没给——起服务。
+	dispatchServe dispatchAction = iota
+	// dispatchExit：话已经印完，按这个码退出（--help 是 0，未知子命令是 2）。
+	dispatchExit
+)
+
+// preConfigDispatch 是 main 在 loadConfig **之前**走的一格，抽出来是因为它
+// 三条判据每一条都值得有证人，而 main() 里的 os.Exit 测不了。
+//
+// **为什么必须在 loadConfig 前面**：`--help` 是"还不知道该怎么配"那一刻按的键，
+// 而 loadConfig 要的正是配好的东西（管理员 key 缺失是启动错误）。实测原先
+// `launchbay --help` 的回答是一句「LAUNCHBAY_ADMIN_TOKEN: 未配置」——唯一那份
+// 说明在唯一需要它的场合拿不到。
+//
+// **为什么未知子命令在这里拦而不是在 runCLI**：runCLI 的 notCLICommand 同时
+// 表示"没给子命令"（该起服务）与"给错了"（该报错），这两件事到 main 这一层还
+// 合在一起，于是敲错一个字母的人看到的是一句"端口被占用"。
+func preConfigDispatch(args []string, stdout, stderr io.Writer) (dispatchAction, int) {
+	if len(args) == 0 {
+		return dispatchServe, 0
+	}
+	switch a := args[0]; {
+	case a == "-h" || a == "--help" || a == "help":
+		usage(stdout)
+		return dispatchExit, 0
+	case a != "healthcheck" && !strings.HasPrefix(a, "-") && !isCLICommand(a):
+		fmt.Fprintf(stderr, "未知子命令 %q\n\n", a)
+		usage(stderr)
+		return dispatchExit, 2
+	}
+	return dispatchServe, 0
+}
+
 func main() {
+	if act, code := preConfigDispatch(os.Args[1:], os.Stdout, os.Stderr); act != dispatchServe {
+		if act == dispatchExit {
+			os.Exit(code)
+		}
+		return
+	}
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatalf("配置错误: %v", err)
@@ -56,7 +102,9 @@ func main() {
 		// 运维出路（评审指出这条哪儿都没写）：data/icons/index.json 坏了就删掉
 		// 整个 data/icons/ 目录再重启——那是可重建的缓存，不是用户数据；
 		// 代价只是冷却清零、favicon 下次 resolve 重抓一遍。
-		log.Fatalf("图标缓存装配失败: %v", err)
+		log.Fatalf("图标缓存装配失败: %v\n"+
+			"出路：删掉 %s 整个目录再重启——那是可重建的缓存，不是用户数据；"+
+			"代价只是冷却清零、favicon 下次 resolve 重抓一遍。", err, filepath.Join(cfg.DataDir, "icons"))
 	}
 	h := httpapi.New(httpapi.Dependencies{
 		Store:  s,

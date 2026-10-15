@@ -32,8 +32,8 @@ func cmdImportBookmarks(args []string, cfg config, out io.Writer) int {
 	fs := flag.NewFlagSet("import-bookmarks", flag.ContinueOnError)
 	fs.SetOutput(out)
 	profile := fs.String("profile", "", "导入到哪个档案（必填；该档案必须是空的）")
-	by := fs.String("by", "cli", "审计线上的渠道标记")
-	overrides := fs.String("overrides", "", "图标覆盖表 JSON（默认 internal/bookimport/icons.json，没有就用空表）")
+	by := fs.String("by", "cli", "改动历史里这一趟记成哪个渠道（ai / extension / web / import / cli）")
+	overrides := fs.String("overrides", "", "图标覆盖表的 JSON 文件路径（不给就用内置那份，再没有就留空）")
 	dryRun := fs.Bool("dry-run", false, "只打印报告与 ops，不提交")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -41,6 +41,9 @@ func cmdImportBookmarks(args []string, cfg config, out io.Writer) int {
 	rest := fs.Args()
 	if len(rest) != 1 {
 		fmt.Fprintln(out, "用法: launchbay import-bookmarks [flags] <bookmarks.html>")
+		// 少了这一句，走错参数个数的人看到的只有那一行用法，而这条命令**必须**
+		// 带 --profile 却一个字都没提它叫什么——三个开关全在错误路径上隐身。
+		fs.PrintDefaults()
 		return 2
 	}
 	if strings.TrimSpace(*profile) == "" {

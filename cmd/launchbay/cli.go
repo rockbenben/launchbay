@@ -22,6 +22,44 @@ const notCLICommand = -1
 //
 // 分发在 loadConfig 之后（healthcheck 已经在那儿），且直接吃那份 cfg：
 // CLI 与服务读同一份 env，端口与令牌只有一份来源（runCLI 自己不碰 env）。
+// cliCommands 是子命令名单**唯一的那一份**：分发按它，"这一串是不是打错了的
+// 子命令"按它，`--help` 印的也是它。从前只有 runCLI 里那个 switch，于是 main
+// 无从区分"没给子命令"（该起服务）与"给了一个不存在的子命令"（该报错），
+// 后者静默落进 serve 分支——实测 `launchbay revrt --profile dad --to 3` 的回答
+// 是一句"listening on :17999"，而 17999 已经被上一行自己占着，人能白查很久。
+var cliCommands = []struct {
+	name    string
+	summary string
+}{
+	{"revert", "把某一份书签恢复到它的某个历史版本"},
+	{"profile", "建档，或重建一份读不动的 profile.json"},
+	{"import-bookmarks", "把浏览器导出的书签文件导进一份还没有书签的档案"},
+}
+
+func isCLICommand(name string) bool {
+	for _, c := range cliCommands {
+		if c.name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// usage 印那份名单。`--help` 走 stdout 退 0，未知子命令走 stderr 退 2。
+// 它**不许需要任何 env**：按这颗键的人正处在"还不知道该怎么配"的那一刻。
+func usage(out io.Writer) {
+	fmt.Fprintln(out, "launchbay —— 局域网家庭书签导航台")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "launchbay                    起服务（配置全部来自环境变量，见 README）")
+	fmt.Fprintln(out, "launchbay healthcheck        探活，给容器编排用")
+	for _, c := range cliCommands {
+		fmt.Fprintf(out, "launchbay %-19s %s\n", c.name, c.summary)
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "每个子命令自己的开关：launchbay <子命令> -h")
+	fmt.Fprintln(out, "写子命令只经本机 REST 落盘，用的是**那一份档案自己**的档案作用域令牌。")
+}
+
 func runCLI(args []string, cfg config, out io.Writer) int {
 	if len(args) == 0 {
 		return notCLICommand
@@ -59,7 +97,10 @@ func cmdRevert(args []string, cfg config, out io.Writer) int {
 	// 端点对 to-rev=0 的态度相反（有 snapshots/0 就恢复它），见 revert.go。
 	if *profile == "" || *to <= 0 {
 		fmt.Fprintln(out, "用法: launchbay revert --profile <id> --to <rev>")
-		fmt.Fprintln(out, "（--to 0 不收：rev 0 可能是建档留下的真实快照，确要恢复它请直连 API 的 to-rev=0）")
+		fmt.Fprintln(out, "（--to 0 不收：rev 0 可能是建档留下的真实快照。确实要恢复它，打这条端点，")
+		fmt.Fprintln(out, "  用那一份档案自己的档案作用域令牌，与 CLI 用的是同一枚：")
+		fmt.Fprintln(out, `  curl -X POST -H "Authorization: Bearer <该档案的令牌>" -H "X-LB-By: cli" \`)
+		fmt.Fprintln(out, `    "http://<这台机器>:<端口>/api/v1/revert?profile=<id>&to-rev=0"`)
 		return 2
 	}
 	// revert 要写别人的书签，所以用**那一份自己**的令牌（2026-10-10 改判）。
@@ -83,7 +124,13 @@ func cmdRevert(args []string, cfg config, out io.Writer) int {
 		Rev          int64 `json:"rev"`
 		RestoredFrom int64 `json:"restoredFrom"`
 	}
-	_ = json.Unmarshal(raw, &resp)
+	// 从前这里是 `_ = json.Unmarshal(...)`：一份形状不对的 200 会印成
+	// "已恢复到 rev 0 的内容，新的 rev 是 0"——**一个编出来的成功**。
+	// 读不出来就是读不出来，退 1，让人去看端点到底回了什么。
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(out, "revert 的响应读不出来（HTTP %d）: %v\n", code, err)
+		return 1
+	}
 	fmt.Fprintf(out, "%s 已恢复到 rev %d 的内容，新的 rev 是 %d\n", *profile, resp.RestoredFrom, resp.Rev)
 	return 0
 }
@@ -190,7 +237,7 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 	// 脚本读的，而"已建档 mom"与"已建档 tv"长得一模一样——差别是这一份从此
 	// 局域网里谁都能进。让建档的那一行自己带出这件事，比让人再去查一次省事。
 	if nopass {
-		fmt.Fprintf(out, "已建档 %s（**不设 PIN**：局域网里谁都能进这一份）\n", *id)
+		fmt.Fprintf(out, "已建档 %s（不设 PIN：局域网里谁都能进这一份）\n", *id)
 		return 0
 	}
 	fmt.Fprintf(out, "已建档 %s\n", *id)
@@ -239,11 +286,14 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 	}
-	_ = json.Unmarshal(raw, &resp)
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(out, "profile rebuild 的响应读不出来（HTTP %d）: %v\n", code, err)
+		return 1
+	}
 	// 与 create 同一条理由（见上面那句注释）：重建出来的是不是一份**不设防**的档案，
 	// 从 "已重建 mom（妈妈）" 这行字里看不出来。
 	if nopass {
-		fmt.Fprintf(out, "已重建 %s（%s，**不设 PIN**：局域网里谁都能进这一份）\n", resp.ID, resp.Title)
+		fmt.Fprintf(out, "已重建 %s（%s，不设 PIN：局域网里谁都能进这一份）\n", resp.ID, resp.Title)
 		return 0
 	}
 	fmt.Fprintf(out, "已重建 %s（%s）\n", resp.ID, resp.Title)

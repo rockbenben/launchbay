@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -84,8 +85,9 @@ func TestCLIDispatchAndUsage(t *testing.T) {
 		{[]string{"profile", "list"}, 2, []string{"用法", "launchbay profile create"}},
 		// **sync-template 不再是子命令**（2026-10-10，模板整条拆掉）：它曾经
 		// 是"把一份共有模板推进各个档案"，而每个档案现在完全分离、没有共有的东西。
-		// 所以这一格钉的是"**它现在不是 CLI 命令**"——不认得的第一个参数必须
-		// 老实落到服务端分支去，而不是被一个已删的子命令名接走。
+		// 所以这一格钉的是"**它现在不是 CLI 命令**"——runCLI 对它返回 notCLICommand。
+		// 注意这**不等于**"该起服务"：那一步判断在 preConfigDispatch（main 那一格），
+		// 由 TestPreConfigDispatch 钉。两层的分工就是这一格存在的原因。
 		{[]string{"sync-template"}, notCLICommand, nil},
 		{[]string{"revert"}, 2, []string{"用法: launchbay revert --profile <id> --to <rev>"}},
 		// --to 0 是端点与 CLI 取法分歧的那一格：CLI 按用法错误拒（revert.go
@@ -431,4 +433,109 @@ var (
 func e2eIconIndex() *icons.Index {
 	e2eIconsOnce.Do(func() { e2eIcons = icons.MustLoad() })
 	return e2eIcons
+}
+
+// preConfigDispatch 那三条判据各有一位证人（2026-10-16）。
+//
+// 这一格从前不存在：`--help` 与一个打错的子命令都直接落进 loadConfig 之后。
+// 后果实测过两条——help 的回答是一句"未配置 LAUNCHBAY_ADMIN_TOKEN"（唯一那份
+// 说明在唯一需要它的场合拿不到），而 `launchbay revrt …` 的回答是一句
+// "listening on :17999"，端口还是它自己上一行占的。
+func TestPreConfigDispatch(t *testing.T) {
+	var so, se bytes.Buffer
+	if act, code := preConfigDispatch(nil, &so, &se); act != dispatchServe || code != 0 {
+		t.Fatalf("什么都没给必须起服务，拿到 %v/%d", act, code)
+	}
+
+	for _, a := range []string{"-h", "--help", "help"} {
+		so.Reset()
+		se.Reset()
+		act, code := preConfigDispatch([]string{a}, &so, &se)
+		if act != dispatchExit || code != 0 {
+			t.Fatalf("%s: 要退 0，拿到 %v/%d", a, act, code)
+		}
+		// 印的必须是那份名单本身，而不是一句"见 README"。
+		for _, want := range []string{"revert", "profile", "import-bookmarks", "healthcheck"} {
+			if !strings.Contains(so.String(), want) {
+				t.Fatalf("%s 的输出缺 %q：%s", a, want, so.String())
+			}
+		}
+		if se.Len() != 0 {
+			t.Fatal("--help 走 stdout，不许往 stderr 印东西")
+		}
+	}
+
+	so.Reset()
+	se.Reset()
+	act, code := preConfigDispatch([]string{"revrt"}, &so, &se)
+	if act != dispatchExit || code != 2 {
+		t.Fatalf("未知子命令要退 2，拿到 %v/%d", act, code)
+	}
+	if !strings.Contains(se.String(), `未知子命令 "revrt"`) {
+		t.Fatalf("要点名那个打错的词：%s", se.String())
+	}
+	if so.Len() != 0 {
+		t.Fatal("错误走 stderr，不走 stdout")
+	}
+
+	// healthcheck 与 -flag 开头的两个形状**不许被这一格接走**：前者是容器探活
+	// （它要在 loadConfig 之后读同一份 env），后者留给子命令自己的 flag 解析。
+	for _, a := range []string{"healthcheck", "-port=1", "--profile"} {
+		if act, code := preConfigDispatch([]string{a}, io.Discard, io.Discard); act != dispatchServe {
+			t.Fatalf("%q 不该被这一格接走，拿到 %v/%d", a, act, code)
+		}
+	}
+	// 已知子命令同样放行——真正的分发在 runCLI，那里有别的证人。
+	for _, c := range cliCommands {
+		if act, _ := preConfigDispatch([]string{c.name}, io.Discard, io.Discard); act != dispatchServe {
+			t.Fatalf("已知子命令 %q 不该被这一格接走", c.name)
+		}
+	}
+}
+
+// 端点回了 200 但**响应读不出来**时，CLI 不许替它报数（2026-10-16）。
+// 从前这两条路都是 `_ = json.Unmarshal(...)` 然后照常打印，于是形状不对的
+// 200 会印成"已恢复到 rev 0 的内容，新的 rev 是 0"——一个编出来的成功，
+// 退出码还是 0，脚本作者据此认为回退做完了。
+func TestCLIDoesNotInventSuccessFromAnUnreadableBody(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		args []string
+	}{
+		{"revert 回的不是 JSON", `not json at all`, []string{"revert", "--profile", "dad", "--to", "3"}},
+		// rebuild 回的是**缺 title** 的半份：从前那行印成"已重建 dad（）"。
+		{"rebuild 缺字段", `{"id":"dad"}`, []string{"profile", "rebuild", "--profile", "dad", "--title", "爸爸", "--nopass"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			u, err := url.Parse(srv.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("LAUNCHBAY_PORT", u.Port())
+			t.Setenv("LAUNCHBAY_WRITE_TOKENS", "ai-dad:tok-dad:dad")
+			t.Setenv("LAUNCHBAY_ADMIN_TOKEN", testAdminKey)
+			cfg, err := loadConfig()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var buf bytes.Buffer
+			code := runCLI(tc.args, cfg, &buf)
+			out := buf.String()
+			if code == 0 {
+				t.Fatalf("读不出来的响应被当成了成功（退 0）：%q", out)
+			}
+			for _, fabricated := range []string{"已恢复到 rev 0", "已重建", "已建档"} {
+				if strings.Contains(out, fabricated) {
+					t.Fatalf("输出里出现了编出来的结论 %q：%q", fabricated, out)
+				}
+			}
+		})
+	}
 }

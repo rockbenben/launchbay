@@ -103,7 +103,14 @@ func mustOK(raw []byte, code int, path string) error {
 	}
 	_ = json.Unmarshal(raw, &e)
 	if e.Detail == "" {
-		e.Detail = strings.TrimSpace(string(raw))
+		// 端点回的不是那枚外壳（反代的 502 页、一层 HTML）。**截断**：整坨倒进
+		// stderr 会把真正那一句（哪个路径、什么状态码）挤出屏幕，而 HTML 错误页
+		// 动辄几十 KB。
+		body := strings.TrimSpace(string(raw))
+		if len(body) > 200 {
+			body = body[:200] + "…（已截断）"
+		}
+		e.Detail = body
 	}
 	if e.Kind != "" {
 		return fmt.Errorf("%s 返回 %d [%s]：%s", path, code, e.Kind, e.Detail)
