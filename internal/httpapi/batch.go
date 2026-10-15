@@ -150,7 +150,13 @@ func (s *Server) applyBatch(profile, actor, by string, expectedRev *int64, opLis
 			return nil // 真写不下去：snapErr 已置位，收尾按 507 处理
 		}
 		if snapErr != nil {
+			// 降级成告警继续写（rev 仍然有效），但**必须同时打进 stderr**——与下面
+			// 那句 `history append failed` 同一处置：这条告警唯一的去处是响应体里的
+			// `warnings`，而浏览器那条路压根不读它（app.js 一个 warnings 都没接），
+			// 于是"裁剪一直在失败、快照目录一直涨"就只剩容器日志这一处痕迹。
+			// 症状本身没有屏上出口：写照写、页照看，磁盘悄悄变胖。
 			warns = append(warns, "旧快照裁剪失败: "+snapErr.Error())
+			fmt.Fprintf(os.Stderr, "snapshot prune failed profile=%s: %v\n", profile, snapErr)
 			snapErr = nil
 		}
 		next.Rev = snap.Rev + 1
