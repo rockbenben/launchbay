@@ -564,11 +564,18 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    就名不副实了。130px 让它排两栏（每栏 136），与原来 139px 宽的磁贴同一档，
    密度不回退，而分组不再各占一整行。 */
 @media (max-width:700px){[data-profile-view=wall] main{column-width:130px;column-gap:14px}}
-/* 两件事一起：一节不许被劈成两栏（劈开的分组标题会读成"少了几个"），
-   以及**关掉 content-visibility**——那条 `contain-intrinsic-size:auto 700px`
+/* 三件事一起：一节不许被劈成两栏（劈开的分组标题会读成"少了几个"），
+   **上边距归零**，以及关掉 content-visibility——那条 `contain-intrinsic-size:auto 700px`
    在多栏里是给没渲染的节先占 700px 高，栏位排布会整个失真。这一档本来就
-   是一屏装完，"跳过屏外渲染"那笔收益在这里不存在。 */
-[data-profile-view=wall] section{break-inside:avoid;margin-bottom:18px;content-visibility:visible}
+   是一屏装完，"跳过屏外渲染"那笔收益在这里不存在。
+
+   上边距为什么要归零（2026-10-15 实拍）：`section{margin:13px 0}` 那 13px
+   在**多栏容器里只有第一栏会生效**——大卡带子是 `column-span:all`，它把容器劈成
+   上下两个片段，片段往下发时后面的栏从片段顶开始排，第一栏却带着自己那份上边距。
+   实测（2000 宽、四栏）：第一栏的栏头 top=282，其余三栏 top=269，**差 13px**，
+   于是"大卡下面那段距离"看着有些组多、有些组少。节与节之间的空由下面那 18px 管
+   （相邻节的上下边距本来也会折叠成 18），归零不掉任何东西。 */
+[data-profile-view=wall] section{break-inside:avoid;margin:0 0 18px;content-visibility:visible}
 /* 组内不再分列：一栏只有一条竖向的清单。 */
 [data-profile-view=wall] .tiles,[data-profile-view=wall] .rows{grid-template-columns:1fr}
 /* 把手**继续绝对定位在右上角**（磁贴那一条不改）。把它放回流里量到的是一行 62px

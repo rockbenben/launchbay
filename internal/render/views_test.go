@@ -2581,3 +2581,30 @@ func TestCSS_危险键的填充写在次级按钮族之后(t *testing.T) {
 		t.Errorf("按下态写在按钮族之前（%d < %d）：族的 background 会盖掉它，开关看着永远是关的", pressed, joint)
 	}
 }
+
+// **多栏那一档里，节不许带上边距**（2026-10-15 实拍）。
+//
+// 症状：大卡带子下面那段距离，四栏里有一栏明显比其余三栏多一截。
+// 根因不在 `.feat`，在 `section{margin:13px 0}`：大卡带子是 `column-span:all`，
+// 它把多栏容器劈成上下两个片段，**片段往下发时后面的栏从片段顶开始排，
+// 只有第一栏带着自己那份上边距**。实测（2000 宽、四栏）第一栏栏头 top=282、
+// 其余 269，差的正是那 13px。
+//
+// 这条闸钉的是形状而不是像素（Go 里量不到多栏排布）：wall 那一档的 section
+// 规则里出现 margin-top / 四值带上边距的写法就红。节与节之间的空由
+// `margin-bottom:18px` 管，相邻节的上下边距本来折叠成 18，归零不掉任何东西。
+func TestCSS_wall那一档的节不带上边距(t *testing.T) {
+	css := stripCSSComments(readWeb(t, "web/base.css"))
+	rule := extractRule(css, "[data-profile-view=wall] section")
+	if rule == "" {
+		t.Fatal("找不到 [data-profile-view=wall] section 那条规则——改名了还是删了？")
+	}
+	for _, banned := range []string{"margin-top", "margin:13px", "margin:13px 0"} {
+		if strings.Contains(rule, banned) {
+			t.Errorf("wall 那一档的节又带上了边距（%s）——多栏里只有第一栏会生效，栏头会错开：%s", banned, rule)
+		}
+	}
+	if !strings.Contains(rule, "margin:0 0 18px") {
+		t.Errorf("wall 那一档的节应该是 margin:0 0 18px，实际：%s", rule)
+	}
+}
