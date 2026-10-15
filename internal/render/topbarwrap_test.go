@@ -42,11 +42,26 @@ func Test顶栏分组折行而不是横向滚(t *testing.T) {
 		t.Errorf(".gnav.top li 不再是 flex:0 0 auto：折行时键会被压窄，44px 的触摸地板就没了\n%s", li)
 	}
 
-	// 反向证人：**侧栏抽屉那条仍然横滚**。它在 ≤700px 时是顶部的抽屉，
-	// 抽屉里的列表横向滚是常见形态，而且它有把手提示自己是抽屉——
-	// 它与顶栏那一行不是同一件事，判据不同。
-	if !strings.Contains(css, ".gnav:not(.top) ul{display:flex;gap:6px;overflow-x:auto}") {
-		t.Error("侧栏抽屉那条的横向滚被一起改了：抽屉里的列表横滚是它的形态，不是顶栏那一行")
+	// 反向证人曾经钉的是"**侧栏抽屉那条仍然横滚**"，理由是"它有把手提示自己是抽屉"。
+	// 2026-10-15 全站取景把这条判据推翻，而推翻它的正是上面那三条本身：
+	// 390 档抽屉**默认是开的**（`<details class="drawer" open>`），把手那一刻已经
+	// 尽完职责——它说的是"这里有一列分组"，不是"你看到的这半列后面还有半列"。
+	// 现场量到 8 个分组里 4 个（工具/播客/娱乐/后端）整颗在右缘之外，一颗都点不到，
+	// 而触屏上那条滚动条不现形。WCAG 1.4.10 那一句话对这一支同样成立，
+	// 甚至更成立：顶栏那一行至少是整幅宽，这一支只有 245px。
+	// 抽屉与顶栏的**差别**留在排法上（一个带把手可收，一个常驻），不在"能不能看全"上。
+	drawer := extractRule(css, ".gnav:not(.top) ul{")
+	if drawer == "" {
+		t.Fatal("base.css 里找不到 .gnav:not(.top) ul")
+	}
+	if !strings.Contains(drawer, "flex-wrap:wrap") {
+		t.Errorf("≤700 的抽屉分组带没有折行：一半的分组在右缘之外\n%s", drawer)
+	}
+	if strings.Contains(drawer, "overflow") {
+		t.Errorf("≤700 的抽屉分组带仍有 overflow：横滚被静默保留\n%s", drawer)
+	}
+	if li := extractRule(css, ".gnav:not(.top) li{"); !strings.Contains(li, "flex:0 0 auto") {
+		t.Errorf("≤700 的抽屉分组键被允许缩窄：44px 的触摸地板要留在\n%s", li)
 	}
 
 	// 文案不许再教一个**已经不可能发生**的动作。

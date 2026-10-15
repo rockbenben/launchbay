@@ -279,7 +279,15 @@ details[open]>summary::before{content:"▾"}
 @media (min-width:1101px){.drawer{border:0;padding:0;background:none}.drawer>summary{display:none}}
 @media (max-width:1100px){.shell{grid-template-columns:minmax(0,1fr)}.side{position:static}}
 @media (max-width:700px){
-  .gnav:not(.top) ul{display:flex;gap:6px;overflow-x:auto}
+  /* 这一条原来是 `overflow-x:auto`，而上面 `.gnav.top` 那一段（2026-10-14）
+     已经把同样的形状判过一遍：滚动会把一颗分组名**切成半个词**、会冒出一条
+     灰色系统滚动条、而最要命的是没有任何"右边还有"的提示——触屏上那条滚动条
+     压根不现形。390 档 8 个分组实测有 4 个（工具/播客/娱乐/后端）整颗在右缘外，
+     也就是这一屏一半的跳转出口看不见。
+     2026-10-12 那一次改的是"整页不许横向滚"（grid 钉住第二轨），它做对了，
+     但它把滚动留在了带里；两天后 `.gnav.top` 的判据把同一件事判成"要全部可见"，
+     却没有回头改这一支。现在两支同一处置。 */
+  .gnav:not(.top) ul{display:flex;flex-wrap:wrap;gap:6px 8px}
   .gnav:not(.top) li{flex:0 0 auto}
   .gnav .cnt{display:none}
   /* 「分组」把手与那排分组名**并排**而不是上下摞：两个块各自 44px 高（§7.5 的
@@ -503,6 +511,22 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    让次要的换行，而不是让主要的消失。list 形态一行 966px，不需要这一套。 */
 .tiles .card{flex-wrap:wrap}
 .tiles .card b,.tiles .plain b{flex:1 1 0;min-width:0}
+/* 磁贴里的名字放开到**最多三行**（2026-10-15 全站取景后改判）。
+   上面那条 `basis:0` 治的是"名字整块掉到第二 flex 行、图标孤零零占第一行"，
+   它做到了；代价是名字从此只能一行读完，而 390 档实测 42 条里 **9 条被省略号切掉**
+   （「什么值得买」差 3px、「Chrome 网上应用店」差 61px、「Nginx Proxy Manager」差 76px），
+   700 档的并排视图更多。名字是这张卡上唯一必读的那一格——地址在 title 里、
+   说明是次要元数据，切掉名字等于把这一屏的主内容切掉。
+   与 `.pick-name` 那一条同一个处置（选择页的档案名 2026-10-12 就已经是两行了，
+   理由一字不差：截断不等于丢信息，完整值仍在 title 里）。
+   **三行不是两行**（落地后复量）：15px 字在 104px 的名字格里一行只装得下 6.9 个汉字，
+   「Chrome 网上应用店」与「Nginx Proxy Manager」要三行才读完，两行仍然切掉它们
+   （scrollHeight 72 vs clientHeight 48 量出来的）。三行的代价按**需要它的那几条**算：
+   42 条里 2 条，只把那一排垫高 24px，其余的卡片该一行还是一行。
+   `basis:0` 与两行**不冲突**：flex 行不再换，是名字那个盒子**自己**内部折行。
+   只管 `.tiles`：list 与紧凑那两档的契约就是"一行一条"，那里截断是排法本身。 */
+.tiles .card b,.tiles .plain b{white-space:normal;display:-webkit-box;
+  -webkit-line-clamp:3;-webkit-box-orient:vertical}
 /* `1 1 auto` → `1 1 0`（2026-10-13 真实数据实拍）：basis 是 auto 时，flex 先按**内容宽**
    排一行，放不下才换行——于是名字长一点的条目（「Chrome 网上应用店」）整块掉到第二行，
    图标孤零零占着第一行，那一格从 44px 长到 99px，同排其它卡片被 grid 一起拉高。
@@ -978,9 +1002,15 @@ select option{background:var(--bg);color:var(--ink)}
   :root:not([data-theme]) .prefs-field .prefs-keys{background:rgba(0,0,0,.04)}
 }
 .prefs-field .prefs-keys button{flex:1 1 auto;min-width:68px;background:transparent;
-  border:1px solid transparent;border-radius:8px;font-size:13px;color:var(--ink2);
+  /* 未按下那几颗**要有一圈极淡的边**（2026-10-15 全站取景后改判）。原来是
+     `border:1px solid transparent`：轨道看得见、按下那一颗看得见，中间那几颗
+     就是浮在槽里的字——实拍里「单列」「大卡」「并排」「紧凑」读起来像上一颗按钮的
+     说明文字，而它们每一颗都是要点的地方。分段控件的"这是一排可点的"从来不是
+     靠轨道底色说的，是靠**每一段都有自己的边界**说的。
+     按下态仍然赢：它描主色 + 提亮 + 投影，四项都写在下面那条里。 */
+  border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ink2);
   transition:color .14s ease,background .14s ease,border-color .14s ease}
-.prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi);border-color:transparent}
+.prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi)}
 /* 按下态必须把**四项**都写一遍（2026-10-15 batch11 P1）。上面那条 `.prefs button
    [aria-pressed=true]` 承诺的是"字提亮 + 描边转主色 + 底色"，而它和下面
    `.prefs-field .prefs-keys button` 权重相同、写在它**前面**——于是台面面板那四排
@@ -1107,7 +1137,7 @@ select option{background:var(--bg);color:var(--ink)}
 @media (prefers-color-scheme:light){
   :root:not([data-theme]) .prefs-group-shape{background:rgba(0,0,0,.04)}
 }
-.prefs-group-shape button{background:transparent;border:1px solid transparent;border-radius:8px;
+.prefs-group-shape button{background:transparent;border:1px solid var(--line);border-radius:8px;
   font-size:12.5px;color:var(--ink2);transition:color .14s ease,background .14s ease,border-color .14s ease}
 .prefs-group-shape button:hover{color:var(--ink);background:var(--card-hi)}
 .prefs-group-shape button[aria-pressed=true]{font-weight:600;color:var(--ink);border-color:var(--accent);background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.2)}
