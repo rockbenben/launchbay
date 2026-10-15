@@ -78,7 +78,10 @@
      左边那一列 tab 全都跟着挪，人刚要按的下一颗就跑到了别处。
      顶边钉在 16px（不再 translate 回中间），高度给一个下限：短的那一节不至于塌成
      一条，长的那两节本来就顶到底，**变的只有下边缘**。 */
-  top:16px;transform:none;min-height:min(520px,calc(100vh - 32px))}
+  top:16px;transform:translateX(-50%);min-height:min(520px,calc(100vh - 32px))}
+  /* `transform` 只留横向那一半：通用 `.sheet` 靠 `translate(-50%,-50%)` 同时做
+     水平与垂直居中，写成 `none` 会把**水平**居中一起取消（left:50% 于是变成
+     "左边缘在屏幕中线"，960 宽的面板右半边直接出屏）。这条是实拍抓回来的。 */
 /* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
    浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
    与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是
