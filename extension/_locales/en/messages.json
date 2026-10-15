@@ -65,7 +65,7 @@
         "content": "$2"
       }
     },
-    "message": "This window had $1 pages, so $2 weren't saved."
+    "message": "This window had $1 saveable pages, so $2 weren't saved."
   },
   "skippedDup": {
     "placeholders": {
@@ -81,7 +81,7 @@
         "content": "$1"
       }
     },
-    "message": "All $1 pages in this window were already in this profile — nothing new to save."
+    "message": "All $1 saveable pages in this window were already in this profile — nothing new to save."
   },
   "err401": {
     "message": "This machine doesn't recognise that token — it may be missing a character, or the machine rotated it."
@@ -131,13 +131,13 @@
     "message": "That group or bookmark is gone — someone else may have changed it. Reload the page and look again."
   },
   "errIconName": {
-    "message": "This machine doesn't know that icon name. Pick another, or leave it empty and use the first letter."
+    "message": "This machine doesn't know that icon name. To change it, use the edit button on that bookmark in the page."
   },
   "errNoBookmarks": {
     "message": "No bookmarks could be read from that file — make sure it is the .html your browser exported."
   },
   "errNothingAccepted": {
-    "message": "None of the addresses in that file can go in (usually they have no host name). Try another file, or fix those bookmarks in the browser first."
+    "message": "None of the addresses in that file can go in (usually they have no host name, like javascript: links). Keep using those in the browser, or try another file."
   },
   "errOpsBatch": {
     "message": "That batch wasn't written — your bookmarks are untouched. Clicking again won't change it; this one has to be changed in the page."
@@ -197,7 +197,7 @@
     "message": "Fill in the address first."
   },
   "needToken": {
-    "message": "Add a profile-scoped token first — the id and its token belong on the same row."
+    "message": "Fill in this profile's own token first — the id and its token belong on the same row."
   },
   "testOK": {
     "placeholders": {
@@ -299,7 +299,7 @@
     "message": "Unnamed"
   },
   "noProfileToken": {
-    "message": "There's no profile-scoped token yet — fill one in above first."
+    "message": "This profile has no token of its own yet — fill one in above first."
   },
   "pageTitle": {
     "message": "Save to launchbay · Settings"
@@ -323,7 +323,7 @@
     "message": "Its token (write access)"
   },
   "noteToken": {
-    "message": "The token is this machine's <b>write access</b>. It stays in <code>chrome.storage.local</code> on this computer — <b>never synced, never uploaded</b>. Change profile, change token; if one leaks, revoke just that one."
+    "message": "The token is this machine's <b>write access</b>. It stays on <b>this computer</b> — <b>never synced, never uploaded</b>. Change profile, change token; if one leaks, revoke just that one."
   },
   "btnSave": {
     "message": "Save settings"

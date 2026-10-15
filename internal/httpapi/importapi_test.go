@@ -569,7 +569,7 @@ func TestImport_报告按读者分语言(t *testing.T) {
 	}
 	ct, body := uploadOf("bookmarks.html", []byte(nbFile))
 	page := postImport(t, h, loginCookie(t, h, "dad", "1234"), ct, body).Body.String()
-	for _, want := range []string{"Verdict", "Reconciliation"} {
+	for _, want := range []string{"Result", "Reconciliation"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("英文站点的导入页里没有 %q：那一屏的读者拿到的还是中文报告\n%.400s", want, page)
 		}
@@ -613,7 +613,7 @@ func TestImport_报告按读者分语言(t *testing.T) {
 	if err := json.Unmarshal(rec2.Body.Bytes(), &out2); err != nil {
 		t.Fatalf("带语言头的这一发也该回 JSON：%v %.200s", err, rec2.Body)
 	}
-	for _, want := range []string{"Verdict", "Reconciliation"} {
+	for _, want := range []string{"Result", "Reconciliation"} {
 		if !strings.Contains(out2.Report, want) {
 			t.Errorf("浏览器那一路没拿到英文句子（%q 不在报告里）：%s", want, out2.Report)
 		}

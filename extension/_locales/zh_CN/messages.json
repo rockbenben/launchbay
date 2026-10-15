@@ -20,7 +20,7 @@
         "content": "$1"
       }
     },
-    "message": "已存$1"
+    "message": "已存 $1"
   },
   "failTitle": {
     "message": "没存进 launchbay"
@@ -54,7 +54,7 @@
         "content": "$2"
       }
     },
-    "message": "存到第 $1 条时停了：$2"
+    "message": "存进去 $1 条之后停了：$2"
   },
   "windowTotals": {
     "placeholders": {
@@ -65,7 +65,7 @@
         "content": "$2"
       }
     },
-    "message": "这一窗共 $1 个网页，还有 $2 个没存。"
+    "message": "这一窗有 $1 个能存的网页，还有 $2 个没存。"
   },
   "skippedDup": {
     "placeholders": {
@@ -81,7 +81,7 @@
         "content": "$1"
       }
     },
-    "message": "这一窗 $1 个网页都已经在这份里了，没有新东西要存。"
+    "message": "这一窗 $1 个能存的网页都已经在这份里了，没有新东西要存。"
   },
   "err401": {
     "message": "这台机器不认这枚令牌：多半是少复制了字符，或者机器那边换过令牌。"
@@ -131,13 +131,13 @@
     "message": "那一组或那一条已经不在了——可能别人刚改过。刷新页面再看一次。"
   },
   "errIconName": {
-    "message": "那个图标名这台机器查不到。换一个，或留空用名字第一个字。"
+    "message": "那个图标名这台机器查不到。要改它，去页面上在那一条上按编辑。"
   },
   "errNoBookmarks": {
     "message": "那份文件里读不出书签——确认选的是浏览器导出的那一个 .html 文件。"
   },
   "errNothingAccepted": {
-    "message": "这份文件里的地址一条都进不来（多半是缺主机名那种）。换一份，或先在浏览器里把那些书签修好。"
+    "message": "这份文件里的地址一条都进不来（多半是缺主机名那种，例如 javascript: 开头）。这种请继续在浏览器里用，或者换一份文件。"
   },
   "errOpsBatch": {
     "message": "这一批没写进去，书签一个字都没变。再点一次不会不一样——这一条得在页面上改。"
@@ -171,7 +171,7 @@
     "message": "＋ 再加一枚（另一个档案）"
   },
   "tokenPlaceholder": {
-    "message": "这一枚档案作用域的令牌"
+    "message": "这一份档案自己的令牌"
   },
   "tokenAria": {
     "placeholders": {
@@ -197,7 +197,7 @@
     "message": "先填地址。"
   },
   "needToken": {
-    "message": "先填一枚档案作用域的令牌（档案 id 和它的令牌要在同一行）。"
+    "message": "先填这一份档案自己的令牌（id 和令牌要在同一行）。"
   },
   "testOK": {
     "placeholders": {
@@ -271,7 +271,7 @@
         "content": "$3"
       }
     },
-    "message": "已导入 $1 条，rev 现在是 $2$3"
+    "message": "已导入 $1 条，版本号现在是 $2$3"
   },
   "warnClause": {
     "placeholders": {
@@ -299,7 +299,7 @@
     "message": "未命名"
   },
   "noProfileToken": {
-    "message": "还没有一枚档案作用域的令牌——先在上面填一枚。"
+    "message": "这一份还没有自己的令牌——先在上面填一枚。"
   },
   "pageTitle": {
     "message": "存到 launchbay · 设置"
@@ -323,7 +323,7 @@
     "message": "这一枚令牌（写权限）"
   },
   "noteToken": {
-    "message": "令牌是这台机器的<b>写权限</b>。它只存在这台电脑的 <code>chrome.storage.local</code> 里，<b>不进 sync、不上云</b>；换档案就换令牌，某一台泄露了只吊销那一枚。"
+    "message": "令牌是这台机器的<b>写权限</b>。它只留在<b>这台电脑</b>上——不进浏览器同步、不上云；换档案就换令牌，某一台泄露了只吊销那一枚。"
   },
   "btnSave": {
     "message": "存设置"
