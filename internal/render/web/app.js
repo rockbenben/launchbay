@@ -2140,10 +2140,14 @@ const APP_I18N = {
     bar.hidden = !multi.on;
     if (!multi.on) return;
     bar.innerHTML = '';
-    const mk = (label, fn) => bar.append(el('button', { type: 'button', class: 'fld', text: label, on: { click: fn } }));
+    const mk = (label, fn, cls) => bar.append(el('button', { type: 'button', class: cls ? 'fld ' + cls : 'fld', text: label, on: { click: fn } }));
     mk(T('app.multi.move', n), pickMoveTarget);
     mk(T('app.multi.tags', n), pickTags);
-    mk(T('app.multi.delete', n), pickDelete);
+    // 删掉那一颗要**看着就不一样**（2026-10-15）。五颗键同底同边同字色，而其中
+    // 只有一颗通向"这一批没了"。它不是实心红——实心红留给"按下去就不可逆"的
+    // 确认页那一颗（button.danger），这一颗只是打开确认，与表格里「删档」和
+    // 设置里「删掉这一组」同一档：描边转红。
+    mk(T('app.multi.delete', n), pickDelete, 'danger');
     mk(T('app.multi.none'), () => { multi.picked.clear(); paintPicked(); });
     mk(T('app.multi.exit'), exitMulti);
   }
@@ -2380,7 +2384,12 @@ const APP_I18N = {
       el('button', { type: 'button', class: 'dismiss', text: T('app.sw.dismiss'), 'aria-label': T('app.sw.aria'),
         on: { click: () => p.remove() } }),
     ]);
-    header.prepend(p);
+    // 横幅落在**顶栏之后**，不落进顶栏里（2026-10-15 取景后改判）。
+    // 原先是 `header.prepend`：header 是 flex 行，于是"已保存。""离线了"
+    // "已经在多选里"每一条都成了标题的**兄弟**，把「我的书签」与搜索框整排
+    // 往右推（实拍：多选提示 600px 宽，标题被顶到 x=645）。一条会自己出现又
+    // 自己消失的临时消息，不该每出现一次就重排一次主结构。
+    header.after(p);
   }
 
   // 注册本身**允许失败**：Service Worker 不可用（http 局域网直连、浏览器关了

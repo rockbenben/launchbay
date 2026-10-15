@@ -393,6 +393,15 @@ body[data-multi] main{padding-bottom:96px}
    整条看起来抖了一下。这一族的按下反馈改由描边与底色承担（按住时描边转亮蓝），
    位移明确豁免：一族一种按下的写法，这里选的是"不许抖出屏幕"。 */
 .multibar button:active{transform:none;border-color:var(--accent)}
+/* 批量条里通向删除的那一颗：描边与字转红，底色不动。实心红是"按下去就没了"
+   那一档（base.css 的 button.danger），这一颗只把确认层打开，与表格里「删档」
+   同一档语言。`--bad-text` 而不是 `--bad`：暗底上 #ff7a7a 做**字色**低于 AA，
+   那一族在 base.css 的调色板注释里已经量过。 */
+.multibar button.danger{border-color:var(--bad);color:var(--bad-text)}
+.multibar button.danger:hover{background:rgba(255,122,122,.14);border-color:var(--bad)}
+/* 顶栏横幅落在顶栏**下面那一行**（app.js 的 header.after）。宽度跟着 header 的
+   盒子走：同一档上限、同一档左右留白，否则它比上面那排宽出一截，看着像另一个区块。 */
+#lb-banner{width:min(100% - 32px,1600px);margin:0 auto 14px}
 /* 顶栏提醒的关闭出口。它必须存在：一条说得出结果、却说不出下一步的横幅，
    挂在页面最顶上又关不掉，比没有更烦（实测从前一次会话里同时挂着两条）。 */
 .notice .dismiss{margin-left:10px;font:inherit;font-size:12px;color:var(--ink);
