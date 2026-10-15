@@ -104,9 +104,9 @@ type executor struct {
 	// 但它还有第二条：这一页**不属于任何档案**，也不属于管理那一族，
 	// 借任何一页的模板都会让 X-LB-Profile 与 SW 的缓存桶跟着猜错。
 	notFoundT *template.Template
-	cssT        template.CSS
-	ix          *icons.Index
-	fc          *store.IconCache
+	cssT      template.CSS
+	ix        *icons.Index
+	fc        *store.IconCache
 }
 
 type itemView struct {
@@ -462,6 +462,11 @@ type pickerView struct {
 	Notice       string
 	Heading      string
 	Setup        bool
+	// NoWayIn 是"一张卡都画不出、也没有哪一份被点名为读不动"——也就是这一页
+	// 没有任何人能进得去（2026-10-16 取景）。它把标题从一句**没人能回答的问话**
+	// 换成那句事实本身：全家用档案都被停用、或目录都在但一份 profile.json 读不出
+	// 那两格上，原先顶上写着「谁来用？」而下面写着「这台机器现在没有进得去的档案」。
+	NoWayIn bool
 	// HasAdmin 只决定要不要画那个进管理页的口子（2026-10-12）。判据在 httpapi
 	// （这次请求有没有一把真的 lb_admin），模板不判断——没管理权的人看见那个
 	// 格子只会落到登录页。管这台机器是另一件事，不该在没有管理权时把入口画出来。
@@ -988,6 +993,7 @@ func (e *executor) notFound(back string, cat *i18n.Catalog) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
 // adminAction 渲染设 PIN / 删档的确认页。判据全在 AdminAction 里，模板只印。
 func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer

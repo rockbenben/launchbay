@@ -260,7 +260,10 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	if heading == "" {
 		heading = "谁来用？"
 	}
+	// 标题与"这一页到底进不进得去"用的是**同一个数**：卡片数。而引导窗口该不该开
+	// 仍然用磁盘上的目录数（那份判据在 httpapi，坏档案占位那条纪律没动）。
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
+		NoWayIn:   len(views) == 0 && len(blocked) == 0,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
 		Notice: opts.Notice, HasAdmin: opts.HasAdmin}
 	body, err := r.tmpl.picker(v, i18n.Load(r.s.Language()))

@@ -14,7 +14,8 @@
 </head>
 <body>
 <main role="main" class="chooser">
-  <h1>{{.Heading}}</h1>
+  {{/* 一张卡都没有时，标题就是那句事实，不是一句问话（判据见 pickerView.NoWayIn）。 */}}
+  <h1>{{if .NoWayIn}}{{.T "picker.empty"}}{{else}}{{.Heading}}{{end}}</h1>
   {{/* 提示放在最前：读屏的人不该先听完一屏档案才知道刚才没进去。
        文案由 httpapi 的白名单给，这里只负责说。 */}}
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
@@ -25,14 +26,18 @@
          连下拉自己的标签都还是原来那种语言，看上去就是坏的。而这是新装机的
          人看到的第一块屏幕。成功之后照样要输 PIN 才进门。 */}}
     <form method="post" action="/setup" class="pick setup">
-      <label>{{.T "picker.setup.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
+      <label>{{.T "picker.setup.name"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
       {{/* PIN 改成**选填**（2026-10-12），不设防是同一个动作的另一端。
            为什么不是"留空就行"：忘了敲一位就回车，会静悄悄地建出一份局域网里
            谁都能进的书签页，而这个产品最核心的那句承诺正是"各人一份，别人看不见"。
            多了这一格勾选，换来的是"不设防"永远是一个**被说出来**的决定。
            `required` 因此摘掉，minlength/maxlength 留着（对空值不生效，只管手滑打短的）。
            判据只有 httpapi 的 `isNoPass` 一处。 */}}
-      <label>{{.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+      {{/* 格式写在标签上，不等人说错了才告诉他（2026-10-16）。管理页那一格
+           （admin.pin.field）一直带着"4 到 6 位数字"，而**第一次给人定 PIN 的
+           是这一屏**——原先这里只有一个「PIN」，规则只在撞了 `?err=badpin` 之后
+           才出现。一张谁都没见过的表单，不该靠失败来教格式。 */}}
+      <label>{{.T "picker.setup.pinField"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
                             minlength="4" maxlength="6"></label>
       <label class="chk"><input type="checkbox" name="nopass" value="1"> {{.T "picker.setup.nopass"}}</label>
       <p class="hint">{{.T "picker.setup.nopassHint"}}</p>
@@ -120,11 +125,6 @@
     </li>
   {{end}}
   </ul>
-  {{- if and (not .Entries) (not .Blocked)}}
-    {{/* 目录在那儿但没有 profile.json（store 有意不记成坏档：一个手滑 mkdir 的空目录
-         不该在家里页面挂红字）。这一支点不出名，只能说那句总的——不编名字。 */}}
-    <p class="hint">{{.T "picker.empty"}}</p>
-  {{end}}
   {{- end}}
 </main>
 </body>
