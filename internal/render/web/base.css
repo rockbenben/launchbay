@@ -1420,6 +1420,11 @@ a.badge,button.badge{display:inline-flex;align-items:center}
 fieldset.choices{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:16px 0 0}
 fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 .act .choice{margin:6px 0}
+/* 回退那一屏最多列 50 版（约 2500px 高），而提交键排在整张列表**后面**：
+   挑一版要滚到底，按下去还得再看一眼有没有选错。把它粘在视口下沿，
+   选完就地按。只给带 choices 的那一张——设 PIN、删档、停用那三张总共
+   一两格，给它们上粘性是凭空多一层会浮在内容上的东西。 */
+form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
 .act .choice label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;
   padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);
   transition:border-color .16s ease,background .16s ease}
