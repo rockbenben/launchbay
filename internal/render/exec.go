@@ -135,8 +135,21 @@ type groupView struct {
 	// Depth 是路径的段数（0 = 顶层分组）。节标题按它缩进，于是**正文也读得出
 	// 层级**：四十五个分组的档案动辄三万多像素一页，那一长串标题若一样齐地摆着，
 	// 眼睛找不到"哪几个是一家的"——它与侧栏那棵树是同一件事的两半。
-	Depth  int
-	Items  []itemView
+	Depth int
+	Items []itemView
+	// Count 是**这一组有几条书签**（2026-10-15，删掉一组的确认句要用它）。
+	//
+	// 为什么不写 `{{len .Items}}` 就完事：面板里那一列是 `prefsGroups` 另一次读的
+	// 结果（render.go），它**不带条目**——只带标题/颜色/排法，于是那条模板在
+	// 面板上根本没有 Items 可数。同一格由两处填，数就得由 model 那份数出来，
+	// 两处各数一次会漂（页面那份与面板那份来自不同的读）。
+	//
+	// **空组照样画**（2026-10-15 改判，曾判"空的自动隐藏"）：页面上的组列表是
+	// 「这个人放的每一个分类」，而空组仍然是一个**存在的目标**——它能被加书签
+	// 进去（添加浮层的分组下拉、拖拽落点都是从页面上这些标题读的），把它藏起来
+	// 等于让那几处一起失效，于是"这一组怎么才能再放东西进去"没有答案。
+	// 空组的样子是"一个标题 + 一句没有条目的提示"，那是诚实的现状，不是噪声。
+	Count  int
 	Accent string // 已验过的 hex，空串 = 没有；唯一判据是 validatedAccent
 	// AccentCSS 是同一个值包成 template.CSS 的那一份，供模板写进 section 的
 	// `style="--sec-accent:…"`（见 CSSAccent）。Accent 留给形状判据与比较，
@@ -348,6 +361,10 @@ type profileView struct {
 	// （model 里的 init 会 panic 兜住它们不同数的情形）。
 	PrefPalette      []string
 	PrefPaletteNames []string
+	// PrefTab 是**左侧那一列当前选中哪一节**（`?tab=`）：三个值里的一个，判据
+	// 是 `prefsTab` 那张名单（httpapi 侧收，渲染侧兜空串，见 prefsPage）。
+	// 它要活过一次保存——而**只有它自己知道怎么把这一格留在原地**。
+	PrefTab string
 	// MaxGroupTitleRunes 是「分组名」那一格的长度上限，**原样带上 model 那个数**
 	// （不为模板抄一份，也不为它加一个 setter）。模板把它印成那个 maxlength：
 	// 服务端那条通路判的是同一个数，两处不同数时症状是"浏览器拦住了、curl 拦不住"。
@@ -453,14 +470,13 @@ type pickerView struct {
 
 type pickerEntry struct {
 	ID string
-	// Icon 是这张卡上画的那张脸（2026-10-12）：**名字不再印在卡上**，
-	// 改画这个人自己常用的那个站点的图标——图标比字好认，而共用一台电脑的
-	// 一家人各自认自己那张，靠的正是"这张是那个图标"。挑法与三取一都在
-	// icon.go 的 faceOf/pieceFor，判据只有一份。
+	// Icon 是这张卡上画的那张脸（2026-10-12）：挑这个人自己常用的那个站点的图标——
+	// 图标比字好认，而共用一台电脑的一家人各自认自己那张，靠的正是"这张是那个图标"。
+	// 挑法与三取一都在 icon.go 的 faceOf/pieceFor，判据只有一份。
 	//
-	// Title 仍然留着：它进 title（鼠标停上去）与按钮的无障碍名（aria-label），
-	// **不作为可见文字印出来**。一张没有无障碍名的卡对读屏的人等于没有名字，
-	// 而"不显示"说的是"不印出来"，不是"不能被读到"。
+	// Title 是卡片上可见的名字（<b class="pick-name">{{.Title}}</b>）与按钮无障碍名
+	// （aria-label）。名字是区分档案的那一维：两份档案完全可能常用同一个服务（都用 GitHub），
+	// 此时图标一模一样，名字是唯一的区分依据；图标负责好看，不顶替身份。
 	Icon  iconPiece
 	Title string
 	// NeedsPIN 决定这张卡片要不要给 PIN 输入框（2026-10-12）。
@@ -863,6 +879,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 				Letter: p.Letter, ChipHue: p.ChipHue,
 			})
 		}
+		gv.Count = len(gv.Items)
 		v.Bookmarks.Groups = append(v.Bookmarks.Groups, gv)
 	}
 	// 导航在**分组搬走之前**建：设成大卡不该让这一组从分组导航里消失
@@ -970,13 +987,38 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 // openInNewTab 走 `v.Bookmarks`（**不是**新增一个字段）：面板上凡是书签文档里的
 // 格子都该从同一处读——`.Bookmarks` 已经是那个容器，而档案页上它装的是 Title/
 // Footer/OpenInNewTab。为它另开一个字段，模板上就会有两种写法指同一份数据。
-func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog) ([]byte, error) {
+// 台面面板左侧那一列的三个值（2026-10-15）。**它们是寻址键**：`?tab=` 就是这一列
+// 当前停在哪，而分组那一节里的每一次按色块都是一次提交——停在哪必须活过一次
+// 保存，否则"改完第二十组跳回第一组"。
+//
+// 为什么是三个而不是每行一个：tab 的价值是跳得远，而那一屏只有三处断层
+// （三个分节头）；再往下拆量到的是每格跳 100px，那是噪声不是导航。
+const (
+	PrefTabLook   = "look"   // 外观
+	PrefTabOut    = "out"    // 回退与历史
+	PrefTabGroups = "groups" // 分组
+)
+
+// PrefTabValues 是那张名单的**可查形状**（httpapi 侧按它收 `?tab=`）。三处
+// 各写一遍 `switch` 就会有一处忘了改，所以名单在这里、判据由它出去。
+var PrefTabValues = []string{PrefTabLook, PrefTabOut, PrefTabGroups}
+
+func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
 		PrefGroups: gs, PrefGroupsBroken: broken,
 		Bookmarks:  profileData{OpenInNewTab: openNewTab},
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
 		PrefPalette: model.GroupAccentPalette, MaxGroupTitleRunes: model.MaxGroupTitleRunes}
+	// 当前停在哪一节。**空值落回第一颗**，不落回"三颗都没按"——后者是空屏。
+	// 传进来的值由 httpapi 那一侧按名单收过（prefsTab），所以这里只兜住空串：
+	// 面板也从档案页的浮层渲染一次，那条路不带 ?tab=。
+	switch tab {
+	case PrefTabOut, PrefTabGroups:
+		v.PrefTab = tab
+	default:
+		v.PrefTab = PrefTabLook
+	}
 	// 色名在这里算，不在 model 里写死：那张表只给键名后缀，句子在语言包里。
 	// 英文界面上那八颗从前印的是「蓝 青 绿…」，因为名字住在 Go 的一侧。
 	v.PrefPaletteNames = make([]string, len(model.GroupAccentColorKeys))

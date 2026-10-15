@@ -188,8 +188,11 @@ func TestPrefsGroup_颜色与排法都改得动且推进rev(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("改颜色要 303，得到 %d: %s", rec.Code, rec.Body)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/prefs" {
-		t.Errorf("Location = %q，要 /prefs（改颜色是要连着改好几组的事，回首页就断了）", loc)
+	// 落回 `/prefs`（改颜色要连着改好几组，回首页就断了），**并带着 `?tab=`**
+	// （2026-10-15）：这一族的每一次按色块都是一次提交，而分组那一节有二十行时
+	// "改完跳回第一类"等于那一节没法用。请求没带 tab 时落回第一颗。
+	if loc := rec.Header().Get("Location"); loc != "/prefs?tab=look" {
+		t.Errorf("Location = %q，要 /prefs?tab=look（回面板、且停在原来那一节）", loc)
 	}
 	// **排法要挑一个真的不等于当前值的**（2026-10-15）：夹具里 nas 本来就是 list，
 	// 而服务端现在会把"值没变"的 op 压掉（applyBatch 只看 opList 非空，不压的话
@@ -370,6 +373,273 @@ func TestPrefsGroup_坏档只撤掉分组那一节(t *testing.T) {
 	}
 }
 
+// ── 删掉一个分组（2026-10-15）────────────────────────────────────────────
+// 空组在页面上不画（render 那一侧判据见 exec.go 的 profile），而清掉它是设置页
+// 唯一的出口——所以这一族钉的是"这一格真的能删一组，且删得干净"。
+
+// 删组走的是**书签写通路**：rev 推进、审计有一行、快照存下来了。三道闸少任何
+// 一道，"删错了能在「回退」里找回来"这句话对这一格就是假的——而它恰恰是这一格
+// 唯一的安全网（界面上那颗红键前面那一句"还能用回退找回"说的是这个事实）。
+func TestPrefsGroup_删掉一组推进rev并留审计行(t *testing.T) {
+	s, h := setupBatch(t)
+	seedEmptyGroup(t, s, "dad", "empty", "清空的组")
+	before := currentRev(t, s, "dad")
+	rec := postForm(h, "/prefs/group", "group=empty&remove=1", dadFormCookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("删组要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	for _, g := range loadBookmarks(t, s, "dad").Groups {
+		if g.ID == "empty" {
+			t.Fatalf("empty 这一组还在盘上：%+v", g)
+		}
+	}
+	if after := currentRev(t, s, "dad"); after != before+1 {
+		t.Errorf("rev 从 %d 变成 %d，要正好推进一格：它走的是书签写通路", before, after)
+	}
+	if !hasHistoryBy(t, s, "dad", "web") {
+		t.Error("审计线里没有 by=web 的行：删一组是网页动作，不记就分不清是谁删的")
+	}
+	// 快照：删之前那一份必须已经落下来，否则「回退」里根本没有可回来的版本。
+	if snaps, err := s.ListSnapshots("dad"); err != nil || len(snaps) == 0 {
+		t.Errorf("没有快照留下来，删错了退不回去：%v %v", snaps, err)
+	}
+	// 别的那一组一个字都不许动。
+	if g := findGroup(t, s, "dad", "nas"); g.Title != "NAS" || len(g.Items) != 1 {
+		t.Errorf("nas 这一组被顺手改了：%+v", g)
+	}
+}
+
+// **一次按下只说一件事**：那张表单里名字输入框与取色器是**常驻**的（命名过的
+// 输入框每一次提交都跟着走），所以按「删掉」时它们照样跟着提交——而它们一个
+// 都不该生效：照单发出去就是"顺手把名字也改了"，而删组那一刻人根本没想过要改
+// 名字。若顺序再写反一点（先 remove 再 set title），ops 会报目标不存在而**整批
+// 不写**——于是"这一格删不掉"，症状与这一族要防的完全不同。
+//
+// 唯一的证据在审计行里：一次按下 = 一条 op。所以这里断的是**那一条 op 是什么**，
+// 而不是"盘上有没有变"（被删掉的那组本来就没法再看）。
+func TestPrefsGroup_按删键时审计线上只有那一条op(t *testing.T) {
+	s, h := setupBatch(t)
+	seedEmptyGroup(t, s, "dad", "empty", "清空的组")
+	// 载荷照**浏览器真的会交出来的那份**写：名字框里留着半句没提交的内容，
+	// 取色器带着它的当前值，而 accent/layout 一个都没有（那两颗键不是 submitter）。
+	rec := postForm(h, "/prefs/group",
+		"group=empty&remove=1&rename="+url.QueryEscape("半句没提交的名字")+"&custom=%23dd6aa6",
+		dadFormCookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("删组要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	hist, err := s.ReadHistory("dad", 1)
+	if err != nil || len(hist) == 0 {
+		t.Fatalf("审计线读不出来：%v", err)
+	}
+	ops := hist[0].Ops
+	if len(ops) != 1 {
+		t.Fatalf("这一次按下写了 %d 条 op %+v，要恰好 1 条：一次按下只改一件事", len(ops), ops)
+	}
+	if ops[0].Op != "remove" || ops[0].Path != "groups/empty" {
+		t.Errorf("那一条 op = %+v，要 remove groups/empty", ops[0])
+	}
+}
+
+// 已经没有的组：把面板重画回来并说清为什么，而不是静默成功（与 accent 那条同一
+// 处置）。这一格尤其要这样：人是从面板上按下去的那一颗，而面板刚画出来。
+func TestPrefsGroup_删一个已经没了的组要把面板重画回来(t *testing.T) {
+	_, h := setupBatch(t)
+	rec := postForm(h, "/prefs/group", "group=ghost&remove=1", dadFormCookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("组没了要把面板重画回来（200），得到 %d: %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), `class="notice"`) {
+		t.Errorf("页面上没有那句为什么：\n%.600s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `class="prefs"`) {
+		t.Error("没有把面板本身重画出来：人到了一个只有一句话的页面上")
+	}
+}
+
+// 分组 id 那一格在删之前先判：ops 的路径文法只收 ASCII slug，而它报出来的是
+// 一句"路径解析失败"——对表单作者说的是路径，而这一格收的其实是分组 id。
+func TestPrefsGroup_删组也要收group那一格(t *testing.T) {
+	s, h := setupBatch(t)
+	before := currentRev(t, s, "dad")
+	rec := postForm(h, "/prefs/group", "remove=1", dadFormCookie)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("没带 group 要 422，得到 %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"field": "group"`) {
+		t.Errorf("那句 422 要点名 group：%s", rec.Body.String())
+	}
+	if after := currentRev(t, s, "dad"); after != before {
+		t.Errorf("被拒的那次不许写盘，rev 从 %d 变成了 %d", before, after)
+	}
+}
+
+// 色板那一行的**容器**必须在。
+//
+// 这一条是被一次真事故逼出来的（2026-10-15）：把「删掉这一组」从色板行移上来时，
+// 一段以 `{{/*` 起头而**忘了收 `*/}}`** 的注释留在了原地，于是它一路吞到下一处
+// `*/}}` 为止——把 `<div class="prefs-keys prefs-group-colors">` 那个开标签
+// 一起吞成了注释文字。渲染不报错、十颗色块与取色器照旧在（所以上面所有形状
+// 断言都绿），可它们从那以后是 `.prefs-group` 的**直接** flex 子项，于是与
+// 名字、排法挤到同一行，色板在 512px 那行折成两段。
+//
+// 症状是"看着眼熟但哪儿不对"，而**功能测试一条都不会红**——所以逐字数容器。
+func TestPrefsGroup_色板那一行的容器没被吞掉(t *testing.T) {
+	_, h := setupBatch(t)
+	html := get(h, "/prefs", dadFormCookie).Body.String()
+	forms := strings.Count(html, `name="group" value=`)
+	if rows := strings.Count(html, `class="prefs-keys prefs-group-colors"`); rows != forms {
+		t.Errorf("面板上 %d 张分组表单却有 %d 个色板行容器：容器被吞掉时色块会变成 form 的直接子项，与名字和排法挤到同一行", forms, rows)
+	}
+	// 同一族的另一半：**开标签必须在第一颗色块之前**。闭标签数与开标签数相等是废话
+	// 判据（它只会在两处同时丢时红），所以断的是"从排法那一行到第一颗色块之间，
+	// 色板那个容器确实在那儿"——吞掉的正是这个开标签。
+	from := strings.Index(html, `prefs-group-shape">`)
+	to := strings.Index(html, `name="accent"`)
+	if from < 0 || to < 0 {
+		t.Fatalf("面板里找不到排法那一行或第一颗色块：shape=%d accent=%d", from, to)
+	}
+	if !strings.Contains(html[from:to], `class="prefs-keys prefs-group-colors"`) {
+		t.Errorf("排法那一行与第一颗色块之间没有色板行容器：\n%.400s", html[from:to])
+	}
+}
+
+// ── 建一个新分组（2026-10-15）────────────────────────────────────────────
+// 建组此前只有两个出口：顶栏「＋ 添加」浮层里那个「＋ 新分组…」下拉项，
+// 与 `POST /api/v1/batch` 的 `add path=groups`。于是**这一屏改不了组表本身**。
+
+// 建组走的是书签写通路：快照、审计、rev 一道闸不少，所以建错了能退回来。
+// 顺带钉住**id 是服务端派生的**：面板那一格只问名字，而中文名派生不出 ASCII
+// （§11.2 写死在明处的代价），所以盘上那个 id 多半是 group / group-2。
+func TestPrefsGroup_建组推进rev并派生id(t *testing.T) {
+	s, h := setupBatch(t)
+	before := currentRev(t, s, "dad")
+	rec := postForm(h, "/prefs/group", "add="+url.QueryEscape("待整理"), dadFormCookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("建组要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	var got *model.Group
+	for i, g := range loadBookmarks(t, s, "dad").Groups {
+		if g.Title == "待整理" {
+			got = &loadBookmarks(t, s, "dad").Groups[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("盘上没有「待整理」那一组：%v", loadBookmarks(t, s, "dad").Groups)
+	}
+	if !model.ValidSlug(got.ID) {
+		t.Errorf("派生出的 id %q 不是合法 slug：它要进 bookmarks.json 当寻址键", got.ID)
+	}
+	if got.Layout != model.LayoutTiles {
+		t.Errorf("没带 layout 时该用默认 tiles，得到 %q", got.Layout)
+	}
+	if after := currentRev(t, s, "dad"); after != before+1 {
+		t.Errorf("rev 从 %d 变成 %d，要正好推进一格", before, after)
+	}
+	if !hasHistoryBy(t, s, "dad", "web") {
+		t.Error("审计线里没有 by=web 的行：建组也是网页动作")
+	}
+	// 别的那一组一个字都不许动。
+	if g := findGroup(t, s, "dad", "nas"); g.Title != "NAS" || len(g.Items) != 1 {
+		t.Errorf("nas 这一组被顺手改了：%+v", g)
+	}
+}
+
+// 按下排法那颗键要**建出那一档**——那张表单里名字是常驻的，所以按磁贴交出的是
+// `add=待整理&layout=tiles`，而"只建组"与"建一个磁贴的组"是同一个意图。
+func TestPrefsGroup_建组那一档排法按了哪颗就是哪档(t *testing.T) {
+	s, h := setupBatch(t)
+	rec := postForm(h, "/prefs/group", "add="+url.QueryEscape("常看的")+"&layout="+model.LayoutFeature, dadFormCookie)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("建组要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	var got *model.Group
+	b := loadBookmarks(t, s, "dad")
+	for i := range b.Groups {
+		if b.Groups[i].Title == "常看的" {
+			got = &b.Groups[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("盘上没有「常看的」那一组")
+	}
+	if got.Layout != model.LayoutFeature {
+		t.Errorf("建出来是 %q，要 feature（按了哪颗就是哪档）", got.Layout)
+	}
+}
+
+// 形状错要 422 且**点名 add**，并且不许写盘。
+//
+// `group` 那一格在这一支**不参与**：新组还没有 id，id 是这里派生的——所以
+// "必带 group"是对改已有那一组说的，把这条判据挪到建组前面会让建组永远 422。
+func TestPrefsGroup_建组的形状错点名add且不写盘(t *testing.T) {
+	s, h := setupBatch(t)
+	before := currentRev(t, s, "dad")
+	for _, c := range []struct{ body, field string }{
+		{"add=", "add"},
+		{"add=%20%20", "add"}, // 只敲了空格
+		{"add=" + url.QueryEscape(strings.Repeat("字", 61)), "add"},     // 超长（上限 60）
+		{"add=" + url.QueryEscape("影音") + "&layout=columns", "layout"}, // 排法不在三个里
+		{"add=%E5%BD%B1%E8%A7%86&add=%E5%A5%BD%E5%8F%8B", "add"},       // 同名多值
+	} {
+		rec := postForm(h, "/prefs/group", c.body, dadFormCookie)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%q 要 422，得到 %d", c.body, rec.Code)
+			continue
+		}
+		if !strings.Contains(rec.Body.String(), `"field": "`+c.field+`"`) {
+			t.Errorf("%q 的 422 要点名 %s：%s", c.body, c.field, rec.Body.String())
+		}
+	}
+	if after := currentRev(t, s, "dad"); after != before {
+		t.Errorf("被拒的那几次不许写盘，rev 从 %d 变成了 %d", before, after)
+	}
+}
+
+// 建出来的组**当场能改也能删**：这一族一次按下改一件事，而"建完发现改不了"
+// 的症状与"没有建这个出口"一模一样。
+func TestPrefsGroup_建出来的组立刻能改名与删除(t *testing.T) {
+	s, h := setupBatch(t)
+	postForm(h, "/prefs/group", "add=work", dadFormCookie)
+	findGroup(t, s, "dad", "work") // 建出来了（下面两格都以它为目标；找不到会自己 t.Fatal）
+	if rec := postForm(h, "/prefs/group", "group=work&rename="+url.QueryEscape("工作"), dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("给刚建的组改名要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	if got := findGroup(t, s, "dad", "work").Title; got != "工作" {
+		t.Errorf("改名后盘上是 %q，要「工作」", got)
+	}
+	// **id 不随改名而变**：它是寻址键（§4.4），别人书签里的链接指着它。
+	if findGroup(t, s, "dad", "work").ID != "work" {
+		t.Error("改名把 id 一起改了：那是寻址键")
+	}
+	if rec := postForm(h, "/prefs/group", "group=work&remove=1", dadFormCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("删掉刚建的组要 303，得到 %d: %s", rec.Code, rec.Body)
+	}
+	for _, gg := range loadBookmarks(t, s, "dad").Groups {
+		if gg.ID == "work" {
+			t.Errorf("work 那一组还在盘上：%+v", gg)
+		}
+	}
+}
+
+// seedEmptyGroup 往某档案里加一个**一条书签都没有**的分组（页面照画的那种）。
+//
+// 走 Store 而不是 REST：测试要的是"盘上有这个数据"，而它没有可调用的通路
+// ——建组走 batch，可那正是被测的另一族（与 seedItem 同一条理由）。
+func seedEmptyGroup(t *testing.T, s *store.Store, profile, id, title string) {
+	t.Helper()
+	snap, err := s.Current(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap.B.Groups = append(snap.B.Groups, model.Group{
+		ID: id, Title: title, Layout: model.LayoutList, Items: []model.Item{},
+	})
+	if err := s.SaveBookmarks(profile, snap.B); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // ── 本文件的夹具 ────────────────────────────────────────────────────────────
 // 上面六条各自只测一件事，这一堆 helper 是它们共用的读法。**不放进别的测试
 // 文件**：同包同名的第二份定义是编译错误，而"换个名字就是第二套夹具"。
@@ -447,7 +717,7 @@ func hasHistoryBy(t *testing.T, s *store.Store, profile, by string) bool {
 // groupFormRE 抓面板里**某一个分组那一行**：从它的 hidden group 值起，到下一个
 // 分组（或这一节末尾）止。用它切块而不是整页找，是为了让"这一行"这件事在
 // 测试里有定义——同一个 group 值可能在别处也出现（比如这一格 id 被印在别处）。
-var groupFormRE = regexp.MustCompile(`(?s)<form method="post" action="/prefs/group".*?</form>`)
+var groupFormRE = regexp.MustCompile(`(?s)<form method="post" action="/prefs/group\?tab=[a-z]+".*?</form>`)
 
 func groupForm(html, id string) string {
 	for _, m := range groupFormRE.FindAllString(html, -1) {

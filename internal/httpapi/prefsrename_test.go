@@ -162,13 +162,22 @@ func TestPrefsPanel_每一组都有一个带上限的名字输入框(t *testing.
 	_, h := setupBatch(t)
 	page := get(h, "/prefs", dadFormCookie).Body.String()
 
-	forms := strings.Count(page, `action="/prefs/group"`)
+	// 分组表单按**它带着 group id** 数（`name="group"`），不按 `action` 数：
+	// 「＋ 新分组」那张（2026-10-15）走同一个 action，只是它没有 id 那一格——
+	// 新组的 id 是服务端派生的（`store.NextGroupID`）。按 action 数会把那张
+	// 也算进来，于是"每一组都有一个改名框"这条就变成假红。
+	forms := strings.Count(page, `name="group" value=`)
 	boxes := strings.Count(page, `name="rename"`)
 	if forms == 0 {
 		t.Fatal("面板里没有分组表单")
 	}
 	if boxes != forms {
 		t.Errorf("面板上 %d 张分组表单却有 %d 个改名输入框：每一组都要有一个", forms, boxes)
+	}
+	// 建组那张：有一个 `add` 输入框，而**没有** `group` 那一格（id 由服务端派生，
+	// 界面上不问——与 `/setup` 与管理页那两张建档表单同一族决定）。
+	if got := strings.Count(page, `name="add"`); got != 1 {
+		t.Errorf("面板里 %d 个建组输入框，要 1 个（清空的那一份没有它）", got)
 	}
 	// 上限：模板上印的那个数必须与 model 那个数一致（改一处要改另一处）。
 	if !strings.Contains(page, `maxlength="`+strconv.Itoa(model.MaxGroupTitleRunes)+`"`) {

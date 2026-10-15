@@ -14,6 +14,7 @@ import (
 	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
+	"github.com/rockbenben/launchbay/internal/render"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
@@ -163,7 +164,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	page, err := s.deps.Render.PrefsPage(id)
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r))
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -181,10 +182,75 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 // 就会开始管到不属于它的东西，而 422 的字段名也就再也不能当"这一格写错"读。
 //
 // **档案不接受申报**：与 /revert、/history、/prefs 同一族，档案从会话推导。
-// 带令牌一律 403——这一页是给人看的。
+// 带令牌一律 303 回选择页（spec §6.1 浏览器通路权限拒绝一律 303；selfProfileOnly 对 bearer 答 redirectPicker）。
 //
 // 成功回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，
 // 回到面板才能接着按下一颗；而面板上有「回我的页面」，出去的路是现成的。
+// createGroupFromForm 是台面面板「＋ 新分组」那一格的落点（2026-10-15）。
+//
+// 落点与改颜色/改名/排法**完全同一份**（applyPrefsOps → applyBatch：快照、审计
+// 行、rev 一道闸不少，所以建错了也能在「回退」里退掉），判据也只有一份
+// （`model.MaxGroupTitleRunes` / `model.ValidGroupLayout`）。不另开端点的理由与
+// `/prefs/tabs`、`/prefs/background` 那几条一样：面板里"改书签数据"这一族共用
+// 一个落点，多一个端点只会让"这一格走哪"多一个答案。
+//
+// **id 在这里派生，不在界面上问**：中文名派生不出 ASCII（§11.2 写死在明处的
+// 代价），要人来填 slug 等于让最常见的输入变成最麻烦的输入。派生判据只有
+// `store.NextGroupID` 一份，它与档案那条 `NextProfileID` 共用同一个 slug 函数。
+func (s *Server) createGroupFromForm(w http.ResponseWriter, r *http.Request, profile string, add []string, layout []string) {
+	if len(add) != 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "add", Reason: "add 只能有一个值"}})
+		return
+	}
+	title := strings.TrimSpace(add[0])
+	// 空名字是形状错，要点名 add —— 与改名那一格同一处置（"是这一格没填"比
+	// "文档校验没过"有用）。上限与改名共用同一个数。
+	if title == "" {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "add", Reason: "分组名不能空着"}})
+		return
+	}
+	if len([]rune(title)) > model.MaxGroupTitleRunes {
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "add",
+			Reason: fmt.Sprintf("最多 %d 个字", model.MaxGroupTitleRunes)}})
+		return
+	}
+	// 排法选填：不带就用默认值（与 ops 的默认一致），带了就必须是三个之一。
+	// 判据是 `model.ValidGroupLayout` 那一份，与改已有那一组共用。
+	lay := model.LayoutTiles
+	if len(layout) > 0 {
+		if len(layout) != 1 || !model.ValidGroupLayout(layout[0]) {
+			writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid,
+				Field: "layout", Reason: "只能是 " + strings.Join(model.GroupLayoutValues, "/")}})
+			return
+		}
+		lay = layout[0]
+	}
+	// 占用表要读这一份书签：判据是"这个 id 在不在"（不是"现在有几组"），
+	// 于是删掉一组之后那个 id 空出来就能被重新用上。
+	b, err := s.deps.Store.LoadBookmarks(profile)
+	if err != nil {
+		// 坏档在这一条上是常态而不是意外：面板那一节压根不画（`prefsGroups`
+		// 读不出来就把整节撤掉），所以能走到这儿只可能是书页开着、文件随后坏了。
+		// 说清是什么坏了，别把人支去修一个没坏的文件——与 applyPrefsOps 那一支
+		// 同一句话、同一落点。
+		s.renderPrefsNotice(w, r, profile, "书签文件读不出来，这一格建不了新分组")
+		return
+	}
+	used := make(map[string]bool, len(b.Groups))
+	for _, g := range b.Groups {
+		used[g.ID] = true
+	}
+	gid := store.NextGroupID(title, func(id string) bool { return used[id] })
+	value, err := json.Marshal(model.Group{ID: gid, Title: title, Layout: lay, Items: []model.Item{}})
+	if err != nil {
+		writeInternalError(w, err)
+		return
+	}
+	s.applyPrefsOps(w, r, profile, []ops.Op{{Op: "add", Path: "groups", Value: value}})
+}
+
 func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.selfProfileOnly(w, r)
 	if !ok {
@@ -194,6 +260,20 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
+		return
+	}
+	// **建一个新分组**（2026-10-15）：`add=<名字>` 与下面那一族互斥，判据同样是
+	// 名字。这条分支必须在 gid 那道校验**之前**——那张表单没有 `group` 那一格
+	// （新组还没有 id，id 是这里派生的），而"必带 group"是对**改已有那一组**说的。
+	//
+	// id 由服务端派生（`store.NextGroupID`）：面板这张表单一格是中文，而中文
+	// slug 不出 ASCII（那是 §11.2 写死在明处的代价），所以派生出来多半是
+	// `group` / `group-2` 那条基名序列。人看见的永远是 `Title`，id 只是寻址键。
+	// **不要在界面上要人去填 id**：`/setup` 与管理页那两张建档表单都不问，
+	// 这里是同一族决定。
+	add, hasAdd := r.Form["add"]
+	if hasAdd {
+		s.createGroupFromForm(w, r, id, add, r.Form["layout"])
 		return
 	}
 	gid := r.FormValue("group")
@@ -221,6 +301,20 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	//   按磁贴/单列      → layout=<值>              （同上）
 	//   按「用这个颜色」 → apply_custom=1 + custom=<hex>
 	// `accent` 出现两次仍然按形状错拒：那已经不是浏览器的形状，是有人在拼 body。
+	// **删掉这一组**（2026-10-15）：`remove=1` 与颜色/排法/改名**互斥**，
+	// 判据同样是名字而不是"只提交被按下的那个控件"——那张表单里取色器与名字
+	// 输入框每一次提交都跟着走，删组时那些值一个都不该跟着生效（照单发出去
+	// 就是"顺手把名字和颜色也改了"，而这一次按下只说了删）。
+	//
+	// 落点仍走 applyPrefsOps/applyBatch：删组动的是 bookmarks.json，所以快照、
+	// 审计线、rev 三道闸一道不少，**删错了能在「回退」里整版找回来**。
+	// 不拦"这一组还有条目"——面板上那颗红键前面已经要人看过代价（展开那一步
+	// 会念出条数），而服务端再按条数拦一遍只会让那只红键说谎。
+	_, wantsRemove := r.Form["remove"]
+	if wantsRemove {
+		s.applyPrefsOps(w, r, id, []ops.Op{{Op: "remove", Path: "groups/" + gid}})
+		return
+	}
 	accent, hasAccent := r.Form["accent"]
 	layout, hasLayout := r.Form["layout"]
 	custom := r.Form["custom"]
@@ -245,8 +339,8 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	if onlyRename {
 		if !hasRename {
 			writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-				{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或改分组名"},
-				{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或改分组名"},
+				{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout、改分组名，或 remove=1 删掉这一组，或 add=名字 建一个新分组"},
+				{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout、改分组名，或 remove=1 删掉这一组，或 add=名字 建一个新分组"},
 			})
 			return
 		}
@@ -260,8 +354,8 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if !hasAccent && !hasLayout && !wantsCustom {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout，或改分组名"},
-			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout，或改分组名"},
+			{Kind: apierr.FieldInvalid, Field: "accent", Reason: "要带 accent、layout、改分组名，或 remove=1 删掉这一组，或 add=名字 建一个新分组"},
+			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 accent、layout、改分组名，或 remove=1 删掉这一组，或 add=名字 建一个新分组"},
 		})
 		return
 	}
@@ -367,6 +461,21 @@ func (s *Server) groupNow(profile, gid string) (title, accent, layout string, ok
 	return "", "", "", false
 }
 
+// prefsTab 收 `?tab=`（台面面板左侧那一列当前停在哪一节，2026-10-15）。
+//
+// **不认识的值落回第一颗**，不是 400 也不是原样传下去：这是一个"停在哪"的
+// 记忆，URL 被手改过、链接过期、或者从浮层那条路进来时它都该有一份说得通的
+// 答案，而"落回第一颗"就是那份答案。名单只有 render 侧那一份（PrefTabValues）。
+func prefsTab(r *http.Request) string {
+	t := r.URL.Query().Get("tab")
+	for _, v := range render.PrefTabValues {
+		if t == v {
+			return t
+		}
+	}
+	return render.PrefTabLook
+}
+
 // applyPrefsOps 是台面面板里**改书签数据**的那几节共用的落点与收尾
 // （2026-10-14：`/prefs/group` 与 `/prefs/tabs` 共用一份）。
 //
@@ -395,7 +504,11 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 	case out.snapErr != nil:
 		s.renderPrefsNotice(w, r, id, "这一版存不下，改动已取消，书签一个字都没变")
 	default:
-		http.Redirect(w, r, "/prefs", http.StatusSeeOther)
+		// **落回时把 `?tab=` 带上**（2026-10-15）：这一族（/prefs/group 与
+		// /prefs/tabs）每一次按色块/排法都是一次提交，而分组那一节有二十行时
+		// 「改完跳回第一类」等于那一节没法用。带的是**请求里那个** tab
+		// （prefsTab 收过一遍），所以外观那一节照旧落在第一颗上。
+		http.Redirect(w, r, "/prefs?tab="+prefsTab(r), http.StatusSeeOther)
 	}
 }
 
@@ -405,7 +518,7 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 // 落点复用的是 handlePrefsPage 的那道分诊（读不动 profile.json → 503），
 // 所以这里只多一句 notice，页面本身由同一条渲染路径出。
 func (s *Server) renderPrefsNotice(w http.ResponseWriter, r *http.Request, id, notice string) {
-	page, err := s.deps.Render.PrefsPage(id)
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r))
 	if err != nil {
 		s.handleError(w, err)
 		return

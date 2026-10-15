@@ -91,7 +91,11 @@ func Test面板有分节且出口不在设置节里(t *testing.T) {
 
 	// 「出口」那一节必须**排在「点开书签」之后**：点开书签改的是书签文档，
 	// 它是设置；回退与历史不是设置。出口在前会把设置挤到最后一行设置之下。
-	outAt := strings.Index(tmpl, `prefs.sec.out`)
+	//
+	// 比的是 **h3 那一格**而不是 `prefs.sec.out` 这个 key（2026-10-15 加左侧
+	// 分类 tab 之后）：同一句 key 现在在左侧那列的 tab 标签上也出现一次，
+	// 按 key 找位置量到的是"标签在导航里"，不是"这一节在第几屏"。
+	outAt := strings.Index(tmpl, `<h3 class="prefs-sec">{{.T "prefs.sec.out"}}`)
 	tabAt := strings.Index(tmpl, `action="/prefs/tabs"`)
 	if outAt < 0 || tabAt < 0 {
 		t.Fatal("出口节或点开书签那一行不见了")

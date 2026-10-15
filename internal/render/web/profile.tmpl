@@ -231,6 +231,12 @@
     </li>
   {{end}}
   </ul>
+  {{/* **空组也照画，但要说清它是空的**（2026-10-15 改判）。判据是 `.Count == 0`，
+       与 settings 那句删组确认用的是同一个数。为什么要留这一句：这一组在
+       「＋ 添加」的分组下拉与拖拽落点里都还在（那两处都是从页面上这些标题读的），
+       所以它仍是一个**能放东西进去的目标**；而一个只有标题、正文空着的节，
+       读起来像渲染坏了 —— "这一组该有东西却没有"这件事屏上一处都说不出来。 */}}
+  {{if not .Items}}<p class="hint">{{$.T "profile.group.empty"}}</p>{{end}}
 </section>
 {{end}}
 </main>
@@ -337,6 +343,50 @@
 <section class="prefs">
   <h2 id="lb-prefs-h">{{.T "prefs.heading"}}</h2>
   <p class="hint">{{.T "prefs.explain"}}</p>
+
+  {{/* ── 左侧分类 tab（2026-10-15）─────────────────────────────────────────
+       这一屏原本是一条 1900px 的长列（1440 实测），而它自己已经分成三节——
+       外观 / 回退与历史 / 分组——却没有一处能跳。手机上滚到第三屏才看得见
+       「分组」，而「删掉这一组」「＋ 新分组」都在那一节里。
+
+       **三颗，不是更多**：tab 的价值是"跳得远"，而这一屏只有三处真正的断层
+       （三个分节头）。再往下一级拆到每一行，跳的是 100px——那不是 tab，
+       是噪声，于是「多几个」只会得到一列点下去几乎不动的地方。
+
+       **零 JS 的形状是 radio + 兄弟选择器**，不是 JS 换 class：
+       `/prefs` 那张独立页**不引 app.js**（面板由服务端画、交互全是普通
+       form POST），而同一份 define 也渲染进档案页的浮层——所以任何"JS 切
+       class"的写法只会在一条路上有 tab、另一条路上没有。`:checked ~ .pane`
+       两边一样成立。CSS 不在时**三节全部可见**（退化方向是"看得全"而不是
+       "看不见"）。
+
+       **停在哪是 URL 上的 `?tab=`**（`look` / `out` / `groups`，名单只有
+       render 侧那一份）：分组那一节里每一次按色块、按排法、改名、建组、删组
+       都是一次提交，而这一屏有二十个分组时"改完跳回第一类"等于那一节没法用。
+       所以那一族的表单 action 带 `?tab=`，而 303 落回时也带着（httpapi 的
+       `prefsTab` + `applyPrefsOps`）。**只有分组那一族带**：外观那几行的落点是
+       profile.json、成功后回 `/`（那里根本没有左侧这一列），而「回退与历史」
+       那一节里没有表单。
+
+       可及名走 **fieldset + legend**：这是"选一节来看"而不是 tablist——用
+       radio 就别假装它是 tab，读屏会念出组名与选项，那是真的。焦点环落在
+       label 上（`input:focus-visible + label`），所以那三颗 radio 自己
+       收进 visually-hidden 而不是 `display:none`（后者不可聚焦）。
+
+       **点一节不是导航**：它不产生 hash、不改 URL——那一列是"这一屏停在哪"的
+       记忆而不是"你去哪一页"，于是浮层里点与独立页里点是同一件事。 */}}
+  <div class="prefs-tabs">
+    <fieldset class="prefs-nav">
+      <legend class="prefs-visually-hidden">{{.T "prefs.tabs.legend"}}</legend>
+      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-look"{{if eq .PrefTab "look"}} checked{{end}}>
+      <label for="prefs-tab-look">{{.T "prefs.sec.look"}}</label>
+      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-out"{{if eq .PrefTab "out"}} checked{{end}}>
+      <label for="prefs-tab-out">{{.T "prefs.sec.out"}}</label>
+      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-groups"{{if eq .PrefTab "groups"}} checked{{end}}>
+      <label for="prefs-tab-groups">{{.T "prefs.groups"}}</label>
+    </fieldset>
+    <div class="prefs-panes">
+    <div class="prefs-pane" id="prefs-pane-look">
 
   {{/* 每一行都是**一张独立的表单**：一次按下只改一件事，于是"改坏了退回上一档"
        永远是一颗键的事，不需要"提交"这一步。
@@ -515,6 +565,10 @@
     </div>
   </form>
 
+  {{/* ── tab 一（外观）到此为止，「点开书签」那一行仍属于它 ─────────────── */}}
+  </div>{{/* /prefs-pane 外观 */}}
+  {{/* tab 二：回退与历史。 */}}
+  <div class="prefs-pane" id="prefs-pane-out">
   {{/* 两个出口（回退 / 改动历史）**不是设置**，所以独立成节而不是夹在设置行
        中间 —— 那一层分组从 2026-10-14 起就在，但那时只有一句 `prefs.elsewhere`
        当标签，读者仍要自己判断"这两颗是设置还是别的"。 */}}
@@ -534,17 +588,23 @@
        `groups/<id>/layout`，而界面上一个入口都没有——于是每个类目的色块都是
        CSS 的 `--sec-accent,var(--accent)` 兜底值，一整页同一个蓝。
 
-       **一个分组一张表单**，一张表单里两种意图。分开它们的判据是**名字**，不是
+       **一个分组一张表单**，一张表单里几种意图。分开它们的判据是**名字**，不是
        "HTML 只提交被按下的那个控件"——那句话漏了命名过的输入框：它每一次提交都
        跟着走（实测按色块交出两个 `accent`、按磁贴交出 `layout` 加一个颜色）。
        所以取色器那一格叫 `custom`，那颗动作键带 `name=apply_custom`：按色块只交
        得出 `accent`，按排法只交得出 `layout`，只有按下那颗动作键才交得出颜色。
+       删掉这一组是**另一个名字**（`remove`），判据在同一处：httpapi/prefs.go 见到
+       `remove` 就只发那一条 op，其余几格一个都不看——名字输入框与取色器都在同一张
+       表单里常驻，而删组时那些值一个都不该跟着生效。
        于是"一次按一下只改一件事"在**零 JS 的整页通路上**也成立。
 
        落点是 `POST /prefs/group`，不是 `/prefs`：这两个字段落在
        bookmarks.json 的分组上，走的是 applyBatch 那条书签写通路（快照、审计、
        rev 一道闸不少），而 `/prefs` 只写 profile.json 的台面偏好。把两边混在
        一个端点里，422 的"至少给一个字段"就会开始管到不属于它的东西。 */}}
+  </div>{{/* /prefs-pane 回退与历史 */}}
+  {{/* tab 三：分组（含「＋ 新分组」与每组那颗删键）。 */}}
+  <div class="prefs-pane" id="prefs-pane-groups">
   {{/* 分节头与另两节**同一种形状**（2026-10-14 实拍后改）。原来这一节用的是
        `<div class="prefs-groups-head">` + 一个 `.prefs-label`：那条 div 是
        `display:flex` 且 `align-items:baseline`，于是「分组」与它那句长说明**并排挤在
@@ -557,10 +617,47 @@
 
   {{if .PrefGroupsBroken}}
     <p class="hint" data-prefs-groups-broken>{{.PrefGroupsBroken}}</p>
-  {{else if not .PrefGroups}}
-    <p class="hint">{{.T "prefs.groups.empty"}}</p>
   {{else}}
   <div class="prefs-groups">
+    {{/* ── 「＋ 新分组」这一行（2026-10-15）───────────────────────────────
+         建组此前只有两个出口：顶栏「＋ 添加」浮层里那个「＋ 新分组…」下拉项，
+         以及 `POST /api/v1/batch` 的 `add path=groups`。于是**这一屏改不了组表
+         本身**——一个清空了的组、或一个从没用上的新分类，只能靠"先加一条书签
+         建组、再把那条删掉"这种绕路才能出现在设置里。
+
+         **放在清单的最上面而不是最下面**：这一节是"这一份有哪些分类"，而建组是
+         这一节的动作；放最下面时二十个分组就要先滚一遍才够得着它。
+
+         这一行**是原生提交**（app.js 那份委托在没有 `input[name=group]` 的表单上
+         早退，见它头上那段），所以它零 JS 与开着 JS 的表现一样：303 回 /prefs
+         整页重画，新行就在最上面。建组是低频动作，多这一次整页跳转换来"两条路
+         行为完全一样"——而 app.js 里若要接管它，就得把服务端那段 id 派生
+         （`store.NextGroupID`）在客户端再抄一份，中文名那份抄不出 ASCII 就得
+         再抄一遍退化规则：判据分叉的代价比一次跳转大得多。
+
+         排法三颗键默认按着「磁贴」：不按任何一颗时服务端也建 tiles，所以"按下去
+         的那颗就是会生效的那颗"这句话在初始态就成立。 */}}
+    <form method="post" action="/prefs/group?tab={{$.PrefTab}}" class="prefs-group prefs-group-new">
+      <div class="prefs-group-name">
+        <input type="text" name="add" class="prefs-group-add" value=""
+          maxlength="{{$.MaxGroupTitleRunes}}" autocomplete="off" spellcheck="false"
+          aria-label="{{$.T "prefs.groups.new"}}"
+          placeholder="{{$.T "prefs.groups.new"}}"
+          title="{{$.T "prefs.groups.new.hint"}}">
+      </div>
+      <div class="prefs-keys prefs-group-shape">
+        <button type="submit" name="layout" value="tiles" aria-pressed="true"
+          title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</button>
+        <button type="submit" name="layout" value="list" aria-pressed="false"
+          title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</button>
+        <button type="submit" name="layout" value="feature" aria-pressed="false"
+          title="{{$.T "app.layout.featureTitle"}}">{{$.T "app.layout.feature"}}</button>
+      </div>
+      <button type="submit" class="primary prefs-group-new-go">{{$.T "prefs.groups.new.go"}}</button>
+    </form>
+    {{if not .PrefGroups}}
+    <p class="hint">{{.T "prefs.groups.empty"}}</p>
+    {{end}}
     {{range .PrefGroups}}
     {{/* Accent 过 validatedAccent 之后：盘上写坏了的值到不了 style 属性上。
          自定义那一格的输入框用盘上这个值当默认，于是「改回原来那个」是一次点击。 */}}
@@ -570,7 +667,7 @@
     {{$gname := .Title}}
     {{$onPalette := false}}
     {{range $.PrefPalette}}{{if eq . $cur}}{{$onPalette = true}}{{end}}{{end}}
-    <form method="post" action="/prefs/group" class="prefs-group">
+    <form method="post" action="/prefs/group?tab={{$.PrefTab}}" class="prefs-group">
       <input type="hidden" name="group" value="{{.ID}}">
       {{/* 名字与**这一组自己的排法**同一行，色板另起一行。这么分是因为
            "这一组叫什么、用哪种排法"是一句话，而九颗色块与它们放在同一行
@@ -617,6 +714,33 @@
         <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
           title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
       </div>
+      {{/* 「删掉这一组」（2026-10-15）：**名字那一行右端**，与排法那几颗同一列，
+           展开后**独占一行**（同顶栏「改名」那条 `.rename[open]`：确认要占的
+           地方不该挤在别的东西旁边）。
+
+           **位置有两半**：CSS（`margin-left:auto` 把它推到那一行的右端）与
+           **DOM 顺序**（它必须排在色板那一行**之前**）。后半句是实拍逮到的：
+           `details` 排在 `.prefs-group-colors`（`flex:1 0 100%`）**之后**时，
+           换行算法先把那一行占满，于是这颗键被挤到**第三行**、孤零零挂在色板
+           下面——而「名字 ｜ 排法」那一行的右端正空着。
+
+           **两步而不是一次**：app.js 里删一条书签早就判过一次（§8.8：不用
+           confirm()，改成"第一下武装、第二下真删"）。这一格是同一类动作的同一
+           条处置，零脚本的那条形状就是 `<details>`——先展开、看清代价，再按那颗
+           红键。**代价必须说出条数**：只说"确定吗"回答不了"我会少掉什么"。
+           句子里的数是 `Count`（render 侧由盘上那份数出来），不是模板现数的
+           `len .Items`——面板这一列不带条目。
+
+           空组（Count=0）说的是另一句"这一组是空的，删掉不会少书签"：页面照画
+           空组（空组仍是一个能放东西进去的目标），而删是这一屏唯一能清掉它的
+           出口，所以它得先说清自己为什么可以放心删。 */}}
+      <details class="prefs-group-del">
+        <summary aria-label="{{$gname}} · {{$.T "prefs.groups.delete"}}">{{$.T "prefs.groups.delete"}}</summary>
+        <div class="prefs-group-del-box">
+          <p class="prefs-hint">{{if .Count}}{{$.T "prefs.groups.delete.note" .Count}}{{else}}{{$.T "prefs.groups.delete.empty"}}{{end}} {{$.T "prefs.groups.delete.undo"}}</p>
+          <button type="submit" name="remove" value="1" class="fld danger">{{$.T "prefs.groups.delete.go"}}</button>
+        </div>
+      </details>
       <div class="prefs-keys prefs-group-colors">
         {{/* 「跟随页面主色」不是"无色"，而是**没设色**这个状态的按钮**：
              它是那一行的默认值，所以它得是一颗能被按的键——否则从自定义色
@@ -643,6 +767,8 @@
     {{end}}
   </div>
   {{end}}
+  </div>{{/* /prefs-pane 分组 */}}
+  </div>{{/* /.prefs-panes */}}
 </section>
 {{end}}
 

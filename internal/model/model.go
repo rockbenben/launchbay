@@ -103,7 +103,7 @@ type Profile struct {
 	Theme     string `json:"theme"`
 	Layout    string `json:"layout"`
 	// View 是**整页怎么排**："" / "groups" = 一组一节（默认，今天的样子），
-	// "wall" = 全局视图（各组作为列头排进多栏，条目压成紧凑单行，一屏看全）。
+	// "wall" = 全局视图（各组作为列头排进多栏），"dense" = 密集视图（去壳紧凑，高信息密度）。
 	// 与 Layout 不是一件事：sidebar/topbar 说的是"分组导航住在哪一边"，
 	// 这一格说的是"条目怎么铺"，两格可以任意组合。
 	//

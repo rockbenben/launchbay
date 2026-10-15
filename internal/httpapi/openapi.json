@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.615b5ec3b46c.js": {
+    "/app.189fd90d92ec.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -92,7 +92,7 @@
         }
       }
     },
-    "/app.66abd7c2baec.css": {
+    "/app.4c07eba1888e.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -226,14 +226,31 @@
     },
     "/prefs": {
       "get": {
-        "summary": "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；JS 关着时顶栏那颗「台面」落在这里）",
+        "summary": "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；左侧一列分类 tab；JS 关着时顶栏那颗「台面」落在这里）",
         "x-credential": "session",
         "security": [
           {
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**为什么有这一页**：档案页里那一枚「设置」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 **303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是 `redirectPicker`，浏览器通路的权限拒绝一律 303，见 spec §6.1；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的四行是四张**独立的表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。最后一行是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。",
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "look",
+                "out",
+                "groups"
+              ],
+              "default": "look"
+            },
+            "description": "左侧那一列当前停在哪一节（2026-10-15）。**它要活过一次保存**：分组那一节里每一次按色块、按排法、改名、建组、删组都是一次提交，而一屏二十个分组时「改完跳回第一类」等于那一节没法用——所以 `/prefs/group` 的表单 action 带着它，303 落回时也带着。**不认识的值落回 `look`**，不是 400 也不是原样渲染：这是一个「停在哪」的记忆，手改过 URL、链接过期、从浮层那条路进来时都该有一份说得通的答案。"
+          }
+        ],
+        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**左侧有一列分类 tab（2026-10-15）**：三颗（外观 / 回退与历史 / 分组）。它**零 JS**——三颗 radio 加 `:checked ~ .prefs-panes` 兄弟选择器，因为这张独立页不引 app.js、而同一份 define 也渲染进档案页的浮层，JS 切 class 只会在一条路上有 tab。**退化方向是「看得全」**：pane 默认可见、只被 checked 的那颗关掉，CSS 没加载时三节全部出现。nav 150px + gap 22，面板内容剩 728（最宽的一行是色板 512 + 取色器 44 + gap 8 = 564），窄屏（≤520px）那列翻成顶部一条。\n\n**为什么有这一页**：档案页里那一枚「设置」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 **303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是 `redirectPicker`，浏览器通路的权限拒绝一律 303，见 spec §6.1；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的各行是各自的**独立表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。「回退与历史」那一节里是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。「分组」那一节含「＋ 新分组」与每组的改名/颜色/排法/删除（`POST /prefs/group`）。",
         "responses": {
           "200": {
             "description": "no-store 的 HTML 页面（台面面板）",
@@ -359,14 +376,14 @@
     },
     "/prefs/group": {
       "post": {
-        "summary": "改一个分组的颜色与排法（磁贴/单列，仅会话，表单通路；书签写通路）",
+        "summary": "建一个新分组、改一个分组的颜色/名字/排法，或删掉这一组（仅会话，表单通路；书签写通路）",
         "x-credential": "session",
         "security": [
           {
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，**AI 不走这条**——机器改这两项打 `POST /api/v1/batch` 的 `set groups/<id>/accent` 与 `set groups/<id>/layout` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`——**一个分组内部的排法**，与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
+        "description": "浏览器表单通路，**AI 不走这条**——机器改这几项打 `POST /api/v1/batch` 的 `set groups/<id>/title`、`set groups/<id>/accent`、`set groups/<id>/layout` 与 `remove path=groups/<id>` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `rename`、`accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**，**或者只给 `remove=1`**（删掉这一组）或**只给 `add=<名字>`**（建一个新分组）——两者与前面那几个互斥。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`、`feature`——**一个分组内部的排法**（`feature` 那一档换的是整块版式与位置，渲染层把它从正文拿走、放进页面顶部那条带子），与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`add=<名字>`：**建一个新分组**（2026-10-15），可选 `layout`（不带就用 tiles），落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以建错了能在「回退」里退回来）。**id 由服务端派生**，判据只有 `store.NextGroupID` 一份（它与档案那条 `NextProfileID` 共用同一个 slug 函数）：slug 得动且这一份里没被占就用它，否则基名 `group` / `group-2` 序列。**中文名派生不出 ASCII**（§11.2 写死在明处的代价），所以中文名多半落在 `group-N` 上——人要看的永远是 `title`，id 只是寻址键。**界面上不问你 id**（`/setup` 与管理页那两张建档表单都不问，这里同一族）。名字空着或超长（> `model.MaxGroupTitleRunes`）→ 422 点名 `add`；`add` 出现多次 → 422。带 `group` 的那些判据在这一支**不参与**：新组还没有 id。\n\n`remove=1`：**删掉这一组**（2026-10-15），发一条 `remove path=groups/<gid>`，落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以删错了能在「回退」里整版找回来）。**它与 rename/accent/layout/add 互斥**，判据同样是**名字**而不是「HTML 只提交被按下的那个控件」——那张表单里名字输入框与取色器都常驻，按删键时它们照样跟着提交；照单发出去就是「顺手把名字和颜色也改了」，顺序写反一点（先 remove 再 set title）更糟：ops 会报目标不存在而**整批不写**，症状是「这一格删不掉」。**服务端不拦「这一组还有条目」**：代价由界面上那颗红键前面那一句说出来（它会念出这一组还有几条 + 还能用「回退」找回），再按条数拦一遍只会让那颗键说谎。空组说的是另一句「这一组是空的，删掉不会少书签」——空组在档案页与面板上**照画**（2026-10-15 改判：添加浮层的分组下拉、拖拽落点、「移动到」名单均从渲染出的标题读取，藏起空组会导致无法再向该组添加内容；因此空组照画并说清自己是空的，删是设置页唯一能清掉它的出口）。该组已经不存在 → **200 把面板重画回来并在顶部说清**，不是静默 303。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
       }
     },
     "/prefs/tabs": {

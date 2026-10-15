@@ -88,6 +88,33 @@ func (s *Store) idTaken(id string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// NextGroupID 给一个"这一份里还没有"的**分组 id**（台面面板「＋ 新分组」那条
+// 通路，2026-10-15）。与 NextProfileID 同一副骨架、同一份 slug 判据
+// （slugProfileID）：slug 得动且没被占 → 用它；否则基名 group 的递增序列。
+//
+// 为什么基名是 group 而不是 home：那是**档案**的基名，而档案住在自己的目录里；
+// 分组住在某个人的 bookmarks.json 里，两族 id 各占各的名字空间（同一个人的
+// 档案叫 dad、分组也叫 dad 是两回事，ops 的路径靠前缀分开）。
+//
+// 为什么 taken 由调用方给：分组占用表住在 bookmarks.json 里，而 store 这一层
+// 不读它（读它就要把书签文档整个拉进来）。判据形状与 NextProfileID 那句
+// `idTaken` 一样——**"这个 id 在不在"，不是"现在有几个"**：删过一组之后那个
+// id 空出来就该能被重新用上。
+func NextGroupID(title string, taken func(string) bool) string {
+	if id := slugProfileID(title); id != "" && !taken(id) {
+		return id
+	}
+	for n := 1; ; n++ {
+		id := "group"
+		if n > 1 {
+			id = fmt.Sprintf("group-%d", n)
+		}
+		if !taken(id) {
+			return id
+		}
+	}
+}
+
 // CreateFirstProfile 是引导建档唯一的落点：判据（磁盘为空）与写入同属
 // pmu 的一次临界区。
 //

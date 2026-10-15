@@ -16,7 +16,7 @@ type cred int
 const (
 	credNone    cred = iota // 不要凭证：/healthz、GET /、/pin、/setup、openapi.json
 	credScoped              // 令牌或会话，且只能动自己有资格的那个档案
-	credAdmin               // 作用域为 * 的令牌，或磁盘上真是管理员的会话
+	credAdmin               // 管理员令牌（LAUNCHBAY_ADMIN_TOKEN）或管理员 cookie（lb_admin）
 	credSession             // 只有会话（改自己 PIN 这类，令牌不许代改）
 )
 
@@ -77,11 +77,14 @@ func (s *Server) routes() []route {
 			Summary: "丢掉管理员身份（清 lb_admin，档案会话不动）", H: s.handleAdminLogout},
 		{Method: "POST", Pattern: "/prefs", Cred: credSession,
 			Summary: "改自己的台面偏好（主题/形态/排法，仅会话，表单通路）", H: s.handlePrefs},
-		// 台面面板「分组」那一节。**不并进 /prefs**：accent 与分组自己的 layout
-		// 落在 bookmarks.json 的分组上，属于书签数据，要走 applyBatch（快照、审计、
-		// rev 一道闸不少），而 /prefs 只写 profile.json。
+		// 台面面板「分组」那一节。**不并进 /prefs**：建组、accent、分组自己的
+		// layout、名字与删掉这一组（remove）都落在 bookmarks.json 的分组上，属于
+		// 书签数据，要走 applyBatch（快照、审计、rev 一道闸不少），而 /prefs 只写
+		// profile.json。
+		// 建组与删组（都是 2026-10-15）也在这条上而不是新开端点：落点与判据与改
+		// 颜色完全同一份，而新开一条只会让「这一族面板表单走哪」多一个答案。
 		{Method: "POST", Pattern: "/prefs/group", Cred: credSession,
-			Summary: "改一个分组的颜色与排法（磁贴/单列，仅会话，表单通路；书签写通路）", H: s.handlePrefsGroup},
+			Summary: "建一个新分组、改一个分组的颜色/名字/排法，或删掉这一组（仅会话，表单通路；书签写通路）", H: s.handlePrefsGroup},
 		// 背景那一节（2026-10-14）。**必须 multipart**，所以不并进上面那条
 		// urlencoded 的 /prefs：两件事的 422 字段名单各管各的。三个动作
 		// （上传/移除/暂时不显示）共用这一个端点，一次按下 = 一个意图。
@@ -124,7 +127,7 @@ func (s *Server) routes() []route {
 		// 准入与 /revert、/history 同一族（selfProfileOnly，档案从会话推导），
 		// 所以管理员进得了也只能改自己那一份。
 		{Method: "GET", Pattern: "/prefs", Cred: credSession,
-			Summary: "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；JS 关着时顶栏那颗「台面」落在这里）", H: s.handlePrefsPage}, {Method: "GET", Pattern: "/revert", Cred: credSession,
+			Summary: "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；左侧一列分类 tab；JS 关着时顶栏那颗「台面」落在这里）", H: s.handlePrefsPage}, {Method: "GET", Pattern: "/revert", Cred: credSession,
 			Summary: "回退到某一版的确认页（第一步；浏览器表单通路）", H: s.handleRevertPage},
 		{Method: "POST", Pattern: "/revert", Cred: credSession,
 			Summary: "确认回退（第二步；与 POST /api/v1/revert 同一落点）", H: s.handleRevertForm},

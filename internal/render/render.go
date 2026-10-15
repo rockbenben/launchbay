@@ -553,9 +553,13 @@ func firstChar(s string) string {
 // 顶栏那颗「台面」是 `<a href="/prefs">`，开着 JS 时 app.js 把它拦成浮层，
 // 关着时它就是一次普通跳转——而两种形态渲染的是同一份标记。
 //
+// tab 是**左侧那一列当前选中哪一节**（`?tab=`，见 exec.go 的 prefsPage）：
+// 它是"这一屏停在哪"的唯一记忆，而停在哪必须活过一次保存——分组那一节的
+// 每一次按色块都是一次提交，保存后仍停在第一类就等于那一节没法用。
+//
 // 不进渲染缓存：这一页每个字段都是台面偏好（改一个就换一个 profile 指纹），
 // 而它是"出了事去找设置"的落点，不该是浏览器缓存里的旧值。
-func (r *Renderer) PrefsPage(id string) (Page, error) {
+func (r *Renderer) PrefsPage(id, tab string) (Page, error) {
 	prof, _, err := r.s.LoadProfileWithFingerprint(id)
 	if err != nil {
 		return Page{}, err
@@ -570,7 +574,7 @@ func (r *Renderer) PrefsPage(id string) (Page, error) {
 	// openInNewTab）：两次读之间文件被人换掉的话，屏上那两个格子会来自同一份
 	// 读数——而它们都只是显示，写入侧仍在锁内重读（applyBatch）。
 	gs, broken, openNewTab := r.prefsGroups(id, cat)
-	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, openNewTab, cat)
+	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, openNewTab, cat, tab)
 	if err != nil {
 		return Page{}, err
 	}
@@ -594,7 +598,12 @@ func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, strin
 	}
 	out := make([]groupView, 0, len(b.Groups))
 	for _, g := range b.Groups {
+		// Count 由**盘上那份**数出来（2026-10-15）：删掉一组的确认句要念出"这一组
+		// 还有几条"，而那一格在面板上没有 Items 可数——这里只带标题/颜色/排法。
+		// 顺带说清这一列**不跟着页面那份过滤走**：页面上空的组不画（exec.go 的
+		// profile），而这里照画，清掉空组的出口正是这一屏。
 		out = append(out, groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
+			Count:  len(g.Items),
 			Accent: validatedAccent(g.Accent), AccentCSS: CSSAccent(g.Accent)})
 	}
 	return out, "", b.OpenInNewTab

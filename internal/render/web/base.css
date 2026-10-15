@@ -93,8 +93,8 @@ header h1{flex:0 1 auto;min-width:0;margin:0;font-size:19px;
    长标题仍然截——`min-width:0` 加 ellipsis 一个字没动。 */
 .rename{flex:0 0 auto}
 /* 44px 不在这里写：summary 已经在那条「导航族」的联合规则里（见下面
-   `.gnav a,summary,...{min-height:44px}`），再开一条就成了第 7 条 44px 规则，
-   而那条闸只许六族各一条。 */
+   `.gnav a,summary,...{min-height:44px}`），再开一条就成了第 8 条 44px 规则，
+   而那条闸只许七族各一条。 */
 .rename>summary{display:flex;align-items:center;padding:0 10px;
   font-size:12px;color:var(--ink2);cursor:pointer;list-style:none;
   border:1px solid transparent;border-radius:9px}
@@ -126,8 +126,8 @@ header .theme{flex:0 0 auto}
    这里只补布局；.hits 是搜索态的读数，不搜索时整行不渲染。 */
 .search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
 .search input{min-width:0;flex:1 1 auto}
-.search a{color:var(--ink2);text-decoration:none;font-size:14px}
-.search a:hover{color:var(--ink)}
+.search a{color:var(--ink2);text-decoration:none;font-size:14px;padding:6px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
+.search a:hover{color:var(--ink);background:var(--card-hi)}
 .hits{flex:0 0 100%;margin:0;font-size:13px;color:var(--ink2)}
 /* 满幅上限（2026-10-12 从 1180 放大到 1600）：这三处**必须同数**——`header`
    此前压根没有上限，于是顶栏满幅、正文封顶 1180 居中，1440 档上「ben」贴着屏幕
@@ -164,6 +164,7 @@ main{max-width:1600px;margin:0 auto;padding:0 16px}
 /* 建档表单比 760 再收一档：两格输入 + 一格勾选 + 一颗按钮，占满 760 仍是两倍宽的
    框。460 是量出来的——`.pick input` 的最小可用宽约 300，加上 16px 内衬两侧。 */
 .chooser form.setup{max-width:460px}
+.chooser form.login{max-width:460px}
 /* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
    把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
    侧栏的 ul 不需要再显式写 display：网格只挂在条目列表那三个类上（见裸 `ul`
@@ -732,6 +733,7 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    表单本身、输入框与按钮都不在这里开新规则：那个 form 同时带 pick 这个类，
    字号/颜色/44px 全部由上面与下面的族规则接。 */
 .setup label{display:flex;flex-direction:column;align-items:stretch;gap:6px;font-size:13px;color:var(--ink2)}
+.login label{display:flex;flex-direction:column;align-items:stretch;gap:6px;font-size:13px;color:var(--ink2)}
 /* 上面那条把**每一格**都排成竖的，而「不设 PIN」那一格是个勾选框：勾选框与它的
    文字并排才是读得惯的形状，竖排会让人先看见一颗孤零零的方块、隔一行才读到它管
    的是什么（1440 实拍：方块在 y=418，文字在 y=457，中间那 39px 是什么都没有）。
@@ -853,13 +855,77 @@ select option{background:var(--bg);color:var(--ink)}
    不再开一条媒体查询把布局搬成另一套——两套排法迟早不同步。 */
 .prefs{display:flex;flex-direction:column;gap:14px;max-width:900px;margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
+/* 左侧分类 tab（2026-10-15）。这一屏原本是一条 1900px 的长列，而它自己已经
+   分成三节却没一处能跳——手机上要滚到第三屏才看得见「分组」。
+
+   **它左边是 nav、右边是内容**：nav 固定 150px，内容吃掉余量。宽度预算量过：
+   面板内容宽 900 → 减去 150 + gap 22 = 728，而那一族最宽的一行是色板
+   512 + gap 8（取色器 44）= 564，名字那一行是 333 + 名字下限 96 = 429——
+   两边都还有余量，所以**这一格不需要为它改任何一处组内排版**。而浮层那一档
+   （`#lb-prefs.sheet` 960）落到 728 上下时仍然是同一份版式，不需要第二条断点。
+
+   **切换是 radio + `:has()`，零 JS**：`/prefs` 那张独立页根本不引 app.js，
+   而同一份 define 也渲染进档案页的浮层——JS 切 class 的写法只会在一条路上有
+   tab。`:has()` 从共同祖先上选，与本文件下面 `.act .choice:has(input:checked)
+   label` 同一处置：**状态由原生 radio 持有、样式打在别处**（那三颗 radio 在
+   `<fieldset>` 里，而 pane 在 fieldset 的**兄弟**里，兄弟选择器够不到）。
+   **CSS 不在（或不认 `:has()`）时三节全部可见**：退化方向是"看得全"，不是
+   "看不见"。
+
+   可及名走 fieldset + legend（"选一节来看"就是 radio 组，读屏念组名与选项，
+   是真的）；焦点环落在 label 上，所以那三颗 radio 收进 visually-hidden 而不是
+   `display:none`（后者不可聚焦，键盘就进不来这一组）。
+   **44px 并进导航族那条联合规则**（`.gnav a,summary,a.badge,…`），不新开一族：
+   这三颗就是导航目标，而那条名单里已经有两颗 **label**（`.choice label`、`.chk`）
+   ——同族同处置，见 TestCSS_搜索控件的44px由哪条规则保证 的族数闸。 */
+.prefs-tabs{display:flex;align-items:flex-start;gap:22px}
+.prefs-nav{flex:0 0 150px;display:flex;flex-direction:column;gap:3px;margin:0;
+  padding:0;border:0;min-width:0}
+.prefs-nav .prefs-tab{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.prefs-nav label{display:flex;align-items:center;gap:8px;padding:0 12px;
+  border-radius:10px;font-size:13.5px;color:var(--ink2);cursor:pointer;
+  transition:color .14s ease,background .14s ease}
+/* 按下的那一颗：左侧一道主色竖条 + 底色。**竖条而不是加粗**：加粗会改掉这一列
+   的字宽，于是点一下整列的排版动一下。 */
+.prefs-nav label::before{content:"";flex:0 0 3px;height:16px;border-radius:2px;
+  background:transparent;transition:background .14s ease}
+.prefs-nav input:checked+label{color:var(--ink);background:var(--card-hi);font-weight:600}
+.prefs-nav input:checked+label::before{background:var(--accent)}
+.prefs-nav label:hover{color:var(--ink);background:var(--card-hi)}
+.prefs-nav input:focus-visible+label{outline:3px solid var(--ring);outline-offset:2px}
+.prefs-panes{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:14px}
+/* pane 的显隐**默认全开**：只有被 checked 的那颗才把它关掉。于是两条退化路线
+   都是"看得全"——CSS 没加载时（面板仍是一整列）与不认 `:has()` 的浏览器时。
+
+   **用 `:has()` 而不是兄弟选择器**：那三颗 radio 在 `<fieldset>` 里（它们得在，
+   读屏要念出组名与选项），而 pane 在 fieldset 的**兄弟** `.prefs-panes` 里——
+   兄弟选择器从 fieldset 内部够不到外面那一层。`:has()` 从共同祖先上选是本文件
+   已经有的做法（`.act .choice:has(input:checked) label`，见下面），判据也是
+   同一条：**状态由原生 radio 持有，样式打在别处**。 */
+.prefs-tabs:has(#prefs-tab-look:checked) #prefs-pane-out,
+.prefs-tabs:has(#prefs-tab-look:checked) #prefs-pane-groups,
+.prefs-tabs:has(#prefs-tab-out:checked) #prefs-pane-look,
+.prefs-tabs:has(#prefs-tab-out:checked) #prefs-pane-groups,
+.prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-look,
+.prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-out{display:none}
+/* 分节小标题的**分隔线在这一版里全部没了**：`:first-of-type` 是**相对父元素**的，
+   而三个分节头现在各自是所在 pane 的第一个 h3，于是三条都命中那条
+   `border-top:0;padding-top:0`。这是顺带发生的一次视觉变化，不是顺手改的：
+   左端那一列已经说清"你在这一节"，屏上再画一道"这里开始了"是同一件事说两遍。 */
+@media (forced-colors:active){
+  .prefs-nav input:checked+label{outline:2px solid CanvasText}
+}
 /* 分节小标题（Flare 的「通用设置」「模块设置」那一种）。**它替的是分节线**：
    从前八行平铺，读的人要自己判断哪几行是一类；一个 13px 的小标题 + 一条线
    就把"这一页长什么样 / 出口 / 分组"三段说清了。字号与字色取节标题那一档，
    而 margin-top 只在**第二个及以后**的分节上留（第一个紧跟 h2 不留）。 */
 .prefs h3.prefs-sec{margin:6px 0 -4px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
 .prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
-.prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0}
+.prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;
+  padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  transition:border-color .16s ease,background .16s ease}
+.prefs-row:hover{border-color:var(--card-hi)}
 /* 一格 = 说明 + 控件（列）。`min-width:0` 是承重的：它让这一格在窄屏上能缩到
    父级的窄度，而不是被自己那行说明的 min-content 撑破。 */
 .prefs .prefs-field{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:8px}
@@ -868,14 +934,26 @@ select option{background:var(--bg);color:var(--ink)}
    写 `.prefs-label`（0,1,0）会被它（0,1,1）压掉，于是浮层里那列标签 12px、
    整页那列 13px——同一份标记在两条路上长得不一样，那正是这条规则要防的。
    **从 92px 的固定列宽改成跟随内容**：说明在上时标签不必再占一条竖线。 */
-.prefs .prefs-label{flex:none;font-size:13px;color:var(--ink)}
+.prefs .prefs-label{flex:none;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
 /* 那一行说明。`--ink2` 而非 `--ink`：它是解释不是控件名，**不该与那颗键抢
    读法的优先级**；12px 是它与 13px 标签之间的那半档。 */
-.prefs .prefs-hint{margin:0;font-size:12px;color:var(--ink2);line-height:1.45}
+.prefs .prefs-hint{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.5}
 /* 改名那一行的控件（输入框 + 保存键）并排，其余各行只有一组键。 */
 .prefs .prefs-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.prefs .prefs-ctl>.fld{flex:1 1 200px;min-width:0}
+.prefs .prefs-ctl>.fld{flex:1 1 200px;min-width:0;margin-top:0}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
+/* 分段控制器风格：将并排互斥按钮收拢进具有底轨的胶囊槽内 */
+.prefs-field .prefs-keys{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;
+  background:rgba(0,0,0,.16);border:1px solid var(--line);border-radius:12px}
+[data-theme=light] .prefs-field .prefs-keys{background:rgba(0,0,0,.04)}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme]) .prefs-field .prefs-keys{background:rgba(0,0,0,.04)}
+}
+.prefs-field .prefs-keys button{flex:1 1 auto;min-width:68px;background:transparent;
+  border:1px solid transparent;border-radius:8px;font-size:13px;color:var(--ink2);
+  transition:color .14s ease,background .14s ease,border-color .14s ease}
+.prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi);border-color:transparent}
+.prefs-field .prefs-keys button[aria-pressed=true]{font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 /* 这一行**下面**的 hint（分组那一节的长说明、背景那一句约束）。
    它不在 `.prefs-field` 里——背景与分组那两节自己多一层内容，说明留在那一格
    的最下方，横跨整格；`.prefs-field` 里的 `.prefs-hint` 才是"标签与控件之间"
@@ -887,14 +965,14 @@ select option{background:var(--bg);color:var(--ink)}
    预览那一张走的是**与页面同一个端点** `/backgrounds/<name>`，所以它同时是
    "这张图真的还在盘上"的证人——图没了就是一张空图，而面板其余部分照常可用
    （坏背景不许挡台面，与"坏档不挡"同一条纪律）。 */
-.prefs-bg{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.prefs-bg{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;width:100%}
 /* 「标签与整节顶对齐」那条 `:has(.prefs-bg){align-items:flex-start}` **2026-10-14 删了**：
    它是为「标签与背景整节并排」写的，而重排之后背景与其它各行一样是
    `.prefs-field` 的**列**（说明在上、控件在下），`.prefs-row` 里只剩一层，
    默认的 `align-items:center` 已经对齐。留着它不会红——`:has` 仍然匹配——
    但它是一句**已经不成立的解释**，而下一个人会照它去推理"为什么这行要顶对齐"。 */
 .prefs-bg-preview{display:block;width:160px;height:90px;object-fit:cover;
-  border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,.16)}
 /* 选文件那一格（2026-10-14 改判：原生控件收起来，换一颗与全站同脸的按钮）。
    **为什么原生控件不能直接用**：`<input type=file>` 的那颗「选择文件」按钮由浏览器
    自己画，`color-scheme` 管不到它（管得到的是下拉与滚动条），实测暗色页上它是一块
@@ -914,7 +992,7 @@ select option{background:var(--bg);color:var(--ink)}
    （否则那一行留一段空白），而 transition 到 max-width 的做法是让高度跟着塌——
    关键是 `overflow:hidden` + 固定行高，空的时候高度是 0。 */
 .prefs-bg-picked{max-width:240px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-  font-size:12px;color:var(--ink2)}
+  font-size:12px;color:var(--ink);background:var(--card-hi);padding:2px 8px;border-radius:6px;border:1px solid var(--line)}
 .prefs-bg-picked:empty{display:none}
 .prefs-bg-file .fld{pointer-events:none}
 .prefs-bg-file input[type=file]{position:absolute;inset:0;width:100%;height:100%;
@@ -934,6 +1012,15 @@ select option{background:var(--bg);color:var(--ink)}
    而不是靠一句「删掉之后记得重传」留在别人心里。 */
 .prefs-bg form{margin:0}
 
+/* 出口导航卡片组件：回退与改动历史的快捷跳转出口 */
+#prefs-pane-out .prefs-keys{display:flex;flex-wrap:wrap;gap:10px}
+#prefs-pane-out .prefs-keys a.badge{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;
+  background:var(--card-hi);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+  font-size:13px;font-weight:500;text-decoration:none;transition:all .15s ease}
+#prefs-pane-out .prefs-keys a.badge:hover{background:var(--card);border-color:var(--accent);color:var(--accent)}
+#prefs-pane-out .prefs-keys a.badge::after{content:"→";font-size:13px;opacity:.6;transition:transform .15s ease,opacity .15s ease}
+#prefs-pane-out .prefs-keys a.badge:hover::after{transform:translateX(3px);opacity:1}
+
 /* 「分组」那一节（2026-10-13）：一个分组一行，行里左边是名字、右边是色板与
    磁贴/单列。**它不进 .prefs-row** ——那一行是一标签一控件，宽度由标签那一格
    说了算；而一个分组要装下十颗键，塞进 92px 标签后面只剩一列竖着的碎片。
@@ -941,18 +1028,22 @@ select option{background:var(--bg);color:var(--ink)}
    **分节头不再由这一节自己画**（2026-10-14）：原来这三条给 `prefs-groups-head`
    画了一条分隔线 + 一个并排的小标签，于是同一屏里三个分节头长得像三种东西。
    现在它与另两节共用 `h3.prefs-sec`，分隔线也归那一条管——**分节线只有一份**。 */
-.prefs-groups{display:flex;flex-direction:column;gap:10px}
-.prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.prefs-groups{display:flex;flex-direction:column;gap:12px}
+.prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+  padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  transition:border-color .16s ease,background .16s ease}
+.prefs-group:hover{border-color:var(--card-hi)}
 /* 分组名要能截：一组的名字是用户起的，见过十一个字挤掉整行键的那种。
    **`1 1 auto` 而不是 `1 1 120px`**（2026-10-14 改判）：这一格改成"吃完余量"之后，
    八行的排法键与色板起点对齐成同一条竖线——那一列对齐正是上面五行的读法，而按
    固定 basis 排时它是按**各自名字的长度**排的（「NAS 应用」比「应用」宽 30px，
    于是每行的磁贴键各自错开）。min-width 96px 是它让位的那条线：再窄名字就压到
    省略号，而 96 之下连两个字都放不下。 */
-.prefs .prefs-group-name{flex:1 1 auto;min-width:96px;display:flex;align-items:center;gap:7px;
-  font-weight:600;font-size:13px}
+.prefs .prefs-group-name{flex:1 1 auto;min-width:96px;display:flex;align-items:center;gap:8px;
+  font-weight:600;font-size:13.5px}
 .prefs-group-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:3px;background:var(--sw)}
+.prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+[data-theme=light] .prefs-swatch-preview{box-shadow:0 0 0 1px rgba(0,0,0,.18)}
 /* 宽屏上**一个分组占一行**：名字 ｜ 磁贴/单列/用这个颜色 ｜ 十颗色板 + 取色器。
    这一格以前是 `width:100%`（强制另起一行），那是 560 那一档逼出来的：内容宽 559
    装不下 836，于是每个分组的色板被推到第二行，八个分组成了十六行，面板 1027 高、
@@ -973,19 +1064,91 @@ select option{background:var(--bg);color:var(--ink)}
    **`width:100%` 挪进窄屏那一档**（那里 `.prefs-group` 翻成 column，色板本就该占满
    整行）；它**不用 flex-basis:100%**：basis 是**主轴**上的量，行向写的 100% 翻成
    列向就成了"这一格要占满整个高度"（实测同一处容器高 512、每一颗色块 44×252）。 */
-.prefs-group-shape{flex:0 0 auto}
+.prefs-group-shape{flex:0 0 auto;display:inline-flex;flex-wrap:wrap;gap:4px;padding:3px;
+  background:rgba(0,0,0,.16);border:1px solid var(--line);border-radius:11px}
+[data-theme=light] .prefs-group-shape{background:rgba(0,0,0,.04)}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme]) .prefs-group-shape{background:rgba(0,0,0,.04)}
+}
+.prefs-group-shape button{background:transparent;border:1px solid transparent;border-radius:8px;
+  font-size:12.5px;color:var(--ink2);transition:color .14s ease,background .14s ease,border-color .14s ease}
+.prefs-group-shape button:hover{color:var(--ink);background:var(--card-hi)}
+.prefs-group-shape button[aria-pressed=true]{font-weight:600;color:var(--ink);border-color:var(--accent);background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.prefs-group-shape .prefs-swatch-apply{border-left:1px solid var(--line);border-radius:0 8px 8px 0;margin-left:2px}
 /* 色板在宽屏上**独占第二行**（2026-10-15 改判，见 views_test.go 那条判据的
    新注释）。flex-basis:100% 是结构性的：靠"装不下"折行的话，改任何一个宽度
    都会让版式在"一行"与"两行"之间悄悄翻面，而那一翻 nobody 会发现。 */
 .prefs-group-colors{flex:1 0 100%}
+.prefs-group .prefs-group-colors{margin-top:4px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
+[data-theme=light] .prefs-group .prefs-group-colors{border-top:1px solid rgba(0,0,0,.06)}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme]) .prefs-group .prefs-group-colors{border-top:1px solid rgba(0,0,0,.06)}
+}
+
+/* 「删掉这一组」：**名字那一行右端**，静息是一颗键，展开后**独占一行**
+   （与顶栏「改名」那条 `.rename[open]` 同一处置：确认要占的地方不该挤在
+   别的东西旁边）。2026-10-15 实拍后从色板那一行移上来：那一行的右端那一列
+   是「这一组的键」（磁贴/单列/大卡/用这个），删是同一族的动作；挂在色板行
+   末尾时它读起来像十颗色点后面跟着的一颗红字，而不是另一个意图。
+   移上来之后名字那一行是 246+87=333，名字仍有约 550px（最长的组名要 99px）。
+   **44px 不在这里写**：summary 已经在导航族那条联合规则里（`.gnav a,summary,
+   …{min-height:44px}`），再开一条就成了第 7 条带 44px 的规则。 */
+.prefs-group-del{flex:0 0 auto;margin-left:auto}
+.prefs-group-del[open]{flex:1 0 100%;margin:6px 0 0}
+/* 键的脸要换成按键族：全局那条 `summary{}` 给的是抽屉把手（透明底 + 导航
+   族的小字 + 一个 ▸ 三角）。三角要去掉——展开与否由这一格自己占位的变化说，
+   再挂一个三角就是同一个意思说两遍。 */
+.prefs-group-del>summary{list-style:none;padding:8px 12px;font-size:12.5px;
+  background:transparent;border:1px solid transparent;border-radius:8px;color:var(--bad-text);
+  transition:all .14s ease}
+.prefs-group-del>summary::before{content:none}
+/* `[open]` 那一条要**单独再压一次**（实拍逮到）：全局那条
+   `details[open]>summary::before{content:"▾"}` 的权重是 (0,1,3)，
+   上面那句 `.prefs-group-del>summary::before` 只有 (0,1,2)——于是收起来时三角
+   没了，一展开 ▾ 又冒出来，同一颗键两种脸。 */
+.prefs-group-del[open]>summary::before{content:none}
+.prefs-group-del>summary:hover{background:var(--card-hi);border-color:var(--bad)}
+.prefs-group-del[open]>summary{background:var(--card-hi);border-color:var(--bad)}
+/* 展开出来的那一块：一句话 + 那颗真删的红键。红键 `width:auto` 是承重的
+   ——`.fld` 的 `width:100%` 是给"整幅铺开"写的（`.prefs-bg-upload>button`
+   已经收过一次），不收它会撑满整块确认区。 */
+.prefs-group-del-box{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;
+  margin-top:8px;padding:10px 14px;border:1px solid var(--bad);border-radius:10px;
+  background:rgba(255,122,122,.06)}
+[data-theme=light] .prefs-group-del-box{background:rgba(179,38,30,.04)}
+.prefs-group-del-box>.fld{width:auto;margin-top:0}
+
+/* 「＋ 新分组」那一行（2026-10-15）：清单**最上面**的一行，形状仍是
+   「名字 ｜ 排法 ｜ 一颗动作键」——与下面每一行同一个骨架，于是"这一格怎么用"
+   在建组与改组之间不变。它自己那一条虚线是唯一的新东西，而它是承重的：
+   没有它，这一行与下面那些行长得一模一样，读起来就是"又一个组"。
+   「建这一组」那颗 `primary` 同样只在这一行——它是这一节的动作键，
+   而组内的动作键是「用这个颜色」与「删掉这一组」。 */
+.prefs-group-new{padding:14px 16px;background:rgba(76,141,255,.04);border:1px dashed var(--accent);border-radius:14px}
+.prefs-group-new:hover{background:rgba(76,141,255,.07)}
+[data-theme=light] .prefs-group-new{background:rgba(42,99,189,.03)}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme]) .prefs-group-new{background:rgba(42,99,189,.03)}
+}
+/* 建组那一格**始终画着自己的框**：改名的输入框是"平时就像那行字、聚焦才浮出
+   边框"，而一个空着的、没有框的输入框在屏上就是一段空白——没人知道那里能打字。
+   聚焦态仍由 app.css 那条 `:focus` 给（转主色）。
+   `margin-left` 要**收回**：改名的那个 `margin-left:-7px` 是把它左边那 7px 的
+   swatch 间隙抵回来，而这一格左边没有 swatch——照抄就是整行往左歪 7px。
+   **44px 不在这里写**：它就是 `input[type=text]`，已经在输入族那条联合规则里
+   （`select,input[type=password],input[type=text],…{min-height:44px}`）。 */
+.prefs-group-add{border-color:var(--line);margin-left:0;padding-left:10px}
+.prefs-group-new-go{flex:0 0 auto;margin-left:auto}
 
 /* 色块：**看得见的只有中间那一颗圆点**，键本身留着按钮族那 44px 的触摸目标。
    44px 见方的一整块实色在这一行里会盖过分组名，而色点加一圈按下的描边已经够说
    "现在选的是这一颗"——按下的形状由 .prefs button[aria-pressed=true] 给（描边转
    主色），所以这里**不再单开一条 pressed 规则**，也不开第 8 条带 44px 的规则。 */
-.prefs .prefs-swatch{width:44px;padding:0;display:grid;place-items:center}
+.prefs .prefs-swatch{width:44px;padding:0;display:grid;place-items:center;background:transparent;border:1px solid transparent;border-radius:10px;transition:border-color .14s ease,background .14s ease}
+.prefs .prefs-swatch:hover{background:var(--card-hi);border-color:var(--line)}
 .prefs-swatch::before{content:"";display:block;width:20px;height:20px;border-radius:50%;
-  background:var(--sw);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+  background:var(--sw);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);transition:transform .14s ease}
+.prefs-swatch:hover::before{transform:scale(1.15)}
 /* 「跟随页面主色」：那一格不是"无色"，而是**没设色**。所以它画的是页面主色本身，
    压到四成半并加一圈虚线——虚线说的是"这一档没写下来"，而实心的那一颗说的是
    "写下来了，就这个数"。 */
@@ -1009,7 +1172,9 @@ select option{background:var(--bg);color:var(--ink)}
    **「现在生效的是自定义色」那一维仍走 `data-active` 的环**（下面那条）：边框
    归全站，状态归这一格，两件事各归各处。 */
 .prefs .prefs-color{width:44px;height:44px;padding:2px;cursor:pointer;
-  border:1px solid var(--line);border-radius:9px;background:none}
+  border:1px solid var(--line);border-radius:9px;background:none;
+  transition:border-color .15s ease,outline-color .15s ease}
+.prefs .prefs-color:hover{border-color:var(--accent)}
 /* 「现在生效的是自定义那一格」这一维**得有个载体**：那颗「用这个颜色」是动作键，
    不该装成开关（它没有按下/没按下可言），所以状态落在取色器自己身上——盘上的颜色
    不在色板表里时给这一格一圈环。环之外还有取色器自己画着的那个色块，两者说的
@@ -1055,6 +1220,15 @@ select option{background:var(--bg);color:var(--ink)}
   .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
   .prefs .prefs-group-name{flex-basis:auto}
   .prefs-group-colors{width:100%}
+  /* 左侧那一列在窄屏上翻成**顶部一条**：248px 的内容宽里 150px 的竖列会把
+     色板那一行（512）彻底挤没——而竖列占的那 150 正是面板最贵的一块地。
+     翻成一行时三颗横着排，44px 一颗，正是这一档最需要的那件事（手指）。 */
+  .prefs-tabs{flex-direction:column;gap:12px}
+  .prefs-nav{flex:1 1 auto;flex-direction:row;flex-wrap:wrap;gap:4px;padding:4px;
+    background:rgba(0,0,0,.16);border:1px solid var(--line);border-radius:12px}
+  [data-theme=light] .prefs-nav{background:rgba(0,0,0,.04)}
+  .prefs-nav label{padding:0 12px;flex:1 1 auto;justify-content:center;text-align:center}
+  .prefs-nav label::before{display:none}
 }
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
@@ -1104,7 +1278,7 @@ select,input[type=password],input[type=text],input[type=search],input[type=file]
    2026-10-12 并入 `.chk`（「不设 PIN」那一格勾选）：取景量到它 29px 高、
    勾选框本体 13-20px，而**能点的那一片就是这行 label**——行高不够，手指就点不中。
    开第 7 条联合规则会把"六族各一条"那条闸数出七个，所以并进这一条。 */
-.gnav a,summary,a.badge,button.badge,.choice label,.chk{min-height:44px}
+.gnav a,summary,a.badge,button.badge,.choice label,.chk,.prefs-nav label{min-height:44px}
 .chk{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;min-width:0}
 /* 上面那条对 inline 元素无效，而 .badge 在 <p>／<td> 这类非 flex 容器里正是
    inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。

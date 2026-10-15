@@ -659,7 +659,10 @@ const APP_I18N = {
     if (!prefsSheet) return;
     if (!prefsLoaded) {
       try {
-        const res = await fetch('/prefs', { headers: { Accept: 'text/html' } });
+        // **带上记住的那一节**：面板是服务端渲染的，而"停在哪"活在 `?tab=` 上
+        // （不带走它，浮层每次重开都在第一类）。没记住就不带，让服务端落回第一颗。
+        const res = await fetch('/prefs' + (prefsTab ? '?tab=' + encodeURIComponent(prefsTab) : ''),
+          { headers: { Accept: 'text/html' } });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
         const panel = doc.querySelector('section.prefs');
@@ -670,6 +673,11 @@ const APP_I18N = {
         }));
         wireBgFileName(prefsSheet);
         wireGroupRename(prefsSheet);
+        // 切一节就记住它——**不是为了这次**（DOM 自己就保持着），是为了下一次
+        // 重载/重开。`change` 只在真的换了那颗时响（点已选中的那颗不响）。
+        for (const r of prefsSheet.querySelectorAll('.prefs-tab')) {
+          r.addEventListener('change', () => rememberPrefsTab(r.id));
+        }
         prefsLoaded = true;
       } catch {
         location.href = '/prefs';
@@ -704,10 +712,21 @@ const APP_I18N = {
   // 拦不拦得动由**按钮的形状**判，不由"面板是不是浮层"判：零 JS 时同一张表单
   // 照常提交、303 回 /prefs 整页，这条路不需要存在。于是独立页上的分组表单
   // 不会被这份委托影响——那一页根本不引 app.js。
+  //
+  // **「＋ 新分组」那一张是原生提交的**（2026-10-15）：它没有 `input[name=group]`
+  // （新组还没有 id，id 由服务端派生），所以这一格不归 `groupOpFromForm` 管。
+  // 少了下面那一行 early-return，它会被 preventDefault 掉然后 groupOpFromForm
+  // 返回 null ——症状是"点「建」**按了没反应**"，而零 JS 的独立页照样建得出来，
+  // 两边分家。建组是低频动作，多一次整页跳转换"两条路行为一样"值。
+  // **`^=` 而不是 `=`（2026-10-15）**：分组那一族的 action 带着 `?tab=<当前
+  // 那一节>`（不带着它，保存完就跳回第一类），而 `form[action="/prefs/group"]`
+  // 匹配不到带查询串的。`^="/prefs/group"` 只多认这一族，认不到 `/prefs/tabs`
+  // （它更长且第三段不同），所以下面那三份委托各认各的。
   if (prefsSheet) {
     prefsSheet.addEventListener('submit', async (e) => {
-      const form = e.target.closest('form[action="/prefs/group"]');
+      const form = e.target.closest('form[action^="/prefs/group"]');
       if (!form) return;
+      if (!form.querySelector('input[name=group]')) return; // 「＋ 新分组」：原生提交
       e.preventDefault();
       // 一次只发一条 op：表单里颜色与排法两组键并排，靠"只提交被按下的那个
       // 控件"分开，所以这里读 submitter 就能知道人按的是哪一颗——
@@ -843,12 +862,18 @@ const APP_I18N = {
 
   // groupOpFromForm 把「哪一个控件被按下了」翻成一条 op。
   //
-  // 它必须**认名字而不是认顺序**：色板、排法与取色器在同一张表单里，而命名过的
-  // 输入框每一次提交都跟着走。判据与 `httpapi/prefs.go` 那一处是同一份——
-  // `apply_custom` 在场 = 取色器说话，否则 `accent` 说话；两个都不在 = 只改排法。
+  // 它必须**认名字而不是认顺序**：色板、排法、取色器与「删掉这一组」在同一张
+  // 表单里，而命名过的输入框每一次提交都跟着走。判据与 `httpapi/prefs.go`
+  // 那一处是同一份——`remove` 在场 = 只删这一组，`apply_custom` 在场 = 取色器
+  // 说话，否则 `accent` 说话；两个都不在 = 只改排法。
   function groupOpFromForm(form, data) {
     const gid = form.querySelector('input[name=group]')?.value;
     if (!gid) return null;
+    // 删掉这一组：**第一句就问它**。那张表单里名字输入框与取色器都常驻，
+    // 而人按的是那颗红键——先读颜色/排法的话，那两格的值会跟着这一次提交走，
+    // 于是"删掉这一组"会顺手把颜色也改了。判据与 `httpapi/prefs.go` 同一份：
+    // remove 在场 = 只有删除这一件事。
+    if (data.has('remove')) return { op: 'remove', path: `groups/${gid}` };
     const layout = data.get('layout');
     if (typeof layout === 'string' && layout) {
       return { op: 'set', path: `groups/${gid}/layout`, value: layout };
@@ -1454,6 +1479,19 @@ const APP_I18N = {
   // 这台浏览器**的。不带档案名的话，在 A 的页面上改一个颜色会顺手把 B 的设置
   // 面板也弹出来——而那次重载落点是 A，读到的是"有人要我开着面板"，它分不出是谁。
   const OPEN_KEY = 'lb-prefs-open-' + profile;
+  // 面板左侧那一列**停在哪一节**的记忆（2026-10-15）。它必须跨一次重载活着：
+  // 浮层里改完一组的颜色会 `reloadKeepingPlace()`，而重载后 `prefsLoaded` 复位、
+  // 面板重新 fetch ——不记住它的话，"改第二十组"每按一次就被弹回第一类。
+  //
+  // **只带 profile**：与 OPEN_KEY 同一理由（sessionStorage 是这台机器这台浏览器
+  // 的，而这一页按档案渲染）。key 用 radio 的 id 去掉前缀那截（look/out/groups），
+  // 服务端那张名单不认就落回第一颗（httpapi 的 prefsTab）。
+  const PREFS_TAB_KEY = 'lb-prefs-tab-' + profile;
+  const prefsTab = (() => { try { return sessionStorage.getItem(PREFS_TAB_KEY) || ''; } catch { return ''; } })();
+  const rememberPrefsTab = (id) => {
+    const v = String(id || '').replace(/^prefs-tab-/, '');
+    try { sessionStorage.setItem(PREFS_TAB_KEY, v); } catch { /* 存不下就当没记 */ }
+  };
   function reloadKeepingPlace() {
     try { sessionStorage.setItem(SCROLLKEY, String(scrollY)); } catch { /* 存不下就退回最上面 */ }
     location.reload();
