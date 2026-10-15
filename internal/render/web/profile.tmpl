@@ -26,7 +26,16 @@
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
     {{if .Query}}<a href="/" aria-label="{{.T "profile.nomatch.all"}}" title="{{.T "profile.nomatch.all"}}">✕</a>{{end}}
-    <button type="submit" class="primary">{{.T "profile.search.submit"}}</button>
+    {{/* 提交出口是**这个字段的一部分**，不是栏里另一颗按钮（2026-10-15）：从前它带着
+         与「＋ 添加」同样的那层框，两颗并排看着像一对等权重的动作键。现在它没有框、
+         只有放大镜，可及名仍走 `profile.search.submit`（换成图标不等于丢掉本地化的名字）。
+         这一栏里唯一带框的键是「＋ 添加」——那才是主操作。 */}}
+    <button type="submit" class="search-go" aria-label="{{.T "profile.search.submit"}}"
+      title="{{.T "profile.search.submit"}}">
+      <svg class="search-ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
+      </svg>
+    </button>
   </form>
   {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，
        读起来像"还有 20 条没显示"。说清是谁的总数。 */}}

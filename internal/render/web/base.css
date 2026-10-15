@@ -124,12 +124,22 @@ header .theme{flex:0 0 auto}
 /* 顶栏搜索：零 JS 的 GET 表单。控件的外观与 44px 触摸目标由下面 §7.5 那几条
    通用规则承担（那里的名单扩到了 input[type=search] 与 .search button），
    这里只补布局；.hits 是搜索态的读数，不搜索时整行不渲染。 */
-.search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
-/* 那颗「搜索」不许被挤瘦（2026-10-15 batch11 S1）：320 那一档表单只剩 233px 宽，
-   输入框 flex:1 1 auto 吃掉 177，按钮 `flex:0 1 auto` 就被压到 50px——"搜索"两个字
-   放不进 50 减内衬，于是折成两行，按钮 66 高、旁边的输入框 44 高，两个基线不同。
-   该让位的是**输入框**（它长，截断无所谓），不是那颗两个字的名字。 */
-.search button{flex:0 0 auto}
+/* 搜索框**会长，但不铺满**（2026-10-15 实拍）：它从前是 `flex:0 1 260px`，
+   于是 1440 那一档输入框只有 202px（占栏宽 15%），右边空着 784px。给它弹性宽与
+   一个上限：涨到 460 就停。为什么不铺满整栏——这一栏左边是"这一页叫什么 + 搜这一份的书签 + 添加"，
+   右边是"谁的台 + 设置"，中间那段空是两组之间的呼吸；铺满会让一个**只搜这一份档案**的
+   字段读起来像整站搜索。窄屏（≤700 那一档本来就要换行）不受这个上限影响。
+   那颗「搜索」的框也去了（见下面 `.search-go`）：两圈描边并排时它和「＋ 添加」像一对
+   等权重的动作键，而它只是这个字段的提交出口。 */
+.search{display:flex;gap:4px;align-items:center;flex:1 1 auto;max-width:460px;min-width:170px}
+.search .search-go{flex:0 0 auto;width:44px;padding:0;border:0;background:transparent;color:var(--ink2)}
+.search .search-go:hover{color:var(--ink);background:transparent;border-color:transparent}
+.search .search-go:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+/* 放大镜单独一个类：`.ic-svg` 是书签图标那一族，密集档会把它收到 15px
+   （`[data-profile-view=dense] .ic-svg{width:15px}`），那一档正是这枚图标最该
+   保持原样的时候——它是唯一的提交出口，收到 15px 就没人看得见它。 */
+.search-ico{display:block;width:18px;height:18px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round}
 .search input{min-width:0;flex:1 1 auto}
 .search a{color:var(--ink2);text-decoration:none;font-size:14px;padding:6px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
 .search a:hover{color:var(--ink);background:var(--card-hi)}
