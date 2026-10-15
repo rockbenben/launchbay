@@ -6,7 +6,19 @@
 .fld{display:block;width:100%;margin-top:4px;padding:8px 10px;
   font:inherit;font-size:14px;color:var(--ink);background:var(--card);
   border:1px solid var(--line);border-radius:8px;min-height:44px}
-.sheet label{display:block;font-size:12px;color:var(--ink2)}
+/* 这一条的本意是**字段标签**（包住控件的那种 label）占一行、小字、次级色——
+   下面 `.fld-group` 那段注释说的就是它。但它从前写的是裸的 `.sheet label`，
+   与 base.css 的 `.prefs-nav label{display:flex;align-items:center}` **同权重**，
+   而 app.css 在它之后 → 台面面板那三颗 tab 的 label 在浮层里被收成 block：
+   44px 的盒子里文字贴顶（实测上留白 1px / 下留白 27px，独立页是 12 / 14），
+   那颗"当前在哪一节"的主色竖条也从 flex 项掉回内联盒、高度不再说话。
+   **同一份 define 在两处落地长得不一样**，正是 base.css 那段"两处是同一个数"
+   的判据要挡的事。收窄的办法按本意来：只有**里面真的包着控件**的 label 才是字段标签
+   （tab 那颗的 radio 是它的**兄弟**，不是它的孩子，所以 `:has()` 分得干净）。 */
+/* 名单里有 button：「这一组用 磁贴/单列」那一格的 label 包的是两颗按钮
+   （添加浮层里选「＋ 新分组…」时才出现），它也是字段标签，漏了它标题会掉回
+   正文的字号与字色。tab 那颗不受影响——它的 radio 是它的**兄弟**。 */
+.sheet label:has(input,select,textarea,button){display:block;font-size:12px;color:var(--ink2)}
 /* 一格 = 标签 + 控件 + **它自己那一行的错误**（`.fld-group`）。加上这一层是因为
    `.sheet label{display:block}` 把整个 label 收成一块，而错误那一行**必须在控件
    下面**而不是和它并排——贴在这一格下面才是"错在这一格"，飘到表单最底端就没人
@@ -59,7 +71,14 @@
    是每个分组被折成了两行**，加宽就是它的解。放不下 836 的那些视口（620 上下与
    平板竖屏）由 flex-wrap 自己折回两行，**没有为它开媒体查询**。
    添加与编辑那两层不动：它们没有一行 836 的东西，加宽只是让字段拉得散。 */
-#lb-prefs.sheet{width:min(960px,calc(100vw - 28px));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+#lb-prefs.sheet{width:min(960px,calc(100vw - 28px));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  /* **切一节不许整层重排**（2026-10-15 实拍）。`.sheet` 的通用形状是"高度随内容 +
+     居中"，而这一层的内容三档差得极多：外观 899、分组 1100、回退与历史只有 137。
+     于是点一下「回退与历史」整层从 868 高缩到 262、顶边从 16 掉到 319——标题与
+     左边那一列 tab 全都跟着挪，人刚要按的下一颗就跑到了别处。
+     顶边钉在 16px（不再 translate 回中间），高度给一个下限：短的那一节不至于塌成
+     一条，长的那两节本来就顶到底，**变的只有下边缘**。 */
+  top:16px;transform:none;min-height:min(520px,calc(100vh - 32px))}
 /* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
    浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
    与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是

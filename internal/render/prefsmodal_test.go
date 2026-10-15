@@ -72,3 +72,48 @@ func Test面板里的表单留在浮层里而不是整页跳走(t *testing.T) {
 		t.Error("「点开书签」又跟着整页重载了")
 	}
 }
+
+// **浮层那条"字段标签占一行"不许波及面板左侧那三颗 tab**（2026-10-15 实拍）。
+//
+// `.sheet label{display:block}` 与 base.css 的 `.prefs-nav label{display:flex;
+// align-items:center}` 权重相同（0,1,1），而 app.css 在 base.css 之后 → 前者赢。
+// 于是同一份 define 在两个表面上长得不一样：独立页那三颗的文字在 44px 盒子里
+// 居中（实测上留白 12 / 下留白 14），浮层里贴顶（1 / 27），那颗"当前在哪一节"的
+// 主色竖条也从 flex 项掉回内联盒。浏览器里才看得出来，静态读 CSS 读不出来——
+// 所以这条闸钉的是**形状**：那条规则必须带 `:has(...)`，裸的 `.sheet label` 一出现就红。
+func TestCSS_浮层字段标签规则不波及面板tab(t *testing.T) {
+	css := stripCSSComments(readWeb(t, "web/app.css"))
+	if !strings.Contains(css, ".sheet label:has(") {
+		t.Error("浮层的字段标签规则没有用 :has() 收窄（它会把面板左侧那三颗 tab 的 label 一起收成 block）")
+	}
+	// 扫每一处 `.sheet label`：下一个非空白字符必须是冒号（即 `:has(...)`）。
+	// 不是冒号就是裸选择器，而它带 display 时面板那三颗会跟着遭殃。
+	// （Go 的 RE2 没有先行断言，所以逐处看下一个字符。）
+	for at := 0; ; {
+		j := strings.Index(css[at:], ".sheet label")
+		if j < 0 {
+			break
+		}
+		at += j
+		k := at + len(".sheet label")
+		for k < len(css) && (css[k] == 32 || css[k] == 9 || css[k] == 10) {
+			k++
+		}
+		if k >= len(css) || css[k] == ':' {
+			at = k
+			continue
+		}
+		body := css[at:]
+		if end := strings.Index(css[at:], "}"); end > 0 {
+			body = css[at : at+end+1]
+		}
+		if strings.Contains(body, "display") {
+			t.Errorf("出现裸的 .sheet label 且它带 display——面板那三颗 tab 会被收成 block：%s", body)
+		}
+		at++
+	}
+	base := stripCSSComments(readWeb(t, "web/base.css"))
+	if !strings.Contains(base, ".prefs-nav label{display:flex;align-items:center") {
+		t.Error("base.css 里那条 tab label 的 flex 形状不在了——居中靠的就是它")
+	}
+}
