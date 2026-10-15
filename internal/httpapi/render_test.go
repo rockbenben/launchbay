@@ -148,3 +148,42 @@ func TestUnknownProfileInCookieFallsBackToPicker(t *testing.T) {
 		t.Fatalf("指向不存在的档案要回选择页, got %q", rec.Header().Get("X-LB-Profile"))
 	}
 }
+
+// 进管理页那颗口子必须**一直画着**（2026-10-15）。它原先挂在 HasAdmin 上，
+// 于是刚装完机器、手里只有 compose 那把 key 的人在全站找不到第二处通向 /admin
+// 的地方——账号层面那一整页在界面上不可达。这一条钉的就是"没有 cookie 时它也在"，
+// 而档案页顶栏那枚「管理」徽标仍按 HasAdmin 画（它是捷径不是门）。
+func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t *testing.T) {
+	h, _ := setupRender(t)
+	const link = `<a class="badge" href="/admin">管理这台机器</a>`
+
+	// ① 什么 cookie 都没有：入口必须在。
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(rec.Body.String(), link) {
+		t.Fatalf("无 cookie 的选择页没有管理入口，装完机器的人只能手打 /admin：%.300s", rec.Body)
+	}
+
+	// ② 带着管理权：也必须在（这一条不许因为"已经进得去"就把它撤掉）。
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Cookie", adminOnlyCookie(t))
+	h.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), link) {
+		t.Fatal("带 lb_admin 的选择页反而没了管理入口")
+	}
+
+	// ③ 登着档案、没有管理权：档案页顶栏那枚「管理」不画。
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: auth.CookieProfile, Value: "dad"})
+	req.AddCookie(&http.Cookie{Name: auth.CookieHome, Value: "dad"})
+	h.ServeHTTP(rec, req)
+	body := rec.Body.String()
+	if !strings.Contains(body, "爸爸") {
+		t.Fatalf("这一条要量的是档案页，结果落到了别处：%.200s", body)
+	}
+	if strings.Contains(body, `<a class="badge" href="/admin">管理</a>`) {
+		t.Fatal("没有管理权的会话不该看见档案页顶栏的「管理」徽标")
+	}
+}
