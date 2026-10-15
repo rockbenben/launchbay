@@ -248,7 +248,7 @@ func TestAdmin_设PIN的形状闸(t *testing.T) {
 
 	t.Run("确认页列出了目标与字段", func(t *testing.T) {
 		body := adminPageGet(t, h, "/admin/pin?profile=kid", dad)
-		for _, want := range []string{"小满", "new", "/admin/pin", "4-6"} {
+		for _, want := range []string{"小满", "new", "/admin/pin", "4 到 6"} {
 			if !strings.Contains(*body, want) {
 				t.Errorf("设 PIN 确认页里缺少「%s」", want)
 			}

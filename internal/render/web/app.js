@@ -42,9 +42,9 @@ const APP_I18N = {
     "app.icon.libPh": "搜名字，比如 docker、github、相册",
     "app.icon.libHint": "常见的牌子都有；也可以按东西搜，比如相机、相册、下载。",
     "app.icon.libStart": "在上面搜一个名字，图标就出现在这里。",
-    "app.icon.libNone": "图标库里没有叫「%s」的",
+    "app.icon.libNone": "图标库里没有叫「%s」的。",
     "app.icon.libMore": "共 %s 个，先看前 %s 个",
-    "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）",
+    "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）。",
     "app.save": "保存",
     "app.saveMore": "保存并继续",
     "app.close": "关闭",
@@ -81,7 +81,7 @@ const APP_I18N = {
     "app.clip.noread": "读不到剪贴板（系统没给这个权限），手动贴一下地址。",
     "app.copy.aria": "复制「%s」的链接",
     "app.copy.done": "已复制",
-    "app.copy.fail": "复制不了，已经帮你把地址选中了，按 ⌘ 或 Ctrl + C",
+    "app.copy.fail": "复制不了，已经帮你把地址选中了，按 Ctrl+C 或 ⌘C",
     "app.edit.aria": "改「%s」",
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
@@ -210,16 +210,16 @@ const APP_I18N = {
     "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
     "app.cmdk.aria": "Command palette",
     "app.cmdk.clipboard": "Save the address on the clipboard",
-    "app.cmdk.history": "See this profile’s change history",
+    "app.cmdk.history": "See this profile's change history",
     "app.cmdk.kind": "action",
-    "app.cmdk.none": "Nothing matches “%s” - no bookmark, and no action either.",
+    "app.cmdk.none": "Nothing matches “%s” — no bookmark, and no action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
     "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
     "app.clip.noturl": "What is on the clipboard does not look like an address. Paste it yourself.",
     "app.clip.noread": "Could not read the clipboard (the system did not grant permission). Paste the address yourself.",
     "app.copy.aria": "Copy the link for %s",
     "app.copy.done": "Copied",
-    "app.copy.fail": "Could not copy it — the address is selected now, press ⌘ or Ctrl + C",
+    "app.copy.fail": "Could not copy it — the address is selected now, press Ctrl+C or ⌘C",
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this bookmark",
     "app.layout.tiles": "Tiles",
@@ -227,7 +227,7 @@ const APP_I18N = {
   "app.group.shape": "Arrange it as",
     "app.layout.rows": "Single column",
     "app.layout.feature": "Feature",
-    "app.layout.featureTitle": "moves into the enlarged area at the top: bigger cards with the host under the name. Groups set to this join the SAME area, which keeps growing",
+    "app.layout.featureTitle": "moves into the enlarged area at the top: bigger cards with the host under the name. Groups set to this join the same area, which keeps growing",
     "app.layout.aria": "Switch the group “%s” from %s to %s",
     "app.multi.aria": "Bulk actions",
     "app.multi.move": "Move to (%d)",
@@ -264,9 +264,9 @@ const APP_I18N = {
     "app.ops.move": "The move",
     "app.ops.layout": "The group's layout switch",
   "app.ops.group": "That change",
-  "app.ops.tabs": "opening a bookmark",
-  "app.ops.prefs": "that setting",
-  "app.ops.bg": "the background",
+  "app.ops.tabs": "Opening a bookmark",
+  "app.ops.prefs": "That setting",
+  "app.ops.bg": "The background",
     "app.ops.bulkMove": "The bulk move",
     "app.ops.bulkTags": "The bulk tagging",
     "app.ops.delete": "The deletion",
@@ -278,7 +278,7 @@ const APP_I18N = {
     "app.delete.confirmMany": "Delete %d bookmarks",
     "app.delete.more": "…and %d more not listed",
     "app.delete.aria": "Bulk delete",
-    "app.delete.undoHint": "You can bring this version back from Settings → Undo and history",
+    "app.delete.undoHint": "You can bring this version back from Settings → Revert and history",
     "app.applyOps.fail": "%s didn't go through: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
     "app.opsWrongProfile": "This page isn't the profile you're using. Tap the name at the top right and come back in.",
@@ -744,7 +744,7 @@ const APP_I18N = {
       const data = new FormData(form, btn || undefined);
       const op = groupOpFromForm(form, data);
       if (!op) return;
-      const ok = await applyOps([op], T('app.ops.group'));
+      const ok = await applyOps([op], 'app.ops.group');
       if (ok) {
         // 重载之后把面板重新拉起来（见 OPEN_KEY 那段注释）。只在这一族记，
         // 因为只有它会"改完还想接着改下一组"。
@@ -765,7 +765,7 @@ const APP_I18N = {
       e.preventDefault();
       const v = e.submitter?.value;
       if (v !== '0' && v !== '1') return; // 只认这两个（服务端同一条纪律）
-      await applyOps([{ op: 'set', path: 'openInNewTab', value: v === '1' }], T('app.ops.tabs'));
+      await applyOps([{ op: 'set', path: 'openInNewTab', value: v === '1' }], 'app.ops.tabs');
       // **不整页刷新**：这一格只改一个布尔，而整页重载会把面板整个重建
       // （prefsLoaded 那一闩只在首次 fetch 后才为真，重载后要重新拉一次），
       // 于是「按一下 → 面板消失」与「整页跳走」是同一种丢失。

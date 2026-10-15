@@ -428,7 +428,7 @@ func TestHistory_标题说的是这一份(t *testing.T) {
 		t.Fatal("夹具前提：dad 有档案名")
 	}
 	head := get(h, "/history", historyDadCookie).Body.String()
-	if !strings.Contains(head, "<title>"+p.Title+"的改动历史 · launchbay</title>") {
+	if !strings.Contains(head, "<title>"+p.Title+" 的改动历史 · launchbay</title>") {
 		t.Errorf("<title> 没带上这一份的名字：%s", firstBytes(head))
 	}
 	// 坏档那一支：profile.json 读不动 → 标题落 id，不编名字。
@@ -437,7 +437,7 @@ func TestHistory_标题说的是这一份(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := get(h, "/history", historyDadCookie).Body.String()
-	if !strings.Contains(page, "<title>dad的改动历史 · launchbay</title>") {
+	if !strings.Contains(page, "<title>dad 的改动历史 · launchbay</title>") {
 		t.Errorf("坏档时标题该落 id 而不是编一个名字：%s", firstBytes(page))
 	}
 }
