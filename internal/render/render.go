@@ -495,6 +495,23 @@ func (r *Renderer) AdminLoginPage(notice string) (Page, error) {
 	return Page{Body: body, Profile: AdminSentinel, NoStore: true}, nil
 }
 
+// NotFoundPage 渲染"这条路径不存在"那一页，只给**浏览器导航**用；同一判据的另一支
+// （脚本与扩展）拿的仍是那枚 `route-not-found` JSON，kind 一个字没动。
+//
+// `back` 是已经翻好的那句出路，由调用方按"这次请求有没有档案会话"决定说
+// 「回我的页面」还是「回选择页」——它指向的都是 /，那一头自己会分诊。
+//
+// **Profile 留空**：这一页不属于任何档案，而 SW 是按响应头 X-LB-Profile 分桶的，
+// 空头不存（见 sw.js 那条）。给它任何一个哨兵名都是让离线缓存里多出一份
+// "谁都能看到"的页面。
+func (r *Renderer) NotFoundPage(back string) (Page, error) {
+	body, err := r.tmpl.notFound(back, i18n.Load(r.s.Language()))
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Body: body, NoStore: true}, nil
+}
+
 // HistoryRow 是改动历史页上的一行 = **一次动作**（一批 ops 落进同一个 rev，
 // 或一个不产生 rev 的账号类动作）。
 //

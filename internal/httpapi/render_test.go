@@ -187,3 +187,48 @@ func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t
 		t.Fatal("没有管理权的会话不该看见档案页顶栏的「管理」徽标")
 	}
 }
+
+// 404 的两种答法（2026-10-15）。这一条钉的是**分界**而不是页面本身：
+// 人在地址栏里打错一个字不该看见裸 JSON，而脚本要的 `route-not-found` 一枚都不许少。
+// 状态码两边必须相同——把浏览器那一支答成 200 就是给一个不存在的页发缓存。
+func Test404_浏览器拿页面脚本拿kind(t *testing.T) {
+	h, _ := setupRender(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/prefs/nope", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("浏览器那一支的状态码必须是 404，拿到 %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Fatalf("Content-Type = %q", ct)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `<html lang="zh-CN">`) {
+		t.Fatal("这一页也要带 lang：它是一整屏人话，不是错误串")
+	}
+	if !strings.Contains(body, "这一页不在这里") {
+		t.Fatalf("页面没说出这是怎么回事：%.300s", body)
+	}
+	if strings.Contains(body, "route-not-found") {
+		t.Fatal("人看的这一屏不许出现机器码")
+	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
+		t.Fatalf("Cache-Control = %q", cc)
+	}
+	// 空头 X-LB-Profile = SW 不存这一页（它不属于任何档案）。
+	if v := rec.Header().Get("X-LB-Profile"); v != "" {
+		t.Fatalf("X-LB-Profile = %q，这一页不属于任何档案", v)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/prefs/nope", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("code %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"kind": "route-not-found"`) {
+		t.Fatalf("不带 Accept: text/html 的调用方拿到的仍是 kind 那一份：%.200s", rec.Body)
+	}
+}

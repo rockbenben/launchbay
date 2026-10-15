@@ -182,3 +182,17 @@ func (s *Server) apiReportWords(r *http.Request) func(string, ...any) string {
 	}
 	return i18n.Load(lang).T
 }
+
+// wantsHTML 答的是"这一条是不是**人在浏览器里导航**过来的"。判据只有 Accept 里
+// 有没有 text/html：浏览器发导航请求时一定带上它，而 curl、Go 的 http.Client
+// 与扩展都不带（它们要的是机器可读的那一份，`*/*` 不算点名要 HTML）。
+//
+// 它只用来**选答法**，从来不用来选判据：状态码、kind 与权限判定两边完全同一份，
+// 变的只是那一屏给人看的是花括号还是一句人话。
+func wantsHTML(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	accept := r.Header.Get("Accept")
+	return strings.Contains(accept, "text/html")
+}

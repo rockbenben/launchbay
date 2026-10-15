@@ -1,0 +1,23 @@
+{{define "notFound"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.T "notfound.title"}}</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+{{/* 浏览器导航到一条不存在的路径时的那一页（2026-10-15）。
+     这一族过去只有一屏裸 JSON：`{"code":404,"kind":"route-not-found",
+     "detail":"not found"}`。那个答法对调用方是对的（机器读 kind 选句子），
+     但**人是会打错地址的**——书签栏里一条旧链接、家里人转发的一个不存在的
+     /prefs?tab=…，落到那一屏就是白底等宽字的一堆花括号，而全站没有任何一句话
+     告诉他该按哪个键离开。判据在 httpapi 那一侧（Accept 里有没有 text/html），
+     模板只印。出路只给一条真的：回能用的一页。 */}}
+<main role="main" class="chooser">
+  <h1>{{.T "notfound.title"}}</h1>
+  <p class="notice">{{.T "notfound.explain"}}</p>
+  <p class="plain"><a class="badge" href="/">{{.Back}}</a></p>
+</main>
+</body>
+</html>{{end}}

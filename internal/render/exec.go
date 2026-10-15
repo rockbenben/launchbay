@@ -100,6 +100,10 @@ type executor struct {
 	// adminLoginT 单独挂着：它是**没有管理权时**的那一页，形状与 adminT 相反
 	// （一张输入框 vs 一张表）。共用会让"渲染坏了管理页还是登录页"看不出来。
 	adminLoginT *template.Template
+	// notFoundT 是浏览器打错地址那一页。它单独挂着与 adminLoginT 同一个理由，
+	// 但它还有第二条：这一页**不属于任何档案**，也不属于管理那一族，
+	// 借任何一页的模板都会让 X-LB-Profile 与 SW 的缓存桶跟着猜错。
+	notFoundT *template.Template
 	cssT        template.CSS
 	ix          *icons.Index
 	fc          *store.IconCache
@@ -499,6 +503,15 @@ type adminLoginView struct {
 	CSS    template.CSS
 }
 
+// notFoundView 是"这条路径不存在"那一页。Back 是**已经翻好**的那句出路
+// （带运行时值的句子在 Go 侧查表，见 AGENTS.md 的三条纪律）：这一页有会话时
+// 说的是"回我的页面"，没有会话时说的是"回选择页"，而 / 那一头自己会分诊。
+type notFoundView struct {
+	i18nView
+	Back string
+	CSS  template.CSS
+}
+
 type brokenView struct {
 	i18nView
 	ProfileID string
@@ -553,6 +566,7 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 		adminActionT: parse("adminaction.tmpl"),
 		importT:      parse("import.tmpl"),
 		adminLoginT:  parse("adminlogin.tmpl"),
+		notFoundT:    parse("notfound.tmpl"),
 		historyT:     parse("history.tmpl"),
 		cssT:         css,
 		ix:           ix,
@@ -964,6 +978,16 @@ func (e *executor) adminLogin(notice string, cat *i18n.Catalog) ([]byte, error) 
 	return buf.Bytes(), nil
 }
 
+// notFound 渲染打错地址那一页。判据（这一条请求是不是浏览器导航）在 httpapi，
+// 模板只印，与 adminLogin 同一处置。
+func (e *executor) notFound(back string, cat *i18n.Catalog) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := e.notFoundT.ExecuteTemplate(&buf, "notFound", notFoundView{
+		i18nView: newI18nView(cat), Back: back, CSS: e.cssT}); err != nil {
+		return nil, fmt.Errorf("渲染找不到页: %w", err)
+	}
+	return buf.Bytes(), nil
+}
 // adminAction 渲染设 PIN / 删档的确认页。判据全在 AdminAction 里，模板只印。
 func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer

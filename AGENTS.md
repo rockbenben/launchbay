@@ -245,7 +245,7 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 | `profile-not-rebuildable` | 409 | 这份读得动，不需要重建；改 PIN 走 profiles/pin |
 | `query-invalid` | 400 | 把查询参数补全/改对 |
 | `rev-conflict` | 409 | 重读一次再写（别人刚动过） |
-| `route-not-found` | 404 | 这条路径不存在 |
+| `route-not-found` | 404 | 这条路径不存在（浏览器导航到它拿到的是同一句话的人话版页面，`Accept: text/html` 是唯一分界；状态码与 kind 两边相同，脚本不发这个头就永远拿 JSON） |
 | `snapshot-failed` | 507 | 什么都没改；腾出空间或稍后再试 |
 | `target-unreachable` | 502 | 那台机器可能没开；照样存下来也行，回头补标题 |
 | `url-incomplete` | 422 | 地址要有协议和主机名 |

@@ -281,6 +281,25 @@ func writePinOK(w http.ResponseWriter, r *http.Request, fromForm bool, sess auth
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		// "GET /" 是兜底 pattern，未注册的路径要维持 404（Task 1 钉过的行为）。
+		// 状态码与 kind 一个字没动；**只有答法**按读者分两支（2026-10-15）：
+		// 浏览器导航到一条不存在的路径（书签栏里的旧链接、家里人转发的
+		// /prefs?tab=…）过去拿到的是一屏裸 JSON，那一屏没有任何一句人话，
+		// 也没有一个能按的键。脚本与扩展不发 Accept: text/html，它们拿到的
+		// 仍是 kind 那一份——三处读者各自从码选句子的纪律不许被这一页破掉。
+		if wantsHTML(r) {
+			back := "common.back.picker"
+			if auth.ReadSession(r).Active != "" {
+				back = "common.back.home"
+			}
+			page, err := s.deps.Render.NotFoundPage(s.t(back))
+			if err != nil {
+				writeInternalError(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			s.writePage(w, r, page)
+			return
+		}
 		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.RouteNotFound, Detail: "not found"})
 		return
 	}
