@@ -204,11 +204,18 @@ func (s *Server) createGroupFromForm(w http.ResponseWriter, r *http.Request, pro
 		return
 	}
 	title := strings.TrimSpace(add[0])
-	// 空名字是形状错，要点名 add —— 与改名那一格同一处置（"是这一格没填"比
+	// 空名字是形状错，要点名这一格 —— 与改名那一格同一处置（"是这一格没填"比
 	// "文档校验没过"有用）。上限与改名共用同一个数。
+	//
+	// **答法是横幅而不是裸 JSON**（2026-10-15 batch11 T2）：这一条通路只有浏览器
+	// 表单会走（AI 建组走 `POST /api/v1/profiles` 与 batch），而名字空着按下去是
+	// 人最常撞的那一发。从前它回 422 + JSON 外壳，屏幕上就是一整页 `{"code":422…}`
+	// 而 `detail` 还是空串——AGENTS.md 那句"形状错仍走 JSON 外壳"保的是**不折成
+	// 303**（别把"这一格没填"说成"你没权限"），不是保"人该看到裸 JSON"。
+	// 于是这一族自己已有的那个形状（组已被删 → 200 重画面板并在顶部说清）用在这里，
+	// 点名那一格的话由语言包给（英文站不再吐中文）。**不写盘**这一条没变。
 	if title == "" {
-		writeFieldErrors(w, http.StatusUnprocessableEntity,
-			[]fieldError{{Kind: apierr.FieldInvalid, Field: "add", Reason: "分组名不能空着"}})
+		s.renderPrefsNotice(w, r, profile, s.t("prefs.err.groupNameEmpty"))
 		return
 	}
 	if len([]rune(title)) > model.MaxGroupTitleRunes {
@@ -235,7 +242,7 @@ func (s *Server) createGroupFromForm(w http.ResponseWriter, r *http.Request, pro
 		// 读不出来就把整节撤掉），所以能走到这儿只可能是书页开着、文件随后坏了。
 		// 说清是什么坏了，别把人支去修一个没坏的文件——与 applyPrefsOps 那一支
 		// 同一句话、同一落点。
-		s.renderPrefsNotice(w, r, profile, "书签文件读不出来，这一格建不了新分组")
+		s.renderPrefsNotice(w, r, profile, s.t("prefs.err.bookmarksUnreadableAdd"))
 		return
 	}
 	used := make(map[string]bool, len(b.Groups))
@@ -348,8 +355,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		// 往下走让 ops 报一句「title 为空」，那句话说的是文档校验，说不出
 		// "是这一格没填"。
 		if strings.TrimSpace(rename[0]) == "" {
-			writeFieldErrors(w, http.StatusUnprocessableEntity,
-				[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename", Reason: "分组名不能空着"}})
+			s.renderPrefsNotice(w, r, id, s.t("prefs.err.renameEmpty"))
 			return
 		}
 	} else if !hasAccent && !hasLayout && !wantsCustom {
@@ -409,8 +415,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		t := strings.TrimSpace(rename[0])
 		if onlyRename {
 			if t == "" {
-				writeFieldErrors(w, http.StatusUnprocessableEntity,
-					[]fieldError{{Kind: apierr.FieldInvalid, Field: "rename", Reason: "分组名不能空着"}})
+				s.renderPrefsNotice(w, r, id, s.t("prefs.err.renameEmpty"))
 				return
 			}
 			if len([]rune(t)) > model.MaxGroupTitleRunes {
@@ -502,7 +507,7 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 		// 整批没写：最常见的是"这个分组已经没了"（被人删了），把 ops 的原话带出去。
 		s.renderPrefsNotice(w, r, id, out.verrs[0].Reason)
 	case out.snapErr != nil:
-		s.renderPrefsNotice(w, r, id, "这一版存不下，改动已取消，书签一个字都没变")
+		s.renderPrefsNotice(w, r, id, s.t("app.opsNoSnap"))
 	default:
 		// **落回时把 `?tab=` 带上**（2026-10-15）：这一族（/prefs/group 与
 		// /prefs/tabs）每一次按色块/排法都是一次提交，而分组那一节有二十行时

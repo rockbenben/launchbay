@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -68,15 +69,30 @@ func TestPrefsGroup_改名的坏形状点名rename(t *testing.T) {
 	before := findGroup(t, s, "dad", gid).Title
 
 	cases := []struct {
-		name string
-		vals url.Values
+		name   string
+		vals   url.Values
+		notice bool
 	}{
-		{"空着（想改成空名字）", url.Values{"group": {gid}, "rename": {"   "}}},
-		{"太长了", url.Values{"group": {gid}, "rename": {strings.Repeat("字", 61)}}},
-		{"两个 rename", url.Values{"group": {gid}, "rename": {"甲", "乙"}}},
+		// 名字空着是人按得到的一发 → 面板重画 + 横幅点名那一格（batch11 T2，
+		// 与建组那一支同一判据）。另两种浏览器的形状给不出：名字框带 maxlength，
+		// 同名多值要手拼 body —— 那仍是 422 + 中文原话，给拼请求的人看。
+		{"空着（想改成空名字）", url.Values{"group": {gid}, "rename": {"   "}}, true},
+		{"太长了", url.Values{"group": {gid}, "rename": {strings.Repeat("字", 61)}}, false},
+		{"两个 rename", url.Values{"group": {gid}, "rename": {"甲", "乙"}}, false},
 	}
 	for _, tc := range cases {
 		rec := postGroupForm(t, h, tc.vals)
+		if tc.notice {
+			want := i18n.Load(i18n.Zh).T("prefs.err.renameEmpty")
+			if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), want) {
+				t.Errorf("%s 要把面板重画回来并说出那一格（要含 %q），得到 %d：%s",
+					tc.name, want, rec.Code, trimBody(rec.Body.String()))
+			}
+			if got := findGroup(t, s, "dad", gid).Title; got != before {
+				t.Errorf("%s 把名字改成了 %q——形状错的那一条不许写进去", tc.name, got)
+			}
+			continue
+		}
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Errorf("%s 该 422，got %d（%s）", tc.name, rec.Code, trimBody(rec.Body.String()))
 			continue

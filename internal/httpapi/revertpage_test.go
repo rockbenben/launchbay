@@ -402,3 +402,40 @@ func TestRevertPage_组名截断不许把总组数一起截掉(t *testing.T) {
 		t.Errorf("那一格没有时间前缀:\n%s", page)
 	}
 }
+
+// **每一行要说清它与上面那一版差在哪**（2026-10-15 batch11 U2）。
+//
+// 实拍（dad 满 50 版）：前六行「31 条书签」一字不差、整页 3.25 屏。那一格答的是
+// "这一版有什么"，而人要挑的是"哪一版是我想要回去的"——差的那一维是**与隔壁那版的差**。
+// 所以：条数变了就说变了多少，没变就直说没变（没变也是信息，它把"改的是内容不是数量"
+// 说出口，而不是让人以为列表坏了）。
+func TestRevertPage_每行说出它与上面那一版的差(t *testing.T) {
+	s, h := setupBatch(t)
+	// 快照是**写之前**拍的，所以"加一条"那次只让**下一版**的快照多一条。
+	// 三次写入：改名（快照 = N）→ 加一条（快照 = N）→ 改名（快照 = N+1）。
+	// 于是列表从新到旧是 N+1 / N / N：中间那一行比上面少 1 条，
+	// 最旧那一行与它上面那行数量与分组都一样。
+	for _, body := range []string{
+		`{"profile":"dad","by":"ai","ops":[{"op":"set","path":"groups/nas/items/dsm/name","value":"改一"}]}`,
+		`{"profile":"dad","by":"ai","ops":[{"op":"add","path":"groups/nas/items","value":{"id":"dp-u2","name":"U2 加的一条","url":"http://10.0.0.5:9/"}}]}`,
+		`{"profile":"dad","by":"ai","ops":[{"op":"set","path":"groups/nas/items/dsm/name","value":"改二"}]}`,
+	} {
+		if rec := post(h, "/api/v1/batch", body, "", dadTok); rec.Code != 200 {
+			t.Fatalf("前置写入失败: %d %s", rec.Code, rec.Body)
+		}
+	}
+	rev := currentRev(t, s, "dad")
+	body := get(h, "/revert", revertDadCookie).Body.String()
+	// 列表从新到旧：最新那一行（rev 本身）没有可比对象，所以它什么都不加；
+	// 往下第一行是"加那一条之前"，它比上面少 1 条；再往下那次只改了名字。
+	if !strings.Contains(body, "比上面那一版少 1 条") {
+		t.Errorf("第 2 行没说清它比上面那一版少一条（rev=%d）：\n%s", rev, firstBytes(body))
+	}
+	if !strings.Contains(body, "与上面那一版的条数与分组都一样") {
+		t.Error("只改了名字的那一版没有说「与上面那一版的条数与分组都一样」——那正是它没变的那件事")
+	}
+	// 增量不许盖掉版本号与条目数：它是**加**在后面的判据，不是替换。
+	if !strings.Contains(body, "条书签") {
+		t.Error("行里没有了条目数——增量是补充，不是替代")
+	}
+}

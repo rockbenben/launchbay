@@ -233,7 +233,7 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	// 的挂载点一起收进了台面面板，所以名单里那一串换成**一个** `.prefs button`。
 	// 不是"少了几条保护"：它们仍然是提交键，仍然要 44px，只是现在共用一条规则
 	// ——留着四个已经不存在于模板里的选择器，那才是"规则还在、证人没了"。
-	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".prefs button", ".adm button", ".act button", ".langsel button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", ".add", ".card", ".plain"} {
+	for _, want := range []string{"input[type=search]", "input[type=file]", "select", ".search button", ".prefs button", ".adm button", ".act button", ".langsel button", ".gnav a", "summary", "a.badge", "button.badge", ".fld", ".cmdk-list li", ".add", ".card", ".plain", ".prefs-group-pick label"} {
 		var found bool
 		for _, s := range sels {
 			if s == want {

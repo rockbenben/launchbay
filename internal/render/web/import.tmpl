@@ -29,7 +29,7 @@
     <p><b>{{.FileName}}</b>{{.T "import.file.sep"}}{{.T "import.intro" .Count .Groups}}
        {{/* 没能进来的单独说一句：只报"会加几条"会让人以为文件里就这么多书签，
             而少的那些去了哪里只有报告知道。 */}}
-       {{if .Skipped}}{{.T "import.skipped" .Skipped}} {{end}}{{.T "import.more"}}</p>
+       {{if .Skipped}}{{.T "import.skipped" .Skipped}}{{end}}{{.T "import.more"}}</p>
     <div class="rep">{{reportHTML .Report}}</div>
     {{/* 令牌是一次性的（过期/用过/不是这个档案都回第一步），所以这一发
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}

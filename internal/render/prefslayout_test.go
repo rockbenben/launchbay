@@ -125,7 +125,10 @@ func Test六行都有常驻说明(t *testing.T) {
 	if strings.Contains(tmpl, `{{if and (eq .Profile.Layout "sidebar") .Compact}}<p class="hint">`) {
 		t.Error("sidebarNote 又退回另起一行的 hint 了：它与那两颗键视觉脱节")
 	}
-	if !strings.Contains(tmpl, `{{if and (eq .Profile.Layout "sidebar") .Compact}} {{.T "prefs.layout.sidebarNote"}}{{end}}`) {
+	// 两句之间**不留半角空格**（batch11 T6）：中文句号后面直接接下一句。
+	// 这条证人从前钉的是带空格的那一份——那正是它该挡而没挡住的东西：
+	// 拼串时模板里的空格会原样上屏，成了「…放在左边一列。 并排与紧凑…」这种接缝。
+	if !strings.Contains(tmpl, `{{if and (eq .Profile.Layout "sidebar") .Compact}}{{.T "prefs.layout.sidebarNote"}}{{end}}`) {
 		t.Error("sidebarNote 没有接在那一格的说明后面")
 	}
 }

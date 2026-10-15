@@ -125,6 +125,11 @@ header .theme{flex:0 0 auto}
    通用规则承担（那里的名单扩到了 input[type=search] 与 .search button），
    这里只补布局；.hits 是搜索态的读数，不搜索时整行不渲染。 */
 .search{display:flex;gap:6px;align-items:center;flex:0 1 260px;min-width:170px}
+/* 那颗「搜索」不许被挤瘦（2026-10-15 batch11 S1）：320 那一档表单只剩 233px 宽，
+   输入框 flex:1 1 auto 吃掉 177，按钮 `flex:0 1 auto` 就被压到 50px——"搜索"两个字
+   放不进 50 减内衬，于是折成两行，按钮 66 高、旁边的输入框 44 高，两个基线不同。
+   该让位的是**输入框**（它长，截断无所谓），不是那颗两个字的名字。 */
+.search button{flex:0 0 auto}
 .search input{min-width:0;flex:1 1 auto}
 .search a{color:var(--ink2);text-decoration:none;font-size:14px;padding:6px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
 .search a:hover{color:var(--ink);background:var(--card-hi)}
@@ -920,6 +925,12 @@ select option{background:var(--bg);color:var(--ink)}
    从前八行平铺，读的人要自己判断哪几行是一类；一个 13px 的小标题 + 一条线
    就把"这一页长什么样 / 出口 / 分组"三段说清了。字号与字色取节标题那一档，
    而 margin-top 只在**第二个及以后**的分节上留（第一个紧跟 h2 不留）。 */
+/* 那 -4px 是给"标题下面是一块带边框的卡"那种排法调的（收紧标题与卡片之间的
+   空白）。**但「分组」这一节标题下面直接跟正文**，于是实测间隙成了 0/−4——
+   两句贴在一起（batch11 P5）。所以只在那一处收回来，别的地方不动。 */
+/* 10 而不是 6：它与标题那条 -4px 是**相加**的（外边距不参与 rect），
+   所以净空 = 10 − 4 = 6px。写 6 的话实测只有 2px，还是贴着的。 */
+.prefs h3.prefs-sec+p.prefs-hint{margin-top:10px}
 .prefs h3.prefs-sec{margin:6px 0 -4px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
 .prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;
@@ -953,7 +964,16 @@ select option{background:var(--bg);color:var(--ink)}
   border:1px solid transparent;border-radius:8px;font-size:13px;color:var(--ink2);
   transition:color .14s ease,background .14s ease,border-color .14s ease}
 .prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi);border-color:transparent}
-.prefs-field .prefs-keys button[aria-pressed=true]{font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+/* 按下态必须把**四项**都写一遍（2026-10-15 batch11 P1）。上面那条 `.prefs button
+   [aria-pressed=true]` 承诺的是"字提亮 + 描边转主色 + 底色"，而它和下面
+   `.prefs-field .prefs-keys button` 权重相同、写在它**前面**——于是台面面板那四排
+   （排列方式 / 分组列表 / 主题 / 点书签时）的按下态被族的 `color:var(--ink2)`
+   `background:transparent` `border:1px solid transparent` 静默吃掉，只剩字重 400→600
+   在说"这一颗是开着的"。分组那一节的排法键不在 `.prefs-field` 里，所以它没事——
+   同一屏因此长出两套词汇。这正是 828 行那条注释警告过的形状，这次是**后面**那条
+   族的规则赢了。 */
+.prefs-field .prefs-keys button[aria-pressed=true]{font-weight:600;color:var(--ink);
+  border-color:var(--accent);background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.25)}
 /* 这一行**下面**的 hint（分组那一节的长说明、背景那一句约束）。
    它不在 `.prefs-field` 里——背景与分组那两节自己多一层内容，说明留在那一格
    的最下方，横跨整格；`.prefs-field` 里的 `.prefs-hint` 才是"标签与控件之间"
@@ -1074,7 +1094,28 @@ select option{background:var(--bg);color:var(--ink)}
   font-size:12.5px;color:var(--ink2);transition:color .14s ease,background .14s ease,border-color .14s ease}
 .prefs-group-shape button:hover{color:var(--ink);background:var(--card-hi)}
 .prefs-group-shape button[aria-pressed=true]{font-weight:600;color:var(--ink);border-color:var(--accent);background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.prefs-group-shape .prefs-swatch-apply{border-left:1px solid var(--line);border-radius:0 8px 8px 0;margin-left:2px}
+/* 「＋ 新分组」那一行的三颗是 **radio + label**（batch11 T1）：那一行还没有分组可改，
+   按下即提交等于"挑个排法就把组建出来了"，于是「起名 → 挑排法 → 建这一组」会产出
+   两个同名分组。radio 选而不发，这一行唯一提交的是那颗「建这一组」。
+   外观与上面那一族**逐像素相同**（同一套 pressed 词汇），差别只在它不提交。
+   input 用 visually-hidden 而不是 display:none——键盘要进得来（与 .prefs-nav 同一条）。 */
+.prefs-group-pick input{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.prefs-group-pick label{background:transparent;border:1px solid transparent;border-radius:8px;
+  font-size:12.5px;color:var(--ink2);display:inline-grid;place-items:center;
+  padding:0 10px;cursor:pointer;transition:color .14s ease,background .14s ease,border-color .14s ease}
+.prefs-group-pick label:hover{color:var(--ink);background:var(--card-hi)}
+.prefs-group-pick input:checked+label{font-weight:600;color:var(--ink);border-color:var(--accent);
+  background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.prefs-group-pick input:focus-visible+label{outline:3px solid var(--ring);outline-offset:2px}
+@media (forced-colors:active){
+  .prefs-group-pick input:checked+label{outline:2px solid CanvasText;outline-offset:1px}
+}
+/* 「用这个」回到它管的那一行（batch11 P2）：它从前住在排法那颗胶囊的尾巴上，
+   读起来像"第四种排法"，而它应用的是**下面那一行**取色器里挑的颜色。
+   分隔线因此从"胶囊内的竖线"变成"色板行末的一句说明前的横线"。 */
+.prefs-group-colors .prefs-swatch-apply{margin-left:auto;border-left:1px solid var(--line);
+  border-radius:0 8px 8px 0;padding-left:10px}
 /* 色板在宽屏上**独占第二行**（2026-10-15 改判，见 views_test.go 那条判据的
    新注释）。flex-basis:100% 是结构性的：靠"装不下"折行的话，改任何一个宽度
    都会让版式在"一行"与"两行"之间悄悄翻面，而那一翻 nobody 会发现。 */
@@ -1229,6 +1270,30 @@ select option{background:var(--bg);color:var(--ink)}
   [data-theme=light] .prefs-nav{background:rgba(0,0,0,.04)}
   .prefs-nav label{padding:0 12px;flex:1 1 auto;justify-content:center;text-align:center}
   .prefs-nav label::before{display:none}
+  /* 那一排 tab 的**容器要铺满整行**（batch11 P7）。`.prefs-tabs` 的
+     `align-items:flex-start` 在翻成 column 之后成了"横着的那一排按内容收缩"，
+     于是灰底盒子只包到 212px（可用 335），右边空一截，看着像这一排没排完。
+     断点跟着内容宽走：这一档之内它都该是整行。 */
+  .prefs-tabs{align-items:stretch}
+  /* 窄屏把一个分组从**五行收到三行**（batch11 P6）。原来竖着叠的是
+     名字 / 排法 / 删掉这一组 / 色板(两行) = 299px 高一组，六个分组 1794px，
+     整节 2.81 屏。排法与「删掉这一组」本来就都在这一行的右端那一列
+     （宽屏上它们同一行），窄屏没理由让它们各自独占一行——并到同一行省 50px 一组。
+     **不藏任何东西**：色板仍然两行摊开（"退化方向是看得全"那条纪律），
+     省下的全是排版，不是可见性。 */
+  .prefs-group:not(.prefs-group-new){display:grid;grid-template-columns:minmax(0,1fr) auto;
+    align-items:start;gap:6px}
+  .prefs-group:not(.prefs-group-new) > .prefs-group-name{grid-column:1 / -1}
+  .prefs-group:not(.prefs-group-new) > .prefs-group-shape{grid-column:1;grid-row:2;min-width:0}
+  .prefs-group:not(.prefs-group-new) > .prefs-group-del{grid-column:2;grid-row:2;justify-self:end}
+  .prefs-group:not(.prefs-group-new) > .prefs-group-colors{grid-column:1 / -1;grid-row:3;width:100%}
+  /* 缝收到 4px 让**一行装六颗**（batch11 P6 的另一半）：12 格（跟随主色 + 九颗色板
+     + 取色器 + 「用这个」）在 301px 里按 8px 缝只装得下五颗一行 = 三行 159px，
+     把刚省下来的那一行又吃回去了。44px 一颗不动（§7.5 的地板），动的是缝。 */
+  .prefs-group-colors{gap:4px}
+  /* 展开的确认块要**独占一行**（与宽屏那条 `.rename[open]` 同一处置：确认要占的
+     地方不该挤在别的东西旁边），所以它从 grid 的第二列里退出来横跨两列。 */
+  .prefs-group:not(.prefs-group-new) > .prefs-group-del[open]{grid-column:1 / -1;grid-row:auto}
 }
 /* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
    全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
@@ -1278,7 +1343,7 @@ select,input[type=password],input[type=text],input[type=search],input[type=file]
    2026-10-12 并入 `.chk`（「不设 PIN」那一格勾选）：取景量到它 29px 高、
    勾选框本体 13-20px，而**能点的那一片就是这行 label**——行高不够，手指就点不中。
    开第 7 条联合规则会把"六族各一条"那条闸数出七个，所以并进这一条。 */
-.gnav a,summary,a.badge,button.badge,.choice label,.chk,.prefs-nav label{min-height:44px}
+.gnav a,summary,a.badge,button.badge,.choice label,.chk,.prefs-nav label,.prefs-group-pick label{min-height:44px}
 .chk{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;min-width:0}
 /* 上面那条对 inline 元素无效，而 .badge 在 <p>／<td> 这类非 flex 容器里正是
    inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。

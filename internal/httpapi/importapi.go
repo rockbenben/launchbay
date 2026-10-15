@@ -192,14 +192,11 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, errNothingToImport):
 			// **Convert 不拒绝非 Netscape 文件**：喂一段普通 HTML，它解析出零条书签
 			// 并照常返回。不判这一条，用户会看到"导入成功 0 条"，像真的一样。
-			notice = "这个文件里没读出书签。请确认它是浏览器「导出书签」出来的那份 .html，" +
-				"而不是某个网页另存的 HTML。"
+			notice = s.t("import.notice.notABookmarkFile")
 		case errors.Is(err, errAllSkipped):
-			notice = "这份文件里的书签读是读出来了，但没有一条能进来——它们的地址都是" +
-				"「javascript:」「data:」这类没有主机名、点了会执行东西的地址，浏览器从网页里也点不开。" +
-				"这种书签请继续在浏览器里用。（本地文件 `file://` 是能导的，2026-10-12 起。）"
+			notice = s.t("import.notice.allSkipped")
 		case errors.Is(err, errNoStash):
-			notice = "临时存不下这次上传，稍后再试。"
+			notice = s.t("import.notice.noStash")
 		}
 		s.renderImport(w, r, render.ImportView{
 			Mode: "pick", Heading: s.t("import.heading"),
@@ -267,7 +264,7 @@ func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, f
 // stderr 与容器日志看的，而这一屏是给人看的。
 func (s *Server) importPlainOutcome(err error) string {
 	if errors.Is(err, errStashGone) {
-		return "这次的上传已经过期或被用过了，请重新选一次文件。"
+		return s.t("import.outcome.gone")
 	}
 	return s.t("import.outcome.unknown")
 }

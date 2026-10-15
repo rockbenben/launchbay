@@ -77,6 +77,14 @@ type snapshotChoice struct {
 	// 个数，于是有八个分组的人读到的是"等 3 组"——这一页唯一要说清的就是
 	// "那一版大概长什么样"，报少了就是把它没看全的事说成看全了。
 	Groups []string
+	// SameAsAbove 与两个 Delta* 说的是**与上面那一行**的差（batch11 U2）。
+	// 实拍（2026-10-15，dad 满 50 版）：前六行「31 条书签」一字不差，整页 3.25 屏，
+	// 而人要挑的是"哪一版是我想要回去的"——那一格答的是"这一版有什么"，
+	// 差的那一维是"它和隔壁那版差在哪"。所以每行末尾多一段增量，
+	// 数量与分组都没变的那一行直说没变（**没变也是信息**：它把"改的是内容不是数量"
+	// 这一件事说出口，而不是让人以为列表坏了）。
+	SameAsAbove bool
+	DeltaItems  int
 	// SameGroups 为真：这一版的分组集合与**现在**一模一样，于是这一格不列组名。
 	// 实拍（2026-10-13，13 份快照）：12 行的组名一字不差地重复着，每行四成宽度
 	// 花在从不变化的信息上。真正要回答的问题是"退回去会不会连分组结构一起变了"，
@@ -122,6 +130,12 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 			continue
 		}
 		c := snapshotChoice{Rev: rev, Items: bookimport.CountItems(b), Total: len(b.Groups)}
+		// 与**上面那一行**（也就是更新的那一版）比一次数量。
+		if len(choices) > 0 {
+			prev := choices[len(choices)-1]
+			c.DeltaItems = c.Items - prev.Items
+			c.SameAsAbove = c.DeltaItems == 0 && c.Total == prev.Total && groupSig(b) == prevSig
+		}
 		// 与**上一行**一字不差时，这一格不重印组名（见 SameGroups）。
 		sig := groupSig(b)
 		if prevSig != "" && sig == prevSig {
@@ -166,6 +180,17 @@ func (s *Server) choiceLabel(c snapshotChoice) string {
 	// 12 行的组名一字不差地重复，每行四成宽度花在从不变化的信息上。
 	// 这一格要回答的是"退回去会不会连分组结构一起变了"，而答案在这种情况下
 	// 是"不会"——所以那一截没有出现在页面上，正是它在回答。
+	// 增量走在组名之前：它是"要不要看这一行"的判据，而组名是"这一行长什么样"。
+	// 列表里最新那一行没有"上面那一版"，DeltaItems 为 0 且 SameAsAbove 为假，
+	// 于是它什么都不加——不是漏了一句，是那一行确实没有可比的对象。
+	switch {
+	case c.SameAsAbove:
+		label += s.t("revert.choice.same")
+	case c.DeltaItems < 0:
+		label += s.t("revert.choice.dropped", -c.DeltaItems)
+	case c.DeltaItems > 0:
+		label += s.t("revert.choice.gained", c.DeltaItems)
+	}
 	if c.SameGroups {
 		return label
 	}

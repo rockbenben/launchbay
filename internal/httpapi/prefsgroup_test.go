@@ -568,21 +568,51 @@ func TestPrefsGroup_建组那一档排法按了哪颗就是哪档(t *testing.T) 
 	}
 }
 
-// 形状错要 422 且**点名 add**，并且不许写盘。
+// 坏形状的两种答法，**判据是"按得到吗"**（2026-10-15 batch11 T2）：
+//
+//   - 名字空着 = 人最常撞的那一发 → **200 + 面板重画 + 顶部横幅点名那一格**。
+//     从前它回 422 + JSON 外壳，屏幕上是一整页 `{"code":422…}` 而 detail 是空串；
+//     AGENTS.md 那句"形状错仍走 JSON 外壳"保的是**不折成 303**（别把"这一格没填"
+//     说成"你没权限"），不是保"人该看到裸 JSON"。
+//   - 超长 / 排法不在三个里 / 同名多值 = 浏览器的形状**给不出这些**（输入框带
+//     maxlength、排法是 radio 三选一、同名多值要手拼 body）→ 仍要 422 且点名，
+//     那是有人在拼请求，中文原话与字段名对他有用。
+//
+// 两种答法**都不许写盘**，这一条没变。
 //
 // `group` 那一格在这一支**不参与**：新组还没有 id，id 是这里派生的——所以
 // "必带 group"是对改已有那一组说的，把这条判据挪到建组前面会让建组永远 422。
-func TestPrefsGroup_建组的形状错点名add且不写盘(t *testing.T) {
+func TestPrefsGroup_建组的坏形状分两种答法且都不写盘(t *testing.T) {
 	s, h := setupBatch(t)
 	before := currentRev(t, s, "dad")
-	for _, c := range []struct{ body, field string }{
-		{"add=", "add"},
-		{"add=%20%20", "add"}, // 只敲了空格
-		{"add=" + url.QueryEscape(strings.Repeat("字", 61)), "add"},     // 超长（上限 60）
-		{"add=" + url.QueryEscape("影音") + "&layout=columns", "layout"}, // 排法不在三个里
-		{"add=%E5%BD%B1%E8%A7%86&add=%E5%A5%BD%E5%8F%8B", "add"},       // 同名多值
+	for _, c := range []struct {
+		body   string
+		field  string
+		notice bool
+	}{
+		{"add=", "add", true},       // 人撞的那一发：横幅
+		{"add=%20%20", "add", true}, // 只敲了空格：同一发
+		{"add=" + url.QueryEscape(strings.Repeat("字", 61)), "add", false},     // 超长（上限 60）
+		{"add=" + url.QueryEscape("影音") + "&layout=columns", "layout", false}, // 排法不在三个里
+		{"add=%E5%BD%B1%E8%A7%86&add=%E5%A5%BD%E5%8F%8B", "add", false},       // 同名多值
 	} {
 		rec := postForm(h, "/prefs/group", c.body, dadFormCookie)
+		if c.notice {
+			if rec.Code != http.StatusOK {
+				t.Errorf("%q 要把面板重画回来（200），得到 %d：%s", c.body, rec.Code, trimBody(rec.Body.String()))
+				continue
+			}
+			// 横幅要说的是"名字那一格"，而且面板要还在（能接着按下一颗）。
+			want := i18n.Load(i18n.Zh).T("prefs.err.groupNameEmpty")
+			if !strings.Contains(rec.Body.String(), `<p class="notice">`) ||
+				!strings.Contains(rec.Body.String(), want) {
+				t.Errorf("%q 的横幅没说出那一格该填什么（要含 %q）：%s", c.body, want, trimBody(rec.Body.String()))
+			}
+			if !strings.Contains(rec.Body.String(), `class="prefs"`) {
+				t.Errorf("%q 要把面板重画回来，屏幕上却没有了：%s", c.body, trimBody(rec.Body.String()))
+			}
+			continue
+		}
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Errorf("%q 要 422，得到 %d", c.body, rec.Code)
 			continue
@@ -757,5 +787,61 @@ func writeBrokenBookmarks(t *testing.T, s *store.Store) {
 	if err := os.WriteFile(filepath.Join(s.Root(), "profiles", "dad", "bookmarks.json"),
 		[]byte("{ 坏掉的字节"), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// **「＋ 新分组」那一行的三颗排法是选择，不是动作**（2026-10-15 batch11 T1）。
+//
+// 下面那些已有分组的排法键是 `type=submit`——那一行本来就在改一份存在的东西，
+// 按一下即存是对的。这一行照抄同一骨架时它变成"挑个排法 = 建了个组"，于是
+// 「起名字 → 挑排法 → 按建这一组」这个最自然的序列产出**两个同名分组**
+// （实测：先建出 `zz:feature`，再建出 `group:tiles`，rev 走两次）。
+//
+// 这条钉的是结构：那一行里 `name=layout` 的必须是 radio、恰好一颗 checked、
+// 一颗提交键都不能有，而整张表单唯一会发出去的是那颗不带 name 的「建这一组」。
+// 反向对照：把任何一颗改回 `type=submit` 或去掉 checked，这条必须红。
+func TestPrefsGroup_新分组那一行选而不发(t *testing.T) {
+	s, h := setupBatch(t)
+	rec := get(h, "/prefs?tab=groups", dadFormCookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("面板该 200，得到 %d", rec.Code)
+	}
+	body := rec.Body.String()
+	at := strings.Index(body, `class="prefs-group prefs-group-new"`)
+	if at < 0 {
+		t.Fatal("找不到「＋ 新分组」那一行的表单")
+	}
+	end := strings.Index(body[at:], "</form>")
+	row := body[at : at+end]
+
+	if n := strings.Count(row, `type="submit"`); n != 1 {
+		t.Errorf("那一行里有 %d 颗提交键，要恰好 1 颗（只有「建这一组」）：%s", n, row)
+	}
+	if n := strings.Count(row, `name="layout"`); n != 3 {
+		t.Errorf("排法那一族要三颗，得到 %d", n)
+	}
+	tags := regexp.MustCompile(`<input [^>]*name="layout"[^>]*>`).FindAllString(row, -1)
+	if len(tags) != 3 {
+		t.Fatalf("三颗排法里只认出 %d 颗（模板的形状变了，看一眼那一行）", len(tags))
+	}
+	for _, m := range tags {
+		if !strings.Contains(m, `type="radio"`) {
+			t.Errorf("排法键不是 radio（它按下去就会提交）：%s", m)
+		}
+	}
+	if n := strings.Count(row, " checked"); n != 1 {
+		t.Errorf("三颗排法里有 %d 颗 checked，要恰好 1 颗（静息 tiles）", n)
+	}
+	// 「建这一组」不带 name：它提交的是**这一行**，而不是给自己记一个字段。
+	if !strings.Contains(row, `<button type="submit" class="primary prefs-group-new-go">`) {
+		t.Errorf("那颗动作键的形状变了，看一眼模板：%.120s", row[strings.Index(row, "primary"):])
+	}
+	// 服务端仍然收 `add=&layout=...`（手拼的调用方）——它不该建出东西。
+	before := currentRev(t, s, "dad")
+	if rec := postForm(h, "/prefs/group", "add=&layout=feature", dadFormCookie); rec.Code == http.StatusSeeOther {
+		t.Error("空名字带排法居然 303 成功了（那是建出来了）")
+	}
+	if after := currentRev(t, s, "dad"); after != before {
+		t.Errorf("空名字那一次不该写盘，rev 从 %d 变成了 %d", before, after)
 	}
 }

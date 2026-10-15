@@ -440,7 +440,7 @@
            （`{{if .Compact}}<p class="hint">…</p>{{end}}`）。它解释的是**这一格**
            的后果，摆在说明位里才读得出"这几句说的就是上面这两颗键"；另起一行时它
            与那两颗键视觉脱节，读起来像面板底部多了一段不相干的话。 */}}
-      <p class="prefs-hint">{{.T "prefs.layout.hint"}}{{if and (eq .Profile.Layout "sidebar") .Compact}} {{.T "prefs.layout.sidebarNote"}}{{end}}</p>
+      <p class="prefs-hint">{{.T "prefs.layout.hint"}}{{if and (eq .Profile.Layout "sidebar") .Compact}}{{.T "prefs.layout.sidebarNote"}}{{end}}</p>
       <div class="prefs-keys">
       {{/* 「侧栏」这两个字**在紧凑档下也不改**（2026-10-14 改判）：这一格有两条
            不变量——TestPrefs_开关的标签稳定而状态走aria 钉的是"可见文字稳定，
@@ -645,13 +645,21 @@
           placeholder="{{$.T "prefs.groups.new"}}"
           title="{{$.T "prefs.groups.new.hint"}}">
       </div>
-      <div class="prefs-keys prefs-group-shape">
-        <button type="submit" name="layout" value="tiles" aria-pressed="true"
-          title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</button>
-        <button type="submit" name="layout" value="list" aria-pressed="false"
-          title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</button>
-        <button type="submit" name="layout" value="feature" aria-pressed="false"
-          title="{{$.T "app.layout.featureTitle"}}">{{$.T "app.layout.feature"}}</button>
+      {{/* 这三颗是**选择**，不是动作（2026-10-15 batch11 T1）。下面那些已有分组
+           的排法键是 `type=submit`——那一行本来就在改一份存在的东西，按一下即存
+           是对的；这一行照抄同一骨架时它变成了"挑个排法 = 建了个组"，于是
+           「起名字 → 挑排法 → 按建这一组」这个最自然的序列产出**两个同名分组**
+           （实测：先建出 `zz:feature`，再建出 `group:tiles`）。
+           所以这里用 radio + label：形状与按下态与那一族同一套词汇，
+           但选而不发——这一行唯一会提交的是那颗「建这一组」。 */}}
+      <div class="prefs-keys prefs-group-shape prefs-group-pick" role="radiogroup"
+        aria-label="{{$.T "app.group.shape"}}">
+        <input type="radio" name="layout" value="tiles" id="lb-new-layout-tiles" checked>
+        <label for="lb-new-layout-tiles" title="{{$.T "app.layout.tiles"}}">{{$.T "app.layout.tiles"}}</label>
+        <input type="radio" name="layout" value="list" id="lb-new-layout-list">
+        <label for="lb-new-layout-list" title="{{$.T "app.layout.rows"}}">{{$.T "app.layout.rows"}}</label>
+        <input type="radio" name="layout" value="feature" id="lb-new-layout-feature">
+        <label for="lb-new-layout-feature" title="{{$.T "app.layout.featureTitle"}}">{{$.T "app.layout.feature"}}</label>
       </div>
       <button type="submit" class="primary prefs-group-new-go">{{$.T "prefs.groups.new.go"}}</button>
     </form>
@@ -704,15 +712,12 @@
           aria-pressed="{{if eq .Layout "feature"}}true{{else}}false{{end}}"
           aria-label="{{$gname}} · {{$.T "app.layout.feature"}}"
           title="{{$.T "app.layout.featureTitle"}}">{{$.T "app.layout.feature"}}</button>
-        {{/* 自定义：原生取色器收任意 hex（色板**不是白名单**），这一格就是那条路的
-             入口。按下的不是色块本身而是这颗「用这个颜色」，免得调色器一开就立刻
-             改掉别人的东西。它跟着磁贴/单列待在名字那行，是因为色板那一行需要
-             512px（10 颗 ×44 + 9 个 gap ×8）——硬塞进同一行只会折成三行。
-             **这颗键不是开关**：它没有"按下/没按下"可言，只有"按下去会发生什么"，
-             所以不带 aria-pressed；"现在生效的是自定义那一格"这件事由取色器自己
-             身上那一圈 `data-active` 说（下面那一格）。 */}}
-        <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
-          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
+        {{/* 自定义那颗动作键**不在这儿**（2026-10-15 batch11 P2）：它从前跟着
+             磁贴/单列/大卡待在名字那一行，理由是"色板那一行需要 512px，硬塞进
+             同一行会折成三行"——那句话是真的，但它换来的是**一颗说"用这个颜色"
+             的键住在排法那一组里**，实拍上它读起来像第四种排法，而它要应用的那一格
+             在它下面一整行。现在它跟着取色器一起待在色板那一行的末尾（那一行
+             本来就独占一行，装得下它），排法那一组只剩三颗排法。 */}}
       </div>
       {{/* 「删掉这一组」（2026-10-15）：**名字那一行右端**，与排法那几颗同一列，
            展开后**独占一行**（同顶栏「改名」那条 `.rename[open]`：确认要占的
@@ -737,7 +742,10 @@
       <details class="prefs-group-del">
         <summary aria-label="{{$gname}} · {{$.T "prefs.groups.delete"}}">{{$.T "prefs.groups.delete"}}</summary>
         <div class="prefs-group-del-box">
-          <p class="prefs-hint">{{if .Count}}{{$.T "prefs.groups.delete.note" .Count}}{{else}}{{$.T "prefs.groups.delete.empty"}}{{end}} {{$.T "prefs.groups.delete.undo"}}</p>
+          {{/* 两句之间**不留空格**（batch11 T6）：中文句号后面直接接下一句，
+               拼串时那个模板里的空格会原样上屏，成了「…一起没了。 删掉之后…」
+               这种半角接缝（与 batch3 清掉「、 3」同一族）。 */}}
+          <p class="prefs-hint">{{if .Count}}{{$.T "prefs.groups.delete.note" .Count}}{{else}}{{$.T "prefs.groups.delete.empty"}}{{end}}{{$.T "prefs.groups.delete.undo"}}</p>
           <button type="submit" name="remove" value="1" class="fld danger">{{$.T "prefs.groups.delete.go"}}</button>
         </div>
       </details>
@@ -762,6 +770,12 @@
           value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
           aria-label="{{$gname}} · {{$.T "prefs.groups.customLabel"}}{{if and $cur (not $onPalette)}}{{$.T "prefs.groups.customOn"}}{{end}}"
           title="{{$.T "prefs.groups.customLabel"}}">
+        {{/* 「用这个颜色」（batch11 P2 搬到这里）。**这颗键不是开关**：它没有
+             "按下/没按下"可言，只有"按下去会发生什么"，所以不带 aria-pressed；
+             "现在生效的是自定义那一格"由取色器身上那一圈 `data-active` 说。
+             原生取色器一开不会立刻改别人的东西——说话的是这一颗。 */}}
+        <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
+          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
       </div>
     </form>
     {{end}}

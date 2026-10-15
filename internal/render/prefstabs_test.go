@@ -93,8 +93,19 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 			t.Fatal(err)
 		}
 		html := string(page.Body)
-		if n := strings.Count(html, " checked>"); n != 1 {
-			t.Errorf("tab=%s 时 HTML 里有 %d 处 checked，要恰好 1 处（这一列一次只停在一节）", tab, n)
+		// **只数这一列的三颗**（batch11 T1 之后）：从前这条证人数字面上所有
+		// ` checked>`，那时全页只有 tab 那一族用 radio。现在「＋ 新分组」那一行
+		// 的三颗排法也是 radio（它们选而不发，提交的是那颗「建这一组」），
+		// 数面上所有 checked 就成了 2 —— 而它要钉的那件事（这一列一次只停在一节）
+		// 一个字都没变。改的是**证人的口径**，不是把断言删掉。
+		n := 0
+		for _, one := range []string{"look", "out", "groups"} {
+			if strings.Contains(html, `id="prefs-tab-`+one+`" checked>`) {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("tab=%s 时三颗里有 %d 颗带着 checked，要恰好 1 颗（这一列一次只停在一节）", tab, n)
 		}
 		if !strings.Contains(html, `id="prefs-tab-`+tab+`" checked>`) {
 			t.Errorf("tab=%s 时按下的不是它自己", tab)
