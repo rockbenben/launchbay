@@ -493,5 +493,6 @@
   "prefs.err.groupNameEmpty": "Name the group first, then press Create this group.",
   "prefs.groups.new.hint": "Type a name and the group is made. The machine decides what address it lives at — you don't need to know it, and renaming later won't change it.",
   "prefs.groups.new.go": "Create this group",
-  "app.cmdk.history": "See this profile's change history"
+  "app.cmdk.history": "See this profile's change history",
+  "app.cmdk.multi": "Multi-select bookmarks (change several at once)"
 }

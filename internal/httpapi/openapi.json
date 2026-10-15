@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.9ad81b19bccf.js": {
+    "/app.23ebada8787d.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",

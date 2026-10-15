@@ -73,6 +73,7 @@ const APP_I18N = {
     "app.cmdk.aria": "命令面板",
     "app.cmdk.clipboard": "把剪贴板里的网址存进来",
     "app.cmdk.history": "看这一份的改动历史",
+    "app.cmdk.multi": "多选书签（一次改好几条）",
     "app.cmdk.kind": "动作",
     "app.cmdk.none": "没有对得上「%s」的书签，也没有对得上的动作。",
     "app.cmdk.empty": "这里还没有可列的东西。",
@@ -210,6 +211,7 @@ const APP_I18N = {
     "app.cmdk.aria": "Command palette",
     "app.cmdk.clipboard": "Save the address on the clipboard",
     "app.cmdk.history": "See this profile's change history",
+    "app.cmdk.multi": "Multi-select bookmarks (change several at once)",
     "app.cmdk.kind": "action",
     "app.cmdk.none": "Nothing matches “%s” — no bookmark, and no action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
@@ -1550,6 +1552,12 @@ const APP_I18N = {
     // 因为这一页不需要浏览器给任何权限。
     const actions = [];
     actions.push({ kind: 'action', label: T('app.cmdk.history'), run: () => { location.href = '/history'; } });
+    // 多选从前**只有一个入口：长按卡片**（HOLD_MS 那一段）。它对手指是自然的，
+    // 对鼠标用户则是"这个功能不存在"——而批量打标签、批量删、一次挪好几条
+    // 只有这一个门。它确实写在快捷键清单里（`?` 那一屏），可那一屏要先按 `?`
+    // 才知道有。面板是这一页上唯一一处明写着"做点什么"的地方，动作该列在这儿：
+    // 长按照旧能用，这一格只是让不知道那只手势的人也能找到同一件事。
+    actions.push({ kind: 'action', label: T('app.cmdk.multi'), run: () => { cmdkClose(); enterMulti(); } });
     if (navigator.clipboard?.readText) {
       actions.push({ kind: 'action', label: T('app.cmdk.clipboard'), run: addClipboard });
     }

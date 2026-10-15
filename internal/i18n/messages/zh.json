@@ -493,5 +493,6 @@
   "prefs.err.groupNameEmpty": "先给这一组起个名字，再按「建这一组」。",
   "prefs.groups.new.hint": "填个名字就能建一个分组。这一组在链接里叫什么由这台机器自己定，你不用管；以后改名也不会动到它。",
   "prefs.groups.new.go": "建这一组",
-  "app.cmdk.history": "看这一份的改动历史"
+  "app.cmdk.history": "看这一份的改动历史",
+  "app.cmdk.multi": "多选书签（一次改好几条）"
 }
