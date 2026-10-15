@@ -252,7 +252,6 @@
   "app.ops.bulkTags": "批量打标签",
   "app.ops.delete": "删除",
   "app.ops.bulkDelete": "批量删除",
-  "app.edit.where": "这一条在「%s」里",
   "app.delete.item": "删掉这条",
   "app.delete.confirm": "确定删掉「%s」？再按一次就删",
   "app.delete.bulk": "删掉这 %d 条？",

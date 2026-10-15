@@ -341,7 +341,7 @@ li.sel-mark>.card{box-shadow:inset 3px 0 0 var(--accent)}
    「YouTube」不该被排成「YOUTUBE」——那不是强调，是改了人家的名字。 */
 .inline-edit h2{text-transform:none}
 /* 分组那一行：面板盖住卡片之后，"我在改哪一组的哪一条"只剩这里能说。 */
-.edit-where,.edit-undo{margin:0;font-size:12px;color:var(--ink2)}
+.edit-undo{margin:0;font-size:12px;color:var(--ink2)}
 /* 删除那颗：**静息不穿实心红**。它是"这一格里第三个可选动作"，不是"危险警报"，
    满屏红框会把人的眼睛从名字上拉开。第一下按下去才换成实心红——那一步是
    "我真的要做了"，值得响。整段限定在 .inline-edit 里，是为了盖过

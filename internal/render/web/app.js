@@ -133,7 +133,6 @@ const APP_I18N = {
     "app.ops.bulkTags": "批量打标签",
     "app.ops.delete": "删除",
     "app.ops.bulkDelete": "批量删除",
-    "app.edit.where": "这一条在「%s」里",
     "app.delete.item": "删掉这条",
     "app.delete.confirm": "确定删掉「%s」？再按一次就删",
     "app.delete.bulk": "删掉这 %d 条？",
@@ -271,7 +270,6 @@ const APP_I18N = {
     "app.ops.bulkTags": "The bulk tagging",
     "app.ops.delete": "The deletion",
     "app.ops.bulkDelete": "The bulk deletion",
-    "app.edit.where": "This bookmark is in “%s”",
     "app.delete.item": "Delete this bookmark",
     "app.delete.confirm": "Delete “%s”? Press again to delete it",
     "app.delete.bulk": "Delete these %d bookmarks?",
@@ -1977,9 +1975,6 @@ const APP_I18N = {
     const desc = li.querySelector('i')?.textContent || li.dataset.desc || '';
     const group = groupOf(li);
     const gid = group?.dataset.gid || '';
-    // 分组那一行不是装饰：面板浮起来之后底下整屏都不可点，"我在改哪一组的哪一条"
-    // 只剩这里能说，而删除那一步的确认句要引用它。
-    const gname = groupName(group);
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url);
     // 图标这一格从前只在「＋ 添加」那一层有——于是"给一条已经在库里的书签换个图标"
@@ -2005,6 +2000,18 @@ const APP_I18N = {
         },
       },
     });
+    // 分组那一格（2026-10-16）。这里从前是一句「这一条在「应用」里」——它说得出
+    // 在哪一组，却改不了。把一条书签挪到别组在界面上只剩两条路：拖（只有鼠标
+    // 做得顺手）与多选里的「移动到」（要先长按卡片，而那个暗示在屏幕上看不见）。
+    // 把那句话换成一颗能挑的，"说清在哪一组"这个职责一个字没少，多的正是那个
+    // 本来没有出口的"能配"。
+    const gs = el('select', { id: 'lb-edit-group', class: 'fld' });
+    for (const g of document.querySelectorAll('[data-gid]')) {
+      const o = el('option', { value: g.dataset.gid, text: groupName(g) });
+      if (g.dataset.gid === gid) o.selected = true;
+      gs.append(o);
+    }
+
     const undo = el('p', { class: 'edit-undo', text: T('app.delete.undoHint') });
     // 删除是**两步**，两步都在这一格里走完：第一下把那颗键换成"确定删掉？"并露出
     // 那句"还能用回退找回来"，第二下才发 op。为什么不用 confirm()——那是 §8.8
@@ -2045,6 +2052,11 @@ const APP_I18N = {
           // （下拉里"不选图标"是空串，与"当前没有图标"同值，靠比较而不是靠非空判断）。
           const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim(),
             icon: ic.value === curIcon ? null : ic.value });
+          // 挪组排在改字段**之后**：那些 set 走的是现在这一组的路径，先挪就把
+          // 它们指到还没有的那一组上去（ops 在锁内按顺序应用，顺序就是语义）。
+          if (gs.value && gs.value !== gid) {
+            ops.push({ op: 'move', path: `groups/${gid}/items/${li.dataset.item}`, to: gs.value, index: 0 });
+          }
           if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
         // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
@@ -2065,8 +2077,8 @@ const APP_I18N = {
         },
       },
     }, [el('h2', { id: 'lb-edit-h', text: T('app.edit.aria', name || T('app.edit.fallbackName')) }),
-        el('p', { class: 'edit-where', text: T('app.edit.where', gname) }),
         el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
+        el('label', { text: T('app.field.group') }, [gs]),
         el('label', { text: T('app.field.icon') }, [ic]),
         el('p', { class: 'edit-icon-row' }, [lookIcon, iconLibraryButton(ic)]),
         el('div', { class: 'row' }, [

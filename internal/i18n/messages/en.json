@@ -252,7 +252,6 @@
   "app.ops.bulkTags": "The bulk tagging",
   "app.ops.delete": "The deletion",
   "app.ops.bulkDelete": "The bulk deletion",
-  "app.edit.where": "This bookmark is in “%s”",
   "app.delete.item": "Delete this bookmark",
   "app.delete.confirm": "Delete “%s”? Press again to delete it",
   "app.delete.bulk": "Delete these %d bookmarks?",
