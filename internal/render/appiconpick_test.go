@@ -35,8 +35,18 @@ func TestIconTiles_每格是一枚能按的按钮并带真SVG(t *testing.T) {
 		t.Errorf("方格里没有内联 SVG（应由 svgMarkup 画，与卡片上那枚同源）\n%.300s", got)
 	}
 	// 可及名：里面的 SVG 是 aria-hidden 的，没有 aria-label 这一格对读屏就是无名按钮。
-	if !strings.Contains(got, `aria-label="simple-icons:docker"`) {
-		t.Error("方格没有 aria-label：里面的 SVG 是 aria-hidden 的，这一格对读屏没有名字")
+	// **值是短名而不是全键**（batch11 U1）：读屏念 "simple-icons 冒号 docker" 对人
+	// 没有意义——前缀是索引键的一部分，不是给人挑的那一维。全键留在 data-icon 与 title。
+	if !strings.Contains(got, `aria-label="docker"`) {
+		t.Errorf("方格的可及名不是短名（读屏会念出内部前缀）：%s", trimTiles(got))
+	}
+	if strings.Contains(got, `aria-label="simple-icons:docker"`) {
+		t.Error("可及名仍是内部全键 simple-icons:docker")
+	}
+	// 名字要**印在格子上**，不能只活在属性里：搜「doc」出来两枚几乎一样的 docker
+	// 鲸鱼，屏上没有可读的分别， sighted 的人就只能猜（实测 20 格零文字）。
+	if !strings.Contains(got, `<span class="icpick-name">docker</span>`) {
+		t.Errorf("方格里没有可见的名字那一行：%s", trimTiles(got))
 	}
 	// limit 是真的在限：搜一个宽词要拿到的不超过 limit 格。
 	if _, wideTotal := IconTiles(ix, "a", 5); wideTotal < 5 {
@@ -46,6 +56,17 @@ func TestIconTiles_每格是一枚能按的按钮并带真SVG(t *testing.T) {
 	if n := strings.Count(string(narrow), "<button"); n != 5 {
 		t.Errorf("limit=5 却画了 %d 格", n)
 	}
+}
+
+func trimTiles(h string) string {
+	i := strings.Index(h, "<button")
+	if i < 0 {
+		return h
+	}
+	if len(h)-i > 320 {
+		return h[i : i+320]
+	}
+	return h[i:]
 }
 
 func TestIconTiles_零命中是空串不是404也不是一格占位(t *testing.T) {
@@ -114,9 +135,11 @@ func TestCSS_图标库方格的形状(t *testing.T) {
 		// 22px；就地编辑那行 104 高、每颗 514 宽。
 		".icrow>button{flex:0 0 auto;width:auto}",
 		".icpick{width:min(460px,calc(100vw - 28px))}",
-		".icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr))",
-		".icpick-tile{min-height:56px;padding:0}",
+		".icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr))",
+		".icpick-tile{min-height:76px",
 		".icpick-tile .ic-svg,.icpick-tile .ic-img{width:28px;height:28px}",
+		// 名字那一行必须在（batch11 U1：格子里没有可读名字，两枚相似的鲸鱼无从分辨）
+		".icpick-name{font-size:10px",
 		// 就地编辑那一行从一颗变两颗，得自己排一行（此前它没有任何规则，<p> 里一颗）
 		".edit-icon-row{display:flex;gap:8px;flex-wrap:wrap}",
 		".edit-icon-row>button{width:auto}",

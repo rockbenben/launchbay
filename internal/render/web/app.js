@@ -39,8 +39,8 @@ const APP_I18N = {
     "app.icon.fetch": "去看这一站的图标",
     "app.icon.lib": "图标库…",
     "app.icon.libTitle": "从图标库里挑一个",
-    "app.icon.libPh": "搜名字，比如 docker、github 或 tabler:box",
-    "app.icon.libHint": "图标库是随程序一起装上的那一份：品牌图标（simple-icons）与概念图标（tabler）。",
+    "app.icon.libPh": "搜名字，比如 docker、github、相册",
+    "app.icon.libHint": "常见的牌子都有；也可以按东西搜，比如相机、相册、下载。",
     "app.icon.libStart": "在上面搜一个名字，图标就出现在这里。",
     "app.icon.libNone": "图标库里没有叫「%s」的",
     "app.icon.libMore": "共 %s 个，先看前 %s 个",
@@ -140,13 +140,13 @@ const APP_I18N = {
     "app.delete.confirmMany": "删掉这 %d 条",
     "app.delete.more": "…另外还有 %d 条没列出来",
     "app.delete.aria": "批量删除",
-    "app.delete.undoHint": "删掉之后还能用顶栏的「回退」找回这一版",
+    "app.delete.undoHint": "删掉之后还能用「设置 → 回退与历史」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
     "app.opsConflict": "这一份已经被改过，刷新之后再试。",
     "app.opsWrongProfile": "这一页改的不是你正在用的那一份。点右上角的档案名，重新进一次。",
     "app.opsStale": "那一组或那一条已经不在了——可能别人刚改过。刷新之后再看一次。",
     "app.opsDuplicate": "这一条已经在这份里了（同一条书签不能存两次）。要改它，就在那一条上按 ✎。",
-    "app.opsIcon": "那个图标名这台机器查不到。换一枚，或者留空走首字母色块。",
+    "app.opsIcon": "那个图标名这台机器查不到。换一枚，或者留空，用名字头一个字。",
     "app.resolveBadUrl": "这个地址还不完整——要有协议和主机名（例如 http://10.0.0.5:5000/）。",
     "app.resolveDown": "那个网页没应答（那台机器可能没开）。照样存下来也行，回头补标题。",
     "app.opsNoProfile": "这台机器上没有这一份档案了——多半是刚被删掉。点右上角的档案名重新选一份。",
@@ -177,8 +177,8 @@ const APP_I18N = {
     "app.icon.fetch": "Look up this site's icons",
     "app.icon.lib": "Icon library…",
     "app.icon.libTitle": "Pick one from the icon library",
-    "app.icon.libPh": "Search by name — docker, github, or tabler:box",
-    "app.icon.libHint": "The library ships with the program: brand marks (simple-icons) and concept icons (tabler).",
+    "app.icon.libPh": "Search by name — docker, github, photos",
+    "app.icon.libHint": "Most well-known brands are in here. You can also search for the thing itself: camera, photos, downloads.",
     "app.icon.libStart": "Search for a name above and the icons show up here.",
     "app.icon.libNone": "Nothing in the library is called %s",
     "app.icon.libMore": "%s in all, showing the first %s",
@@ -278,13 +278,13 @@ const APP_I18N = {
     "app.delete.confirmMany": "Delete %d bookmarks",
     "app.delete.more": "…and %d more not listed",
     "app.delete.aria": "Bulk delete",
-    "app.delete.undoHint": "You can bring this version back from “Revert” in the top bar",
+    "app.delete.undoHint": "You can bring this version back from Settings → Undo and history",
     "app.applyOps.fail": "%s didn't go through: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
     "app.opsWrongProfile": "This page isn't the profile you're using. Tap the name at the top right and come back in.",
     "app.opsStale": "That group or bookmark is gone — someone else may have changed it. Reload and look again.",
     "app.opsDuplicate": "That one is already in this profile — a bookmark can't be stored twice. To change it, press ✎ on it.",
-    "app.opsIcon": "This machine doesn't know that icon name. Pick another, or leave it empty and use the initial-letter tile.",
+    "app.opsIcon": "This machine doesn't know that icon name. Pick another, or leave it empty and the first character of the title is used.",
     "app.resolveBadUrl": "That address isn't complete yet — it needs a scheme and a host name (e.g. http://10.0.0.5:5000/).",
     "app.resolveDown": "That page didn't answer (the machine may be off). You can still save it and fill the title in later.",
     "app.opsNoProfile": "This machine no longer has that profile — it was probably just deleted. Pick another one from the name at the top right.",
@@ -438,6 +438,12 @@ const APP_I18N = {
       if (!top || el === top) el.removeAttribute('inert');
       else el.setAttribute('inert', '');
     }
+    // 浮起来一层的时候**背景不跟着滚**（batch11 S2）。inert 已经让背景点不动、
+    // Tab 进不去，但它管不了滚轮：浮层只盖住视口中间那一块，滚轮落在露出来的
+    // 背景上滚的是后面那一页——焦点还在层里，看到的却是别处在动。
+    // 用 overflow 而不是 position:fixed：后者要把滚动位置存下来再还原，
+    // 而 iOS Safari 上那一次还原本身就是一次抖动。
+    document.body.classList.toggle('lb-layer-up', !!top);
   }
 
   // closeTopLayer 关掉**最上面**那一层，返回它是不是关掉了什么。
@@ -577,7 +583,9 @@ const APP_I18N = {
   const clearUrlErr = () => { urlErr.textContent = ''; };
   fUrl.addEventListener('input', clearUrlErr);
   fUrl.addEventListener('focus', clearUrlErr);
-  const saveBtn = el('button', { type: 'submit', class: 'fld', text: T('app.save') });
+  // 「保存」是这一层唯一会落库的那一颗（「保存并继续」也落，但它说的是"接着再来一条"）——
+  // 从前两颗都是 .fld 那张脸，实测并排等宽等色，主操作只能靠读字认（batch11 P8）。
+  const saveBtn = el('button', { type: 'submit', class: 'fld primary', text: T('app.save') });
   const moreBtn = el('button', { type: 'button', class: 'fld more', text: T('app.saveMore'), on: { click: () => submit(true) } });
 
   const form = el('form', {

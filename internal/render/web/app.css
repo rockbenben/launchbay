@@ -243,7 +243,13 @@ li:focus-within .pencil,li:focus-within .copybtn
   padding:0 7px;margin-left:-7px;   /* 内衬往左抵回来：左边那 7px 是 swatch 的 gap */
   min-height:36px}
 .prefs-group-rename:hover,.prefs-group-add:hover{border-color:var(--line)}
-.prefs-group-rename:focus,.prefs-group-add:focus{outline:0;border-color:var(--accent);background:var(--card-hi)}
+/* 聚焦给**那一族共用的 3px 环**（2026-10-15 batch11 C1/C2）。"平时像那行字、
+   聚焦才浮出边框"是这一格的设计意图，留着；但只换 1px 边框色不够：同屏每一颗
+   别的键都是 3px 环，而高对比模式下系统色把边框颜色盖平之后（base.css 那条
+   forced-colors 把它钉成 CanvasText），静置与聚焦**一模一样**——那一格在
+   Windows 高对比度下根本没有焦点指示。环由系统重绘，不会被盖掉。 */
+.prefs-group-rename:focus-visible,.prefs-group-add:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+.prefs-group-rename:focus,.prefs-group-add:focus{border-color:var(--accent);background:var(--card-hi)}
 @media (forced-colors:active){.prefs-group-rename,.prefs-group-add{border:1px solid CanvasText}}
 
 li.drop{outline:2px dashed var(--accent);outline-offset:-2px}
@@ -407,9 +413,16 @@ body[data-multi] main{padding-bottom:96px}
    **56 而不是 44**：§7.5 的 44 是触摸地板（不许低于它），而这一格是"认图标"用的，
    拿一张 22px 的缩略图给人挑等于让人猜。56 是往上留的余量，44 那条闸只管"不许更小"。 */
 .icpick{width:min(460px,calc(100vw - 28px))}
-.icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:8px;
+/* 72 而不是 56（2026-10-15 batch11 U1）：格子里现在多了一行名字，
+   56px 那一档里 "amazondocumentdb" 会被省略号吃成 "amazon…"，等于没印。
+   44 那条触摸地板仍然一寸不让——动的是列宽与格高，不是命中区。 */
+.icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;
   margin-top:4px;max-height:min(52vh,360px);overflow:auto}
-.icpick-tile{min-height:56px;padding:0}
+.icpick-tile{min-height:76px;padding:8px 4px;display:grid;gap:3px;place-items:center}
+/* 名字那一行是这一格的**判据**（认不出两枚鲸鱼哪枚是哪枚时，只有这行字能分开它们），
+   所以它不参与换行：超长走省略号，而全键在 `title` 与 `data-icon` 里都在。 */
+.icpick-name{font-size:10px;line-height:1.25;color:var(--ink2);max-width:100%;
+  padding:0 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 方格里那枚 SVG 要比卡片上的 22px 大一档：它是**用来认的**，认不出来就等于没画。
    字色走 `.fld` 的 --ink，于是 SVG 的 currentColor 有值（描边层就是它）。 */
 .icpick-tile .ic-svg,.icpick-tile .ic-img{width:28px;height:28px}
@@ -540,3 +553,7 @@ a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transf
      触摸目标与卡片那圈描边一起变，而字号只动这一行。 */
   .feat-card .host{font-size:12px}
 }
+
+/* 浮层开着时锁背景滚动（判据在 app.js 的 syncTrap：它知道此刻有没有层浮着）。
+   只锁 body，不锁 html——iOS 上锁 html 会让浮层自己的滚动跟着失灵。 */
+body.lb-layer-up{overflow:hidden}

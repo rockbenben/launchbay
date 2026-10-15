@@ -231,6 +231,12 @@ func svgMarkup(ic icons.Icon) template.HTML {
 // 每格是 `<button type=button>`：选择器常常整个建在**表单里**（添加浮层），一个没写
 // type 的按钮点下去会提交那个表单。`aria-label` 不能省——里面的 SVG 是 aria-hidden 的，
 // 去掉它这一格对读屏就是一个没有名字的按钮。
+//
+// **名字要印在格子上**（2026-10-15 batch11 U1）。从前它只在 `aria-label` 与 `title` 里，
+// 而那个值是 `simple-icons:amazondocumentdb` 这种内部全键：搜「doc」出 20 格，屏上
+// 一个名字都没有，两枚几乎一样的 docker 鲸鱼无从分辨，读屏念出来的还是"simple-icons
+// 冒号"。所以可见的那一行与 `aria-label` 都用**去掉前缀的短名**（前缀是索引键的一部分，
+// 不是给人挑的那一维），全键留在 `title` 里——脚本作者与 devtools 要对照的仍是它。
 func IconTiles(ix *icons.Index, q string, limit int) (template.HTML, int) {
 	res := ix.Search(q, "", limit)
 	var b strings.Builder
@@ -240,15 +246,22 @@ func IconTiles(ix *icons.Index, q string, limit int) (template.HTML, int) {
 			continue // 索引与搜索结果同一个快照，这一条走不到；不发一个空格子
 		}
 		esc := html.EscapeString(name)
+		short := name
+		if i := strings.IndexByte(name, ':'); i >= 0 {
+			short = name[i+1:]
+		}
+		escShort := html.EscapeString(short)
 		b.WriteString(`<button type="button" class="fld icpick-tile" data-icon="`)
 		b.WriteString(esc)
 		b.WriteString(`" title="`)
 		b.WriteString(esc)
 		b.WriteString(`" aria-label="`)
-		b.WriteString(esc)
-		b.WriteString(`">`)
+		b.WriteString(escShort)
+		b.WriteString(`"><span class="icpick-face">`)
 		b.WriteString(string(svgMarkup(ic)))
-		b.WriteString(`</button>`)
+		b.WriteString(`</span><span class="icpick-name">`)
+		b.WriteString(escShort)
+		b.WriteString(`</span></button>`)
 	}
 	return template.HTML(b.String()), res.Total //lint:ignore 名字来自内嵌索引、其余走 svgMarkup 的白名单
 }
