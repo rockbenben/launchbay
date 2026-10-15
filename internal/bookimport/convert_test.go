@@ -69,11 +69,11 @@ func TestConvert_报告能回答该回答的问题(t *testing.T) {
 	txt := res.Report.Text()
 
 	for _, want := range []string{
-		"三条对账全过",          // 结论
+		"三条核对全过",          // 结论
 		"回收站",             // 浏览器里删掉的东西去了哪
 		"非 http/https 协议", // chrome:// 那条
 		"没有自动改",           // 标出但不擅自修
-		"对账（三条全过才算导完）",    // 三条逐条列出
+		"核对（三条全过才算导完）",    // 三条逐条列出
 	} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("报告里缺少「%s」：\n%s", want, txt)
