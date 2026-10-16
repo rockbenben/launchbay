@@ -26,142 +26,23 @@ if (!ADM || !WRT) {
   // 两边各写一份字面量，就等着下一次只改一边。
   throw new Error('缺 LB_UI_ADMIN / LB_UI_WRITE：直接跑这个脚本时自己设上（要与被测服务的令牌一致）');
 }
-let fails = 0, ran = 0;
+const stats = { ran: 0, fails: 0 };
 const say = (s) => process.stdout.write(s + '\n');
 const disk = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
 
-// ── 铺一份固定的分组 ───────────────────────────────────────────────────────
-const post = async (path, token, body) => {
-  const r = await fetch(SRV + path, { method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json; charset=utf-8' },
-    body: JSON.stringify(body) });
-  return { status: r.status, body: await r.text() };
-};
-{
-  const p = await post('/api/v1/profiles', ADM, { id: 'dad', title: 'Dad', nopass: true });
-  if (p.status !== 201 && p.status !== 409) throw new Error('建档失败: ' + p.status + ' ' + p.body);
-}
-{
-  // id 必须是 ASCII slug（model.ValidSlug），中文只能当名字。
-  // **每种卡片形态都要有一份**：可点的卡、大卡、外部地址（点不动的行）。外部地址
-  // 尤其重要——它是"脚本按 href 读地址"那套判据读不到形状，而编辑模态正好要读它。
-  const groups = [
-    { id: 'tiles-1', title: '磁贴组', layout: 'tiles', items: ['甲', '乙', '丙', '丁'] },
-    { id: 'list-1', title: '单列组', layout: 'list', items: ['戊', '己', '庚'] },
-    { id: 'feat-1', title: '大卡组', layout: 'feature', items: ['辛', '壬', '癸'] },
-    { id: 'empty-1', title: '空组', layout: 'tiles', items: [] },
-  ];
-  const ops = [];
-  for (const g of groups) {
-    ops.push({ op: 'add', path: 'groups', value: { id: g.id, title: g.title, layout: g.layout } });
-    g.items.forEach((n, i) => ops.push({ op: 'add', path: `groups/${g.id}/items`,
-      value: { id: `it-${g.id}-${i + 1}`, name: n, url: `https://${g.id}.example.com/${i + 1}` } }));
-  }
-  // 外部地址两行：大卡带里一条 chrome://、正文里一条 file://
-  ops.push({ op: 'add', path: 'groups/feat-1/items', value: { id: 'it-feat-1-ext', name: '浏览器设置', url: 'chrome://settings' } });
-  ops.push({ op: 'add', path: 'groups/list-1/items', value: { id: 'it-list-1-ext', name: '本地说明', url: 'file:///d/readme.md' } });
-  const r = await post('/api/v1/batch', WRT, { profile: 'dad', by: 'cli', ops });
-  if (r.status !== 200) throw new Error('铺数据失败: ' + r.status + ' ' + r.body);
-}
+// ── 铺一份固定的分组（与第二道横扫共用 harness 里的那一份）─────────────────
+await seedFixture(SRV, ADM, WRT);
 
-// ── CDP ────────────────────────────────────────────────────────────────────
-const tab = await (await fetch(CDP + '/json/new?about:blank', { method: 'PUT' })).json();
-const ws = new WebSocket(tab.webSocketDebuggerUrl);
-let id = 0; const pending = new Map(); const errs = [];
-ws.addEventListener('message', (e) => { const m = JSON.parse(e.data);
-  if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-  if (m.method === 'Runtime.exceptionThrown') errs.push(m.params.exceptionDetails.text); });
-const send = (m, p = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
-const run = async (e) => { const r = await send('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true });
-  if (r.result?.exceptionDetails) return { __exc: (r.result.exceptionDetails.exception?.description || '').split('\n')[0] };
-  return r.result?.result?.value; };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-await new Promise((r) => ws.addEventListener('open', r, { once: true }));
-await send('Page.enable'); await send('Runtime.enable');
+// ── 连接与不变量：两份横扫共用 harness.mjs ──────────────────────────────────
+import { connect, makeStep, seedFixture } from './harness.mjs';
+const c = await connect(CDP);
+const { run, ev, sleep, send } = c;
 await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 1300, deviceScaleFactor: 1, mobile: false });
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-
-// 屏上那一侧的读数。**容器认两种形状**（正文 section、大卡 ul）——判据与 app.js 的
-// listOf 同一个形状，这一份是它的对照。
-const INV = `(()=>{const out=[];for(const host of document.querySelectorAll('[data-gid]')){const gid=host.dataset.gid;
-const list=host.tagName==='UL'?host:host.querySelector(':scope > ul');
-const items=list?[...list.querySelectorAll('li[data-item]')].map(n=>n.dataset.item):[];
-const hint=host.tagName==='SECTION'?host.querySelector(':scope > p.grp-empty'):null;
-out.push({gid,items,hint:hint?hint.hidden:null});}
-const counts={};for(const a of document.querySelectorAll('a[href^="#g-"],a[href^="#f-"]')){const m=/^#([gf])-(.+?)(?:\\?|$)/.exec(a.getAttribute('href'));if(!m)continue;const b=a.querySelector('b.cnt');if(b)counts[m[2]]=Number(b.textContent||0);}
-for(const h of document.querySelectorAll('h2.feat-g[data-group]')){const n=h.querySelector('.feat-n');if(n)counts[h.dataset.group]=Number(n.textContent||0);}
-return JSON.stringify({groups:out,counts,
-bad:[...document.querySelectorAll('#lb-banner.bad')].map(n=>n.textContent.trim()),
-ok:[...document.querySelectorAll('#lb-banner.ok')].map(n=>n.textContent.trim())})})()`;
-
-function diff(inv, d) {
-  const bad = [];
-  const byGid = new Map(inv.groups.map((g) => [g.gid, g]));
-  for (const grp of d.groups) {
-    const scr = byGid.get(grp.id);
-    if (!scr) { bad.push(`组 ${grp.id} 在屏上不见了`); continue; }
-    const want = grp.items.map((i) => i.id);
-    if (JSON.stringify(scr.items) !== JSON.stringify(want)) bad.push(`${grp.id} 屏上 ${JSON.stringify(scr.items)} ≠ 盘上 ${JSON.stringify(want)}`);
-    // 空组那句：有内容就该藏起来（hidden=true），空着就该露出来。
-    if (scr.hint !== null && scr.hint !== (want.length > 0)) bad.push(`${grp.id} 空组那句 hidden=${scr.hint}，盘上 ${want.length} 条`);
-    if (inv.counts[grp.id] !== undefined && inv.counts[grp.id] !== want.length) bad.push(`${grp.id} 屏上计数 ${inv.counts[grp.id]} ≠ 盘上 ${want.length}`);
-  }
-  for (const gid of byGid.keys()) if (!d.groups.find((g) => g.id === gid)) bad.push(`屏上多了一组 ${gid}`);
-  return bad;
-}
-
-// 每一步之前把界面摆回干净状态（浮层、多选、上一条横幅），之后核对同一条不变量。
-// **不留干净状态**的话，上一步的残局会顺着传下去：多选还开着时下一步长按一颗卡，
-// 多出来的那一颗也进了选中，于是这一步删掉了两条——症状落在下一步，病因在上一步。
-async function step(label, act, opt = {}) {
-  ran++;
-  // **只删「用完即弃」的那些对话框**：`#lb-sheet`（添加浮层）与设置面板的 class 也叫
-  // `.sheet`，它们是**页面级单例**，删掉之后 app.js 的 openSheet 再也点不动——
-  // 于是后面每一步都报「找不到按钮」，一条真信号被八步噪声埋掉。
-  await run(`(()=>{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-    for(const s of document.querySelectorAll('.sheet')) if(s.id!=='lb-sheet' && !s.classList.contains('prefs')) s.remove();
-    const a=document.getElementById('lb-sheet'); if(a) a.hidden=true;
-    document.getElementById('lb-banner')?.remove();
-    const bar=document.querySelector('.multibar'); if(bar) bar.hidden=true;
-    document.querySelectorAll('li.sel-mark').forEach(n=>n.classList.remove('sel-mark'));
-    localStorage.removeItem('lb-queue-dad'); return 1 })()`);
-  // 前置条件：**这一步开始时页面还得是档案页**。上一步把页面弄走时（点错了链接、
-  // 脚本崩了）不拦住的话，后面每一步都在一张错误页上量，读数全是「组不见了」。
-  if ((await run(`document.querySelectorAll('[data-gid]').length`)) === 0) {
-    fails++; ran++;
-    say(`FAIL ${label}   [前置：上一步把页面弄走了，这一步量的是空页——先看上一条]`);
-    await send('Page.navigate', { url: SRV + '/' }); await sleep(1400);
-    await run(`fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'profile=dad'}).then(r=>r.status)`);
-    await send('Page.navigate', { url: SRV + '/' }); await sleep(1400);
-    return;
-  }
-  const before = disk();
-  await run(`sessionStorage.setItem('__sweep','1')`);
-  let res = null;
-  try { res = await act(); } catch (e) { res = 'THREW ' + e.message; }
-  await sleep(opt.wait || 1300);
-  const reloaded = (await run(`sessionStorage.getItem('__sweep')||''`)) === '';
-  await run(`sessionStorage.removeItem('__sweep')`);
-  const raw = await run(INV);
-  const problems = [];
-  if (raw && raw.__exc) problems.push('不变量读不出来：' + raw.__exc);
-  const inv = raw && !raw.__exc ? JSON.parse(raw) : null;
-  if (inv) problems.push(...diff(inv, disk()));
-  if (!opt.allowBad && !opt.expectBad && inv && inv.bad.length) problems.push('失败横幅没解释：' + JSON.stringify(inv.bad));
-  if (opt.expectBad && (!inv || !inv.bad.length)) problems.push('该给一句失败说明的没给');
-  if (opt.inPlace && reloaded) problems.push('整页重载了（这一步要求就地完成）');
-  if (opt.outcome) problems.push(...(opt.outcome(inv, disk(), res, before) || []));
-  if (problems.length) {
-    fails++;
-    say(`FAIL ${label}   [act=${res}]`);
-    for (const p of problems) say('     · ' + p);
-  } else {
-    say(`PASS ${label}`);
-  }
-}
+const login = async () => run("fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'profile=dad'}).then(r=>r.status)");
+const step = makeStep({ c, srv: SRV, dataPath: DATA, say, stats, login });
 
 // ── 动作小工具 ─────────────────────────────────────────────────────────────
-const ev = (js) => run(`(()=>{try{${js}}catch(e){return 'THREW '+e.message}})()`);
 const dragInternal = (srcSel, dstSel, where) => ev(`const dt=new DataTransfer();
   const src=document.querySelector(${JSON.stringify(srcSel)}); if(!src) return 'NO-SRC';
   const d1=new DragEvent('dragstart',{bubbles:true,cancelable:true});
@@ -453,8 +334,7 @@ await step('设置面板 → 另开新标签页', async () => {
 }, { wait: 2500, outcome: (inv, d) => d.openInNewTab !== undefined ? [] : ['盘上没那个布尔'] });
 
 say('');
-say('控制台异常：' + JSON.stringify(errs.slice(0, 5)));
-say(`${ran} 步，${fails} 条红`);
-// 关掉自己开的那一格：留着会在调试口里攒一堆空白标签页，下一次跑的人看着更乱。
-try { await fetch(`${CDP}/json/close/${tab.id}`); } catch { /* 关不掉就算了 */ }
-ws.close(); process.exit(fails ? 1 : 0);
+say('控制台异常：' + JSON.stringify(c.errs.slice(0, 5)));
+say(`${stats.ran} 步，${stats.fails} 条红`);
+await c.close();
+process.exit(stats.fails ? 1 : 0);

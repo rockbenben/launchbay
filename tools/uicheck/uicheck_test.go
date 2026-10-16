@@ -73,7 +73,21 @@ func Test档案页交互横扫(t *testing.T) {
 	cdp, stop := browser(t, tmp)
 	defer stop()
 
-	cmd := exec.Command(node, filepath.Join("tools", "uicheck", "sweep.mjs"),
+	// 两道横扫跑同一台服务、同一份数据：第一道走档案页上那些写盘交互，第二道走
+	// 别的族（离线队列、设置面板其余各格、搜索两路、窄屏、减弱动效、键盘、零 JS
+	// 通路）。两份共用 harness.mjs 里那一份连接与那条不变量——抄一份到第二个脚本
+	// 里，就是这个项目刚花一轮消灭掉的那种分叉。
+	//
+	// 第二道排在第一道之后：它会把视图与导航位置改掉（那是全机器的偏好），反过来
+	// 跑会让第一道读到一份不是它自己铺出来的版面。
+	for _, script := range []string{"sweep.mjs", "sweep-variants.mjs"} {
+		runSweep(t, node, repo, script, port, data, cdp)
+	}
+}
+
+func runSweep(t *testing.T, node, repo, script string, port int, data, cdp string) {
+	t.Helper()
+	cmd := exec.Command(node, filepath.Join("tools", "uicheck", script),
 		fmt.Sprint(port), data, cdp)
 	cmd.Dir = repo
 	// 令牌**只在这里写一份**：同一个值既发给被测服务，也发给横扫脚本（脚本读环境变量）。
