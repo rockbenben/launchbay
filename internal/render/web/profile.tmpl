@@ -240,7 +240,15 @@
         <a class="card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          {{with .Desc}}<i>{{.}}</i>{{end}}
+          {{/* **没有说明时印主机名**，与大卡带那张卡是同一句判据（2026-10-16 实测）。
+               从前是 `{{with .Desc}}<i>{{.}}</i>{{end}}`——有说明才印第二行，于是
+               同一份数据在两种卡片形态上读法不同：`.feat-card` 那支早就写了
+               `{{if .Desc}}…{{else}}{{hostOf .URL}}{{end}}`，而正文这一支印的是
+               一张只有名字的卡。实测（48 条真实数据）只有 4 张有第二行，扫一屏时
+               多数格子是"一个名字、没有第二样东西"，而人认一个站点靠的恰恰是它
+               在哪个域上。密集视图与 ≤700px 的磁贴本来就收起第二行（那两条 CSS
+               只判 `.card i`），不受影响。 */}}
+          {{with .Desc}}<i>{{.}}</i>{{else}}<i class="host">{{hostOf .URL}}</i>{{end}}
           {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </a>

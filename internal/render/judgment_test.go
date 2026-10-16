@@ -25,6 +25,11 @@ func Test一个判据一个出口(t *testing.T) {
 		t.Fatal(err)
 	}
 	js := string(raw)
+	cssRaw, err := webFS.ReadFile("web/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(cssRaw)
 	body := stripJSComments(js)
 
 	t.Run("一行该有的监听只从bindItem出去", func(t *testing.T) {
@@ -96,6 +101,29 @@ func Test一个判据一个出口(t *testing.T) {
 		}
 		if !strings.Contains(bc, "a[href^=\"#\"]") {
 			t.Errorf("bumpCount 不再遍历导航锚点了：组计数会停在一个都不改\n%.300s", bc)
+		}
+	})
+
+	t.Run("没有说明时两处都印主机名", func(t *testing.T) {
+		tmplRaw, err := webFS.ReadFile("web/profile.tmpl")
+		if err != nil {
+			t.Fatal(err)
+		}
+		tmpl := string(tmplRaw)
+		// 「desc 优先、否则主机名」这同一句判据在两个地方各写一份——正文卡与大卡卡。
+		// 2026-10-16 实测（48 条真实数据）发现它们分叉了：正文那支从前是
+		// `{{with .Desc}}<i>{{.}}</i>{{end}}`，**没有说明时什么都不印**，于是 48 张
+		// 卡里只有 4 张有第二行；而大卡那一支早就写了 else 分支。
+		if n := strings.Count(tmpl, `{{with .Desc}}<i>{{.}}</i>{{else}}<i class="host">{{hostOf .URL}}</i>{{end}}`); n != 1 {
+			t.Errorf("正文卡片那一句主机名兜底出现 %d 次，要 1 次", n)
+		}
+		if !strings.Contains(tmpl, `{{if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}`) {
+			t.Error("大卡卡那一支的主机名兜底没了：两支要同一句判据")
+		}
+		// 兜底那一格带的是 `.card i` 的形状：`.host` 的规则只写在 `.feat-card` 下，
+		// 正文卡上它不生效（留着当语义钩子），所以这里钉住那条规则还在。
+		if !strings.Contains(css, ".feat-card .host{") {
+			t.Error("app.css 里 .feat-card .host 那条不见了：给正文卡复用 class=host 会串样式")
 		}
 	})
 
