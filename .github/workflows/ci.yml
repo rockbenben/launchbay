@@ -133,6 +133,35 @@ jobs:
           go build -o "$RUNNER_TEMP/depguard" ./tools/depguard
           "$RUNNER_TEMP/depguard"
 
+  # 界面这一族：仓库里**唯一一条真的点界面**的门禁（2026-10-16 加）。
+  #
+  # 为什么单独一个 job，而不是在 gate 里加一步：它要一个浏览器、一个临时数据目录与
+  # 一次完整构建，~95 秒起步。而 gate 那个矩阵的意义是「两个平台判同一组与平台无关
+  # 的判据」——把浏览器塞进去会变成「同一个界面的两个平台各判一遍」，那是覆盖的浪费，
+  # 不是增加。界面这一族的判据与平台无关，所以只在一个平台上跑。
+  #
+  # **node 与 Chrome 都不装**：runner 镜像本来就带着（下面那条 js 语法门禁早就在用
+  # runner 自带的 node）。这里要的是「多两个进程」，不是「多一个版本约束」。
+  #
+  # 红了的时候读法：go test 会把 26 步逐步打出来，每一行是「屏上与盘上是否一致」的
+  # 结论。日志里出现 `前置：上一步把页面弄走了` 时，红的是上一条——这是那条闸自己
+  # 写的话，不是产品行为。
+  ui:
+    name: ui sweep (界面交互)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: 交互横扫
+        env:
+          LB_UI: '1'
+        run: go test ./tools/uicheck/ -count=1 -timeout 15m -v
+
   # 镜像能不能构建，**只有真构建一次才知道**。Dockerfile 里那句"门禁在镜像构建里
   # 跑一遍：CI 绿不代表这个镜像可用"从来没有被 CI 验过：golang:1.27-alpine 是否
   # 还在、COPY 的路径是否腐坏、scratch 里缺了什么，都是纸面上的。
