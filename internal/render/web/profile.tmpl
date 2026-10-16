@@ -808,8 +808,15 @@
 {{with .AppCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
 <body>
+{{/* 这一张独立页从前**没有 main**：其它四张一级页（选择页、历史、回退、导入、管理）
+     都带 role="main"，只有它把面板直接挂在 body 上。读屏软件按地标跳页，
+     而「设置」恰恰是这一站里控件最密的一屏——没有 main 就等于那一屏不在地图上。
+     顺带第二个后果：base.css 里"说明句一行不许超过 42 字"那条判据写的是
+     `main .hint`，没有 main 的这张页正好躲过它（实测那句 75 字）。 */}}
+<main role="main">
 {{template "prefs-panel" .}}
 <nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
+</main>
 </body>
 </html>
 {{end}}

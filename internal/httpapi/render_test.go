@@ -232,3 +232,37 @@ func Test404_浏览器拿页面脚本拿kind(t *testing.T) {
 		t.Fatalf("不带 Accept: text/html 的调用方拿到的仍是 kind 那一份：%.200s", rec.Body)
 	}
 }
+
+// 每一张一级页都要有 main 地标（2026-10-16）。
+//
+// 起因是 /prefs 那张独立页：它把面板直接挂在 body 上，是全站唯一没有 main 的一屏，
+// 而它恰好是控件最密的那一屏。读屏软件按地标跳页，没有 main 就等于那一屏不在地图上；
+// 顺带第二个后果——base.css 里"说明句一行不超过 42 字"那条写的是 `main .hint`，
+// 没有 main 的这张页正好躲过它（实测那句 75 字）。
+//
+// 这一条按**渲染出来的页面**扫，不按模板扫：模板有好几个 define，只数源文件
+// 会漏掉"某个 define 其实没被任何页用到"，也会漏掉独立页与浮层共用一份时
+// 只有独立页缺 main 这种形状。
+func Test每张一级页都有main地标(t *testing.T) {
+	h, _ := setupRender(t)
+	const cookie = auth.CookieProfile + "=dad; " + auth.CookieHome + "=dad"
+	for _, path := range []string{"/", "/prefs", "/prefs?tab=groups", "/history", "/revert", "/import", "/admin", "/no-such-page"} {
+		req := httptest.NewRequest("GET", path, nil)
+		req.Header.Set("Cookie", cookie)
+		// 这一条量的是**人看的那一屏**，所以按浏览器的样子发请求：不带
+		// Accept: text/html 时 /no-such-page 答的是机器那份 JSON（那是
+		// route-not-found 的既定分界，不是漏了地标）。
+		req.Header.Set("Accept", "text/html,application/xhtml+xml")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		// 200 与 404 都算"画出了一张页"：那一屏 404 也是给人看的整页，
+		// 它同样要有地标。其余（303 回选择页、503 坏档）不是这一条要量的形状。
+		if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: code %d（这一条要量的是页面形状，不是重定向）", path, rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, `role="main"`) {
+			t.Errorf("%s 没有 main 地标：读屏软件按地标跳页，这一屏不在地图上", path)
+		}
+	}
+}
