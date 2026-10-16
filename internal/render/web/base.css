@@ -9,6 +9,13 @@
      **反过来取深**；亮档色块本身够深，白字 5.80 / 6.54 已过。--bad-text 是
      浮层状态行那种"只有字没有块"的报错色：#ff7a7a 压在卡片上 3.95:1 不够。 */
   --on-accent:#071223;--on-bad:#2b0b05;--bad-text:#ffb9b9;
+  /* 主操作键的那层**淡主色底**（2026-10-16）。它是 rgba 字面量而不是
+     `color-mix(in srgb, --accent x%, transparent)`：这份 CSS 里每一条主题色都是
+     字面量（连 --aurora-* 也是），跟着它走就不给浏览器加新依赖，而暗档这一档的
+     accent 改值时 tint 也在同一处。**它必须够淡**：字是 --ink（压在近黑底上），
+     而 --accent 那块实色本来只有 3.20:1（上面那段算过），所以这是"淡底 + 实字"，
+     不是"实底 + 浅字"。 */
+  --accent-tint:rgba(76,141,255,.16);
   --aurora-1:rgba(76,141,255,.30);--aurora-2:rgba(150,80,255,.22);--aurora-3:rgba(0,200,180,.18);
   /* --scrim 是**背景图上面那层压暗**（2026-10-14），值是"页面底色铺在图上的
      不透明度"。它必须够厚：§7.5 的对比度是按纯底色算的，而一张照片的明暗是
@@ -40,6 +47,7 @@
   --line:#e3ddd1;--card:#fff;--card-hi:#fff;
   --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+  --accent-tint:rgba(42,99,189,.10);
   --scrim:rgba(246,244,239,.84);
   --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 [data-theme=dark]{color-scheme:dark}
@@ -48,6 +56,7 @@
     --line:#e3ddd1;--card:#fff;--card-hi:#fff;
     --accent:#2a63bd;--ring:#2f6fd0;--warn:#94500a;--bad:#b3261e;
   --on-accent:#fff;--on-bad:#fff;--bad-text:#a12018;
+    --accent-tint:rgba(42,99,189,.10);
     --scrim:rgba(246,244,239,.84);
     --aurora-1:rgba(76,141,255,.16);--aurora-2:rgba(150,80,255,.10);--aurora-3:rgba(0,200,180,.10)}
 }
@@ -1359,17 +1368,28 @@ select option{background:var(--bg);color:var(--ink)}
      地方不该挤在别的东西旁边），所以它从 grid 的第二列里退出来横跨两列。 */
   .prefs-group:not(.prefs-group-new) > .prefs-group-del[open]{grid-column:1 / -1;grid-row:auto}
 }
-/* 主操作键（2026-10-13）：**同一张脸，只差两个 token**——字用 --ink、描边用 --accent。
-   全站按钮只有一张脸（半透明 + --line 描边 + --ink2 字），所以"这一颗是主操作"
-   这件事以前只能靠**实心蓝块**来说，而实心块与同栏其余按钮不像一家：实拍顶栏
-   「＋ 添加」是整栏唯一的实心块，4px 圆角、没有描边，看上去像另一个产品。
-   改成描边转主色之后，圆角、内衬、触摸目标与族里其余每一颗完全一致。
+/* 主操作键（2026-10-13 改判一次，2026-10-16 再改判）：
+   **同一张脸，只差一个底**——底色用 --accent-tint，描边回到族里那一档 --line。
+   全站按钮只有一张脸（半透明 + --line 描边），所以"这一颗是主操作"以前只能靠
+   **实心蓝块**来说；2026-10-13 把它换成"描边转主色"，圆角与内衬一致了，可顶栏
+   实拍出来仍然是个**孤零零的蓝圈**：那一栏里「＋ 添加」的**字色与旁边「设置」「Dad」
+   逐字相同**（都是 --ink），底色也相同——于是那一圈蓝边是它与另外两颗**唯一的
+   差别**，读起来不是"同一族里更重的一颗"，而是"另一个东西套了个框"。
+   改成一层淡主色底之后，它说的才是"这张脸，重一档"。
+
+   **为什么不用实底**：实底要配浅字，而白字对 --accent #4c8dff 只有 3.20:1
+   （:root 那一段算过）；这里是**淡底 + 实字（--ink）**，字压在近黑底上，对比度
+   与普通按钮一样高。危险档那条 `button.danger` 才是实底（--bad），那是另一回事：
+   "这一步不可逆"要的是强区分，"这是主操作"要的只是重一档。
+
    **权重**：写 `button.primary`（0,1,1）而不是 `.primary`（0,1,0）——按钮族那条
    联合规则本身就是 0,1,1，少一个元素就输给它，输了的症状是"加了类但没变化"。
+   **悬停**仍是族里那一条（描边转 --accent）：一圈会亮的边在悬停时是交互反馈，
+   不是常驻标记——两者不冲突。
    **什么时候不用**：按钮并排时（两个都像主操作就等于都不是），或者它根本不是
    这一步的主要出路时（切换语言、退出管理、主题循环、两态开关——那几颗有各自
    更好的形状）。 */
-button.primary{color:var(--ink);border-color:var(--accent)}
+button.primary{color:var(--ink);background:var(--accent-tint);border-color:var(--line)}
 /* danger 是"这一步不可逆"的**视觉区分**，不是安全措施（§11 刻意不做防护）。
    它与 --warn 分开是因为 --warn 已经表示"坏档读不出来"；让删档与坏档同色，
    等于在一张同时出现这两者的表里把"这里坏了"与"点这里会删东西"画成一样。
@@ -1517,7 +1537,9 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    而这个是配一次的。 */
 .adm.bm{margin:18px 0 0;padding:12px 14px;background:var(--card);
   border:1px solid var(--line);border-radius:10px}
-.adm.bm h2{margin:0 0 6px;font-size:15px}
+/* 这一段的标题 2026-10-16 从 h2 降成 h3（它是「这台机器」那一节**里面**的一块，
+   与上面三个分节头不同一层）。原先那条 `.adm.bm h2` 随之删掉：它写下的
+   margin/font-size 与 `.adm-sec h3` 逐字相同，留着就是"规则还在、证人没了"。 */
 .adm.bm p{margin:6px 0;font-size:13px;color:var(--ink2)}
 .adm.bm ol{margin:6px 0;padding-left:20px;font-size:13px;color:var(--ink2)}
 .adm.bm li{margin:4px 0}
@@ -1563,3 +1585,66 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    只放开 `.hist` 里面这一支：`.plain b` 那条截断是首页"需手动打开"那张卡要的
    （一整串地址印成两行会把卡片撑歪），动它等于改别的页。 */
 .hist .plain>b{white-space:normal}
+
+/* ── 管理页与它的登录页（2026-10-16 重排） ─────────────────────────────────
+   两个页面共用这一块，因为它们是同一件事的两头：登录页问"这把钥匙对不对"，
+   管理页答"这台机器上有谁"。样式分开写会漂（分节头那一族已经证明过一次）。
+
+   **`.adm-page` 为什么收窄到 1120**：`main{max-width:1600px}` 是照着**档案页**
+   量的——那里是几百张卡片铺满，宽度就是密度。管理页是**一个人偶尔来一次**的
+   设置页，1440 实拍原来四块全都铺到 1368px，而建档那一行的控件只占约 700px、
+   语言那块约 330px，右边三分之二是空的——空出来的不是呼吸，是没排完。
+   1120 是量出来的：这一页最宽的一段是那张六列表，1120 下六个列头与它们的内容
+   都还在一行里（条目/版本号/快照三个短数字并排不折），而再宽也不会多出信息。 */
+.adm-page{max-width:1120px}
+/* 顶栏跟着收。`header` 那条 1600 有两条测试逐字钉着（topbarwidth_test），
+   改不得；而正文一收窄，1440 上标题就孤零零留在屏幕最左（x=36）、正文从 176
+   才开始——两栏各站一边。给这一页的顶栏挂同一个上限，不动全局那条。 */
+.adm-bar{max-width:1120px}
+/* 分节头。`h2::before` 那枚色点已经全案统一（base.css 367），这里只收这一页
+   的**间距**：全局那条 h2 的 margin 是 6px，而这一页每节下面要放的是一张表或
+   一张表单，6px 贴着它们——节头与内容之间要有 10px 才读成"标题带一块"。 */
+.adm-page h2{margin:0 0 10px}
+.adm-sec{margin:22px 0 0}
+/* 节内那两块的标题（语言 / 书签栏）走 h3：它们在「这台机器」这一节**里面**，
+   与上面的 h2 不同一层，所以不带色点、也不做大写——色点留给"这是第几节"。 */
+.adm-sec h3{margin:0 0 6px;font-size:15px}
+/* 「加一个人」那一节：说明句贴着标题，表单在它下面。表单自己那行已经会换行，
+   这里只把它与说明句之间的缝收掉——两段说的是同一件事，缝大了读成两节。 */
+.adm-sec>.hint{margin:0 0 10px}
+/* 语言与书签栏并排。断点取 900：900 以下左边那一栏（语言）只有 330px 内容，
+   再挤就没法与右边那一长段并排了，而它们本来就是两种长度的东西——同栏上下排
+   时书签栏那段会把上面那块拉出一大片空。 */
+.adm-two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.adm-two{grid-template-columns:minmax(0,1fr)}}
+/* 语言那一块现在是个**框**：它与右边书签栏那张卡并排，两张都得有边才读成一对
+   同层的块。此前它是裸表单（无边框），旁边一张带框的卡——两种脸并排。 */
+.adm-two .langform{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+
+/* 登录页。**标题进卡**（2026-10-16）：此前 h1 在卡外面，于是 1440 实拍量到
+   h1 728 宽、卡 460 宽、回链那个 .plain 又 630 宽——三块三种右边缘。标题与卡
+   同宽之后，这一页只有一件东西：那张卡。 */
+.login h1{margin:0;font-size:20px;letter-spacing:0;text-transform:none;color:var(--ink);
+  display:flex;align-items:center;gap:10px}
+/* 卡在 `.chooser` 那一档里**居中**。此前它贴着 760 那一档的左边缘：1440 实拍
+   卡落在 x=356–816，而视口中轴在 720——整张卡偏左 44px，一眼看过去像没居中。
+   `.chooser form.setup` 有同样的偏移，但那是引导页、不在这次改的范围里。 */
+.login{margin:0 auto}
+/* 与 h2::before 同一枚色点、同一份判据（`--sec-accent` 兜底到 --accent）——
+   全案三处挂载点：h2::before、.gnav .dot、这一条（icon_test 数的是
+   `style="--sec-accent:` 的出现次数，裸 token 恒多几处，别去数它）。
+   这里写第三遍而不是改全局 h1::before：全案只有这一处的页首标题在卡里，
+   动全局会把档案页每张卡的标题也点上色点。 */
+.login h1::before{content:"";width:10px;height:10px;border-radius:3px;
+  background:var(--sec-accent,var(--accent));flex:0 0 auto}
+/* lede 是"这把钥匙开哪一面"，脚注是"它从哪来、看不见什么"。前者 --ink2 15px，
+   后者 12px 且压在一条细线下面——两句话的重量不同，压在一起读才是两层。 */
+.login-lede{margin:0;font-size:15px;color:var(--ink2)}
+/* 细线是"这一屏"与"这一句"的界。它是这条注释里唯一一个**没有别的理由**的
+   像素——没有它，脚注会被读成又一个要填的字段。 */
+.login-where{margin:2px 0 0;padding-top:12px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--ink2)}
+/* 回选择页：`.plain` 那个框去掉了（它是书签卡那一族的类），只留徽标。
+   宽度与上面那张卡**同一个 460 并居中**——按 `.chooser` 那一档（760）居中的话，
+   一个人孤零零挂在卡片旁边而不是底下，而它是这一页唯一的退路。 */
+.login-back{max-width:460px;margin:14px auto 0;display:flex;justify-content:center}

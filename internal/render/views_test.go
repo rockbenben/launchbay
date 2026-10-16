@@ -980,10 +980,13 @@ func checkCSSSpecs(t *testing.T, css string) {
 		"触摸目标 44px":   `min-height:44px`,
 		"减弱动效豁免":      `@media (prefers-reduced-motion:reduce)`,
 		"高对比模式豁免":     `@media (forced-colors:active)`,
-		// 主操作键：同一张脸 + 两个 token。钉的是**选择器写成了 `button.primary`**，
+		// 主操作键：同一张脸 + 一个底。钉的是**选择器写成了 `button.primary`**，
 		// 不是 `.primary`——按钮族那条联合规则本身就是 0,1,1，少一个元素就输给它，
 		// 输了的症状是"类加上了但什么都没变"。
-		"主操作键描边转主色": `button.primary{color:var(--ink);border-color:var(--accent)}`,
+		// 2026-10-16 从"描边转主色"改成一**淡主色底 + 描边回族里那一档**：实拍顶栏里
+		// 它与旁边两颗的字色、底色逐字相同，那一圈蓝边是唯一的差别，读起来是"另一个
+		// 东西套了个框"而不是"同一族里更重的一颗"。
+		"主操作键淡主色底": `button.primary{color:var(--ink);background:var(--accent-tint);border-color:var(--line)}`,
 		// 钉的是**判据本身**而不是那个具体列宽：这一格要保证的是"list 形态由
 		// [data-layout=list] 选、且按视口自适应分列"，而不是"必须是 360px"——
 		// 后者把一个随手可调的像素值抬成了规格，改它就得改这里。
