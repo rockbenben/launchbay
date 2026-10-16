@@ -42,6 +42,10 @@ const APP_I18N = {
     "app.icon.libPh": "搜名字，比如 docker、github、相册",
     "app.icon.libHint": "常见的牌子都有；也可以按东西搜，比如相机、相册、下载。",
     "app.icon.libStart": "在上面搜一个名字，图标就出现在这里。",
+    "app.drop.dup": "这一份里已经有这一条了，没有再存一遍。",
+    "app.added.saved": "存进「%s」了。",
+    "app.drop.noGroup": "这一份还没有分组，拖进来的地址没地方放。先建一个分组，再拖一次。",
+    "app.icon.libStarter": "这一份已经在用的图标；在上面搜名字可以找库里其余的。",
     "app.icon.libNone": "图标库里没有叫「%s」的。",
     "app.icon.libMore": "共 %s 个，先看前 %s 个",
     "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）。",
@@ -180,6 +184,10 @@ const APP_I18N = {
     "app.icon.libPh": "Search by name — docker, github, photos",
     "app.icon.libHint": "Most well-known brands are in here. You can also search for the thing itself: camera, photos, downloads.",
     "app.icon.libStart": "Search for a name above and the icons show up here.",
+    "app.drop.dup": "This profile already has that one — it was not saved twice.",
+    "app.added.saved": "Saved into %s.",
+    "app.drop.noGroup": "This profile has no group yet, so the dropped link has nowhere to go. Make a group first, then drop it again.",
+    "app.icon.libStarter": "Icons already used in this profile. Search above for the rest of the library.",
     "app.icon.libNone": "Nothing in the library is called %s",
     "app.icon.libMore": "%s in all, showing the first %s",
     "app.icon.libFail": "The icon library could not be reached (try again in a moment)",
@@ -1043,7 +1051,55 @@ const APP_I18N = {
       const tile = e.target.closest('.icpick-tile');
       if (tile) pickIcon(tile.dataset.icon);
     });
-    runIconSearch();
+    paintIconStarter();
+  }
+
+  // 起始格：**这一份已经在用的那些图标**（2026-10-16）。
+  //
+  // 此前打开就是一张空网格 + 一句"先搜个名字"（app.icon.libStart）。那是
+  // 2026-10-14 定下的空态，判据本身没错——库有六千多条，空查询倒出来是一屏
+  // 噪声——可它没有回答点这颗按钮的人真正想问的"给我看几个"，症状是实拍到的
+  // 那一屏：面板开了、搜索框在、**什么也没有**。
+  //
+  // 为什么是"这一份已用的"而不是"随便搜个默认词"：
+  //   · 同一服务再存一条是最常见的动作，那颗图标多半就在这一份里；
+  //   · 它不是随便挑的，是用户自己刚用过的那些——没有比这更不任意的一组；
+  //   · 零请求：图标名在 `li[data-icon-name]` 上，图形在卡片里已经画好了，
+  //     克隆一份即可，于是起始格与卡片上那一枚**逐像素同源**（同一份
+  //     svgMarkup 的输出）。走 `/api/v1/icons/tiles` 反而要 N 次请求，
+  //     而且那条路的空查询按契约就该回空图（AGENTS.md「空查询回一张空图」）。
+  // `auto` 不进这一组：它是"去抓 favicon"，不是一枚可挑的图标，而这一格
+  // 挑的就是图标名。一个都没有时（空档案或全用 auto）才回到 libStart 那句。
+  function starterIconTiles() {
+    const out = [];
+    const seen = new Set();
+    for (const li of document.querySelectorAll('li[data-icon-name]')) {
+      const name = li.dataset.iconName;
+      if (!name || name === 'auto' || seen.has(name)) continue;
+      const face = li.querySelector('.ic-svg,.ic-img,.ic');
+      if (!face) continue;
+      seen.add(name);
+      out.push(el('button', {
+        type: 'button', class: 'fld icpick-tile', 'data-icon': name,
+        title: name, 'aria-label': iconLabel(name),
+      }, [
+        el('span', { class: 'icpick-face' }, [face.cloneNode(true)]),
+        el('span', { class: 'icpick-name', text: iconLabel(name) }),
+      ]));
+      if (out.length >= iconTilesLimit) break;
+    }
+    return out;
+  }
+
+  // 清空搜索框要**回到起始格**而不是回到空白：那一下是"我不搜了，看刚才那批"，
+  // 而把它变成一张空网格等于逼着人重新敲一遍刚才已经看过的词。
+  function paintIconStarter() {
+    const { grid, note } = iconPick;
+    if (!grid) return;
+    const tiles = starterIconTiles();
+    grid.replaceChildren(...tiles);
+    note.textContent = tiles.length ? T('app.icon.libStarter') : T('app.icon.libStart');
+    note.className = 'sheet-status';
   }
 
   function closeIconPicker() {
@@ -1068,8 +1124,7 @@ const APP_I18N = {
       note.className = 'sheet-status' + (bad ? ' bad' : '');
     };
     if (!q) {
-      grid.replaceChildren();
-      show(T('app.icon.libStart'));
+      paintIconStarter();
       return;
     }
     let markup = '';
@@ -1124,6 +1179,186 @@ const APP_I18N = {
     openSheet();
     resolveNow();
   }
+
+  // ── 把一条链接拖进来（书签栏 / 地址栏 / 另一个页面上的链接）───────────────
+  // **直接存进落点那一组，不问**（2026-10-16 改判）：动作已经完整——人是把一个地址
+  // 拖到某一组上，落点就是"存进哪一组"，再弹一张表请人确认等于把做完的事拆成两段。
+  // 它与书签栏按钮**故意不是同一条路**（按钮仍是预填 + 要人按一次保存）。
+  //
+  // 判据与出处（浏览器三种引擎给三种键、捕获阶段、站内拖动要挡、只收 http(s)）
+  // 写在 AGENTS.md 那一行与 openapi.json 里，钉在 dropurl_test.go——这里只留
+  // 代码本身必须看得见的那两条：**两种键**（Firefox 只给私有的 x-moz-url，只认
+  // uri-list 的话在 Firefox 上整条不成立）与**挡掉站内拖动**（自家 MIME 用前缀判，
+  // 写全名会多出第三处字面量，而 appdrag_test 数的正是那两处）。
+  const dragIsURL = (dt) => {
+    if (!dt || !dt.types) return false;
+    const types = [...dt.types];
+    if (types.some((t) => t.startsWith('application/x-lb'))) return false;
+    return types.includes('text/uri-list') || types.includes('text/x-moz-url');
+  };
+
+  // 只收 **http/https 且整段就是一个地址**：从地址栏选一段文字拖进来时负载常常是
+  // 「https://x.com 搜索词」，多带一个词就不该当成地址存进去；而 javascript:、
+  // data: 这类地址服务端本来就拒（导入报告里那条判据），前端不重复发明。
+  const urlFromDrag = (dt) => {
+    // uri-list 是**行**格式：可能有多行、可能有 # 开头的注释行（Firefox 的
+    // x-moz-url 则是「地址」与「标题」两行）。取第一条合格的就停。
+    const raw = dt.getData('text/uri-list') || dt.getData('text/x-moz-url') || '';
+    for (const line of raw.split(/\r?\n/)) {
+      const s = line.trim();
+      if (s && !s.startsWith('#') && /^https?:\/\/\S+$/i.test(s)) return s;
+    }
+    const plain = (dt.getData('text/plain') || '').trim();
+    return /^https?:\/\/\S+$/i.test(plain) ? plain : '';
+  };
+
+  // **这两条要挂在捕获阶段**（第三参数 true）。卡片的 dragover/drop 为了站内排序
+  // 调了 `stopPropagation()`，挂在 document 上的**冒泡**监听于是永远收不到拖到
+  // 卡片上的那一次——症状是"拖进来没反应"，而排序那条路径全程在跑（落点高亮、
+  // drop 被 srcOf 判空后静默 return）。捕获里先认下外来链接并按停，站内拖动放行。
+  document.addEventListener('dragover', (e) => {
+    if (!dragIsURL(e.dataTransfer)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, true);
+  document.addEventListener('drop', (e) => {
+    if (!dragIsURL(e.dataTransfer)) return;
+    const url = urlFromDrag(e.dataTransfer);
+    if (!url) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // 落点**在事件里取**：拖到某张卡/某一行上就是那一组，拖到组标题上就是标题
+    // 那一组。取完之后才进异步——事件对象一 await 就过期了。
+    // 松手的位置也一起带进去：新卡片要从那里滑过来（flip 的旧位置取的就是它）。
+    saveDropped(url, dropGroupGid(e.target), { x: e.clientX, y: e.clientY });
+  }, true);
+
+  // 拖进来的网址该落进哪一组。**与站内排序的 `dropTargetOf` 同一判据**（行 → 它
+  // 那一组；组标题 → 标题那一组），但这里要的是 **gid** 而不是一个可以 mark 的节点。
+  //
+  // 从前写的是 `closest('section[data-gid]')`（2026-10-16 修）：大卡带的组容器是
+  // `ul.feat-row[data-gid]`，它上面那个 `section.feat` 没有 data-gid，于是**拖到大卡
+  // 上会一路找到 null**，再由 `sec || 第一组` 兜底——**存进了完全不相干的那一组**，
+  // 而屏上给的是"存进了你指的那一组"的横幅。那是这一族里最坏的一种：写进去了、
+  // 报成功了、位置是错的。
+  const dropGroupGid = (node) => {
+    if (!node || !node.closest) return null;
+    const li = node.closest('li[data-item]');
+    if (li) return groupOf(li)?.dataset.gid || null;
+    const head = node.closest('h2[data-group]');
+    return head ? head.dataset.group : null;
+  };
+
+  // 卡片的**名字**：先要 resolve 读到的标题，读不到就用**网站的名字**（主机名）。
+  //
+  // 为什么不是那一整条地址（2026-10-16 实拍）：列表卡片在**没有说明时压根不印第二行**
+  // （模板的 `{{if .Desc}}`），所以标题一空，那一格就只剩地址——而地址是 40 来个
+  // 字符、名字是每天要扫的那一格。一屏里十几张卡只剩地址时，这一页没法扫。
+  // 主机名是"这个网站叫什么"，恰好是此刻能拿到的最贴切的名字；完整地址并没有丢，
+  // 它在 href 上（点得开）、在编辑那一格里（看得见）。
+  const itemName = (title, url) => {
+    const t = String(title || '').trim();
+    if (t) return t;
+    try { return new URL(url).host || url; } catch { return url; }
+  };
+
+  // 存进去的那一段。**只剩失败才说话**（§8.7：写失败一律显式报错）。
+  // 标题仍然走 resolve：没有它，存进去的名字就是一串地址，而这一页全部的价值
+  // 就是"看得懂的名字"；读不到**不是**不存的理由，退回到用网站的名字。
+  async function saveDropped(url, dropGid, dropAt) {
+    // 同一个地址拖两次不该多出一条。比的是屏上 href 的**原样**：不做规范化比较——
+    // 把带不带尾斜杠当成两条不同的书签，比多存一条更难解释。
+    // 按**任何带 href 的元素**比（从前是 `a.card`）：大卡带那张是 `a.feat-card`，
+    // 于是拖一个大卡里已有的地址进来会被当成新的一条再存一次。
+    if (document.querySelector('a[href="' + url.replace(/"/g, '%22') + '"]')) {
+      showBanner(T('app.drop.dup'), 'bad');
+      return;
+    }
+    // 拖到空白处就退到页面上第一组：这一页的卡片总是属于某一组。
+    const targetGid = dropGid || groupsOnPage()[0]?.dataset.gid;
+    if (!targetGid) { showBanner(T('app.drop.noGroup'), 'bad'); return; }
+    let meta = null;
+    try {
+      const r = await api('/api/v1/resolve', { url, profile });
+      if (!r.code) meta = r; // 读不到就用地址当名字，不因此丢掉这一条
+    } catch { /* 同上：读取失败不等于不能存 */ }
+    const name = itemName(meta && meta.title, url);
+    const value = { id: slug(url, true), name, url };
+    if (meta && meta.desc) value.desc = meta.desc;
+    // 分组优先取 resolve 建议的那一组（它只从**这一份现有分组**里挑，绝不凭空
+    // 造一个），否则就用拖到的那一组。
+    const gid = (meta && meta.suggestedGroup && meta.suggestedGroup.id) || targetGid;
+    const ops = [{ op: 'add', path: 'groups/' + gid + '/items', value }];
+    // 离线时进待办队列而不是报错：与添加浮层那一条同一个去处（§8.7）。
+    if (!navigator.onLine) {
+      enqueue({ gid, ops: [], value });
+      paintQueue();
+      showBanner(T('app.offline.queued'));
+      return;
+    }
+    // applyOps 失败时**自己**已经弹过一句（app.applyOps.fail，带上"改的是什么"），
+    // 这里不重复说第二遍——两处各判一次同一个失败，迟早有一处忘了带信息。
+    if (!await applyOps(ops, 'app.ops.item')) return;
+    // 不重载了：**抓一次页面、只把刚存进去的那一行的片段取出来接上**，于是新条目
+    // 从你松手的位置滑进它自己的格子（见接卡片那段）。接不上（抓不到、找不到那一行）
+    // 就退回重载——宁可旧样子，不能屏上没有而盘上有。
+    await spliceCardIn(gid, value.id, url, dropAt);
+  }
+
+  // 把服务端刚画好的那一行接进当前这一组，并让它从 `from`（拖放时指针的位置）滑过来。
+  //
+  // **为什么不自己在脚本里画一张卡**：卡片的标记由服务端模板画（图标那段尤其——
+  // 图标库是内嵌产物，svgMarkup 是全案唯一把图标拼成 markup 的出口）。脚本再画
+  // 一份就是"同一份 define 在两处落地"，而那种漂移项目里已经吃过一次亏。
+  // **为什么抓得到**：列表是服务端渲染的，`fetch('/')` 回来那份就是答案。
+  // **为什么只接一行**：整节替换会把这一节里所有行上挂好的监听器（把手/复制/拖动）
+  // 一起丢掉——那正是 bindItem 那个函数存在的理由：接进来的新节点补挂一遍。
+  //
+  // **在目标组那一个 `<ul>` 里找**（判据见 `listOf`），且**先按 id、再按地址**
+  // （2026-10-16 复查）：
+  //   · 限定在目标组：页面上同一组只印一次，但**两组印成同一个形状**时不分就会
+  //     接错地方——而接错的那一份屏上多出一条、盘上只有一条（与 moveInPlace
+  //     撞过的同一个形状）。大卡带的容器是 ul 自己，写死 section 就找不到它。
+  //   · 先按 id：那是**我们发过去的那一个**（`slug(url, true)`，服务端原样落盘），
+  //     它罩得住三种卡片形态（可点的卡、不可点的外部地址、大卡）。
+  //   · 地址作兜底：id 万一对不上时还有一条路——只认 `a.card` 会在大卡带（那里是
+  //     `a.feat-card`）与外部地址那一支同时失效，所以按**任何带 href 的元素**找。
+  async function spliceCardIn(gid, item, url, from) {
+    const fallback = (why) => { console.warn('lb: card not spliced, falling back to reload:', why || '?', gid, url); reloadKeepingPlace({ gid }); };
+    let node = null;
+    try {
+      // **必须显式带 Accept: text/html**（2026-10-16 实拍踩过）：不带时浏览器发的是
+      // 默认的 `*/*`，而 sw.js 那一族只放行「Accept 里带 text/html」的 HTML 请求
+      // （就是给 `/prefs` 那一路留的规矩）。于是这一发落到资产缓存那条 cache-first 上
+      // ——**第一次**执行时被存进去，之后每次都读到那一份，而指纹资产按设计永不过期。
+      // 症状极安静：新卡片接不上、`spliceCardIn` 静悄悄退回重载，看上去"有时会滑、
+      // 有时闪一下"，像随机。带上这个头，这一发不进 SW，恒为网络那份新的。
+      const html = await fetch('/', { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+        .then((r) => (r.ok ? r.text() : ''));
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const list = listOf(gid, doc);
+      node = (list && list.querySelector('li[data-item="' + item + '"]'))
+        || (list && list.querySelector('a[href="' + url.replace(/"/g, '%22') + '"]'))?.closest('li[data-item]')
+        || null;
+    } catch { /* 抓不到就退回重载 */ }
+    const ul = listOf(gid);
+    if (!node || !ul) { fallback(!node ? 'row not in fetched page' : 'target group not found'); return; }
+    ul.append(document.importNode(node, true)); // 服务端把它放在组末，新来的也在组末
+    bindItem(ul.lastElementChild);
+    bumpCount(gid, 1);
+    syncEmpty(ul); // 拖进的是**空组**时，那句「这一组还没有书签」要跟着走
+    // FLIP 的"旧位置"就取**你松手的地方**：那才是这一条在这一次动作里的来处。
+    const li = ul.lastElementChild;
+    if (from && from.x != null) flip(new Map([[li, from]]));
+    else li.classList.add('is-new');
+    showBanner(T('app.added.saved', groupTitle(gid)), 'ok');
+  }
+
+  // 成功横幅上那句组名，从**盘上刚写进去的那份 DOM** 里取（列表是服务端渲染的，
+  // 接上来的那一行旁边就是它）。判据是 `groupTitle` 那一处，见它的注释。
+  // 大卡带的标题也在内：那个 h2 带 data-group，挂在 ul 前面而不是 section 底下，
+  // 写成 `section[data-gid] h2` 时存进大卡的那一条会显示组 id 而不是组名。
 
   // ── resolve：填标题/描述/建议分组/候选图标 ───────────────────────────────
   // 失焦就跑一次（不是每次按键）：粘贴 URL 的动作天然发生在 blur 之前，而每敲一个
@@ -1184,8 +1419,21 @@ const APP_I18N = {
   // 分组 id 从分组名派生（新建分组那一条路），名字是中文时剥完剩下空串，
   // 于是补一个由同一串文字算出来的稳定后缀：**同一个名字永远得到同一个 id**，
   // 撞车由服务端回 422 说清，不在这里造一个"聪明的"去重。
+  // **id 的上限是 32**（`model.ValidSlug`：`^[a-z0-9][a-z0-9-]{0,31}$`）。从前这里
+  // 只切到 40，于是**凡是派生出来的 id 超过 32 的地址都存不进去**：服务端回 422，
+  // 人在屏上看到的只有「这一批没有写进去：这台机器不收刚才那些内容」，真话只在
+  // 控制台里（2026-10-16 实测：`example.com/sortcheck-body-…` 派生出 36 字符的
+  // id，整批被拒，而地址本身一点问题都没有）。
+  //
+  // 光切到 32 会**撞车**（两个长地址共用同一个 32 字前缀 → duplicate-id，也是 422）。
+  // 所以切完补一段**由同一串文字算出来的稳定后缀**——与下一行分组 id 那个做法是同一
+  // 个：可读的那一半留住，唯一性交给原文。同一个地址永远得到同一个 id。
+  const SLUG_MAX = 32; // 判据只有 model 那一处正则；这里只是别把切出来的串送回去撞它
   function ascii(text) {
-    return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    const s = String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (s.length <= SLUG_MAX) return s;
+    const h = hash36(s);
+    return s.slice(0, SLUG_MAX - h.length - 1) + '-' + h;
   }
   function hash36(text) {
     let h = 2166136261;
@@ -1247,7 +1495,7 @@ const APP_I18N = {
     // 而这一格下面就是它自己。人按了「保存」得到一句飘在五格之外的话，
     // 得自己判断那句是在说哪一格——而这一格是唯一可能空的那一格。
     if (!url) { say(T('app.err.url'), 'bad', urlErr); fUrl.focus(); return; }
-    const name = fTitle.value.trim() || url;
+    const name = itemName(fTitle.value.trim(), url);
     const value = { id: slug(url, true), name, url };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
     if (fIcon.value) value.icon = fIcon.value;
@@ -1293,7 +1541,9 @@ const APP_I18N = {
       } else {
         sheet.hidden = true;
         syncTrap();
-        reloadKeepingPlace(); // 列表是服务端渲染的：不重载就看不到刚存的那条
+        // gid 与条目 id 一起带过重载：列表是服务端渲染的（不重载就看不到刚存的那条），
+        // 而刚存的那一条要**被看见**——它带着 `is-new` 落位，屏上还有一句说它去了哪一组。
+        reloadKeepingPlace({ gid: g.gid, item: value.id });
       }
     } catch (e) {
       // 409 是"数据变了"，不是"再试一次就好"：让人自己看清了刷新。
@@ -1487,6 +1737,16 @@ const APP_I18N = {
   // 这台浏览器**的。不带档案名的话，在 A 的页面上改一个颜色会顺手把 B 的设置
   // 面板也弹出来——而那次重载落点是 A，读到的是"有人要我开着面板"，它分不出是谁。
   const OPEN_KEY = 'lb-prefs-open-' + profile;
+  // 拖进来那条的「存进哪一组」（2026-10-16）。同样是一次性口令、同样带 profile：
+  // 它说的是"刚才那一次拖放"，而 sessionStorage 是这台机器这台浏览器的，
+  // 不带档案名就会在 B 的页面上报 A 那次的结果。
+  const DROPKEY = 'lb-dropped-' + profile;
+  // 「刚才那一次重载是因为改了东西」的一次性标记（2026-10-16 动效整合）：
+  // base.css 那一族给每张卡都写了入场 `rise`，而改完回来的这一页**不是到达**，
+  // 是**变化**——整页十二张一起上浮会把真正变的那一条淹掉。记下这个，重载后由
+  // app.css 的 `html[data-restore]` 掀掉那一族（app.js 只写标记，掀不掀是样式的判据）。
+  // 同样读一次就删：留着的话，下一次**手动**刷新也会被当成"改完回来的"。
+  const RESTORE_KEY = 'lb-restore-' + profile;
   // 面板左侧那一列**停在哪一节**的记忆（2026-10-15）。它必须跨一次重载活着：
   // 浮层里改完一组的颜色会 `reloadKeepingPlace()`，而重载后 `prefsLoaded` 复位、
   // 面板重新 fetch ——不记住它的话，"改第二十组"每按一次就被弹回第一类。
@@ -1500,8 +1760,16 @@ const APP_I18N = {
     const v = String(id || '').replace(/^prefs-tab-/, '');
     try { sessionStorage.setItem(PREFS_TAB_KEY, v); } catch { /* 存不下就当没记 */ }
   };
-  function reloadKeepingPlace() {
+  // after 形如 `{gid, item}`：重载之后要在屏上说/动的那一条。
+  // 两件都要**活过重载**（2026-10-16）：横幅与动效都是页面里画出来的节点，
+  // location.reload 之后连同旧文档一起没了。留 gid/item 而不是留那句话——
+  // 组名是服务端渲染的，重载之后才在页面上长出来，照那一刻的 DOM 去读才对。
+  function reloadKeepingPlace(after) {
     try { sessionStorage.setItem(SCROLLKEY, String(scrollY)); } catch { /* 存不下就退回最上面 */ }
+    try {
+      sessionStorage.setItem(RESTORE_KEY, '1');
+      if (after && after.gid) sessionStorage.setItem(DROPKEY, after.gid + '\n' + (after.item || ''));
+    } catch { /* 存不下就算了：少说一句提示，不影响数据 */ }
     location.reload();
   }
   const back = (() => { try { return Number(sessionStorage.getItem(SCROLLKEY) || '0'); } catch { return 0; } })();
@@ -1515,6 +1783,27 @@ const APP_I18N = {
   if ((() => { try { return sessionStorage.getItem(OPEN_KEY) === '1'; } catch { return false; } })()) {
     try { sessionStorage.removeItem(OPEN_KEY); } catch { /* 存不下就当没记 */ }
     addEventListener('load', () => { prefsOpen(); }, { once: true });
+  }
+  // 拖进来那一条的「存进哪一组」：与上面同一种手法（读完即删），记的是 gid 与条目 id。
+  if ((() => { try { return sessionStorage.getItem(DROPKEY) || ''; } catch { return ''; } })()) {
+    const [gid, item] = (() => {
+      try { const v = sessionStorage.getItem(DROPKEY) || ''; sessionStorage.removeItem(DROPKEY); return v.split('\n'); }
+      catch { return ['', '']; }
+    })();
+    // 掀掉整页入场的那一族：要在**样式生效之前**落，而 module 脚本是 deferred
+    // 的——它在 DOMContentLoaded 之前跑，第一次绘制通常还没发生。万一晚了一步，
+    // 也只是那一族没被掀掉（退回到旧样子），不会坏。
+    addEventListener('load', () => {
+      if (item) document.querySelector('li[data-item="' + item + '"]')?.classList.add('is-new');
+      const head = document.querySelector('h2[data-group="' + gid + '"]'); // 大卡带的标题也在内，见 groupTitle
+      const name = (head && (head.getAttribute('title') || head.textContent) || '').trim();
+      showBanner(T('app.added.saved', name || gid), 'ok');
+    }, { once: true });
+  }
+  // 「刚才那次重载是改完回来的」：掀掉 base.css 那一族的入场（app.css 判它）。
+  if ((() => { try { return sessionStorage.getItem(RESTORE_KEY) === '1'; } catch { return false; } })()) {
+    try { sessionStorage.removeItem(RESTORE_KEY); } catch { /* 存不下就当没记 */ }
+    document.documentElement.setAttribute('data-restore', '');
   }
 
   // ── ⌘/Ctrl K 命令面板（§8.6）───────────────────────────────────────────
@@ -1568,9 +1857,8 @@ const APP_I18N = {
     // 选中它并按回车，把这个词交给页面上那个搜索框（整页搜是服务端渲染那条路）。
     let total = 0;
     for (const li of document.querySelectorAll('li[data-item]')) {
-      const a = li.querySelector('.card, .feat-card');
       const name = (li.querySelector('b')?.textContent || '').toLowerCase();
-      const url = (a?.getAttribute('href') || li.querySelector('code')?.textContent || '').toLowerCase();
+      const url = itemURL(li).toLowerCase();
       // 判据与 `filter.go` 的 matchItem 是**同一组字段**：名字、地址、说明、每一个
       // 别名、每一个标签，再加"分组标题命中就把整组带出来"。从前这里只比名字与地址，
       // 于是同一个词在同一个产品里有两个答案——实测（同一份数据、两条通路各跑 11 个词）：
@@ -1583,7 +1871,7 @@ const APP_I18N = {
         || extra.some((x) => x && x.toLowerCase().includes(q))) {
         total++;
         if (hits.length < 8) {
-          hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: a?.getAttribute('href') || '', el: li });
+          hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: itemURL(li), el: li });
         }
       }
     }
@@ -1681,16 +1969,85 @@ const APP_I18N = {
   const groupOf = (node) => node.closest('[data-gid]');
   const itemsOf = (group) => [...group.querySelectorAll('li[data-item]')];
 
-  // 一个组的显示名。判据是「离这一组最近的那个 h2」——正文组是 section 自己的第一个
-  // h2，大卡带那一段没有 h2（它在上一条 h2.feat-g 上），而从前写的是
-  // `sec.querySelector('h2')`：大卡带里一段段共用同一个 section，于是带子里任何一条
-  // 拿到的都是**第一段**的组名，编辑模态里「我改的是哪一组」会答错组。
+  // 这一条的地址在 DOM 上由**哪一个元素承载**：卡片一共三种形态，各有一个载体——
+  //   · 可点的（正文 `.card`、大卡 `.feat-card`）：href；
+  //   · 正文里点不动的外部地址：`<code>` 的文本（模板与复制键读同一处）；
+  //   · **大卡带里点不动的外部地址**：屏上一个地址都不印（只有主机名），模板在卡片上
+  //     写了 `data-addr`（见 profile.tmpl 那段注释：这一行是唯一一处「屏上没有地址」）。
+  //
+  // 从前各处各写一遍查找，于是第三种形态一处都没覆盖到：**编辑模态读成空串**，
+  // 照发一条 `set …/url=""` → 整批 422，屏上只说「这一条没存上」；⌘K 按地址也搜不到
+  // 它（同一个词在整页搜索里能搜到、在面板里搜不到）。判据收在这一处（2026-10-16）。
+  const itemURL = (li) => {
+    const a = li.querySelector('a[href]');
+    const href = a && a.getAttribute('href');
+    if (href) return href;
+    const code = li.querySelector('code');
+    if (code && code.textContent.trim()) return code.textContent.trim();
+    const raw = li.querySelector('[data-addr]');
+    return (raw && raw.getAttribute('data-addr')) || '';
+  };
+
+  // 「屏上有哪几个分组」这一份集合，判据收在这一处。四个功能各要一次：
+  // 拖网址进来的兜底（页面上第一组）、添加浮层的分组下拉、编辑模态的分组下拉、
+  // 多选的「移动到」名单。前三个与第四个从前各写一遍选择器，其中排法切换那一族还写的是
+  // `main section[data-gid]`——于是**大卡组不在其中**：它没有自己的 section（容器是
+  // ul.feat-row）。那处仍然自己遍历是有意的，见它上面的注释。
+  const groupsOnPage = () => [...document.querySelectorAll('[data-gid]')];
+
+  // 一组的列表是哪一个 `<ul>`：**组容器有两种形状**——正文是 `section[data-gid] > ul`，
+  // 而设成大卡的那一组被**整组**搬出了正文（exec.go），它的容器是 `ul.feat-row[data-gid]`
+  // 自己（profile.tmpl 那两支）。从前两处都写死 `section[data-gid=…]`，于是**大卡带永远
+  // 找不到**：排序每一次都走「算不出落点就退回重载」那一支——服务端搬对了，屏上却整页
+  // 闪一次、每张卡重播入场，而那恰好是页面最显眼的那一块；拖网址进来则静悄悄退回重载。
+  // 同一个坑 `pickMoveTarget` 踩过一次（「移动到」名单里根本没有大卡组），判据留在这一处。
+  // 第二个参数是根：抓回来的那一页（`spliceCardIn`）要在**它自己的 document** 里找。
+  const listOf = (gid, root) => {
+    const host = (root || document).querySelector('[data-gid="' + gid + '"]');
+    if (!host) return null;
+    return host.tagName === 'UL' ? host : host.querySelector(':scope > ul');
+  };
+
+  // **空组那句「这一组还没有书签」要跟着改**（2026-10-16）：就地移动不走重载，于是
+  // 把第一条搬进空组之后，卡片在那儿、那一句还在说这一组是空的；从一组搬空之后反过来。
+  //
+  // **只翻那一句的 hidden，不自己造它**（profile.tmpl 那一支永远画着它，有内容时
+  // hidden）：文字只有模板那一处来源。脚本里另抄一份就是两处会漂，而它连语言包的
+  // `app.*` 切片都进不去（app.js 读不到别的前缀）。
+  //
+  // 判据是"模板那一支画没画"：只管正文那种组（`ul` 挂在 section 底下），大卡带
+  // 模板刻意没有这一句——凭空给它造一句才是新添的毛病。
+  function syncEmpty(list) {
+    if (!list || !list.parentElement || list.parentElement.tagName !== 'SECTION') return;
+    const hint = list.parentElement.querySelector(':scope > p.grp-empty');
+    if (!hint) return;
+    hint.hidden = !!list.querySelector('li[data-item]');
+  }
+
+  // 一个组的显示名，**判据只有一处**：`h2[data-group="<gid>"]`。
+  //
+  // 正文组与**大卡带的组标题都带这个属性**（带子那一段的 h2 在 ul 前面，从容器往上找
+  // 拿到的也是它）。从前是两份：一份按 gid 全局查，一份按「离这一组最近的那个 h2」
+  // （`:scope > h2 || previousElementSibling`）。两份在**正文那一段之外就分叉**了——
+  // 带子里一段段共用同一个 section，只认 `:scope > h2` 的话带子里任何一条都拿到第一段
+  // 的组名，编辑模态里「我改的是哪一组」会答错组。
+  //
+  // 读的顺序：title（服务器写的全名，含拍平后的父路径）→ `.sec-leaf`（屏上那个叶名）
+  // → gid。**不能读 h2 的 textContent**：排法切换那颗字形键是 append 进 h2 的，
+  // 一并读进来，组名就变成「应用▦」这种。
+  function groupTitle(gid) {
+    const head = gid && document.querySelector('h2[data-group="' + gid + '"]');
+    if (!head) return gid || '';
+    return (head.getAttribute('title') || head.querySelector('.sec-leaf')?.textContent || gid).trim();
+  }
+
+  // 同上，只是从容器出发（多选与编辑那两个「移动到/分组」名单在按容器遍历）。
   function groupName(group) {
     if (!group) return '';
-    const head = group.tagName === 'H2' ? group
-      : group.querySelector(':scope > h2') || group.previousElementSibling;
-    if (!head || head.tagName !== 'H2') return group.dataset.gid || '';
-    return (head.getAttribute('title') || head.querySelector('.sec-leaf')?.textContent || group.dataset.gid || '').trim();
+    if (group.tagName === 'H2') {
+      return (group.getAttribute('title') || group.querySelector('.sec-leaf')?.textContent || group.dataset.group || '').trim();
+    }
+    return groupTitle(group.dataset.gid);
   }
 
   function opsFor(li, fields) {
@@ -1764,6 +2121,19 @@ const APP_I18N = {
   // 组，而 op 的 path 指源组——两件事的答案不在同一个地方，而 dataTransfer 里只有
   // 条目 id（那是跨组唯一对得上的键），组只能从被拖的这一行自己读。
   let dragSrc = null;
+  // dragstart 时量的**每一行的位置**（FLIP 的"First"那一半）。排序要的是"这一行
+  // 从这儿滑到那儿"，而量位置必须在 DOM 被改**之前**。
+  //
+  // **改成懒的**（2026-10-16）：从前在 dragstart 就把全页每一行量一遍，而 dragstart
+  // 在**每一次**按下时就发生——包括那些根本没落点的拖（拖到侧栏、拖出窗外、拖两下
+  // 又缩回去）。四百条的书签页上那是每次拖动 400 个 getBoundingClientRect 加一个
+  // 400 项的 Map，而落点往往一个都用不上。现在等**第一次真的经过一个落点**再量
+  // （dragover 里，见 ensureDragBefore）——那一刻 DOM 还没动，量到的仍是原位。
+  let dragBefore = null;
+  const ensureDragBefore = () => {
+    if (dragBefore) return;
+    dragBefore = new Map([...document.querySelectorAll('li[data-item]')].map((n) => [n, n.getBoundingClientRect()]));
+  };
   // 落点读源组时**必须与 MIME 对上**：只认自己那套 MIME 是原来的判据（从桌面或
   // 另一个标签页拖进来的东西不该动书签顺序），而 MIME 对上了却找不到源组时宁可
   // 不动——猜错的后果是把条目写进另一个组。
@@ -1773,11 +2143,112 @@ const APP_I18N = {
     if (!dragSrc || dragSrc.id !== id) return null;
     return dragSrc;
   };
+  // **dragover 只认自家那一种拖动**（2026-10-16 修）。dragover 阶段拿不到 getData
+  // （保护模式里只有 types 可读），所以判据是"这次拖动带没带自家那个 MIME"。
+  //
+  // 从前那一族 dragover 不判，于是**把页面上的一段选中文本拖到某张卡上**也会亮出
+  // "落在这里"的标记、光标变成移动，松手时 `srcOf` 判空静默 return——界面上给了
+  // 一个做不到的承诺（§8.1「点了没反应的东西不进界面」）。外来链接那一路早被
+  // 捕获阶段那条按停了，剩下这一路就是从网页上拖文字/图片进来的那些。
+  const isInternalDrag = (e) => !!dragSrc
+    && [...(e.dataTransfer && e.dataTransfer.types || [])].includes('application/x-lb-item');
+  // 落点标记**一次只亮一个**。从前是"当前这行 toggle + dragleave 清掉"，而同一
+  // 次悬停里祖先那个组级落点也会跟着亮（那才是当初给 dragover 加 stopPropagation
+  // 的原因）。现在由 dragover 每次先全清再点一个，dragleave 那一族监听整个不需要
+  // 了——"亮着哪一个"由"指针此刻在谁身上"这件事单独决定。
+  const markDrop = (node, after) => {
+    clearDropMarks();
+    if (!node) return;
+    if (node.tagName === 'H2') { node.classList.add('drop-tail'); return; }
+    node.classList.toggle('drop', !after);
+    node.classList.toggle('drop-after', after);
+  };
+
+  // ── 动效：排序就地完成，不整页重载（2026-10-16）────────────────────────
+  // 此前每一次排序都以 `reloadKeepingPlace()` 收尾，于是"松手"看到的是**整页闪一次**，
+  // 每张卡重播一遍入场；而排序是全案唯一一个"人一直盯着那一行"的动作。
+  // 判据只有一条：**屏上的落点必须与发出去的那条 op 是同一份**——index 不另算，
+  // `moveInPlace` 复刻的正是服务端那次插入（先摘再插）。跨组还要改两处计数，
+  // 否则屏上说的数与盘上存的不一样。落点算不出来就**退回重载**：宁可旧样子，不能错样子。
+  // FLIP：量旧位置 → 改 DOM → 量新位置 → 无过渡地摆回旧位置 → 下一帧放开补间。
+  // 全程只动 transform（§8.1）；减弱动效那条闸关掉 transition 后退化成"直接落位"。
+  function flip(before) {
+    if (!before) return;
+    const moved = [];
+    for (const [n, was] of before) {
+      if (!n.isConnected) continue;
+      const now = n.getBoundingClientRect();
+      const dx = was.x - now.x, dy = was.y - now.y;
+      if (!dx && !dy) continue;
+      n.style.transition = 'none';
+      n.style.transform = `translate(${dx}px,${dy}px)`;
+      moved.push(n);
+    }
+    if (!moved.length) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      for (const n of moved) {
+        n.style.transition = 'transform .19s cubic-bezier(.2,.8,.2,1)';
+        n.style.transform = '';
+      }
+      // 补间跑完把内联样式清掉：留着会让下一次 FLIP 的起点算错（它量的是当前 rect）。
+      setTimeout(() => { for (const n of moved) { n.style.transition = ''; n.style.transform = ''; } }, 240);
+    }));
+  }
+
+  // 「这一组有几条」在屏上有两处载体：侧栏/顶栏导航那一格 `<a href="#g-<id>"><b class="cnt">`，
+  // 大卡带那一行 `h2.feat-g .feat-n`。
+  //
+  // **按整段 href 比，不按前缀比**（2026-10-16 审计时看到的）：`^=` 会把 `#g-news` 与
+  // `#g-news2` 一起算进来——两组 id 互为前缀时（导入按文件夹名生成 id，这种一对很常见），
+  // 搬一条进 `news`，屏上 `news2` 的计数也跟着 +1，而盘上没动它。
+  // 带 ?q= 时 href 后面跟着查询串，所以判据是「等于 `#g-<id>` 或以 `#g-<id>?` 开头」。
+  function bumpCount(gid, by) {
+    const bump = (n) => { n.textContent = String(Math.max(0, (Number(n.textContent) || 0) + by)); };
+    for (const a of document.querySelectorAll('a[href^="#"]')) {
+      const href = a.getAttribute('href') || '';
+      for (const p of ['#g-' + gid, '#f-' + gid]) {
+        if (href === p || href.startsWith(p + '?')) { const n = a.querySelector('b.cnt'); if (n) bump(n); }
+      }
+    }
+    const fn = document.querySelector('h2.feat-g[data-group="' + gid + '"] .feat-n');
+    if (fn) bump(fn);
+  }
+
+  // index 为 null = 追加到末尾（与服务端 `index` 缺席同义）。
+  //
+  // **要挪的是被拖的那一条，不是落点那一行**（2026-10-16 实拍踩过）：落点那行只负责
+  // 算出 index。传错的后果很安静——把落点那行摘下来再按同一下标插回去等于什么都没发生，
+  // 而服务端挪的是被拖的那条，于是**屏上与盘上分家**。查 li 还**必须限定在源组那一个
+  // `<ul>` 里**：大卡带（`ul.feat-row`）把同一组整个印在页面最前面，不限定就可能
+  // 挪走卡带那一份。
+  // `before` 由落点处理器**在 await 之前**取出来传进来：dragend 在 drop 之后立刻触发，
+  // 而 applyOps 还要一个来回——等真正要用时它已经被清成 null（位置对了、动画没有）。
+  function moveInPlace(dstGid, index, before) {
+    const srcList = dragSrc && listOf(dragSrc.gid);
+    const li = srcList && srcList.querySelector('li[data-item="' + dragSrc.id + '"]');
+    const ul = listOf(dstGid);
+    if (!li || !ul) { reloadKeepingPlace(); return; }
+    li.remove(); // 同组时它自己还在列表里：先摘掉，下标才对得上
+    // 插到哪里由 `itemsOf` 说了算，与落点那一份**同一判据**：那处算 index 用的是
+    // `li[data-item]`，这里插进去用的是 `ul.children`——两者一旦不是同一批元素，
+    // 就是一个下标差一位的错，而屏上看不出来。
+    const sibs = itemsOf(ul);
+    ul.insertBefore(li, index == null ? null : sibs[index] || null);
+    if (dragSrc.gid !== dstGid) {
+      bumpCount(dragSrc.gid, -1);
+      bumpCount(dstGid, 1);
+      syncEmpty(srcList);
+    }
+    syncEmpty(ul);
+    flip(before);
+  }
+
 
   for (const badge of document.querySelectorAll('.plain .badge.warn.ext')) {
     const plain = badge.parentElement;
-    const code = plain?.querySelector('code');
-    const url = (code?.textContent || '').trim();
+    // 地址也从 `itemURL` 那一处读（判据只有一处）：这一行本来就有一份完整的地址在
+    // `<code>` 里，而各处自己读 `<code>` 的形状就是"有一种卡片形态没有 code"。
+    const url = itemURL(badge.closest('li') || badge);
     const name = plain?.querySelector('b')?.textContent?.trim() || T('app.edit.fallbackName');
     if (!url) continue;
     const tip = badge.getAttribute('title') || '';
@@ -1836,7 +2307,21 @@ const APP_I18N = {
     badge.replaceWith(btn);
   }
 
-  for (const li of document.querySelectorAll('li[data-item]')) {
+  // 每一行的把手、复制键与 `draggable` 属性挂在这里（**拖动的监听不在这里**，
+  // 2026-10-16 起全部委托到 `<main>` 上，见下面那个委托块）。
+  //
+  // **它必须是一个函数而不是一个循环**：拖进来的那一条是从服务端片段接上来的新
+  // 节点（见接卡片那段），新节点上的把手/复制键一个都没有——不抽成函数就没有
+  // "只给这一行补挂一遍"这个出口，于是要么整段重挂（已挂过的会挂两遍，一次拖动
+  // 触发两次排序）要么新行没有把手。
+  function bindItem(li) {
+    // 幂等：它会 append 一颗把手，绑两遍就是两颗把手。判据写在节点上而不是靠调用点自觉。
+    if (li.dataset.lbItemBound) return;
+    li.dataset.lbItemBound = '1';
+    // **这一行该有的全部监听都从这里出去**（2026-10-16）：长按多选那一族从前是页面
+    // 加载时另扫一轮挂上去的，于是**拖进来的那一行没有它**——长按没反应、在多选里
+    // 点它也不切换。新节点是接卡片那段 `spliceCardIn` 接进来的，它只调这一个函数。
+    bindMulti(li);
     // 把手与拖拽挂在**这一行的主体**上：可点的地址是 .card，点不动的那几行是 .plain。
     // 2026-10-12 之前这里只认 .card，注释写的是"非 http 的不给把手（不给做不到的承诺）"——
     // 那句把两件事混成了一件：**打不开**是浏览器的限制，**改不了**不是。
@@ -1844,7 +2329,7 @@ const APP_I18N = {
     // 或 file:// 的书签在界面上永远改不了名、换不了说明，而浏览器收藏夹导入
     // 恰好会把这类地址成批收进来（AGENTS.md：file: 照收）。
     const card = li.querySelector('.card, .feat-card, .plain');
-    if (!card) continue; // 三种形态都不是（坏档那一屏根本没有 li）才真的没有把手
+    if (!card) return; // 三种形态都不是（坏档那一屏根本没有 li）才真的没有把手
     const pencil = el('button', {
       type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
@@ -1858,89 +2343,107 @@ const APP_I18N = {
     keys.append(pencil);
     // draggable 要**在拖之前就位**：从前它在 dragstart 的回调里才设上，而浏览器
     // 是在 pointer 按下那一刻读这个属性的——第一次拖根本不会开始，得人拖过一回
-    // （属性已经留下了）第二次才动。
+    // （属性已经留下了）第二次才动。拖动的**监听**不在这里（见下面那个委托块）。
     card.setAttribute('draggable', 'true');
-    card.addEventListener('dragstart', (e) => {
-      const dt = e.dataTransfer;
-      // 排序走**自定义 MIME**，`text/plain` 与 `text/uri-list` 留给真地址。
-      // 从前这里把条目 id 塞进 text/plain——于是把一张卡片拖到书签栏，
-      // 落下来的是一个叫「group-2-chrome-apps」的坏书签（与"点不开那一行"
-      // 同一件事的另一半：拖走的东西该是那条书签的地址，不是我们的内部主键）。
-      dt.setData('application/x-lb-item', li.dataset.item);
-      const href = card.getAttribute('href') || '';
-      if (href) {
-        dt.setData('text/uri-list', href);
-        dt.setData('text/plain', href);
-      }
-      dt.effectAllowed = 'copyMove';
-      dragSrc = { id: li.dataset.item, gid: groupOf(li)?.dataset.gid || '' };
-    });
-    card.addEventListener('dragend', () => { dragSrc = null; });
-    li.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      // 组标题那一级的处理器挂在**另一棵子树**上，但组容器的 dragover 仍会冒泡到
-      // 祖先 —— 不挡一下，同一次悬停会有两个落点同时亮着。
-      e.stopPropagation();
-      const after = dropAfter(li, e);
-      e.dataTransfer.dropEffect = 'move';
-      li.classList.toggle('drop', !after);
-      li.classList.toggle('drop-after', after);
-    });
-    li.addEventListener('dragleave', (e) => {
-      e.stopPropagation();
-      li.classList.remove('drop', 'drop-after');
-    });
-    li.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const after = dropAfter(li, e);
-      clearDropMarks();
-      const src = srcOf(e);
-      const group = groupOf(li);
-      if (!src || !group) return;
-      if (src.id === li.dataset.item) return;
-      const dst = group.dataset.gid;
-      const sibs = itemsOf(group);
-      // **插到它前面还是后面，看指针在这一行的上半还是下半**（2026-10-15 改判）。
-      // 从前只有一种落点，index 就是被指着那条的下标——队尾因此永远够不着。
-      let index = sibs.indexOf(li) + (after ? 1 : 0);
+  }
+  for (const li of document.querySelectorAll('li[data-item]')) bindItem(li);
+
+  // ── 拖放：四种落点，一个委托块（2026-10-16）────────────────────────────
+  // 从前是「每一行挂五个（dragstart/dragend/dragover/dragleave/drop）+ 每个组
+  // 标题挂三个」，而它们做的事全都只取决于**事件落在谁身上**。四百条的书签页
+  // 上那是两千多个闭包与一组两两无关的 stopPropagation（"不让祖先那个组级落点
+  // 同时亮着"就是其中一条存在的原因）。委托之后每种事件各一个处理器，而"落在谁
+  // 身上"由 closest() 说——与排序真正操作的盒子（li[data-item]）是同一份判据。
+  //
+  // **挂在 main 上而不是每行**还有第二个好处：接进来的新节点（见 spliceCardIn）
+  // 根本不需要为拖放补挂任何东西，bindItem 只剩把手、复制键与 draggable 三件事。
+  // 挂在 main 上而不是每行：profile.tmpl 只有一个 `<main role="main">`（第 120 行，
+  // 另一处在 816 是坏档那一屏，它压根没有 li），书签列表整个在它里面。退到 body
+  // 是为了这一段在别的形状里也不至于因为选不到就静悄悄不绑。
+  const dragRoot = document.querySelector('main') || body;
+  dragRoot.addEventListener('dragstart', (e) => {
+    const card = e.target.closest && e.target.closest('.card, .feat-card, .plain');
+    const li = card && card.closest('li[data-item]');
+    if (!li) return;
+    const dt = e.dataTransfer;
+    // 排序走**自定义 MIME**，`text/plain` 与 `text/uri-list` 留给真地址。
+    // 从前这里把条目 id 塞进 text/plain——于是把一张卡片拖到书签栏，
+    // 落下来的是一个叫「group-2-chrome-apps」的坏书签（与"点不开那一行"
+    // 同一件事的另一半：拖走的东西该是那条书签的地址，不是我们的内部主键）。
+    dt.setData('application/x-lb-item', li.dataset.item);
+    const href = card.getAttribute('href') || '';
+    if (href) {
+      dt.setData('text/uri-list', href);
+      dt.setData('text/plain', href);
+    }
+    dt.effectAllowed = 'copyMove';
+    dragSrc = { id: li.dataset.item, gid: groupOf(li)?.dataset.gid || '' };
+  });
+  // 拖到**某一行**上：上半=插到它前面，下半=插到它后面（队尾因此够得着）。
+  // 拖到**组标题**上 = 追加到那一组末尾（不给 index，服务端 move 缺席即末尾）。
+  // 拖到两样都不是的地方（侧栏、行与行之间的空隙）= **清掉标记，不给落点**。
+  const dropTargetOf = (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return null;
+    const li = t.closest('li[data-item]');
+    if (li) return { node: li, after: dropAfter(li, e) };
+    const head = t.closest('h2[data-group]');
+    return head ? { node: head, after: false } : null;
+  };
+  dragRoot.addEventListener('dragover', (e) => {
+    if (!isInternalDrag(e)) return;      // 外来的一律不接管（见 isInternalDrag 那段）
+    // 整片 main 都阻止默认：否则松手时浏览器会拿拖着的文字/地址去导航，而这一屏
+    // 的落点只有下面那两种。
+    e.preventDefault();
+    e.stopPropagation();
+    ensureDragBefore();
+    const t = dropTargetOf(e);
+    markDrop(t && t.node, t && t.after);
+    e.dataTransfer.dropEffect = t ? 'move' : 'none';
+  });
+  dragRoot.addEventListener('drop', async (e) => {
+    if (!isInternalDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const before = dragBefore;
+    clearDropMarks();
+    const src = srcOf(e);
+    const t = dropTargetOf(e);
+    if (!src || !t) return;
+    const head = t.node.tagName === 'H2';
+    // **自己拖到自己身上**：这一行不动，也不发请求。
+    if (!head && src.id === t.node.dataset.item) return;
+    const dst = head ? t.node.dataset.group : groupOf(t.node).dataset.gid;
+    if (!head) {
+      const sibs = itemsOf(groupOf(t.node));
+      let index = sibs.indexOf(t.node) + (t.after ? 1 : 0);
       // 同组往下挪时，被拖的那一条**还算在列表里**：直接落到目标下标会插到
       // 它后面去（想放第 3 位，结果停在第 4 位）。取走它之后的位置才是答案。
       const from = sibs.findIndex((x) => x.dataset.item === src.id);
       if (src.gid === dst && from >= 0 && from < index) index -= 1;
       // **path 指源组、to 指目标组**。从前两个都填了目标组——同组时两者相等，
       // 于是那条 bug 在同组下完全隐形，一跨组就变成"那个组里没有这条"，整批不写。
-      const ok = await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst, index }], 'app.ops.move');
-      if (ok) reloadKeepingPlace();
-    });
-  }
-
-  // 组级落点：**拖到组标题上 = 追加到那一组末尾**（2026-10-15）。
-  //
-  // 为什么要有这一级：从前唯一的落点是某一条，于是「挪到队尾」根本没有出口
-  // （插到任何一条前面都行，插到任何一条后面都不行），而**空的组一次都落不进去**
-  // ——它里面一个 li 都没有。组标题是每一组都有的那一件（正文 section 与大卡带
-  // 都是 h2[data-group]），所以它当队尾落点。
-  for (const head of document.querySelectorAll('h2[data-group]')) {
-    head.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      head.classList.add('drop-tail');
-    });
-    head.addEventListener('dragleave', () => head.classList.remove('drop-tail'));
-    head.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      clearDropMarks();
-      const src = srcOf(e);
-      const dst = head.dataset.group;
-      if (!src || !dst) return;
+      if (!await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst, index }], 'app.ops.move')) return;
+      moveInPlace(dst, index, before);
+    } else {
       // **不给 index**：服务端 move 在 index 缺席时就是"追加到目标组末尾"
       // （ops.go 里 pos = bound）。自己再算一个下标，等于把"末尾"重算一遍——
       // 而队尾那个 bug 正是这么来的。
-      const ok = await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst }], 'app.ops.move');
-      if (ok) reloadKeepingPlace();
-    });
-  }
+      if (!await applyOps([{ op: 'move', path: `groups/${src.gid}/items/${src.id}`, to: dst }], 'app.ops.move')) return;
+      moveInPlace(dst, null, before);
+    }
+  });
+  // 拖起来的那一位松开（或拖出窗外）时的收尾：清标记、清这一次拖的状态。
+  // 从前这三条挂在每一行上，而一次拖动只会有一个 dragend。
+  dragRoot.addEventListener('dragend', () => { dragSrc = null; dragBefore = null; clearDropMarks(); });
+
+  // 组级落点（拖到组标题上 = 追加到那一组末尾，2026-10-15 建的）现在并进上面那个
+  // 委托块了：`dropTargetOf` 里 `h2[data-group]` 那一支就是它。
+  //
+  // 为什么当初需要这一级：从前唯一的落点是某一条，于是「挪到队尾」根本没有出口
+  // （插到任何一条前面都行，插到任何一条后面都不行），而**空的组一次都落不进去**
+  // ——它里面一个 li 都没有。组标题是每一组都有的那一件（正文 section 与大卡带
+  // 都是 h2[data-group]），所以它当队尾落点。
 
   // 编辑一条书签：三个字段 + 存 / 取消 / 删掉这条。
   //
@@ -1973,11 +2476,11 @@ const APP_I18N = {
   function editItem(li) {
     if (openEdit && openEdit.li === li) return;
     if (openEdit) closeEdit();
-    const a = li.querySelector('.card, .feat-card');
     const name = li.querySelector('b')?.textContent || '';
-    // 地址从**这一行本来显示它的那个元素**上读：链接形态读 href，点不动的那一行
-    // 读 <code> 的文本（模板与复制键读的是同一处，不另抄一份 URL）。
-    const url = a ? (a.getAttribute('href') || '') : (li.querySelector('code')?.textContent || '').trim();
+    // 地址从**这一行本来显示它的那个元素**上读，三种形态各有一个载体，判据只有
+    // `itemURL` 一处（大卡带里点不动的外部地址那一行屏上不印地址，模板写在 data-addr 上——
+    // 从前这里按 href 读，读成空串就会照发一条 `set …/url=""`，整批 422）。
+    const url = itemURL(li);
     // 正文那一行用 <i>，大卡那一行没有 <i>（说明与主机名合成一行 .host）——
     // 读不到就填空，存下去等于把说明抹掉，所以回退到 data-desc（⌘K 读同一份）。
     const desc = li.querySelector('i')?.textContent || li.dataset.desc || '';
@@ -2014,7 +2517,7 @@ const APP_I18N = {
     // 把那句话换成一颗能挑的，"说清在哪一组"这个职责一个字没少，多的正是那个
     // 本来没有出口的"能配"。
     const gs = el('select', { id: 'lb-edit-group', class: 'fld' });
-    for (const g of document.querySelectorAll('[data-gid]')) {
+    for (const g of groupsOnPage()) {
       const o = el('option', { value: g.dataset.gid, text: groupName(g) });
       if (g.dataset.gid === gid) o.selected = true;
       gs.append(o);
@@ -2200,7 +2703,14 @@ const APP_I18N = {
   // 与选中一起吃掉。
   const HOLD_MS = 450;
   let holdTimer = null;
-  for (const li of document.querySelectorAll('li[data-item]')) {
+  // **绑在 bindItem 里，不在这里另起一轮**（2026-10-16 横扫时撞出来的）：这一族从前的
+  // 写法是「页面加载时扫一遍 li，逐个挂上」，而**拖进来的那一行是后来接进 DOM 的**
+  // （`spliceCardIn` 只补挂了把手/复制/拖动）。于是拖进来的书签**长按不进多选**，
+  // 而在多选里点它也不切换——症状是"这一条和别的行为不一样"，且没有任何报错。
+  // 一行该有哪些监听，从此只有 bindItem 一个出口。
+  function bindMulti(li) {
+    if (li.dataset.lbMultiBound) return;
+    li.dataset.lbMultiBound = '1';
     const id = li.dataset.item;
     li.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
@@ -2215,6 +2725,9 @@ const APP_I18N = {
       // 不在多选里就让它照常打开链接——这里什么都不做正是要的形状。
     });
   }
+  // 页面加载时每一行都走 `bindItem`（它在前面跑，而 `bindMulti` 是函数声明、会提升），
+  // **这里不再另扫一轮**：两轮绑定就是"同一个判断有两处出口"的那种形状，下一次加
+  // 监听的人只会改其中一处。
 
   const pickedItems = () =>
     [...document.querySelectorAll('li[data-item]')].filter((li) => multi.picked.has(li.dataset.item));
@@ -2224,7 +2737,7 @@ const APP_I18N = {
     if (!picked.length) return;
     // **每一组都要在**：[data-gid] 而不是 section[data-gid]——大卡带的组容器是
     // ul.feat-row，写成 section 时「移动到」那一份名单里**根本没有大卡组**。
-    const groups = [...document.querySelectorAll('[data-gid]')];
+    const groups = groupsOnPage();
     const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.move.aria') }, [
       el('h2', { text: T('app.move.title', picked.length) }),
       el('div', { class: 'sheet-actions' }, groups.map((g) => el('button', {
@@ -2233,10 +2746,15 @@ const APP_I18N = {
           click: async () => {
             dlg.remove(); // 从前是 dlg.hidden = true：节点留在 DOM 里，第二次进多选会攒出第二个同名 dialog
             const to = g.dataset.gid;
+            // **不给 index**（2026-10-16 查排序时发现）：ops 在锁内按顺序应用，
+            // 缺席即追加到末尾（ops.go 里 pos = bound）。从前每一条都写 `index: 0`
+            // ——于是第 2 条把第 1 条顶到后面、第 3 条再顶前两条，选三条搬过去
+            // 落成的顺序是**选中顺序整个反过来**。多选搬组本来就是一次搬一批，
+            // 批内的先后是屏上那一列从上到下的顺序，不该被倒过来。
             const ops = picked.map((li) => ({
               op: 'move',
               path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}`,
-              to, index: 0,
+              to,
             }));
             if (await applyOps(ops, 'app.ops.bulkMove')) reloadKeepingPlace();
           },
@@ -2396,20 +2914,51 @@ const APP_I18N = {
   // 顶栏的提醒**只有一个位置**：从前这里判 `$('#lb-update')` 去重，而本函数创建
   // 的节点压根没有那个 id —— 守卫永远不成立，提醒一条条往上堆，退出多选之后
   // 还挂着（实测两条同时在场，且没有任何关闭出口）。
-  function showBanner(text) {
+  //
+  // **kind 决定它退不退**（2026-10-16）：`'ok'` 是**成了**，会自己消失；`'bad'` 是
+  // **没成**，留在屏上等人按——§8.7「写失败一律显式报错」，一条自己走掉的失败提示
+  // 等于把"刚才没存进去"变成"什么都没发生"；不给是中性提示（离线、多选、有新
+  // 版本），既不是成了也不是没成，就别自己动。判据不在重不重要，在**它是不是
+  // 一次结果**。
+  const bannerLife = 4600; // 够读完一句中文的两倍长；数字在 CSS 那条细线上也要用
+  let bannerTimer = 0;
+  function showBanner(text, kind) {
     const old = $('#lb-banner');
     if (old) old.remove();
-    const p = el('p', { class: 'notice', id: 'lb-banner', role: 'status' }, [
+    clearTimeout(bannerTimer); // 上一条还没走完的倒计时不能替这一条续命
+    const cls = 'notice' + (kind === 'bad' ? ' bad' : kind === 'ok' ? ' ok' : '');
+    const p = el('p', { class: cls, id: 'lb-banner', role: 'status' }, [
       el('span', { text }),
       el('button', { type: 'button', class: 'dismiss', text: T('app.sw.dismiss'), 'aria-label': T('app.sw.aria'),
         on: { click: () => p.remove() } }),
     ]);
+    if (kind === 'ok') armBanner(p);
     // 横幅落在**顶栏之后**，不落进顶栏里（2026-10-15 取景后改判）。
     // 原先是 `header.prepend`：header 是 flex 行，于是"已保存。""离线了"
     // "已经在多选里"每一条都成了标题的**兄弟**，把「我的书签」与搜索框整排
     // 往右推（实拍：多选提示 600px 宽，标题被顶到 x=645）。一条会自己出现又
     // 自己消失的临时消息，不该每出现一次就重排一次主结构。
     header.after(p);
+  }
+
+  // 自己会走的那一条：倒计时 + **指针移上去或焦点落进去就暂停**——一条正在读的
+  // 字在读完之前消失是这一族最容易犯的错，而键盘用户没法"移到上面"，所以两路都挂。
+  function armBanner(p) {
+    let left = bannerLife;
+    let t = 0;
+    const tick = () => {
+      left -= 50;
+      p.style.setProperty('--wait', String(Math.max(0, left / bannerLife)));
+      if (left <= 0) { p.remove(); return; }
+      t = setTimeout(tick, 50);
+    };
+    const pause = () => clearTimeout(t);
+    const resume = () => { if (p.isConnected) { clearTimeout(t); tick(); } };
+    p.addEventListener('pointerenter', pause);
+    p.addEventListener('focusin', pause);
+    p.addEventListener('pointerleave', resume);
+    p.addEventListener('focusout', resume);
+    tick();
   }
 
   // 注册本身**允许失败**：Service Worker 不可用（http 局域网直连、浏览器关了

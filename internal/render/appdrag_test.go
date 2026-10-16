@@ -49,8 +49,15 @@ func TestAppJS_拖出去的是地址不是内部id(t *testing.T) {
 		}
 	}
 
-	// 守卫解析器没吞形状：MIME 恰好两处（写 + 读），少一处就是排序通道断了。
-	if n := strings.Count(src, mime); n != 2 {
-		t.Errorf("%s 出现 %d 次，要的是 2 次（dragstart 写 + drop 读）；只改一侧的话页内排序当场失效", mime, n)
+	// 守卫解析器没吞形状：MIME 恰好**三处**（写 + drop 读 + dragover 的"是不是自家
+	// 那一种"），少一处就是排序通道断了或落点会对外来拖动也亮。
+	//
+	// 第三处是 2026-10-16 委托化时加的：dragover 阶段 `getData` 读不到（保护模式里
+	// 只有 `types`），所以"这次拖动带没带自家 MIME"只能在 types 上判——而从前那一族
+	// dragover 不判，于是把页面上的一段选中文本拖到某张卡上也会亮出落点标记、
+	// 松手却什么都没发生（§8.1「点了没反应的东西不进界面」）。
+	if n := strings.Count(src, mime); n != 3 {
+		t.Errorf("%s 出现 %d 次，要的是 3 处（dragstart 写 + drop 读 + dragover 判自家）；"+
+			"少一处的话页内排序要么当场失效，要么会对外来拖动也亮落点", mime, n)
 	}
 }

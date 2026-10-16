@@ -163,7 +163,15 @@
   {{range .Items}}
     <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
-        <span class="feat-card plain">
+        {{/* **这一行是全案唯一一处「屏上不印地址」的形态**：可点的那支在 href 上、
+             正文里点不动的外部地址在 <code> 里，唯独大卡带里点不动的这一行两样都
+             没有——于是脚本按 href 读地址的那几处全都读成空串：编辑模态会照发一条
+             `set …/url=""`（整批 422，屏上只说「这一条没存上」），⌘K 按地址也搜不到它。
+             地址是**数据**不是标记，所以挂在 data-addr 上由脚本读一处（app.js 的
+             `itemURL`）。
+             **不能叫 data-url**：Go 的 html/template 按属性名判断 URL 上下文，
+             `data-icon` 就因此被写成 #ZgotmplZ（那一条的前车之鉴在下面的 data-icon-name）。 */}}
+        <span class="feat-card plain" data-addr="{{.URL}}">
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
           <span class="host">{{hostOf .URL}}</span>
@@ -244,8 +252,15 @@
        与 settings 那句删组确认用的是同一个数。为什么要留这一句：这一组在
        「＋ 添加」的分组下拉与拖拽落点里都还在（那两处都是从页面上这些标题读的），
        所以它仍是一个**能放东西进去的目标**；而一个只有标题、正文空着的节，
-       读起来像渲染坏了 —— "这一组该有东西却没有"这件事屏上一处都说不出来。 */}}
-  {{if not .Items}}<p class="hint">{{$.T "profile.group.empty"}}</p>{{end}}
+       读起来像渲染坏了 —— "这一组该有东西却没有"这件事屏上一处都说不出来。
+
+       **这一句永远画在 DOM 里，有内容时 hidden**（2026-10-16 排序复查加的）：排序与
+       拖入现在**就地完成**（不重载），于是「把第一条搬进空组」与「把最后一组搬空」
+       都要由脚本自己收掉/放回这句话。文字只有这一处来源——脚本里另抄一份就是两处
+       会漂，而它连语言包的 app.* 切片都进不去（app.js 只能读那一片，
+       appi18n_test.go 守的就是这条边界）。`hidden` 不与 `.hint` 打架：那条只给
+       margin/字号/颜色，不给 display，UA 那句 `display:none` 照样生效。 */}}
+  <p class="hint grp-empty"{{if .Items}} hidden{{end}}>{{$.T "profile.group.empty"}}</p>
 </section>
 {{end}}
 </main>

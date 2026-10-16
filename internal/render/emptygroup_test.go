@@ -55,11 +55,21 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 		}
 	}
 	// 而它得说清自己是空的：一个只有标题、正文空着的节读起来像渲染坏了。
-	// **只数正文那一处**：大卡带子里的空组由标题上那枚条目数徽标说（它印「0」），
+	// **只数正文那两处**：大卡带子里的空组由标题上那枚条目数徽标说（它印「0」），
 	// 那是那一块本来就有的载体，而往带子里塞一句 hint 会掉进它的横向排布里
 	// （它不是一列一列的正文，是一个 section 里连着若干段 h2+ul）。
-	if n := strings.Count(html, "这一组还没有书签"); n != 1 {
-		t.Errorf("正文那个空组该有一句「这一组还没有书签」，实际 %d 句", n)
+	//
+	// **每一组都带那一句，有内容的那一份是 hidden**（2026-10-16 排序复查加的）：
+	// 就地移动不走重载，脚本要能自己把这一句收掉/放回，而它的文字只有模板一处
+	// 来源——所以这里钉的是**哪一份看得见**，不是"有没有这一句"。
+	if n := strings.Count(html, `<p class="hint grp-empty"`); n != 2 {
+		t.Errorf("正文两个组该各带一句「这一组还没有书签」（有内容的那份 hidden），实际 %d 句", n)
+	}
+	if !strings.Contains(sectionOf(t, html, "gone"), `<p class="hint grp-empty">`) {
+		t.Errorf("那个空组的那一句被藏起来了：它正是靠这句说清自己是空的\n%.600s", sectionOf(t, html, "gone"))
+	}
+	if !strings.Contains(sectionOf(t, html, "nas"), `grp-empty" hidden`) {
+		t.Errorf("有内容的那一组没有把那句藏起来：页面上会同时出现「这一组还没有书签」与卡片\n%.600s", sectionOf(t, html, "nas"))
 	}
 	if !strings.Contains(html, `<span class="feat-n">0</span>`) {
 		t.Error("大卡那个空组没有条目数徽标：带子里没有正文 hint，它靠那枚「0」说自己是空的")
@@ -68,6 +78,20 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 	if !strings.Contains(html, `id="g-nas"`) {
 		t.Errorf("有书签的那一组不见了：\n%.600s", html)
 	}
+}
+
+// sectionOf 取出正文里 `data-gid="<gid>"` 那一节的 HTML（大卡带那一节是 ul，不在这里）。
+func sectionOf(t *testing.T, html, gid string) string {
+	t.Helper()
+	i := strings.Index(html, `data-gid="`+gid+`"`)
+	if i < 0 {
+		t.Fatalf("页面里没有 data-gid=%q 那一节", gid)
+	}
+	j := strings.Index(html[i:], "</section>")
+	if j < 0 {
+		t.Fatalf("data-gid=%q 那一节没有闭合", gid)
+	}
+	return html[i : i+j]
 }
 
 // 搜不到的时候不画（filter 那一份）与空组照画是两件事，各说各话。

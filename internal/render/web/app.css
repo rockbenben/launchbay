@@ -402,6 +402,31 @@ body[data-multi] main{padding-bottom:96px}
 /* 顶栏横幅落在顶栏**下面那一行**（app.js 的 header.after）。宽度跟着 header 的
    盒子走：同一档上限、同一档左右留白，否则它比上面那排宽出一截，看着像另一个区块。 */
 #lb-banner{width:min(100% - 32px,1600px);margin:0 auto 14px}
+/* ── 它其实不该占位置（2026-10-16 改判）─────────────────────────────────────
+   上面那条把它放在**文档流**里，于是每一次提示的出现与消失都把正文整体推一下再
+   拉回来——"一条会自己出现又自己消失的临时消息，不该每出现一次就重排一次主结构"
+   这句判据当初只做了一半：它躲开了顶栏那一次 flex 重排，却没躲开正文这一次的
+   整块位移。改成 fixed：它浮在正文之上，出现与消失都不再动别人一个像素。
+   底居中而不是顶居中：顶栏已经有一排常驻控件，而这一屏的高度有限，浮层
+   （添加/设置/⌘K）也都从上方下来，底下是整页唯一空着的那一块。 */
+#lb-banner{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:70;width:max-content;max-width:min(560px,calc(100vw - 32px));
+  margin:0;display:flex;align-items:center;gap:10px;
+  box-shadow:0 10px 28px rgba(0,0,0,.42);animation:lb-toast .18s ease-out}
+@keyframes lb-toast{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* 会自己走的那一条：底边一条会缩的细线，**它就是"几秒后消失"这句话本身**——
+   没有它，一条自动消失的消息就是一次突袭，而这条线让"它在走"变成看得见的。
+   缩放走 transform（§8.1），触发的是合成器而不是重排；`--wait` 由 app.js 每 50ms
+   写一次（它才是那句"还在读"的权威——CSS 动画不告诉 JS 它停了没有）。 */
+#lb-banner.ok::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+  border-radius:0 0 12px 12px;background:var(--accent);opacity:.75;
+  transform:scaleX(var(--wait,1));transform-origin:left center}
+#lb-banner{overflow:hidden}
+/* 横幅的坏态（2026-10-16 给拖放那条用）：默认那张是**提醒**色（warn），而"没存进去"
+   与"离线了先记下"是两件处置相反的事——同一张脸会让"已经存了、只是先记着"看着
+   像"没存成"。色相换成 --bad，关闭键也跟着换，否则一颗红边框里配一颗橙边框的钮。 */
+.notice.bad{border-color:var(--bad);background:rgba(255,122,122,.12)}
+.notice.bad .dismiss{border-color:var(--bad)}
 /* 顶栏提醒的关闭出口。它必须存在：一条说得出结果、却说不出下一步的横幅，
    挂在页面最顶上又关不掉，比没有更烦（实测从前一次会话里同时挂着两条）。 */
 .notice .dismiss{margin-left:10px;font:inherit;font-size:12px;color:var(--ink);
@@ -588,3 +613,44 @@ a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transf
 /* 浮层开着时锁背景滚动（判据在 app.js 的 syncTrap：它知道此刻有没有层浮着）。
    只锁 body，不锁 html——iOS 上锁 html 会让浮层自己的滚动跟着失灵。 */
 body.lb-layer-up{overflow:hidden}
+
+/* ── 动效：一条词汇，三处共用（2026-10-16）──────────────────────────────────
+   §8.1 的纪律：**只碰 transform / opacity / box-shadow**，不碰会触发重排的属性。
+   三个动作共用同一组关键帧与同一档时长（.19–.22s），于是"加进来 / 换位置 /
+   删掉"看起来是同一套动作，而不是三段各自为政的动画。
+
+   **为什么它们长在 `li` 上而不是 `.card`**：行才是排序真正操作的东西（落点、
+   FLIP 的位移都是按 `li[data-item]` 算的），把动效挂在行上，排序与动效讲的
+   就是同一个盒子。`position:relative` 也因此只需要加在 `li[data-item]` 一处。 */
+li[data-item]{position:relative}
+/* ① 新加进来的那一条：落位。scale 压到 .9 再弹回 1.015，弹的是"刚放上去"的手感，
+   不用位移——它是**出现**在某一组里，不是从别处**走**过来的。 */
+@keyframes lb-pop{0%{opacity:0;transform:scale(.9)}70%{opacity:1;transform:scale(1.015)}100%{opacity:1;transform:none}}
+/* 光环只动 opacity：它叠在行上（inset:-3px），一圈淡出就收，不参与布局。 */
+@keyframes lb-ring{0%{opacity:.85}100%{opacity:0}}
+li.is-new{animation:lb-pop .22s cubic-bezier(.2,.85,.25,1)}
+li.is-new::after{content:"";position:absolute;inset:-3px;border-radius:14px;
+  border:2px solid var(--accent);animation:lb-ring .85s ease-out forwards;pointer-events:none}
+/* ② 换了个位置的那些：FLIP（判据与实现在 app.js 的 flip()）。不写关键帧——
+   它走内联 `transition:transform` + 逐帧清样式，而"给同一条同时挂一个 scale 关键帧
+   与一个 translate 内联变换"是互斥的：animation 在跑时内联 transform 不生效，
+   于是那一行会先跳到新位置、动画结束再滑一次。所以这一处**只留一个动作**：
+   位移由 FLIP 出，落位由 ① 的 pop 出（同一条不会同时用两个）。 */
+/* ③ **改完之后的重载不重播整页入场**。`.card{animation:rise}` 在 base.css 那一族里，
+   每次 location.reload 都会重跑一遍——原先每一次"加一条 / 挪一条"的反馈都是
+   **整页十二张卡一起上浮**，真正变的那一条淹没在里面。app.js 在重载前记一个一次性
+   标记，重载后由它把这条掀掉：进这一页是"到达"，改完回来是"变了"，两者的动效不该一样。
+   （这条要写在 app.css 而不是 base.css：base.css 内联进**每一页**，而 data-restore
+   只在档案页出现，判据归档案页。） */
+html[data-restore] .card,html[data-restore] .plain,html[data-restore] .feat-card{animation:none}
+/* 减弱动效：上面三处都要显式关掉。`*{transition:none!important}` 只管过渡，管不到
+   animation；而这几条的权重（li.is-new）高于那条通配，于是**必须点名**——
+   这正是"减弱动效豁免"那条纪律的形状。 */
+@media (prefers-reduced-motion:reduce){
+  li.is-new{animation:none}
+  li.is-new::after{display:none}
+  /* 自己会走的那一条：进场动效与那条缩线都关掉。**倒计时不关**——它是这次改判
+     的正事；关掉的是"看着它在走"这件事，够安静，也仍然留着一颗「知道了」可按。 */
+  #lb-banner{animation:none}
+  #lb-banner.ok::after{display:none}
+}

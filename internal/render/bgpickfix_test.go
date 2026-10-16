@@ -11,6 +11,12 @@ import (
 //
 // 它们都属于"**功能测试全绿、屏上却不对**"那一类，所以钉的是**形状本身**：
 // 少任何一样，症状都不会在别处响起来。
+//
+// 2026-10-16 改判一次：面板打开时**不再是空网格**（实拍"点图标库什么都没出来"），
+// 改成先摆这一份已经在用的图标。**原判据没有被推翻，被推翻的是它当时选的那句话**——
+// 它守的是"状态行答的是此刻缺的那条指令，不是图库的来源科普"，这一条仍然成立：
+// 有起始格时那一行说的是"这些是这一份用过的、其余要搜"，仍然是一条指令。
+// 下面几条断言按新形状改写，守的仍是同一件事。
 
 func Test图标库空态说的是先搜而不是图库的来源(t *testing.T) {
 	raw, err := webFS.ReadFile("web/app.js")
@@ -19,23 +25,36 @@ func Test图标库空态说的是先搜而不是图库的来源(t *testing.T) {
 	}
 	js := string(raw)
 
-	// 空查询那一支必须说"先搜"，不能退回来源说明。
+	// 清空搜索框那一支要**回到起始格**而不是回到一张空网格（2026-10-16）：
+	// 那一下是"我不搜了，看刚才那批"，把它变成空白等于逼人重敲一遍刚看过的词。
 	const emptyBranch = "if (!q) {"
 	j := strings.Index(js, emptyBranch)
 	if j < 0 {
 		t.Fatal("app.js 里找不到图标库的空查询那一支")
 	}
 	seg := js[j : j+220]
-	if !strings.Contains(seg, "app.icon.libStart") {
-		t.Errorf("空查询时说的话不是「先搜一个名字」：\n%.220s", seg)
+	if !strings.Contains(seg, "paintIconStarter()") {
+		t.Errorf("空查询时没有回到起始格：\n%.220s", seg)
 	}
 	if strings.Contains(seg, "app.icon.libHint") {
 		t.Errorf("空查询时又拿来源说明顶上了（那句答的不是此刻缺的东西）：\n%.220s", seg)
 	}
 
-	// 面板打开的那一初始始态走同一句话——否则人看到的第一眼仍是那一句科普。
-	if !strings.Contains(js, "text: T('app.icon.libStart') })") {
-		t.Error("面板打开时的初始状态行没有说「先搜一个名字」")
+	// 起始格那一行：说得清**这些图标是哪来的**，也说得清**要找其余的还得搜**——
+	// 只说前半句的话，人会以为图库就这么大。而一个都没有时仍要说「先搜」。
+	if !strings.Contains(js, "tiles.length ? T('app.icon.libStarter') : T('app.icon.libStart')") {
+		t.Errorf("起始格与空网格那两句没有接在一起（一个都没有时仍要说「先搜一个名字」）")
+	}
+
+	// 起始格只能取这一份**显式写过名字**的图标：`auto` 是"去抓 favicon"，
+	// 不是一枚可挑的图标，混进来会让"这一份在用的"这句话变成假话。
+	if !strings.Contains(js, "name === 'auto'") {
+		t.Error("起始格没有把 auto 排除掉：它是去抓 favicon，不是可挑的图标名")
+	}
+	// 它必须**克隆卡片上已经画好的那一枚**（`li[data-icon-name]`）而不是自己画——
+	// "图库不进 app.js"（AGENTS.md）这条纪律，靠这两行守着。
+	if !strings.Contains(js, "li[data-icon-name]") || !strings.Contains(js, "face.cloneNode(true)") {
+		t.Error("起始格没有从卡片上克隆现成的那一枚：自己画就等于把图标库塞进脚本")
 	}
 
 	// 来源说明降级为网格下面那行常驻小字，且**必须与状态行是两个元素**。
@@ -43,10 +62,10 @@ func Test图标库空态说的是先搜而不是图库的来源(t *testing.T) {
 		t.Error("来源说明没有单独一行（它得从状态行的位子上退下来）")
 	}
 
-	// 两种语言都要有那两句——只加中文时英文界面上会退回 key 本身。
+	// 三种语言都要有那几句——只加中文时英文界面上会退回 key 本身。
 	for _, lang := range []i18n.Lang{i18n.Zh, i18n.En} {
 		cat := i18n.Load(lang)
-		for _, k := range []string{"app.icon.libStart", "app.icon.libHint"} {
+		for _, k := range []string{"app.icon.libStart", "app.icon.libHint", "app.icon.libStarter"} {
 			if got := cat.T(k); got == "" || strings.HasPrefix(got, "⟨") {
 				t.Errorf("%s 的语言包里 %q 没落上（T 给的是 %q）", lang, k, got)
 			}

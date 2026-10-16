@@ -366,3 +366,47 @@ func ids(items []model.Item) string {
 	}
 	return strings.Join(out, ",")
 }
+
+// **一批 move 的先后就是语义**：ops 在锁内按数组次序逐条应用（Run 的"跳过失败的那条
+// 继续跑"前提就建立在这上面）。于是"多选搬一组"那条 UI 只能有两种写法：
+//
+//	· 缺席 index（追加末尾）→ 落成的顺序 = 屏上那一列从上到下的顺序；
+//	· 每一条都 index:0    → 第 2 条把第 1 条顶到后面、第 3 条再顶前两条，
+//	  **一批整个倒过来**。
+//
+// 这条钉的是第二句：它是客户端"多选搬组刻意不给 index"那个判据的根据，而那条判据在
+// app.js 里，改回去时这条会红（而不是等到有人把选中的三条搬成一列倒序才发现）。
+func TestBatchMoveKeepsOrderOnlyWhenIndexIsAbsent(t *testing.T) {
+	moves := func(idx *int) []Op {
+		out := []Op{}
+		for _, id := range []string{"dsm", "qbit", "jelly"} {
+			out = append(out, Op{Op: "move", Path: "groups/nas/items/" + id, To: "read", Index: idx})
+		}
+		return out
+	}
+	withTarget := func() *model.Bookmarks {
+		b := seedThree() // nas: dsm, qbit, jelly
+		b.Groups = append(b.Groups, model.Group{
+			ID: "read", Title: "读", Layout: model.LayoutTiles,
+			Items: []model.Item{{ID: "book", Name: "书", URL: "http://10.0.0.8", Alias: []string{}, Tags: []string{}}},
+		})
+		return b
+	}
+	b, errs, _ := Run(withTarget(), moves(nil), nil)
+	if len(errs) != 0 {
+		t.Fatalf("一批不带 index 的 move 失败: %+v", errs)
+	}
+	if got := ids(b.Groups[1].Items); got != "book,dsm,qbit,jelly" {
+		t.Errorf("目标组 = %q，要 %q：批内先后该原样落下去", got, "book,dsm,qbit,jelly")
+	}
+	// 同一批、每一条都插到最前：落成的顺序是**反过来**那一列（目标组原有的那条仍在
+	// 最末）。这不是服务端写坏了，是"每条都给 index"这个写法本身的形状——所以它必须
+	// 被钉住，好让前端改回去时红。
+	b, errs, _ = Run(withTarget(), moves(ptr(0)), nil)
+	if len(errs) != 0 {
+		t.Fatalf("一批 index:0 的 move 失败: %+v", errs)
+	}
+	if got := ids(b.Groups[1].Items); got != "jelly,qbit,dsm,book" {
+		t.Errorf("目标组 = %q，要 %q（这一列就是被倒过来的形状）", got, "jelly,qbit,dsm,book")
+	}
+}

@@ -79,12 +79,12 @@
         }
       }
     },
-    "/app.23ebada8787d.js": {
+    "/app.fbce77ac2d78.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
         "security": [],
-        "description": "P1-⑤ 的第一个真字节：顶栏「＋ 添加」与它的浮层（贴 URL → `resolve` 填标题/描述/建议分组/候选图标 → 回车经 `batch` 入库）。零依赖、零框架的 ES module。\n\n**路径里那 12 位是内容指纹**（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变。配 `Cache-Control: public, max-age=31536000, immutable`，所以它在指纹不变时可以被永久缓存——给它再加 ETag/304 只是在局域网里多换一次往返。\n\n**公开且不含任何档案数据**：书签、名字、条目一个都没有。必须公开是因为 CSP 的 `script-src 'self'` 要求脚本来自自己的源；页面要它只是为了过那条 CSP（内联脚本那条路是被 CSP 关着的）。脚本**只由档案首屏引**（`profile.tmpl`），选择页/引导页/坏档页/管理页继续零脚本。\n\n改了这个文件之后，路径与指纹要一起更新——它们由 `internal/render/assets.go` 在进程启动时从 embed 的字节算出，不需要任何构建步骤。",
+        "description": "P1-⑤ 的第一个真字节：顶栏「＋ 添加」与它的浮层（贴 URL → `resolve` 填标题/描述/建议分组/候选图标 → 回车经 `batch` 入库）。零依赖、零框架的 ES module。\n\n**把书签栏或地址栏上的一个链接拖到档案页上，会直接存进落点那一组**（2026-10-16）：拖到哪张卡/哪个组标题上就是哪一组，拖到空白处退到第一组；标题仍由 `resolve` 读，**读不到就用网站的名字（主机名）**而不是整条地址——卡片在没有说明时不印第二行，标题一空那一格就只剩一长串地址。**不问、不弹浮层**（与书签栏按钮故意不是同一条路：那条仍要人按一次保存）。两种键：从书签栏/地址栏拖到页面上时 Chrome 与 Safari 给 `text/uri-list`，**Firefox 不给**、只给它的私有 `text/x-moz-url`（外加 `text/plain`/`text/html`，Mozilla 把它记成缺陷 bugzilla 1912164，P3、未修），所以两种依次试。两条监听必须挂在**捕获阶段**：卡片为了站内排序调了 `stopPropagation()`，挂在 document 上的冒泡监听收不到拖到卡片上的那一次。**页内排序的拖放是一个委托块**（2026-10-16）：四种事件各一个处理器挂在 `<main>` 上（从前每行五个 + 每组标题三个），落点由 `closest()` 解析，`dragleave` 那一族删掉了。判据里最容易写错的：**dragover 只认自家那一种拖动**（`getData` 在 dragover 里读不到，只有 `types` 可读）——从前不判，于是把页面上的一段选中文本拖到某张卡上也会亮出落点标记、光标变成可放，而松手什么也不发生；**FLIP 快照懒取**（第一次经过落点才量）；**整片 main 都 preventDefault**（否则松手时浏览器拿拖着的文字去导航）。站内拖动按自家 MIME 挡掉（卡片拖动也带 `text/uri-list`，重排带 `application/x-lb-item`）；只收 `http(s)` 且整段就是一个地址。触屏上 HTML5 那一族事件不派发。**动效一条词汇、三处共用**（2026-10-16）：新加进来的那一条落位（`lb-pop` + 光环）；排序/移动与拖入都**就地完成**、不整页重载——排序用 FLIP 滑到新位，拖入则带 `Accept: text/html` 取一次页面、只把服务端刚画好的那一个 `li` 接上并从**松手的位置**滑进落点那一组（新节点要补挂监听，所以那圈绑定是 `bindItem` 函数而不是循环；找那一行限定在目标组那一节里、且先 id 再地址，大卡带会把同一组再印一份；那一发不带 `Accept: text/html` 会命中 SW 资产缓存的旧 HTML 而静悄悄退回重载）；改完之后的重载不重播整页入场（`html[data-restore]` 掀掉 base.css 的 `rise`）。只碰 `transform`/`opacity`，`prefers-reduced-motion` 下显式关掉。**提示有三种待遇**（2026-10-16）：成了（`ok`）自己走（4.6 秒，带一条会缩的细线，悬停或聚焦暂停），没成（`bad`）留住等人按（§8.7：失败提示不许自己消失），中性提示不动；且它浮在正文之上（`position:fixed`），出现与消失不再推正文。\n\n**路径里那 12 位是内容指纹**（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变。配 `Cache-Control: public, max-age=31536000, immutable`，所以它在指纹不变时可以被永久缓存——给它再加 ETag/304 只是在局域网里多换一次往返。\n\n**公开且不含任何档案数据**：书签、名字、条目一个都没有。必须公开是因为 CSP 的 `script-src 'self'` 要求脚本来自自己的源；页面要它只是为了过那条 CSP（内联脚本那条路是被 CSP 关着的）。脚本**只由档案首屏引**（`profile.tmpl`），选择页/引导页/坏档页/管理页继续零脚本。\n\n改了这个文件之后，路径与指纹要一起更新——它们由 `internal/render/assets.go` 在进程启动时从 embed 的字节算出，不需要任何构建步骤。",
         "responses": {
           "200": {
             "description": "脚本字节（immutable 缓存）"
@@ -92,12 +92,12 @@
         }
       }
     },
-    "/app.c7c562cfb44d.css": {
+    "/app.3162e292f9c3.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
         "security": [],
-        "description": "浮层、⌘K 面板、编辑模态与拖拽把手的样式。\n\n**走外部指纹文件而不内联进 `<style>`**：首屏骨架那部分在 `base.css` 里内联（§7.2），而这一部分只在**档案页**用得到——内联等于让选择页、引导页、管理页、坏档页各白带一份它们一个都用不上的字节，也会把内联 CSS 顶出 §7.3 那条操作线。spec §7.1 早就把 `/*.<hash>.css|js` 定成 immutable 外部资源，这里只是补上没做的那一半。\n\n**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变，由 `internal/render/assets.go` 在启动时从 embed 的字节算出，不需要构建步骤。",
+        "description": "浮层、⌘K 面板、编辑模态与拖拽把手的样式。\n\n**走外部指纹文件而不内联进 `<style>`**：首屏骨架那部分在 `base.css` 里内联（§7.2），而这一部分只在**档案页**用得到——内联等于让选择页、引导页、管理页、坏档页各白带一份它们一个都用不上的字节，也会把内联 CSS 顶出 §7.3 那条操作线。spec §7.1 早就把 `/*.<hash>.css|js` 定成 immutable 外部资源，这里只是补上没做的那一半。\n\n**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变，由 `internal/render/assets.go` 在启动时从 embed 的字节算出，不需要构建步骤。**本文件也是动效那一层的落脚点**（2026-10-16）：新增条目的落位与光环、减弱动效下的显式关闭、`html[data-restore]` 掀掉整页入场——都住在这里而不是 base.css，因为 base.css 内联进**每一页**，而这三件只在档案页发生。**提示药丸也住在这里**：浮在底部居中、成功态底边那条会缩的细线（`scaleX(var(--wait))`）、减弱动效下关掉进场与细线——都归 app.css，因为 base.css 内联进每一页而这三件只在档案页发生。",
         "responses": {
           "200": {
             "description": "样式表字节（immutable 缓存）"

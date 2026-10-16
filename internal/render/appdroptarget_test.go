@@ -108,10 +108,12 @@ func Test拖拽落点的三个坐标(t *testing.T) {
 		}
 	}
 
-	// 队尾：插前/插后由指针位置决定。
+	// 队尾：插前/插后由指针位置决定。（2026-10-16 委托化之后，落点由
+	// `dropTargetOf` 算成 `{node, after}`，于是这一句的落点变量名从 `li`/`after`
+	// 变成 `t.node`/`t.after`——判据没变，只是换了个拿法。）
 	for _, want := range []string{
 		"return e.clientY > r.top + r.height / 2;",
-		"let index = sibs.indexOf(li) + (after ? 1 : 0);",
+		"let index = sibs.indexOf(t.node) + (t.after ? 1 : 0);",
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("app.js 里少了 %q：队尾永远够不着", want)
@@ -151,17 +153,40 @@ func Test大卡那一组的条目也要有把手与拖拽(t *testing.T) {
 	if !strings.Contains(js, "li.querySelector('.card, .feat-card, .plain')") {
 		t.Errorf("把手/拖拽那一句没认大卡形态：\n%s", firstLines(js, "const card = li.querySelector", 3))
 	}
-	// ⌘K 读地址与编辑模态读地址也是这两处。编辑模态那一处是硬伤：读不到就填成
-	// 空串，存下去等于**把这条书签的地址清空**。
-	if n := strings.Count(js, "li.querySelector('.card, .feat-card')"); n != 2 {
-		t.Errorf("读 href 的那两处只认了 %d 处大卡形态，要 2 处（⌘K 与编辑模态）", n)
+	// ⌘K 读地址与编辑模态读地址**从 2026-10-16 起不再是两处各自的查找**，而是同一个
+	// `itemURL`（卡片三种形态各有一个地址载体：大卡带里点不动的外部地址那一行屏上不印
+	// 地址，模板写在 data-addr 上）。所以这里钉的是"两处都走它"与"它认全三种形态"，
+	// 而不是某一处选择器的字面。
+	if n := strings.Count(js, "itemURL(li)"); n < 2 {
+		t.Errorf("读地址只有 %d 处走 itemURL，要 ≥2 处（⌘K 与编辑模态）："+
+			"各写一遍查找的形状就是「其中一种卡片形态读成空串」", n)
 	}
-	if strings.Contains(js, "li.querySelector('.card');") {
-		t.Error("还有只认 .card 的读法：大卡里读不到地址")
+	if !strings.Contains(js, "const itemURL = (li) =>") {
+		t.Fatal("app.js 里没有 itemURL：读地址的判据散回各处了")
 	}
-	// 反向证人：从前那一句还在。
+	for _, want := range []string{"li.querySelector('a[href]')", "li.querySelector('code')", "li.querySelector('[data-addr]')"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("itemURL 缺 %q：三种卡片形态各有一个地址载体，少一种就有一类读成空串"+
+				"（编辑模态那一处会整批 422，屏上只说「这一条没存上」）", want)
+		}
+	}
+	// 反向证人：从前那两句还在。
+	for _, old := range []string{"li.querySelector('.card');", "li.querySelector('.card, .feat-card')"} {
+		if strings.Contains(js, old) {
+			t.Errorf("app.js 里还留着 %q：大卡里读不到地址", old)
+		}
+	}
 	if strings.Contains(js, "li.querySelector('.card') || li.querySelector('.plain')") {
 		t.Error("app.js 里还留着「两种形态」的兜底写法")
+	}
+	// 模板那一侧：载体得真的印出来，否则 itemURL 的第三支永远是空。
+	tmplRaw, err := webFS.ReadFile("web/profile.tmpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tmplRaw), `<span class="feat-card plain" data-addr="{{.URL}}">`) {
+		t.Error("profile.tmpl 的大卡带没有在外部地址那张卡上写 data-addr：" +
+			"那是全案唯一一处屏上不印地址的形态")
 	}
 }
 
