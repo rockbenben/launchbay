@@ -154,8 +154,9 @@ func revertPath(profile string, to int64) string {
 // LAUNCHBAY_ADMIN_TOKEN。留着这个旗标只会让人以为"建成管理员"是一件事，
 // 而它现在根本不存在。
 const profileUsage = "用法:\n" +
-	"  launchbay profile create  --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
-	"  launchbay profile rebuild --id <slug> --title <名字> (--pin <4-6 位> | --nopass)"
+	"  launchbay profile create     --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
+	"  launchbay profile rebuild    --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
+	"  launchbay profile fix-names  --profile <id> [--dry-run]"
 
 // pinFlags 是两个建档子命令共用的 PIN 读法（2026-10-12：PIN **选填**）。
 //
@@ -188,8 +189,9 @@ func pinFlags(fs *flag.FlagSet, args []string, out io.Writer) (pin string, nopas
 // **不许在别处再抄一遍**：两份名单差一个的后果是敲进去的命令静默落进 serve 分支，
 // 用户看到的是"端口被占用"。
 var profileSub = map[string]func([]string, config, io.Writer) int{
-	"create":  cmdProfileCreate,
-	"rebuild": cmdProfileRebuild,
+	"create":    cmdProfileCreate,
+	"rebuild":   cmdProfileRebuild,
+	"fix-names": cmdProfileFixNames,
 }
 
 func cmdProfile(args []string, cfg config, out io.Writer) int {
