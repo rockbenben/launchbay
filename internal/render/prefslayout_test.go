@@ -121,9 +121,9 @@ func Test面板有分节且出口不在设置节里(t *testing.T) {
 func Test设置面板的说明只说后果(t *testing.T) {
 	tmpl := readWeb(t, "web/profile.tmpl")
 	// 有后果的几行：改名（显示在哪、留空用默认）、视图（换一换整页怎么摆）、主题、
-	// 分组这一节（改的是书签本身、能退回去）。
+	// 分组这一节（改的是书签本身、能退回去）、回退与历史这一节（查看审计日志与恢复快照）。
 	for _, k := range []string{
-		"prefs.rename.hint", "prefs.view.hint", "prefs.theme.hint", "prefs.groups.hint",
+		"prefs.rename.hint", "prefs.view.hint", "prefs.theme.hint", "prefs.groups.hint", "prefs.sec.out.hint",
 	} {
 		if !strings.Contains(tmpl, `{{.T "`+k+`"}}`) {
 			t.Errorf("模板里没有引用 %s：那一行有后果要说，屏上却不说", k)

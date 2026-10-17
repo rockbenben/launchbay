@@ -381,7 +381,7 @@
 
   {{/* ── 左侧分类 tab（2026-10-15）─────────────────────────────────────────
        这一屏原本是一条 1900px 的长列（1440 实测），而它自己已经分成三节——
-       外观 / 回退与历史 / 分组——却没有一处能跳。手机上滚到第三屏才看得见
+       外观 / 分组 / 回退与历史——却没有一处能跳。手机上滚到第三屏才看得见
        「分组」，而「删掉这一组」「＋ 新分组」都在那一节里。
 
        **三颗，不是更多**：tab 的价值是"跳得远"，而这一屏只有三处真正的断层
@@ -415,10 +415,10 @@
       <legend class="prefs-visually-hidden">{{.T "prefs.tabs.legend"}}</legend>
       <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-look"{{if eq .PrefTab "look"}} checked{{end}}>
       <label for="prefs-tab-look">{{.T "prefs.sec.look"}}</label>
-      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-out"{{if eq .PrefTab "out"}} checked{{end}}>
-      <label for="prefs-tab-out">{{.T "prefs.sec.out"}}</label>
       <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-groups"{{if eq .PrefTab "groups"}} checked{{end}}>
       <label for="prefs-tab-groups">{{.T "prefs.groups"}}</label>
+      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-out"{{if eq .PrefTab "out"}} checked{{end}}>
+      <label for="prefs-tab-out">{{.T "prefs.sec.out"}}</label>
     </fieldset>
     <div class="prefs-panes">
     <div class="prefs-pane" id="prefs-pane-look">
@@ -607,22 +607,8 @@
 
   {{/* ── tab 一（外观）到此为止，「点开书签」那一行仍属于它 ─────────────── */}}
   </div>{{/* /prefs-pane 外观 */}}
-  {{/* tab 二：回退与历史。 */}}
-  <div class="prefs-pane" id="prefs-pane-out">
-  {{/* 两个出口（回退 / 改动历史）**不是设置**，所以独立成节而不是夹在设置行
-       中间 —— 那一层分组从 2026-10-14 起就在，但那时只有一句 `prefs.elsewhere`
-       当标签，读者仍要自己判断"这两颗是设置还是别的"。 */}}
-  <h3 class="prefs-sec">{{.T "prefs.sec.out"}}</h3>
-  <div class="prefs-row">
-    <div class="prefs-field">
-      <span class="prefs-label">{{.T "prefs.elsewhere"}}</span>
-      <div class="prefs-keys">
-      {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{end}}
-        <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
-      </div>
-    </div>
-  </div>
-
+  {{/* tab 二：分组（含「＋ 新分组」与每组那颗删键）。 */}}
+  <div class="prefs-pane" id="prefs-pane-groups">
   {{/* ── 分组：颜色 + 这一组自己的排法 ──────────────────────────────────────
        这是"能配却没有出口"的那一格。`ops` 一直认 `groups/<id>/accent` 与
        `groups/<id>/layout`，而界面上一个入口都没有——于是每个类目的色块都是
@@ -642,9 +628,6 @@
        bookmarks.json 的分组上，走的是 applyBatch 那条书签写通路（快照、审计、
        rev 一道闸不少），而 `/prefs` 只写 profile.json 的台面偏好。把两边混在
        一个端点里，422 的"至少给一个字段"就会开始管到不属于它的东西。 */}}
-  </div>{{/* /prefs-pane 回退与历史 */}}
-  {{/* tab 三：分组（含「＋ 新分组」与每组那颗删键）。 */}}
-  <div class="prefs-pane" id="prefs-pane-groups">
   {{/* 分节头与另两节**同一种形状**（2026-10-14 实拍后改）。原来这一节用的是
        `<div class="prefs-groups-head">` + 一个 `.prefs-label`：那条 div 是
        `display:flex` 且 `align-items:baseline`，于是「分组」与它那句长说明**并排挤在
@@ -822,6 +805,22 @@
   </div>
   {{end}}
   </div>{{/* /prefs-pane 分组 */}}
+  {{/* tab 三：回退与历史。 */}}
+  <div class="prefs-pane" id="prefs-pane-out">
+  {{/* 两个出口（回退 / 改动历史）**不是设置**，所以独立成节并排在设置项（外观、分组）
+       之后 —— 面板是改偏好，这两个是数据变动的出口。 */}}
+  <h3 class="prefs-sec">{{.T "prefs.sec.out"}}</h3>
+  <p class="prefs-hint">{{.T "prefs.sec.out.hint"}}</p>
+  <div class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label">{{.T "prefs.elsewhere"}}</span>
+      <div class="prefs-keys">
+      {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{else}}<span class="badge disabled" title="{{.T "prefs.revert.noneTitle"}}">{{.T "profile.revert"}}</span>{{end}}
+        <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
+      </div>
+    </div>
+  </div>
+  </div>{{/* /prefs-pane 回退与历史 */}}
   </div>{{/* /.prefs-panes */}}
 </section>
 {{end}}

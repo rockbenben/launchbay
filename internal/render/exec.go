@@ -1025,13 +1025,13 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 // （三个分节头）；再往下拆量到的是每格跳 100px，那是噪声不是导航。
 const (
 	PrefTabLook   = "look"   // 外观
-	PrefTabOut    = "out"    // 回退与历史
 	PrefTabGroups = "groups" // 分组
+	PrefTabOut    = "out"    // 回退与历史
 )
 
 // PrefTabValues 是那张名单的**可查形状**（httpapi 侧按它收 `?tab=`）。三处
 // 各写一遍 `switch` 就会有一处忘了改，所以名单在这里、判据由它出去。
-var PrefTabValues = []string{PrefTabLook, PrefTabOut, PrefTabGroups}
+var PrefTabValues = []string{PrefTabLook, PrefTabGroups, PrefTabOut}
 
 func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,

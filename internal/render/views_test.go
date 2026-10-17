@@ -2061,13 +2061,17 @@ func TestPrefsPage_回退入口只在有快照时画(t *testing.T) {
 		t.Fatalf("夹具前提不对：快照 = %v（要零）", snaps)
 	}
 	if body := string(mustPrefs(t, s, "dad")); strings.Contains(body, `href="/revert"`) {
-		t.Error("零快照的面板上画了「回退」——点进去只有一句「还没有可回退的版本」")
+		t.Error("零快照的面板上画了「回退」链接——点进去只有一句「还没有可回退的版本」")
+	} else if !strings.Contains(body, `class="badge disabled"`) || !strings.Contains(body, "回退") {
+		t.Error("零快照时应显示置灰的回退标签，告知用户入口存在但暂无可回退版本")
 	}
 	if _, err := s.WriteSnapshot("dad"); err != nil {
 		t.Fatal(err)
 	}
 	if body := string(mustPrefs(t, s, "dad")); !strings.Contains(body, `href="/revert"`) {
 		t.Error("有快照了却没画「回退」——「改坏了能退回去」那条承诺的入口不能凭空消失")
+	} else if strings.Contains(body, `class="badge disabled"`) {
+		t.Error("有快照时不应显示置灰标签")
 	}
 }
 
@@ -2383,6 +2387,13 @@ func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	}
 	if strings.Contains(string(plain.Body), `class="notice"`) {
 		t.Errorf("没有提示时不该渲染提示元素:\n%.200s", plain.Body)
+	}
+	emptyPage, err := r.AdminPage([]AdminRow{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(emptyPage.Body), "当前还没有档案") {
+		t.Errorf("管理页零档案时应在表格中显示空状态提示:\n%.400s", emptyPage.Body)
 	}
 }
 

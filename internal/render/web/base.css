@@ -1119,6 +1119,9 @@ select option{background:var(--bg);color:var(--ink)}
 #prefs-pane-out .prefs-keys a.badge:hover{background:var(--card);border-color:var(--accent);color:var(--accent)}
 #prefs-pane-out .prefs-keys a.badge::after{content:"→";font-size:13px;opacity:.6;transition:transform .15s ease,opacity .15s ease}
 #prefs-pane-out .prefs-keys a.badge:hover::after{transform:translateX(3px);opacity:1}
+#prefs-pane-out .prefs-keys .badge.disabled{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;
+  background:transparent;border:1px dashed var(--line);border-radius:10px;color:var(--ink2);
+  font-size:13px;font-weight:500;cursor:not-allowed;opacity:.55}
 
 /* 「分组」那一节（2026-10-13）：一个分组一行，行里左边是名字、右边是色板与
    磁贴/单列。**它不进 .prefs-row** ——那一行是一标签一控件，宽度由标签那一格
