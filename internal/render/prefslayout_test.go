@@ -105,31 +105,61 @@ func Test面板有分节且出口不在设置节里(t *testing.T) {
 	}
 }
 
-// 每一行都要有那句常驻说明——**六行一个都不能少**。
-// 少一行的症状是"这一格在屏上不解释自己，只能靠猜"，而它不会让任何测试变红。
-func Test六行都有常驻说明(t *testing.T) {
+// 设置面板每一行都要有说明，**但说明说的是"后果"，不是"怎么用"**（2026-10-17 改判）。
+//
+// 从前的判据是「六行一个都不能少」，理由是"少一行的症状是这一格在屏上不解释自己，
+// 只能靠猜"。那句话在两种情况下不成立，而那两种当时就有：
+//
+//	· 两颗键的字**就是**那句话的答案：「侧栏 / 顶栏」不需要再解释成「放在左边一列，
+//	  还是顶上一行」；「这一页 / 新一页」同理。屏上多一行是在把按钮上的字重打一遍。
+//	· 那句话与**另一处一字不差**（`prefs.explain` 的第三句 vs `prefs.groups.hint`）——
+//	  同一句话印两遍，删掉的那一遍正是短的。
+//
+// 用户 2026-10-17 定的口径：**用法显而易见就不要说明**。所以这里钉的不再是"六行都有
+// hint"，而是"**有后果要说的行，一行都不许少**"——而后果那几句正是最容易在改版时被
+// 顺手删掉的那几句（它们不在按钮上，删掉之后没人会补）。
+func Test设置面板的说明只说后果(t *testing.T) {
 	tmpl := readWeb(t, "web/profile.tmpl")
+	// 有后果的几行：改名（显示在哪、留空用默认）、视图（换一换整页怎么摆）、主题、
+	// 分组这一节（改的是书签本身、能退回去）。
 	for _, k := range []string{
-		"prefs.rename.hint", "prefs.view.hint", "prefs.layout.hint",
-		"prefs.theme.hint", "prefs.tabs.hint",
+		"prefs.rename.hint", "prefs.view.hint", "prefs.theme.hint", "prefs.groups.hint",
 	} {
 		if !strings.Contains(tmpl, `{{.T "`+k+`"}}`) {
-			t.Errorf("模板里没有引用 %s：那一行在屏上没有解释", k)
+			t.Errorf("模板里没有引用 %s：那一行有后果要说，屏上却不说", k)
 		}
 		if i18n.Load(i18n.Zh).T(k) == "" || i18n.Load(i18n.En).T(k) == "" {
 			t.Errorf("语言包里少了 %s", k)
 		}
 	}
-	// 「分组导航」那一格的那句解释**接在它的说明后面**，而不是从前那样
-	// 另起一行（另起一行时它与那两颗键视觉脱节）。
+	// 「改完按回车」那一格也留：它**没有保存键**，回车是唯一的出手势——那不是显而易见的
+	// 用法，而是这一格唯一的出路。（它在 input 的 title 上，所以是 `$.T` 不是 `.T`。）
+	if !strings.Contains(tmpl, `{{$.T "prefs.groups.rename.hint"}}`) {
+		t.Error("分组改名那一格没有说明：它没有保存键，「按回车」是唯一的出手势")
+	}
+	// **钉住那两处是有意删的**：将来谁看着"六行变四行"想补回去，红的是这一条。
+	//
+	// 判语言包要查 **key 集合**而不是 `T()`：缺 key 时 `T` 返回的是包着尖括号的 key
+	// 自己（"⟨key⟩" 那条纪律，屏上看得见），非空——拿它当"文案还在"的证据，
+	// 删干净了反而会报这一条红。
+	for _, k := range []string{"prefs.layout.hint", "prefs.tabs.hint"} {
+		if strings.Contains(tmpl, `{{.T "`+k+`"}}`) {
+			t.Errorf("%s 又被引用了：两颗键的字已经是那句话的答案", k)
+		}
+		if containsString(i18n.Load(i18n.Zh).Keys(), k) {
+			t.Errorf("中文语言包里 %s 还在：删了引用却留着文案，下一次有人抄回来就用上了", k)
+		}
+		if containsString(i18n.Load(i18n.En).Keys(), k) {
+			t.Errorf("英文语言包里 %s 还在：同上", k)
+		}
+	}
+	// 而「紧凑档下这一列不画」**必须留**：它说的是按下去之后屏上会发生什么，
+	// 不是那两个键怎么用。
 	if strings.Contains(tmpl, `{{if and (eq .Profile.Layout "sidebar") .Compact}}<p class="hint">`) {
 		t.Error("sidebarNote 又退回另起一行的 hint 了：它与那两颗键视觉脱节")
 	}
-	// 两句之间**不留半角空格**（batch11 T6）：中文句号后面直接接下一句。
-	// 这条证人从前钉的是带空格的那一份——那正是它该挡而没挡住的东西：
-	// 拼串时模板里的空格会原样上屏，成了「…放在左边一列。 并排与紧凑…」这种接缝。
-	if !strings.Contains(tmpl, `{{if and (eq .Profile.Layout "sidebar") .Compact}}{{.T "prefs.layout.sidebarNote"}}{{end}}`) {
-		t.Error("sidebarNote 没有接在那一格的说明后面")
+	if !strings.Contains(tmpl, `{{.T "prefs.layout.sidebarNote"}}`) {
+		t.Error("sidebarNote 没有了：紧凑档下这一列不画这件事必须在按之前说清")
 	}
 }
 

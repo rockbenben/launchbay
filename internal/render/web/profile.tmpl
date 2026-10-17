@@ -374,7 +374,10 @@
 {{define "prefs-panel"}}
 <section class="prefs">
   <h2 id="lb-prefs-h">{{.T "prefs.heading"}}</h2>
-  <p class="hint">{{.T "prefs.explain"}}</p>
+  {{/* 面板顶上原来有一句把三个 tab 各自管什么再说一遍（2026-10-17 删）：「外观」改
+       外观、「回退与历史」是出口、「分组」改书签——前两句是在复述三个 tab 名，第三
+       句与下面分组那一节的说明**一字不差**（那一处才是它该在的地方）。三样都删掉
+       之后顶栏直接进 tab，而「改的是书签本身、能退回去」仍然读得到。 */}}
 
   {{/* ── 左侧分类 tab（2026-10-15）─────────────────────────────────────────
        这一屏原本是一条 1900px 的长列（1440 实测），而它自己已经分成三节——
@@ -472,7 +475,11 @@
            （`{{if .Compact}}<p class="hint">…</p>{{end}}`）。它解释的是**这一格**
            的后果，摆在说明位里才读得出"这几句说的就是上面这两颗键"；另起一行时它
            与那两颗键视觉脱节，读起来像面板底部多了一段不相干的话。 */}}
-      <p class="prefs-hint">{{.T "prefs.layout.hint"}}{{if and (eq .Profile.Layout "sidebar") .Compact}}{{.T "prefs.layout.sidebarNote"}}{{end}}</p>
+      {{/* 「放在左边一列，还是顶上一行」那句 2026-10-17 删了：两颗键上就写着「侧栏」
+           与「顶栏」，那句话是把按钮的字重打一遍。**留下的只有条件那一句**——紧凑档
+           下这一列不画，那是要在按之前就知道的后果（它解释的是上面那两颗键，不是
+           怎么用它们）。 */}}
+      {{if and (eq .Profile.Layout "sidebar") .Compact}}<p class="prefs-hint">{{.T "prefs.layout.sidebarNote"}}</p>{{end}}
       <div class="prefs-keys">
       {{/* 「侧栏」这两个字**在紧凑档下也不改**（2026-10-14 改判）：这一格有两条
            不变量——TestPrefs_开关的标签稳定而状态走aria 钉的是"可见文字稳定，
@@ -589,7 +596,8 @@
   <form method="post" action="/prefs/tabs" class="prefs-row">
     <div class="prefs-field">
       <span class="prefs-label">{{.T "prefs.tabs"}}</span>
-      <p class="prefs-hint">{{.T "prefs.tabs.hint"}}</p>
+      {{/* 「留在本页，还是另开一页」那句 2026-10-17 删了：两颗键的字就是「这一页」与
+           「新一页」。title 里另有完整那句（悬停/读屏要的那份），屏上不必再来一遍。 */}}
       <div class="prefs-keys">
         <button type="submit" name="tabs" value="0" aria-pressed="{{if .Bookmarks.OpenInNewTab}}false{{else}}true{{end}}" title="{{.T "prefs.tabs.sameTitle"}}">{{.T "prefs.tabs.same"}}</button>
         <button type="submit" name="tabs" value="1" aria-pressed="{{if .Bookmarks.OpenInNewTab}}true{{else}}false{{end}}" title="{{.T "prefs.tabs.newTitle"}}">{{.T "prefs.tabs.new"}}</button>
