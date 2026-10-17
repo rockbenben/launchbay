@@ -1331,7 +1331,14 @@ select option{background:var(--bg);color:var(--ink)}
    更宽的地方色板自己回到名字同一行。断点跟着**内容宽**走，不是跟着某一台设备走。 */
 @media (max-width:520px){
   .prefs-row,.prefs-group{flex-direction:column;align-items:stretch;gap:6px}
-  .prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}
+  /* **`.prefs .prefs-field`，两个类名**（2026-10-17 修）：上面那条基础规则写的是
+     `.prefs .prefs-field`（两位类名），而这里原本只写 `.prefs-field`（一位）——
+     权重输给它，于是窄屏上 flex-basis **320px 留下来当高度下限**：面板每一行
+     最少 320px 高，而内容只有 ~104px（实测英文 390 档：五行全都 350px，
+     「Page name」那格 Save 键下面空 435px，一屏 2332px 里大半是空的）。
+     320 本来是**宽度**基准（横排时一格至少那么宽），行向一变竖排，基准就
+     变成了高度——这类错只有量行高才看得见，截图上只像"这一格有点空"。 */
+  .prefs .prefs-label,.prefs .prefs-field,.prefs-group-shape{flex:none}
   .prefs .prefs-group-name{flex-basis:auto}
   .prefs-group-colors{width:100%}
   /* 左侧那一列在窄屏上翻成**顶部一条**：248px 的内容宽里 150px 的竖列会把

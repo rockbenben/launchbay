@@ -822,7 +822,13 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 		// 窄屏下自然成列，不欠这一条 flex-direction）
 		"@media (max-width:520px){",
 		".prefs-row,.prefs-group{flex-direction:column;align-items:stretch;gap:6px}",
-		".prefs .prefs-label,.prefs-field,.prefs-group-shape{flex:none}",
+		// **两个类名，`.prefs .prefs-field`**（2026-10-17 修）。这一格原本写成
+		// `.prefs-field`（一位），而基础规则是 `.prefs .prefs-field`（两位）——
+		// 权重输给它，于是窄屏上 flex-basis 320px 留下来当**高度下限**，每一行
+		// 最少 320px（实测英文 390 档：五行全 350px，一屏 2332px 里大半是空白）。
+		// 下面第二条正是同一个错在 `.prefs-group-name`（120px）上已经修过一次的样子，
+		// 这次是**同一个族的另一个选择器漏了**。
+		".prefs .prefs-label,.prefs .prefs-field,.prefs-group-shape{flex:none}",
 		// 二、翻成列向时把**行向写的 basis** 收回 auto（那 120px 不然就是高度）
 		".prefs .prefs-group-name{flex-basis:auto}",
 		// 三、色板在**这一档**占满整行（width，不用 basis：同一条判据的底座那一行）
@@ -831,6 +837,19 @@ func TestCSS_台面面板在320档换排法而不是缩(t *testing.T) {
 		if !strings.Contains(css, w) {
 			t.Errorf("base.css 少了 %q", w)
 		}
+	}
+	// **反查那一族**：窄屏那一块里凡是带**数字 basis** 的，都要收回 auto。写下
+	// `flex:1 1 <数>px` 而外层在 ≤520px 变成列向的，就是"宽度基准变成高度下限"——
+	// 这一族已经错过一次（.prefs-group-name 的 120px、.prefs-field 的 320px）。
+	// 只认数字：`flex:1 1 auto` 与同一行里的 padding 都不是这一类。
+	narrowAll := css[strings.Index(css, "@media (max-width:520px)"):]
+	pixelBasis := regexp.MustCompile(`flex:\s*1 1 \d+px`)
+	for _, line := range strings.Split(narrowAll, "\n") {
+		l := strings.TrimSpace(line)
+		if !pixelBasis.MatchString(l) || strings.Contains(l, "flex-basis:auto") {
+			continue
+		}
+		t.Errorf("窄屏那一块里 %q 带着像素 basis：行向写的是宽度，翻成列向后它就是高度下限", l)
 	}
 	// **窄屏那一档不许把色板改成 grid。** 这条禁的是被实测打死的那一版：
 	// grid 在这一档拿到确定高度之后，44px 的键会被行高拉成色带。
