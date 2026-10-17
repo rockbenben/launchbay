@@ -232,12 +232,8 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 		if p.Disabled {
 			continue
 		}
-		b, err := r.s.LoadBookmarks(p.ID)
-		if err != nil {
-			b = nil
-		}
 		views = append(views, pickerEntry{ID: p.ID, Title: p.Title,
-			Icon:     faceOf(p, b, r.tmpl.ix, r.fc),
+			Icon:     faceOf(p),
 			NeedsPIN: auth.HasPin(p.PIN)})
 	}
 	// 进不去的那几份要在这一页说出口（死路①的对策：读不动的档案从前只是被跳过，

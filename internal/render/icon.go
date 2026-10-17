@@ -61,47 +61,27 @@ func pieceFor(it model.Item, ix *icons.Index, fc *store.IconCache) iconPiece {
 	return p
 }
 
-// faceOf 给**一份档案**挑一张脸（选择页那张卡，2026-10-12）。
+// faceOf 给**一份档案**画一张脸（选择页那张卡）。
 //
-// 想法：一张卡上印着别人的名字不好看，而"这是谁的那一份"其实有个更好认的
-// 答案——**他自己常用的那个站点的图标**。人认图标比认字快，而共用一台电脑的
-// 一家人各自点自己那张，靠的正是"这张是那个图标"。
+// **就是档案名的首字母色块，永远**（2026-10-17 用户决定：从"这个人最常用站点的
+// 图标"改成文字头像）。
 //
-// 挑法是**两趟**，第一趟赢：
-//  1. 缓存里真的抓过的 favicon（<img>）——那是那个站自己的图，最像"服务图标"；
-//  2. 内嵌索引里点名了的图标（内联 SVG）；
-//  3. 都没有 → 首字母色块（拿档案名算，与这一份什么图标都没有时同一条退路）。
+// 为什么不再挑服务图标：
+//  1. **它会认错人**。一份叫「爸爸」的档案配 YouTube 图标，第一次来的人读成"这是
+//     谁的账号照片"是自然反应——而图标在这张卡上从不说明自己是谁。
+//  2. **两份档案完全可能常用同一个服务**（都用 GitHub），那时候两张卡的图标一模一样，
+//     而名字是唯一的区分依据；2026-10-12 写下"图标不许顶掉名字"时已经承认了这件事，
+//     却又留着一个认不出来的脸站在名字旁边。
+//  3. **它是当着全家人的面说出收藏内容**。这一页每个人都看得见，而"这份收藏里最常
+//     点的是哪个站"是一条本来不必公开的信息——render.go 里"只带一张脸进模板"那段
+//     的顾虑，被这张脸自己推翻了。
+//  4. **它要读整份 bookmarks.json 才画得出来**（挑最常用那个站），而这一页每来一次
+//     就是每份档案读一次；这张脸现在不读任何书签——**坏档、空档、读不出来都一样**。
 //
-// 第一趟只认 favicon 而不是"随便第一条有图标的"：一份刚导进来、图标还没被抓过
-// 的档案会整份落空，于是卡片上出现一个跟人无关的名字首字母——那和改之前一样。
-//
-// **判据仍然只有 pieceFor 一份**：三取一（SVG > Img > Letter）在它里面，
-// 这里只决定"拿哪一条书名的脸去问它"。另写一套挑图规则就会与档案页那张脸分家，
-// 症状是"同一个站两个地方长着两张脸"。
-//
-// 分组顺序：tiles 的先挑（浏览器导出的书签栏是 tiles，见 convert.go 的
-// PERSONAL_TOOLBAR_FOLDER），那是用户摆在前面的那些；再按原顺序扫 list 的。
-func faceOf(p *model.Profile, b *model.Bookmarks, ix *icons.Index, fc *store.IconCache) iconPiece {
-	// 读不出来（坏档、空档）与"没有图标"是同一件事：都给首字母色块。那句解释
-	// 在点进去之后那一页，不在这一页重复。
-	items := orderedItems(b)
-	for _, it := range items {
-		if it.Icon == "auto" {
-			if p := pieceFor(it, ix, fc); p.Img != "" {
-				return p
-			}
-		}
-	}
-	for _, it := range items {
-		if it.Icon != "" && it.Icon != "auto" {
-			if p := pieceFor(it, ix, fc); p.SVG != "" {
-				return p
-			}
-		}
-	}
-	// 退化：用档案名去问 pieceFor，于是色相与首字母都跟档案页里"没有图标的那条"
-	// 是同一套算法（chipHue 对同一个名字永远给同一个色相）。
-	return pieceFor(model.Item{Name: p.Title}, ix, fc)
+// 色相与首字母仍是同一套算法（chipHue/firstChar），所以同一份档案在选择页与档案页
+// 那个没有图标的色块是同一个颜色。
+func faceOf(p *model.Profile) iconPiece {
+	return iconPiece{Letter: firstChar(p.Title), ChipHue: chipHue(p.Title)}
 }
 
 // orderedItems 把一份书签按"tiles 的先、其余按原顺序"摊平。

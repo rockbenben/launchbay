@@ -4,90 +4,32 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
-// faceForTest 是"选档案那张卡上画的是哪一张脸"的钉子。
+// 选择页那张卡上的脸（2026-10-17 用户决定）：**永远是档案名的首字母色块**。
 //
-// 三个形状都要盖住，因为它们各自对应 faceOf 的一档：
+// 从前是「这个人最常用站点的图标」三取一（favicon → 图标名 → 首字母）。改成文字
+// 头像的四条理由记在 icon.go 的 faceOf 上：会认错人、两份档案可能常用同一个服务、
+// 它当着全家人的面说出了收藏内容、而它要读整份 bookmarks.json 才画得出来——
+// 后两条在类型上也堵死了：faceOf 现在只收一份 profile，而 render.go 那个调用点
+// 要是还想传书签，连编译都过不去（这一页每来一次就是每份档案读一次）。
 //
-//	有缓存 favicon → <img>（那个人自己常用站点的图，最像"服务图标"）；
-//	只有索引里的图标名 → 内联 SVG；
-//	什么都没有 → 首字母色块（拿档案名算）。
-//
-// 顺序也是被钉的：**缓存 favicon 优先于图标名**。理由在 faceOf 上——一份刚
-// 导进来、图标还没被抓过的档案，若按"第一条有图标的"挑就会落回名字首字母，
-// 那等于改之前那张卡，所以它必须先扫一遍 favicon。
-func TestFaceOf_三档与优先级(t *testing.T) {
-	ix, fc, _ := assets(t)
-	p := &model.Profile{ID: "dad", Title: "爸爸"}
-
-	t.Run("缓存里有的 favicon 赢", func(t *testing.T) {
-		origin := icons.Origin("http://10.0.0.9:5000/")
-		e, err := fc.Put(origin, []byte{0x89, 'P', 'N', 'G'}, "png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		b := &model.Bookmarks{Groups: []model.Group{{ID: "g", Layout: model.LayoutList, Items: []model.Item{
-			{ID: "a", Name: "有名字的图标", URL: "http://10.0.0.1/", Icon: "tabler:home"},
-			{ID: "b", Name: "有 favicon 的", URL: "http://10.0.0.9:5000/", Icon: "auto"},
-		}}}}
-		got := faceOf(p, b, ix, fc)
-		if got.Img != "/icons/"+e.Hash+"."+e.Ext {
-			t.Errorf("该用缓存里的 favicon，实际 Img=%q", got.Img)
-		}
-		if got.SVG != "" {
-			t.Error("favicon 绝不内联成 SVG（第三方字节只做 img，见 icon.go）")
-		}
-	})
-
-	t.Run("没有缓存就用索引里的图标名", func(t *testing.T) {
-		b := &model.Bookmarks{Groups: []model.Group{{ID: "g", Layout: model.LayoutList, Items: []model.Item{
-			{ID: "a", Name: "有名字的图标", URL: "http://10.0.0.1/", Icon: "tabler:home"},
-		}}}}
-		got := faceOf(p, b, ix, fc)
-		if got.SVG == "" {
-			t.Fatalf("该内联那个图标，实际 Letter=%q Img=%q", got.Letter, got.Img)
-		}
-	})
-
-	t.Run("什么都没有就退回首字母色块", func(t *testing.T) {
-		got := faceOf(p, &model.Bookmarks{}, ix, fc)
-		if got.Letter != firstChar(p.Title) {
-			t.Errorf("该退回档案名的首字母 %q，实际 %q", firstChar(p.Title), got.Letter)
-		}
-		if got.ChipHue != chipHue(p.Title) {
-			t.Error("色相要跟档案页里同名的色块是同一个（chipHue 判据只有一份）")
-		}
-	})
-
-	t.Run("书读不出来也是首字母", func(t *testing.T) {
-		// 坏档/空档：那一句解释在点进去之后，不在这一页重复。
-		if got := faceOf(p, nil, ix, fc); got.Letter != firstChar(p.Title) {
-			t.Errorf("nil 书签该退回首字母，实际 %q", got.Letter)
-		}
-	})
-
-	t.Run("tiles 的分组先挑", func(t *testing.T) {
-		origin := icons.Origin("http://10.0.0.8/")
-		e, err := fc.Put(origin, []byte{0x89, 'P', 'N', 'G'}, "png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		b := &model.Bookmarks{Groups: []model.Group{
-			{ID: "list", Layout: model.LayoutList, Items: []model.Item{
-				{ID: "a", Name: "列表里的", URL: "http://10.0.0.1/", Icon: "tabler:home"},
-			}},
-			{ID: "bar", Layout: model.LayoutTiles, Items: []model.Item{
-				{ID: "b", Name: "书签栏里的", URL: "http://10.0.0.8/", Icon: "auto"},
-			}},
-		}}
-		if got := faceOf(p, b, ix, fc); got.Img != "/icons/"+e.Hash+"."+e.Ext {
-			t.Errorf("书签栏（tiles）里的那条该赢，实际 Img=%q", got.Img)
-		}
-	})
+// 这里钉的是**单数**：不再有第二档。将来谁想聪明一点（比如名字太短时改用图标），
+// 红的是这一条，而不是等到有人把「爸爸的台」看成别人的账号照片。
+func TestFaceOf_永远是档案名的首字母色块(t *testing.T) {
+	p := &model.Profile{ID: "dad", Title: "爸爸的台"}
+	got := faceOf(p)
+	if got.Letter != firstChar(p.Title) {
+		t.Errorf("脸该是档案名的首字母 %q，实际 %q", firstChar(p.Title), got.Letter)
+	}
+	if got.SVG != "" || got.Img != "" {
+		t.Errorf("脸上不该再有图标（SVG=%q Img=%q）：这一页每个人都看得见，而「这份收藏里最常点哪个站」不该印在这儿", got.SVG, got.Img)
+	}
+	if got.ChipHue != chipHue(p.Title) {
+		t.Error("色相要跟档案页里同名的色块是同一个（chipHue 判据只有一份）")
+	}
 }
 
 // 卡上**名字与服务图标都在**（2026-10-12）。
