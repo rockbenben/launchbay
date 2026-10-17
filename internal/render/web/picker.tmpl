@@ -70,7 +70,15 @@
          管理权时答的本来就是那张登录页（2026-10-12 那条改判），而 key 不对只多说一句
          「这把管理密钥不对」。档案页顶栏那枚「管理」徽标仍按 HasAdmin 画：那是给已经
          登进来的人的捷径，不是门。 */}}
-    <p class="plain"><a class="badge" href="/admin">{{.T "picker.adminLink"}}</a></p>
+    {{/* 「管理这台机器」与卡里的「进入」**同一套词汇、不同重量**（2026-10-17）：
+         `a.badge` 就是中性描边那张脸（base.css：动作那一半与 `.pick button` 同一张），
+         「进入」是填充的主键。两个动作曾经是一个满宽、一个缩成小角标，主次倒挂。
+
+         而 `<p class="plain">` 那个 class 是**卡片族**（.card/.plain 同一条规则：描边、
+         圆角、底色、flex），套在段落上会让这一行变成一个空盒子——实拍 390 宽下，
+         「管理这台机器」上方多出一整块空白的圆角面板，比它本来的角标还抢眼。
+         段落只留自己的 class。 */}}
+    <p class="pick-admin"><a class="badge" href="/admin">{{.T "picker.adminLink"}}</a></p>
     {{if .Blocked}}
       {{/* 死路①的对策：有档案但一份都进不去时，这一页不许只剩一个空的列表。
            主句按单复数中性写（坏一份时说"这几份"就是说谎），坏的是哪几份写在下面那行——
@@ -93,14 +101,15 @@
         <input type="hidden" name="profile" value="{{.ID}}">
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
-        {{/* 卡上是**名字 + 服务图标**（2026-10-12）。两样各司其职，谁也不顶谁：
+        {{/* 卡上是**名字 + 一枚文字头像**（2026-10-12 起是服务图标，2026-10-17 改回
+             文字）。两样各司其职，谁也不顶谁：
 
-             **名字是区分档案的那一维**——共用一台电脑的一家人靠"哪张卡是我的"
-             认人，而两个档案完全可能常用同一个服务（都用 GitHub），那时候两张卡
-             的图标一模一样。所以图标不许顶掉名字。
+             **名字是区分档案的那一维**——共用一台电脑的一家人靠"哪张卡是我的"认人。
 
-             **图标是这个档案里那个服务的图**（挑法在 icon.go 的 faceOf，判据与
-             档案页那张脸同一份）：它负责好看、认得出来，不是身份。
+             **脸是档案名的首字母色块**（判据在 icon.go 的 faceOf，2026-10-17 用户
+             决定）：从前这里是"这个人最常用站点的图标"，而它会认错人（叫「爸爸」的
+             档案配 YouTube 图标像别人的账号照片）、两份档案可能撞成同一张脸、
+             并且当着全家人的面说出了收藏内容。理由全文记在 faceOf 上。
 
              按钮的 aria-label 保留：读屏停在「进入」上时，念出来的是"进入爸爸的
              书签页"而不是光一个"进入"。 */}}
@@ -120,7 +129,11 @@
           <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
                             minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
         {{end}}
-        <button type="submit" aria-label="{{$.T "picker.enterNamed" .Title}}">{{$.T "picker.enter"}}</button>
+        {{/* 两个动作**同一套词汇**（2026-10-17）：「进入」是 card 主键（fld primary，
+             满宽是卡片该有的样子），「管理这台机器」从前是一枚 badge 角标——于是
+             一屏上最重要的动作铺满整卡、去管理这台机器的那颗却缩成一个标签，主次
+             完全倒挂。两颗现在都是 `.fld`，差别只在填充色。 */}}
+        <button type="submit" class="fld primary" aria-label="{{$.T "picker.enterNamed" .Title}}">{{$.T "picker.enter"}}</button>
       </form>
     </li>
   {{end}}
