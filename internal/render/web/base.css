@@ -925,7 +925,13 @@ select option{background:var(--bg);color:var(--ink)}
 
    `prefs-row` 自己已经 `flex-wrap:wrap`，所以窄屏那档由内容自己换行，
    不再开一条媒体查询把布局搬成另一套——两套排法迟早不同步。 */
-.prefs{display:flex;flex-direction:column;gap:14px;max-width:900px;margin:0 auto}
+/* `width:min(900px,100%)` 而不是 `max-width:900px`（2026-10-17 实测后改）：
+   块级盒子**缩到内容宽度**，于是同一个面板在三个 tab 下量到三种宽度——
+   外观 525 / 回退与历史 418 / 分组 900——而它 `margin:0 auto` 居中，
+   **整块（连同左边那一列导航）跟着横向乱跳**：导航在 x=458 → 511 → 270。
+   截图上读作"两个分类的导航位置不对"（分组那格恰好撑满 900，看着反而正常）。
+   max-width 只给上限、不给下限；这一列要的是**固定的一栏**。 */
+.prefs{display:flex;flex-direction:column;gap:14px;width:min(900px,100%);margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
 /* 左侧分类 tab（2026-10-15）。这一屏原本是一条 1900px 的长列，而它自己已经
    分成三节却没一处能跳——手机上要滚到第三屏才看得见「分组」。

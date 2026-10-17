@@ -527,7 +527,10 @@ const APP_I18N = {
   }
 
   const openBtn = el('button', {
-    type: 'button', id: 'lb-add', class: 'add primary', text: T('app.add'), title: T('app.addTitle'),
+    // **不加 primary**（2026-10-17 用户改判：这一颗按普通的来）：它是顶栏里的
+    // 一个动作，不是"这一页上你唯一该做的事"——搜索、设置、换档案都在它旁边。
+    // 加重之后它比顶栏右侧那三颗都响，而这一页真正的主内容是下面那些书签。
+    type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
     on: { click: openSheet },
   });
   // 插在搜索表单**之后**而不是 header 末尾：DOM 顺序就是视觉顺序，这样「＋ 添加」

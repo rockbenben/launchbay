@@ -915,7 +915,14 @@ func TestCSS_宽屏一个分组两行且色板是更宽的那一行(t *testing.T
 	if got := sheet - 44 - 17; got < need {
 		t.Errorf("浮层内容宽 %d（%d − 内衬 44 − 滚动条 17）装不下一个分组那一行（需要 %d）", got, sheet, need)
 	}
-	page := cssPxAfter(t, baseCSS, ".prefs{display:flex;flex-direction:column;gap:14px;max-width:")
+	// `width:min(900px,100%)` 而不是 `max-width:900px`（2026-10-17）：max-width 只给
+	// 上限，而块级盒子**缩到内容宽度**——同一个面板在三个 tab 下量到 525 / 418 / 900
+	// 三种宽度，又因为居中，**左边那一列跟着横向乱跳**。这条闸读的就是那个数：
+	// 它是"这一栏有多宽"的唯一出处，预算与实际都从它算。
+	page := cssPxAfter(t, baseCSS, ".prefs{display:flex;flex-direction:column;gap:14px;width:min(")
+	if page == 0 {
+		t.Fatal("CSS 里找不到 .prefs 的 width:min(...px)：这道闸此刻是空转的")
+	}
 	if got := page - 17; got < need {
 		t.Errorf("GET /prefs 那张整页的内容宽 %d（%d − 滚动条 17）装不下一个分组那一行（需要 %d）", got, page, need)
 	}
