@@ -1575,6 +1575,30 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    行首符号要自己找回来：全局那条 `ul{list-style:none}` 是给磁贴栅格复位用的，
    它不该替这一页决定"一份清单要不要有项目符号"。 */
 .hist{display:grid;gap:8px}
+/* 历史这一列的行是**列表行，不是卡片**（2026-10-17 实测后改的）。
+   实测 1440 档：68 行，**一屏只放得下 9 行**，每行 81px 高、**1368px 宽**——
+   而行里只有 20 来个字（`19:54 · 网页 [一处改动] [第 67 版]` 下一行一句动作）。
+   也就是说右边四分之三是一张空卡片，而看这一页的人（"刚才动了什么"）要滚 7 屏。
+   390 档同样：一屏 7 行。
+
+   改法两处，都是量出来的：
+     · **壳去掉**，改成发丝线分隔 —— 卡片那套描边/圆角/底色/hover 抬起是给"一个可点的
+       东西"用的，而这一行不可点，它是**一条记录**。行高从 81px 掉到 ~44px。
+     · **宽度收到 760px** —— 与 `.explain` 同一条（这一页自己那句"谁、什么时候、通过
+       哪条路、动了哪一条"就按 760 排）。1440 下一行 20 个字摊在 1368px 上，
+       左对齐之后右边那一大片空不是留白，是一行被拉长的框。
+
+   hover 不再抬起：抬的是"点得动的东西"。留一点底色变化说明这一行是列表里的一条。 */
+/* 整页一起收这一条**没有做**：把 `<main>` 也收成 760 时，外壳的居中把它推到
+   x=355，而 `<header>` 里的 h1 仍在 x=36、右上角两颗键在 x=1400 —— 三种对齐，
+   比只收列表更难读。要一起收，收的是**包住 header 与 main 的那一层**（本页的
+   `.shell`），那是一次结构调整，不在这次走查的范围里。先记在这里，别重做。 */
+.hist{gap:0}
+.hist>.plain{background:none;border:0;border-bottom:1px solid var(--line);
+  border-radius:0;padding:9px 0;backdrop-filter:none;-webkit-backdrop-filter:none;min-height:0}
+.hist>.plain:first-child{padding-top:0}
+.hist>.plain:last-child{border-bottom:0}
+.hist>.plain:hover{transform:none;background:var(--card-hi);border-color:var(--line)}
 .hist .ops{flex:1 0 100%;margin:6px 0 0;padding-left:18px;list-style:disc;
   font-size:13px;color:var(--ink2)}
 .hist .ops li{margin:2px 0}
