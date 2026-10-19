@@ -9,6 +9,13 @@
 // 白名单而不是黑名单：开放集合用黑名单必漏（下一个私有段就是漏的那一个）。
 // 需要放行新地址空间时改 allow 并在注释写明"它为什么是示例而不是拓扑"。
 //
+// **形状判据不借 net.ParseIP**（2026-10-19）：Go 从 1.17 起拒收带前导零的写法
+// （那种四段式返回 nil），而本文件那条正则**照样匹配得到它**。
+// 拿 ParseIP 当"这是不是地址"的判据，就等于让"该抓的"变成"抓不到的"——真实内网
+// 地址按前导零形式贴进文档或夹具时守卫全绿。**失败方向是"该抓的没抓"**，比误报
+// 坏得多。所以形状由 `quadLike` 自己答（四段十进制、每段不超 255），落在哪由
+// `parseQuad` 答（`001` 与 `1` 是同一个数）。
+//
 // 判据分两层（spec §15），两层都要有证人：
 //   - 第一层：示例地址空间，写死在 allow 里，任何人都能跑；
 //   - 第二层：本家真实网段，从环境变量 NAS_SUBNET_PREFIX 读，CI 用 secret 注入。
@@ -31,6 +38,15 @@
 // 成形的非示例地址，守卫的夹具也不例外（要抓的地址在 main_test.go 里按八位组
 // 现拼）。没有给守卫开"豁免名单"这种第二条判据——一条有例外的闸，例外长得多快
 // 没人知道；而 CI 因为自己的测试语料永久红，比没闸更糟：没人信的闸等于没闸。
+//
+// **它真的会抓到自己人**（2026-10-19 实测）：同一天写 README 时顺手用了一个真实
+// 私网段的地址当示例，那正是本文件第 5 行说的那种段，于是这条闸当场变红——
+// 那批本地提交推上去 CI 就会红，而那个地址若确是真 NAS 就已经进历史了。
+// **写文档里的示例地址要跑一遍这条闸**（`go run ./tools/leakguard`，退出码 0 才算
+// 干净）；它比任何 review 都早知道，因为它是退出码。
+//
+// **而这段注释自己就是那个教训的第二遍**：修这一段时把同一个地址又写进去了一次，
+// 闸当场第二次变红——所以这里只说"一个真实私网段的地址"，一个字面量都不写。
 package main
 
 import (
@@ -113,6 +129,58 @@ func sameHome(ip net.IP, home [3]int) bool {
 }
 
 var ipRE = regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+
+// quadLike 答"这段字面量像不像一个 IPv4 地址"：四段十进制、每段不超 255。
+//
+// **它不借 net.ParseIP**（2026-10-19 修）：Go 从 1.17 起拒收带前导零的写法
+// （那种四元组返回 nil），而 ipRE 照样匹配得到那条。拿 ParseIP 当形状
+// 判据，就等于让"该抓的"变成"抓不到的"——真实内网地址按前导零形式贴进文档
+// 或夹具时守卫全绿。**失败方向是"该抓的没抓"**，比误报坏得多。
+//
+// 版本号与超界四元组（每段 > 255）在这里被拒——它们不是地址，不该进白名单讨论。
+// 前导零不是超界：`001` 与 `1` 是同一个数。
+//
+// **这段注释里刻意不写成形四元组**：守卫扫的是 git 跟踪的文本，而本文件就在
+// 里面——逐字写一个示例空间外的地址等于自己给自己报泄漏，CI 从此永久红，
+// 而一条没人信的闸等于没闸（同 main_test.go 里 `quad()` 那段注释）。
+func quadLike(s string) bool {
+	parts := strings.Split(s, ".")
+	if len(parts) != 4 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" || len(p) > 3 {
+			return false
+		}
+		n := 0
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return false
+			}
+			n = n*10 + int(r-'0')
+		}
+		if n > 255 {
+			return false
+		}
+	}
+	return true
+}
+
+// parseQuad 把四段十进制算成 IPv4。**前导零按十进制算**（`001` = 1），
+// 于是「带前导零的那一条」与「不带的那一条」落到同一个网段——写的人以为是
+// 哪一种，守卫就按哪一种判。
+func parseQuad(s string) net.IP {
+	parts := strings.Split(s, ".")
+	out := make(net.IP, 4)
+	for i, p := range parts {
+		n := 0
+		for _, r := range p {
+			n = n*10 + int(r-'0')
+		}
+		out[i] = byte(n)
+	}
+	return out
+}
 
 // 按扩展名豁免的二进制产物：随机字节会凑出假四元组。
 var skipExt = map[string]bool{".gz": true, ".png": true, ".ico": true, ".webp": true, ".jpg": true, ".woff2": true}
@@ -200,8 +268,27 @@ func scanWithPolicy(files []string, pol scanPolicy) (findings, skipped []string,
 		for i, line := range strings.Split(string(data), "\n") {
 			for _, m := range ipRE.FindAllString(line, -1) {
 				ip := net.ParseIP(m)
-				if ip == nil || ip.To4() == nil {
-					continue // 版本号、超界四元组：不是地址
+				if ip == nil {
+					// **ParseIP 认不出的也要报**（2026-10-19 修）：Go 从 1.17 起
+					// 拒收带前导零的写法（那种四元组返回 nil），而那条正则
+					// **照样能匹配到它**。于是这一处从前把它当成"版本号"静默丢掉
+					// ——**失败方向是"该抓的没抓"**：真实内网地址按前导零形式贴进
+					// 文档或夹具，守卫全绿。
+					//
+					// 判据因此分成两问：**形状**像不像地址（四段十进制、每段不超
+					// 255）由本文件自己答，不再借 ParseIP；**落在哪**由 ParseIP
+					// 答。前导零那种形状 ParseIP 不认，就自己按十进制段值算——
+					// `001` 与 `1` 是同一个数。
+					if !quadLike(m) {
+						continue // 版本号、超界四元组：不是地址
+					}
+					ip = parseQuad(m)
+					if ip == nil {
+						continue
+					}
+				}
+				if ip.To4() == nil {
+					continue
 				}
 				inside := false
 				for _, n := range pol.allow {
