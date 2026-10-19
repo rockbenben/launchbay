@@ -24,27 +24,30 @@ import (
 //
 // **经 batch 落盘**（与 import 同一份纪律）：快照、审计行、rev 一道不少，所以改错了
 // 在「回退」里能退回去。不直读磁盘——进程内互斥锁罩不住另一个进程。
-func cmdProfileFixNames(args []string, cfg config, out io.Writer) int {
+//
+// 两个 writer（2026-10-19），判据与 CLI 那一族同一句：**在报告成功，还是在解释
+// 为什么没成功**。要注意的是「档案 dad 里没有名字就是地址的条目」退的是 0——
+// 它是一条**结论**（跑完了，确实没得改），不是诊断，所以走 out。
+func cmdProfileFixNames(args []string, cfg config, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("profile fix-names", flag.ContinueOnError)
-	fs.SetOutput(out)
 	id := fs.String("profile", "", "要整理的档案 id")
 	dryRun := fs.Bool("dry-run", false, "只列出要改哪些，不提交")
 	by := fs.String("by", "cli", "审计线上的渠道名")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	if code, ok := parseFlags(fs, args, out, errOut); !ok {
+		return code
 	}
 	if *id == "" {
-		fmt.Fprintln(out, "用法: launchbay profile fix-names --profile <id> [--dry-run]")
+		fmt.Fprintln(errOut, "用法: launchbay profile fix-names --profile <id> [--dry-run]")
 		return 2
 	}
 	c, err := newScopedClient(cfg.Port, cfg.Tokens, *id)
 	if err != nil {
-		fmt.Fprintf(out, "拿不到 %s 的 REST 令牌: %v\n", *id, err)
+		fmt.Fprintf(errOut, "拿不到 %s 的 REST 令牌: %v\n", *id, err)
 		return 1
 	}
 	cur, err := c.profileData(*id)
 	if err != nil {
-		fmt.Fprintf(out, "读档案 %s 失败: %v\n", *id, err)
+		fmt.Fprintf(errOut, "读档案 %s 失败: %v\n", *id, err)
 		return 1
 	}
 
@@ -84,11 +87,11 @@ func cmdProfileFixNames(args []string, cfg config, out io.Writer) int {
 	raw, code, err := c.do("POST", "/api/v1/batch", body,
 		map[string]string{"Content-Type": "application/json", "X-LB-By": *by})
 	if err != nil {
-		fmt.Fprintf(out, "提交失败: %v\n", err)
+		fmt.Fprintf(errOut, "提交失败: %v\n", err)
 		return 1
 	}
 	if err := mustOK(raw, code, "/api/v1/batch"); err != nil {
-		fmt.Fprintf(out, "提交失败: %v\n", err)
+		fmt.Fprintf(errOut, "提交失败: %v\n", err)
 		return 1
 	}
 	fmt.Fprintf(out, "已改 %d 条的名字（改错了可以在「回退」里退回去）\n", len(changes))

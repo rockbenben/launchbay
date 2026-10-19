@@ -72,6 +72,10 @@ func TestCLISurfacesServerDetail(t *testing.T) {
 // 在那之前敲它打出的是 create 的用法——那份命令只存在于文档里的日子）。
 // `sync-template` 随模板机制整条删掉，所以它**现在不是 CLI 命令**：不认得的
 // 第一个参数必须老实落到服务端分支去，而不是被一个已删的子命令名接走。
+//
+// 两个 buffer 是 2026-10-19 那次分流带出来的：**这一格全是用法错误**，所以诊断
+// 该在 stderr、stdout 该是空的——断言的就是这件事（用法文本走 stdout 的话，
+// `launchbay revert --to 0 | tee log` 会让人以为回退跑了）。
 func TestCLIDispatchAndUsage(t *testing.T) {
 	for _, tc := range []struct {
 		args    []string
@@ -95,14 +99,20 @@ func TestCLIDispatchAndUsage(t *testing.T) {
 		{[]string{"revert", "--profile", "dad", "--to", "0"}, 2, []string{"用法"}},
 		{[]string{"revert", "--profile", "dad", "--to", "-3"}, 2, []string{"用法"}},
 	} {
-		var buf bytes.Buffer
-		if code := runCLI(tc.args, config{Port: "7600"}, &buf); code != tc.want {
-			t.Fatalf("%v: code=%d want %d out=%q", tc.args, code, tc.want, buf.String())
+		var out, errBuf bytes.Buffer
+		code := runCLI(tc.args, config{Port: "7600"}, &out, &errBuf)
+		if code != tc.want {
+			t.Fatalf("%v: code=%d want %d out=%q err=%q",
+				tc.args, code, tc.want, out.String(), errBuf.String())
 		}
 		for _, needle := range tc.needles {
-			if !strings.Contains(buf.String(), needle) {
-				t.Fatalf("%v: 输出该含 %q，实际 %q", tc.args, needle, buf.String())
+			if !strings.Contains(errBuf.String(), needle) {
+				t.Fatalf("%v: 诊断该走 stderr 且含 %q，实际 out=%q err=%q",
+					tc.args, needle, out.String(), errBuf.String())
 			}
+		}
+		if out.Len() != 0 {
+			t.Fatalf("%v: 用法错误不该往 stdout 印东西: %q", tc.args, out.String())
 		}
 	}
 }
@@ -155,9 +165,13 @@ func TestCLIRevertEndToEnd(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	var buf bytes.Buffer
-	if code := runCLI([]string{"revert", "--profile", "dad", "--to", "1"}, cliCfg(t, srv), &buf); code != 0 {
-		t.Fatalf("成功该退出码 0，实际 %d out=%q", code, buf.String())
+	var out, errBuf bytes.Buffer
+	code := runCLI([]string{"revert", "--profile", "dad", "--to", "1"}, cliCfg(t, srv), &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("成功该退出码 0，实际 %d out=%q err=%q", code, out.String(), errBuf.String())
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("成功的 revert 不该往 stderr 印东西: %q", errBuf.String())
 	}
 	if len(methods) != 1 || methods[0] != "POST" || paths[0] != "/api/v1/revert" {
 		t.Fatalf("该打 POST /api/v1/revert，实际 method=%+v path=%+v", methods, paths)
@@ -176,8 +190,8 @@ func TestCLIRevertEndToEnd(t *testing.T) {
 	if auths[0] != "Bearer tok-dad" {
 		t.Fatalf("该用作用域为 dad 的令牌而不是管理员令牌: %q", auths[0])
 	}
-	if !strings.Contains(buf.String(), "已恢复到 rev 1") {
-		t.Fatalf("成功话术该带上 rev: %q", buf.String())
+	if !strings.Contains(out.String(), "已恢复到 rev 1") {
+		t.Fatalf("成功话术该带上 rev: %q", out.String())
 	}
 	// 转义这一条改到 revertPath 上单独验（2026-10-10）：经 runCLI 那条路已经
 	// 走不到含空格的 profile——CLI 先挑令牌，而令牌作用域必须是合法 slug，
@@ -190,6 +204,8 @@ func TestCLIRevertEndToEnd(t *testing.T) {
 
 // 服务返回 503 → 退出 1、detail 原样带出；且失败当场证明 CLI 没在本地
 // 写过任何东西：工作目录仍然空着（CLI 唯一的写通路是 REST）。
+// 失败那一句走 stderr（2026-10-19），stdout 该是空的——读 stdout 的脚本
+// 只会看到"这次 revert 没说话"，而不是把诊断当结果。
 func TestCLIRevertServerErrorExitsOneNoLocalWrite(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -200,12 +216,16 @@ func TestCLIRevertServerErrorExitsOneNoLocalWrite(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	var buf bytes.Buffer
-	if code := runCLI([]string{"revert", "--profile", "dad", "--to", "1"}, cliCfg(t, srv), &buf); code != 1 {
-		t.Fatalf("服务侧失败该退出 1，实际 %d out=%q", code, buf.String())
+	var out, errBuf bytes.Buffer
+	if code := runCLI([]string{"revert", "--profile", "dad", "--to", "1"},
+		cliCfg(t, srv), &out, &errBuf); code != 1 {
+		t.Fatalf("服务侧失败该退出 1，实际 %d out=%q err=%q", code, out.String(), errBuf.String())
 	}
-	if !strings.Contains(buf.String(), "服务正在维护") {
-		t.Fatalf("detail 该原样带出来: %q", buf.String())
+	if !strings.Contains(errBuf.String(), "服务正在维护") {
+		t.Fatalf("detail 该原样带出来: %q", errBuf.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("失败不该往 stdout 印东西: %q", out.String())
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -225,16 +245,16 @@ func TestProfileCreateEndToEnd(t *testing.T) {
 	s, srv := newRealServer(t)
 	defer srv.Close()
 	adminKeyEnv(t)
-	var buf bytes.Buffer
+	var out, errBuf bytes.Buffer
 	// **不带 --admin**（2026-10-12）：那个旗标随档案的 admin 属性一起删掉了，
 	// 留着它 flag 会当场报错退出 2。它现在仍是"用法错误"，由下面那半条钉。
 	code := runCLI([]string{"profile", "create", "--id", "mom", "--title", "妈妈",
-		"--pin", "1234"}, cliCfg(t, srv), &buf)
+		"--pin", "1234"}, cliCfg(t, srv), &out, &errBuf)
 	if code != 0 {
-		t.Fatalf("建档该成功, code=%d out=%q", code, buf.String())
+		t.Fatalf("建档该成功, code=%d out=%q err=%q", code, out.String(), errBuf.String())
 	}
-	if !strings.Contains(buf.String(), "已建档 mom") {
-		t.Fatalf("成功话术不对: %q", buf.String())
+	if !strings.Contains(out.String(), "已建档 mom") {
+		t.Fatalf("成功话术不对: %q", out.String())
 	}
 	p, err := s.LoadProfile("mom")
 	if err != nil {
@@ -260,10 +280,18 @@ func TestProfileCreateEndToEnd(t *testing.T) {
 		t.Fatalf("建出来的档案不该带任何预置分组，实际 %+v", b.Groups)
 	}
 	// 被删掉的旗标必须**真的是用法错误**：flag 会拒绝它，于是退出 2 而不是建出一个档案。
-	var badBuf bytes.Buffer
+	// 而且那一条诊断走 stderr（2026-10-19）：stdout 空的，脚本才知道这次建档没发生。
+	var badOut, badErr bytes.Buffer
 	if code := runCLI([]string{"profile", "create", "--id", "kid", "--title", "娃",
-		"--pin", "1234", "--admin"}, cliCfg(t, srv), &badBuf); code != 2 {
-		t.Fatalf("--admin 已删，该是用法错误 2，实际 %d out=%q", code, badBuf.String())
+		"--pin", "1234", "--admin"}, cliCfg(t, srv), &badOut, &badErr); code != 2 {
+		t.Fatalf("--admin 已删，该是用法错误 2，实际 %d out=%q err=%q",
+			code, badOut.String(), badErr.String())
+	}
+	if badOut.Len() != 0 {
+		t.Fatalf("用法错误不该往 stdout 印东西: %q", badOut.String())
+	}
+	if !strings.Contains(badErr.String(), "not defined") {
+		t.Fatalf("该说清是哪个旗标不认识: %q", badErr.String())
 	}
 }
 
@@ -275,11 +303,11 @@ func TestProfileCreateNopass(t *testing.T) {
 	defer srv.Close()
 	adminKeyEnv(t)
 
-	var buf bytes.Buffer
+	var out, errBuf bytes.Buffer
 	code := runCLI([]string{"profile", "create", "--id", "tv", "--title", "客厅",
-		"--nopass"}, cliCfg(t, srv), &buf)
+		"--nopass"}, cliCfg(t, srv), &out, &errBuf)
 	if code != 0 {
-		t.Fatalf("--nopass 该建得出来, code=%d out=%q", code, buf.String())
+		t.Fatalf("--nopass 该建得出来, code=%d out=%q err=%q", code, out.String(), errBuf.String())
 	}
 	p, err := s.LoadProfile("tv")
 	if err != nil {
@@ -290,8 +318,8 @@ func TestProfileCreateNopass(t *testing.T) {
 	}
 	// 成功话术必须把这件事说出来：CLI 的输出多半是被人看或者被脚本读的，
 	// 而"已建档 tv"与"已建档 mom"长得一模一样。
-	if !strings.Contains(buf.String(), "不设 PIN") {
-		t.Errorf("建出不设防的那一份，话术里要写明:\n%s", buf.String())
+	if !strings.Contains(out.String(), "不设 PIN") {
+		t.Errorf("建出不设防的那一份，话术里要写明:\n%s", out.String())
 	}
 
 	// 两种给错都必须是**用法错误 2**，而不是发出去让服务端猜：
@@ -306,9 +334,15 @@ func TestProfileCreateNopass(t *testing.T) {
 			"--pin", "1234", "--nopass"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var b bytes.Buffer
-			if code := runCLI(tc.args, cliCfg(t, srv), &b); code != 2 {
-				t.Fatalf("该是用法错误 2，实际 %d out=%q", code, b.String())
+			var out, errBuf bytes.Buffer
+			if code := runCLI(tc.args, cliCfg(t, srv), &out, &errBuf); code != 2 {
+				t.Fatalf("该是用法错误 2，实际 %d out=%q err=%q", code, out.String(), errBuf.String())
+			}
+			if out.Len() != 0 {
+				t.Errorf("用法错误不该往 stdout 印东西: %q", out.String())
+			}
+			if errBuf.Len() == 0 {
+				t.Error("诊断该走 stderr")
 			}
 			if _, err := s.LoadProfile("tv2"); err == nil {
 				t.Error("用法错误之后却建出了档案")
@@ -404,17 +438,21 @@ func TestCLIImport_全都没能进来时说另一句(t *testing.T) {
 		{"全是进不来的", allSkipped, "全都没能进来", "回收站里的那些有意的没算在内"},
 		{"只有回收站", trashedOnly, "回收站里的那些有意的没算在内", "全都没能进来"},
 	} {
-		var buf bytes.Buffer
+		var out, errBuf bytes.Buffer
 		code := runCLI([]string{"import-bookmarks", "--profile", "dad",
-			write(t, tc.file)}, config{Port: "7600"}, &buf)
+			write(t, tc.file)}, config{Port: "7600"}, &out, &errBuf)
 		if code != 1 {
-			t.Errorf("%s：该退出 1，实际 %d out=%q", tc.name, code, buf.String())
+			t.Errorf("%s：该退出 1，实际 %d out=%q err=%q",
+				tc.name, code, out.String(), errBuf.String())
 		}
-		if !strings.Contains(buf.String(), tc.needle) {
-			t.Errorf("%s：输出该含 %q，实际 %q", tc.name, tc.needle, buf.String())
+		// 诊断走 stderr（2026-10-19）：这两句说的是"为什么一条都没进来"。
+		// stdout 上不查 emptiness——那里本来可能有那份导入报告（正常输出，
+		// 见 cmdImportBookmarks「报告先打」那句注释），这一格钉的是分流不是空。
+		if !strings.Contains(errBuf.String(), tc.needle) {
+			t.Errorf("%s：诊断该含 %q，实际 %q", tc.name, tc.needle, errBuf.String())
 		}
-		if strings.Contains(buf.String(), tc.absent) {
-			t.Errorf("%s：输出不该含 %q（那是另一个形状的话）: %q", tc.name, tc.absent, buf.String())
+		if strings.Contains(errBuf.String(), tc.absent) {
+			t.Errorf("%s：诊断不该含 %q（那是另一个形状的话）: %q", tc.name, tc.absent, errBuf.String())
 		}
 	}
 }
@@ -497,15 +535,32 @@ func TestPreConfigDispatch(t *testing.T) {
 // 从前这两条路都是 `_ = json.Unmarshal(...)` 然后照常打印，于是形状不对的
 // 200 会印成"已恢复到 rev 0 的内容，新的 rev 是 0"——一个编出来的成功，
 // 退出码还是 0，脚本作者据此认为回退做完了。
+//
+// 2026-10-19 分流：诊断该落在 stderr、stdout 一个字都没有（stdout 是脚本读的那条）。
 func TestCLIDoesNotInventSuccessFromAnUnreadableBody(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
 		args []string
+		// 诊断里该出现的那半句。两个 case 走到的是**不同的失败**，所以各写各的：
+		// 见下面 rebuild 那格的注释。
+		wantErr string
 	}{
-		{"revert 回的不是 JSON", `not json at all`, []string{"revert", "--profile", "dad", "--to", "3"}},
+		{"revert 回的不是 JSON", `not json at all`,
+			[]string{"revert", "--profile", "dad", "--to", "3"}, "读不出来"},
 		// rebuild 回的是**缺 title** 的半份：从前那行印成"已重建 dad（）"。
-		{"rebuild 缺字段", `{"id":"dad"}`, []string{"profile", "rebuild", "--profile", "dad", "--title", "爸爸", "--nopass"}},
+		//
+		// 判据只有"不许编出成功"（下面那个 fabricated 循环）。**这一格现在真的
+		// 走到了服务端那一半**（2026-10-19 修）：它原先写的是 `--profile`，而建档
+		// 这一族的旗标是 `--id`，于是 flag 先拒了它（退出码 2）——**测试是绿的，
+		// 但它绿得没有意义**：它验的是 flag 拒绝，不是"响应读不出来"。
+		//
+		// 换成 `--id` 之后它撞上真问题：`json.Unmarshal` 对 `{"id":"dad"}` 是
+		// **成功**的（title 留空），于是从前那行印出「已重建 dad（，不设 PIN…）」
+		// 并退 0——正是这一族当初要禁的编造成功。`cmdProfileRebuild` 补了一道
+		// "缺 id 或 title 就是读不出来"的检查。
+		{"rebuild 缺字段", `{"id":"dad"}`, []string{"profile", "rebuild", "--id", "dad", "--title", "爸爸", "--nopass"},
+			"读不出来"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -525,16 +580,25 @@ func TestCLIDoesNotInventSuccessFromAnUnreadableBody(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var buf bytes.Buffer
-			code := runCLI(tc.args, cfg, &buf)
-			out := buf.String()
+			var out, errBuf bytes.Buffer
+			code := runCLI(tc.args, cfg, &out, &errBuf)
 			if code == 0 {
-				t.Fatalf("读不出来的响应被当成了成功（退 0）：%q", out)
+				t.Fatalf("读不出来的响应被当成了成功（退 0）：out=%q err=%q",
+					out.String(), errBuf.String())
 			}
+			// 编出来的结论不管走到哪个流都不许出现；而"读不出来"这句诊断
+			// 必走 stderr（2026-10-19），stdout 空的。
+			both := out.String() + errBuf.String()
 			for _, fabricated := range []string{"已恢复到 rev 0", "已重建", "已建档"} {
-				if strings.Contains(out, fabricated) {
-					t.Fatalf("输出里出现了编出来的结论 %q：%q", fabricated, out)
+				if strings.Contains(both, fabricated) {
+					t.Fatalf("输出里出现了编出来的结论 %q：%q", fabricated, both)
 				}
+			}
+			if out.Len() != 0 {
+				t.Fatalf("失败不该往 stdout 印东西: %q", out.String())
+			}
+			if !strings.Contains(errBuf.String(), tc.wantErr) {
+				t.Fatalf("诊断该落在 stderr 上且含 %q，实际 %q", tc.wantErr, errBuf.String())
 			}
 		})
 	}

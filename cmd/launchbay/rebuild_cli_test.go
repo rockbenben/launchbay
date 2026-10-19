@@ -56,12 +56,16 @@ func TestCLIProfileBodiesCarryNoAdminKey(t *testing.T) {
 		{"rebuild", []string{"profile", "rebuild", "--id", "kid", "--title", "小满", "--pin", "5678"},
 			"已重建 mom"},
 	} {
-		var buf bytes.Buffer
-		if code := runCLI(tc.args, cliCfg(t, srv), &buf); code != 0 {
-			t.Fatalf("%s：该退出 0，实际 %d out=%q", tc.name, code, buf.String())
+		var out, errBuf bytes.Buffer
+		if code := runCLI(tc.args, cliCfg(t, srv), &out, &errBuf); code != 0 {
+			t.Fatalf("%s：该退出 0，实际 %d out=%q err=%q",
+				tc.name, code, out.String(), errBuf.String())
 		}
-		if !strings.Contains(buf.String(), tc.want) {
-			t.Errorf("%s：输出该含 %q，实际 %q", tc.name, tc.want, buf.String())
+		if errBuf.Len() != 0 {
+			t.Fatalf("%s：成功不该往 stderr 印东西: %q", tc.name, errBuf.String())
+		}
+		if !strings.Contains(out.String(), tc.want) {
+			t.Errorf("%s：输出该含 %q，实际 %q", tc.name, tc.want, out.String())
 		}
 	}
 	if len(got) != 2 {
@@ -100,15 +104,15 @@ func TestCLIProfileRebuildEndToEnd(t *testing.T) {
 	}
 	marksBefore := shaFile(t, s.BookmarksPath("dad"))
 
-	var buf bytes.Buffer
+	var out, errBuf bytes.Buffer
 	// **不带 --admin**（2026-10-12）：那个旗标已删，flag 会拒绝它。
 	code := runCLI([]string{"profile", "rebuild", "--id", "dad", "--title", "爸爸",
-		"--pin", "4321"}, cliCfg(t, srv), &buf)
+		"--pin", "4321"}, cliCfg(t, srv), &out, &errBuf)
 	if code != 0 {
-		t.Fatalf("坏档该重建成功, code=%d out=%q", code, buf.String())
+		t.Fatalf("坏档该重建成功, code=%d out=%q err=%q", code, out.String(), errBuf.String())
 	}
-	if !strings.Contains(buf.String(), "已重建 dad") {
-		t.Errorf("成功话术不对: %q", buf.String())
+	if !strings.Contains(out.String(), "已重建 dad") {
+		t.Errorf("成功话术不对: %q", out.String())
 	}
 	p, err := s.LoadProfile("dad")
 	if err != nil {
@@ -141,15 +145,20 @@ func TestCLIProfileRebuildSurfacesConflict(t *testing.T) {
 	defer srv.Close()
 	adminKeyEnv(t)
 
-	var buf bytes.Buffer
+	var out, errBuf bytes.Buffer
 	// dad 是好的（夹具里没写坏），所以重建它必然 409
 	code := runCLI([]string{"profile", "rebuild", "--id", "dad", "--title", "爸爸",
-		"--pin", "4321"}, cliCfg(t, srv), &buf)
+		"--pin", "4321"}, cliCfg(t, srv), &out, &errBuf)
 	if code != 1 {
-		t.Fatalf("409 该退出 1，实际 %d out=%q", code, buf.String())
+		t.Fatalf("409 该退出 1，实际 %d out=%q err=%q", code, out.String(), errBuf.String())
 	}
-	if !strings.Contains(buf.String(), "读得动") {
-		t.Fatalf("detail 该原样带出来: %q", buf.String())
+	// 服务端拒绝走 stderr（2026-10-19），stdout 空的——读 stdout 的脚本
+	// 不该看到"已重建"那一句的邻居。
+	if !strings.Contains(errBuf.String(), "读得动") {
+		t.Fatalf("detail 该原样带出来: %q", errBuf.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("失败不该往 stdout 印东西: %q", out.String())
 	}
 }
 
@@ -159,39 +168,49 @@ func TestCLIProfileRebuildSurfacesNotFound(t *testing.T) {
 	defer srv.Close()
 	adminKeyEnv(t)
 
-	var buf bytes.Buffer
+	var out, errBuf bytes.Buffer
 	code := runCLI([]string{"profile", "rebuild", "--id", "ghost", "--title", "幽灵",
-		"--pin", "4321"}, cliCfg(t, srv), &buf)
+		"--pin", "4321"}, cliCfg(t, srv), &out, &errBuf)
 	if code != 1 {
-		t.Fatalf("404 该退出 1，实际 %d out=%q", code, buf.String())
+		t.Fatalf("404 该退出 1，实际 %d out=%q err=%q", code, out.String(), errBuf.String())
 	}
-	if !strings.Contains(buf.String(), "不存在") {
-		t.Fatalf("detail 该原样带出来: %q", buf.String())
+	if !strings.Contains(errBuf.String(), "不存在") {
+		t.Fatalf("detail 该原样带出来: %q", errBuf.String())
 	}
-	if strings.Contains(buf.String(), "已重建") {
-		t.Fatalf("失败却说了成功: %q", buf.String())
+	// "不许把它说成建好了"要连 stdout 一起查：那才是脚本读的那条流。
+	if strings.Contains(out.String()+errBuf.String(), "已重建") {
+		t.Fatalf("失败却说了成功: out=%q err=%q", out.String(), errBuf.String())
 	}
 }
 
 // 用法文本必须**同时**列出两个子命令：rebuild 落地之前，`profile rebuild` 打印的
 // 是 create 的用法——那正是"文档说的命令不存在"在终端上的样子。
+//
+// 这两条是**用法错误**（没给子命令 / 打错了子命令名），所以用法文本走 stderr、
+// stdout 空着（2026-10-19）；求帮助是另一条路——`profile create -h` 进 stdout 退 0，
+// 由 cli_stream_test.go 钉。
 func TestCLIProfileUsageListsBothSubcommands(t *testing.T) {
-	var buf bytes.Buffer
-	if code := runCLI([]string{"profile"}, config{Port: "7600"}, &buf); code != 2 {
+	var out, errBuf bytes.Buffer
+	if code := runCLI([]string{"profile"}, config{Port: "7600"}, &out, &errBuf); code != 2 {
 		t.Fatalf("没给子命令该是用法错误 2，实际 %d", code)
 	}
+	if out.Len() != 0 {
+		t.Fatalf("用法错误不该往 stdout 印东西: %q", out.String())
+	}
 	for _, want := range []string{"profile create", "profile rebuild"} {
-		if !strings.Contains(buf.String(), want) {
-			t.Errorf("用法里该有 %q，实际 %q", want, buf.String())
+		if !strings.Contains(errBuf.String(), want) {
+			t.Errorf("用法里该有 %q，实际 %q", want, errBuf.String())
 		}
 	}
 	// 不认识的子命令同样给出两份用法，不许只报一个
-	buf.Reset()
-	if code := runCLI([]string{"profile", "rebuild-all"}, config{Port: "7600"}, &buf); code != 2 {
+	out.Reset()
+	errBuf.Reset()
+	if code := runCLI([]string{"profile", "rebuild-all"}, config{Port: "7600"},
+		&out, &errBuf); code != 2 {
 		t.Fatalf("未知子命令该是 2，实际 %d", code)
 	}
-	if !strings.Contains(buf.String(), "profile rebuild") {
-		t.Errorf("未知子命令也要给出完整用法: %q", buf.String())
+	if !strings.Contains(errBuf.String(), "profile rebuild") {
+		t.Errorf("未知子命令也要给出完整用法: %q", errBuf.String())
 	}
 }
 

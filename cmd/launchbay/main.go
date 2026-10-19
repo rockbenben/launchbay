@@ -79,7 +79,11 @@ func main() {
 	// 早先这里另写了一份子命令名单，于是加子命令
 	// 时漏改这一处，敲进去的命令会**静默落进 serve 分支**——用户看到的是
 	// "端口被占用"，而不是"这个子命令不存在"，能白查很久。
-	if code := runCLI(os.Args[1:], cfg, os.Stdout); code != notCLICommand {
+	//
+	// 两个 writer（2026-10-19）：结论与报告走 stdout，失败诊断走 stderr，
+	// 与上面 preConfigDispatch 那一族同一套规矩——"同一个动作两种码/两条流"在
+	// 一个进程里出现两次，人就只能记住两次。
+	if code := runCLI(os.Args[1:], cfg, os.Stdout, os.Stderr); code != notCLICommand {
 		os.Exit(exitCode(code))
 	}
 	// 走到这里就是 serve 那一支：管理员 key 是**服务端**的启动错误（AGENTS.md

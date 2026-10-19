@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -27,6 +29,17 @@ const notCLICommand = -1
 // 无从区分"没给子命令"（该起服务）与"给了一个不存在的子命令"（该报错），
 // 后者静默落进 serve 分支——实测 `launchbay revrt --profile dad --to 3` 的回答
 // 是一句"listening on :17999"，而 17999 已经被上一行自己占着，人能白查很久。
+//
+// **两个 writer，不是一个**（2026-10-19）：`out` 是正常输出（成功的结论、导入
+// 报告、dry-run 计划、`-h` 帮助），`errOut` 是失败诊断（用法错误、请求发不出去、
+// 服务端答错、配置里缺令牌）。从前只有 stdout 一个出口，于是
+// `launchbay revert --to 0 2>/dev/null` 照样把用法错误糊在人脸上，而把 stdout
+// 当数据源的脚本会把失败读成成功。分流判据只有一条：**这句话是在报告成功，
+// 还是在解释为什么没成功。**
+//
+// 顶层 `preConfigDispatch` 早就分成两个 writer 了（`--help` 走 stdout 退 0、
+// 未知子命令走 stderr 退 2），healthcheck 的探活失败也走 os.Stderr——同一个
+// 进程里三套规矩，是这次收口的直接理由。
 var cliCommands = []struct {
 	name    string
 	summary string
@@ -60,19 +73,56 @@ func usage(out io.Writer) {
 	fmt.Fprintln(out, "写子命令只经本机 REST 落盘，用的是**那一份档案自己**的档案作用域令牌。")
 }
 
-func runCLI(args []string, cfg config, out io.Writer) int {
+func runCLI(args []string, cfg config, out, errOut io.Writer) int {
 	if len(args) == 0 {
 		return notCLICommand
 	}
 	switch args[0] {
 	case "revert":
-		return cmdRevert(args[1:], cfg, out)
+		return cmdRevert(args[1:], cfg, out, errOut)
 	case "profile":
-		return cmdProfile(args[1:], cfg, out)
+		return cmdProfile(args[1:], cfg, out, errOut)
 	case "import-bookmarks":
-		return cmdImportBookmarks(args[1:], cfg, out)
+		return cmdImportBookmarks(args[1:], cfg, out, errOut)
 	}
 	return notCLICommand
+}
+
+// parseFlags 是子命令那一层 flag 解析的**唯一出口**，分流判据只有一条：
+//
+//	**`flag.ErrHelp` 不是用法错误**——它是"我要看帮助"。`launchbay revert -h`
+//	是一次成功的求助，不是打错了一个字。
+//
+// flag 包把这两者都写进同一个 `fs.Output()`，所以 `fs.SetOutput` 一刀切不了：
+// 切到 stderr，`-h` 的正常帮助会混进错误流；切到 stdout，「--to 给的是字母」
+// 这种用法错误会混进结果流——而人正在用管道读结果流。于是先收进一个 buffer，
+// 读完 Parse 的返回值再决定这份文本去哪、去完给什么码：
+//
+//	ErrHelp → stdout，退 0（与顶层 `--help` 一致；`usage()` 末尾那句
+//	          「每个子命令自己的开关：launchbay <子命令> -h」明确宣传了它）
+//	别的错   → stderr，退 2
+//
+// 返回值：code=0 且 ok=true 才是"解析成功，旗标可读"；其余情况 code 是该退的码，
+// 调用方直接把它退出去。
+//
+// 收尾那一句 `fs.SetOutput(errOut)` 是给调用方的：解析之后命令还可能自己调
+// `fs.PrintDefaults()`（import-bookmarks 的用法分支就这么干），那时 flag 的输出
+// 仍指着这个马上就要被回收的 buffer——不重指，那几行旗标说明就凭空消失了。
+func parseFlags(fs *flag.FlagSet, args []string, out, errOut io.Writer) (code int, ok bool) {
+	var buf bytes.Buffer
+	fs.SetOutput(&buf)
+	err := fs.Parse(args)
+	switch {
+	case err == nil:
+		fs.SetOutput(errOut)
+		return 0, true
+	case errors.Is(err, flag.ErrHelp):
+		fmt.Fprint(out, buf.String())
+		return 0, false
+	default:
+		fmt.Fprint(errOut, buf.String())
+		return 2, false
+	}
 }
 
 // exitCode 把 -1（不该走到这里——main.go 只对已知子命令调 runCLI）映射成
@@ -84,40 +134,42 @@ func exitCode(code int) int {
 	return code
 }
 
-func cmdRevert(args []string, cfg config, out io.Writer) int {
+// cmdRevert 恢复某一份书签的某个 rev。失败一律走 errOut：`--to 0` 是用法错误、
+// 拿不到令牌是配置错误、服务端给 404/409 是服务端拒绝——三族都是"没成"，
+// 而唯一一句"成了"（已恢复到…）走 out。
+func cmdRevert(args []string, cfg config, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("revert", flag.ContinueOnError)
-	fs.SetOutput(out)
 	profile := fs.String("profile", "", "要恢复的档案 id")
 	to := fs.Int64("to", 0, "恢复到哪个 rev（该 rev 的快照）")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	if code, ok := parseFlags(fs, args, out, errOut); !ok {
+		return code
 	}
 	// --to 0 在人嘴里几乎总是"想要最初状态"的手误，而 rev 0 快照存在与否
 	// 取决于建档后有没有做过一次写入——CLI 不替人猜，用法错误直接拒；
 	// 端点对 to-rev=0 的态度相反（有 snapshots/0 就恢复它），见 revert.go。
 	if *profile == "" || *to <= 0 {
-		fmt.Fprintln(out, "用法: launchbay revert --profile <id> --to <rev>")
-		fmt.Fprintln(out, "（--to 0 不收：rev 0 可能是建档留下的真实快照。确实要恢复它，打这条端点，")
-		fmt.Fprintln(out, "  用那一份档案自己的档案作用域令牌，与 CLI 用的是同一枚：")
-		fmt.Fprintln(out, `  curl -X POST -H "Authorization: Bearer <该档案的令牌>" -H "X-LB-By: cli" \`)
-		fmt.Fprintln(out, `    "http://<这台机器>:<端口>/api/v1/revert?profile=<id>&to-rev=0"`)
+		fmt.Fprintln(errOut, "用法: launchbay revert --profile <id> --to <rev>")
+		fmt.Fprintln(errOut, "（--to 0 不收：rev 0 可能是建档留下的真实快照。确实要恢复它，打这条端点，")
+		fmt.Fprintln(errOut, "  用那一份档案自己的档案作用域令牌，与 CLI 用的是同一枚：")
+		fmt.Fprintln(errOut, `  curl -X POST -H "Authorization: Bearer <该档案的令牌>" -H "X-LB-By: cli" \`)
+		fmt.Fprintln(errOut, `    "http://<这台机器>:<端口>/api/v1/revert?profile=<id>&to-rev=0"`)
 		return 2
 	}
 	// revert 要写别人的书签，所以用**那一份自己**的令牌（2026-10-10 改判）。
 	// 管理员令牌（*）只管账号层面，这条端点已经不接受它了。
 	c, err := newScopedClient(cfg.Port, cfg.Tokens, *profile)
 	if err != nil {
-		fmt.Fprintf(out, "revert 失败: %v\n", err)
+		fmt.Fprintf(errOut, "revert 失败: %v\n", err)
 		return 1
 	}
 	path := revertPath(*profile, *to)
 	raw, code, err := c.do("POST", path, nil, map[string]string{"X-LB-By": "cli"})
 	if err != nil {
-		fmt.Fprintf(out, "revert 失败: %v\n", err)
+		fmt.Fprintf(errOut, "revert 失败: %v\n", err)
 		return 1
 	}
 	if err := mustOK(raw, code, path); err != nil {
-		fmt.Fprintf(out, "revert 失败: %v\n", err)
+		fmt.Fprintf(errOut, "revert 失败: %v\n", err)
 		return 1
 	}
 	var resp struct {
@@ -128,7 +180,7 @@ func cmdRevert(args []string, cfg config, out io.Writer) int {
 	// "已恢复到 rev 0 的内容，新的 rev 是 0"——**一个编出来的成功**。
 	// 读不出来就是读不出来，退 1，让人去看端点到底回了什么。
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		fmt.Fprintf(out, "revert 的响应读不出来（HTTP %d）: %v\n", code, err)
+		fmt.Fprintf(errOut, "revert 的响应读不出来（HTTP %d）: %v\n", code, err)
 		return 1
 	}
 	fmt.Fprintf(out, "%s 已恢复到 rev %d 的内容，新的 rev 是 %d\n", *profile, resp.RestoredFrom, resp.Rev)
@@ -158,45 +210,60 @@ const profileUsage = "用法:\n" +
 	"  launchbay profile rebuild    --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
 	"  launchbay profile fix-names  --profile <id> [--dry-run]"
 
-// pinFlags 是两个建档子命令共用的 PIN 读法（2026-10-12：PIN **选填**）。
+// pinFlags 定义两个建档子命令共用的 PIN 旗标（2026-10-12：PIN **选填**）。
 //
-// `--pin` 与 `--nopass` 恰好必须给一个，两种给错都在这里变成用法错误而不是发出去：
+// 它**只定义，不解析也不判定**（2026-10-19）：解析走 parseFlags——只有那里分得清
+// `flag.ErrHelp`（`-h` 是求帮助，退 0）与用法错误（退 2）；判定走 checkPin。
+// 从前这三件事挤在一个函数里，而它用"code 非 0 即失败"表达停机，于是
+// `profile create -h` 那句退 0 的 help 被当成了"解析成功"，命令继续往下走去建档
+// ——求帮助的代价是一次不该发生的写请求。判据留在两处是因为它们本来就不是
+// 一件事，但"要不要 PIN"这个判断**只有** checkPin 一处，两个子命令共用。
+func pinFlags(fs *flag.FlagSet) (pin *string, nopass *bool) {
+	p := fs.String("pin", "", "4-6 位数字")
+	n := fs.Bool("nopass", false, "明确不设 PIN：局域网里能访问这台机器的人都能进这一份")
+	return p, n
+}
+
+// checkPin 判「--pin 与 --nopass 恰好必须给一个」，两种给错都在这里变成用法错误
+// 而不是发出去：
 //
 //   - 两个都不给 → 服务端回 422 名字段 `pin`、理由「要 4-6 位数字」。对敲命令行的人
 //     来说这句话是误导的：我压根没打 PIN，它却说我打错了格式。
 //   - 两个都给 → 服务端按 `nopass` 走，`--pin` 被静默丢掉。一个旗标被静默吞掉，
 //     下一个人会以为那道门锁上了。
 //
-// 所以判据只有这一处，两个子命令共用——它们对"要不要 PIN"这件事的理解不该分家。
-func pinFlags(fs *flag.FlagSet, args []string, out io.Writer) (pin string, nopass bool, code int) {
-	p := fs.String("pin", "", "4-6 位数字")
-	n := fs.Bool("nopass", false, "明确不设 PIN：局域网里能访问这台机器的人都能进这一份")
-	if err := fs.Parse(args); err != nil {
-		return "", false, 2 // flag 自己已经把用法印到 out 了
-	}
+// 两族话术都是**用法错误**，一律走 errOut、退 2。
+func checkPin(pin string, nopass bool, errOut io.Writer) int {
 	switch {
-	case *p != "" && *n:
-		fmt.Fprintf(out, "--pin 与 --nopass 只能给一个：前者给这一份锁门，后者明确不锁。\n")
-		return "", false, 2
-	case *p == "" && !*n:
-		fmt.Fprintf(out, "要么给 --pin <4-6 位>，要么给 --nopass（明确不设 PIN）。\n")
-		return "", false, 2
+	case pin != "" && nopass:
+		fmt.Fprintf(errOut, "--pin 与 --nopass 只能给一个：前者给这一份锁门，后者明确不锁。\n")
+		return 2
+	case pin == "" && !nopass:
+		fmt.Fprintf(errOut, "要么给 --pin <4-6 位>，要么给 --nopass（明确不设 PIN）。\n")
+		return 2
 	}
-	return *p, *n, 0
+	return 0
 }
 
 // profileSub 是 `launchbay profile` 底下的子命令名单。与 runCLI 那份一样，
 // **不许在别处再抄一遍**：两份名单差一个的后果是敲进去的命令静默落进 serve 分支，
 // 用户看到的是"端口被占用"。
-var profileSub = map[string]func([]string, config, io.Writer) int{
+//
+// 两个 writer 逐层透传（2026-10-19），理由见 runCLI 那段：分流判据是
+// "在报告成功还是在解释失败"，而这条判据要一路透到叶子命令才判得出来。
+var profileSub = map[string]func([]string, config, io.Writer, io.Writer) int{
 	"create":    cmdProfileCreate,
 	"rebuild":   cmdProfileRebuild,
 	"fix-names": cmdProfileFixNames,
 }
 
-func cmdProfile(args []string, cfg config, out io.Writer) int {
+// cmdProfile 是 `launchbay profile` 的派发层。两条出路（没给子命令、给了一个
+// 不认识的子命令）都打同一份用法，而**两条都是用法错误**：走 errOut、退 2。
+// 这不是"打印一份帮助"——它是"你没打对命令"，而 `profile create -h` 才是不用
+// 打错的求法（那条走 parseFlags，进 stdout 退 0）。
+func cmdProfile(args []string, cfg config, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(out, profileUsage)
+		fmt.Fprintln(errOut, profileUsage)
 		return 2
 	}
 	if sub, ok := profileSub[args[0]]; ok {
@@ -204,41 +271,45 @@ func cmdProfile(args []string, cfg config, out io.Writer) int {
 		// 把它留在参数里的话 Parse 立刻返回、**一个旗标都不解析**，--id/--title
 		// 全是零值——而建档/重建那两条会照着空值发请求，服务端给出一句与真实
 		// 原因无关的 422。这条是这个派发最容易踩的形状。
-		return sub(args[1:], cfg, out)
+		return sub(args[1:], cfg, out, errOut)
 	}
-	fmt.Fprintln(out, profileUsage)
+	fmt.Fprintln(errOut, profileUsage)
 	return 2
 }
 
-func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
+// cmdProfileCreate 建一份新档案。成功话术走 out，四族失败（用法、配置缺管理员
+// key、发不出去、服务端答错）全走 errOut。
+func cmdProfileCreate(args []string, cfg config, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("profile create", flag.ContinueOnError)
-	fs.SetOutput(out)
 	id := fs.String("id", "", "档案 id（ASCII slug）")
 	title := fs.String("title", "", "显示名字")
-	pin, nopass, code := pinFlags(fs, args, out)
-	if code != 0 {
+	pin, nopass := pinFlags(fs)
+	if code, ok := parseFlags(fs, args, out, errOut); !ok {
+		return code
+	}
+	if code := checkPin(*pin, *nopass, errOut); code != 0 {
 		return code
 	}
 	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
-		fmt.Fprintf(out, "profile create 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile create 失败: %v\n", err)
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
-		"id": *id, "title": *title, "pin": pin, "nopass": nopass})
+		"id": *id, "title": *title, "pin": *pin, "nopass": *nopass})
 	raw, code, err := c.do("POST", "/api/v1/profiles", body, map[string]string{"Content-Type": "application/json"})
 	if err != nil {
-		fmt.Fprintf(out, "profile create 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile create 失败: %v\n", err)
 		return 1
 	}
 	if err := mustOK(raw, code, "/api/v1/profiles"); err != nil {
-		fmt.Fprintf(out, "profile create 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile create 失败: %v\n", err)
 		return 1
 	}
 	// 不设防的那一份，成功话术必须**说出来**。CLI 的输出多半是被人看或者被
 	// 脚本读的，而"已建档 mom"与"已建档 tv"长得一模一样——差别是这一份从此
 	// 局域网里谁都能进。让建档的那一行自己带出这件事，比让人再去查一次省事。
-	if nopass {
+	if *nopass {
 		fmt.Fprintf(out, "已建档 %s（不设 PIN：局域网里谁都能进这一份）\n", *id)
 		return 0
 	}
@@ -257,31 +328,33 @@ func cmdProfileCreate(args []string, cfg config, out io.Writer) int {
 // 只经本机 REST，不直读磁盘：进程内互斥锁罩不住另一个进程，CLI 绕过服务写盘就是
 // 与正在跑的容器抢同一个文件（§4.5）。中文名字在这里是安全的——请求体由 Go 编码，
 // 绕开"从 shell 发中文 body"那个坑。
-func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
+func cmdProfileRebuild(args []string, cfg config, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("profile rebuild", flag.ContinueOnError)
-	fs.SetOutput(out)
 	id := fs.String("id", "", "要重建的档案 id（ASCII slug，磁盘上必须已存在）")
 	title := fs.String("title", "", "重建后的显示名字")
-	pin, nopass, code := pinFlags(fs, args, out)
-	if code != 0 {
+	pin, nopass := pinFlags(fs)
+	if code, ok := parseFlags(fs, args, out, errOut); !ok {
+		return code
+	}
+	if code := checkPin(*pin, *nopass, errOut); code != 0 {
 		return code
 	}
 	c, err := newAdminClient(cfg.Port, cfg.AdminToken)
 	if err != nil {
-		fmt.Fprintf(out, "profile rebuild 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile rebuild 失败: %v\n", err)
 		return 1
 	}
 	body, _ := json.Marshal(map[string]any{
-		"profile": *id, "title": *title, "pin": pin, "nopass": nopass,
+		"profile": *id, "title": *title, "pin": *pin, "nopass": *nopass,
 	})
 	raw, code, err := c.do("POST", "/api/v1/profiles/rebuild", body,
 		map[string]string{"Content-Type": "application/json", "X-LB-By": "cli"})
 	if err != nil {
-		fmt.Fprintf(out, "profile rebuild 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile rebuild 失败: %v\n", err)
 		return 1
 	}
 	if err := mustOK(raw, code, "/api/v1/profiles/rebuild"); err != nil {
-		fmt.Fprintf(out, "profile rebuild 失败: %v\n", err)
+		fmt.Fprintf(errOut, "profile rebuild 失败: %v\n", err)
 		return 1
 	}
 	var resp struct {
@@ -289,12 +362,24 @@ func cmdProfileRebuild(args []string, cfg config, out io.Writer) int {
 		Title string `json:"title"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		fmt.Fprintf(out, "profile rebuild 的响应读不出来（HTTP %d）: %v\n", code, err)
+		fmt.Fprintf(errOut, "profile rebuild 的响应读不出来（HTTP %d）: %v\n", code, err)
+		return 1
+	}
+	// **响应缺 id 或 title 就是读不出来**（2026-10-19 修）：`json.Unmarshal` 对
+	// `{"id":"dad"}` 是**成功**的（title 留空），于是那行印成"已重建 dad（，不设
+	// PIN…）"并退 0——**正是这一族当初要禁的编造成功**（`cmdRevert` 少一道必填
+	// 检查就退 0，被 `TestCLIDoesNotInventSuccessFromAnUnreadableBody` 钉住；
+	// rebuild 这一族从没加过那道检查，于是它一直漏着）。
+	//
+	// 判据是"这份响应说得清重建出了什么"：没有 id 与 title 的一行字，说的不是
+	// 重建的结果。
+	if resp.ID == "" || resp.Title == "" {
+		fmt.Fprintf(errOut, "profile rebuild 的响应读不出来（HTTP %d）：缺 id 或 title\n", code)
 		return 1
 	}
 	// 与 create 同一条理由（见上面那句注释）：重建出来的是不是一份**不设防**的档案，
 	// 从 "已重建 mom（妈妈）" 这行字里看不出来。
-	if nopass {
+	if *nopass {
 		fmt.Fprintf(out, "已重建 %s（%s，不设 PIN：局域网里谁都能进这一份）\n", resp.ID, resp.Title)
 		return 0
 	}
