@@ -18,6 +18,20 @@ const (
 	credScoped              // 令牌或会话，且只能动自己有资格的那个档案
 	credAdmin               // 管理员令牌（LAUNCHBAY_ADMIN_TOKEN）或管理员 cookie（lb_admin）
 	credSession             // 只有会话（改自己 PIN 这类，令牌不许代改）
+	// credTokenOnly 是**档案作用域令牌、且不认会话**（2026-10-19 加）。
+	//
+	// 为什么要有这一档：原先 import 那两条挂在 credScoped 上，而 credScoped 在
+	// 文档侧一律报成 `bearerAuth|sessionCookie`（openapi_test.go 的那两张表）。
+	// 于是契约写着"会话也行"，行为是会话一律 401 —— **fail closed，不构成越权**，
+	// 但照契约写脚本的扩展会拿会话 cookie 换来一句「令牌认不出来」，进而以为自己
+	// 的会话坏了。
+	//
+	// 行为本身是对的，别去放宽 handler：那条通路是**给浏览器扩展用的**，扩展读得到
+	// 整棵书签树、却读不到会话 cookie（§6.3），所以它本来就只能带令牌；而"档案从
+	// 令牌作用域推导、不接受申报"是它更强的一格性质（申报字段根本不存在，
+	// "令牌与档案对不上"在协议层就无法表达）。收会话等于把那条更强的性质削一半，
+	// 只为迁就一份写错的文档——那是本末倒置。
+	credTokenOnly
 )
 
 type route struct {
@@ -111,9 +125,9 @@ func (s *Server) routes() []route {
 		// 读不到会话 cookie，于是只能带令牌来。体是原始 Netscape HTML，档案
 		// **从令牌作用域推导、不接受申报**——一枚 dad 的令牌只能导进 dad。
 		// 与上面那两条共用 planImport/applyImport，服务端只有一份判据。
-		{Method: "POST", Pattern: "/api/v1/import", Cred: credScoped,
+		{Method: "POST", Pattern: "/api/v1/import", Cred: credTokenOnly,
 			Summary: "扩展导入第一步：原始 Netscape HTML → 一份报告（不写盘）", H: s.handleImportAPI},
-		{Method: "POST", Pattern: "/api/v1/import/apply", Cred: credScoped,
+		{Method: "POST", Pattern: "/api/v1/import/apply", Cred: credTokenOnly,
 			Summary: "扩展导入第二步：确认写入（一次性令牌）", H: s.handleImportApplyAPI},
 		// 回退到某一版的零 JS 两步确认（2026-10-11）。与上面那三步一样是浏览器
 		// 表单通路，但**目标不接受申报**：档案从会话推导，所以 credSession 而

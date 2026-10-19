@@ -85,12 +85,10 @@ func (s *Server) handleSWJS(w http.ResponseWriter, r *http.Request) {
 // 走的是 `?add=` 导航 + 会话 cookie——家里人不需要在任何地方配令牌。
 func (s *Server) handleBookmarklet(w http.ResponseWriter, r *http.Request) {
 	// Host 头由客户端给出，不能直接拼进输出的 JS 里（那是一次反射点：
-	// 攻击者能让访客拿到一段指向他主机的脚本）。只取 host:port 形状，
-	// 其余（含 X-Forwarded-Host 一类）一律不采信。
-	host := r.Host
-	if i := strings.LastIndex(host, ":"); i > 0 && !strings.Contains(host[i:], "]") {
-		host = host[:i]
-	}
+	// 攻击者能让访客拿到一段指向他主机的脚本）。**host[:port] 整体留下**，
+	// 其余形状（含 X-Forwarded-Host 一类）一律不采信——判据在 hostPortOf
+	// 与 validHostShape 两处。
+	host := hostPortOf(r.Host)
 	if host == "" || !validHostShape(host) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.HostInvalid, Detail: "Host 头形状不对"})
 		return
@@ -105,17 +103,70 @@ func (s *Server) handleBookmarklet(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, js)
 }
 
-// validHostShape 只认「标签数字点」与「IPv6 方括号」两种形状。
+// hostPortOf 把 Host 头**归一成 host[:port] 并整体留下**。
+//
+// **端口不许剥（2026-10-19 修）**：这一段原来在剥端口，理由是"只要主机名"，
+// 但那等于把这条地址唯一能让它在非 80 端口上成立的那一半扔了——本案的默认
+// 端口是 7600（compose 的 `7600:7600`，spec §6.3 写死的就是
+// `http://<NAS_IP>:7600/?add=`），所以照默认配置装好、配好书签栏之后，按它
+// 会跳到 80 端口去，那台机器上 80 端口什么都没有：书签栏按钮"点了打不开"。
+// 症状形状正是 §8.1 那条「点了没反应的东西不进界面」——而这条按钮唯一的卖点
+// 是"配一次就永远对"，剥端口把那个卖点废掉了。只有把这台机器反代到 80 端口
+// 的人才会"看起来是好的"，而 §11 明写不挂反代。
+//
+// 它活到现在是因为那条测试只断言 `javascript:`、`/?add=` 这些**子串**，
+// 从没断言过整条地址：写错的地址照样让它绿。测试那一半见
+// `TestBookmarklet_地址保留端口`——**钉整条，不钉子串**。
+//
+// **它几乎什么都不做，恰恰是这一段该有的样子**：host[:port] 原样带出去，
+// 唯一的加工是去掉一个**空的**尾随冒号（`nas:` → `nas`）。
+//
+// 判据与形状校验分开放在两处，是有意的：`validHostShape` 答"这段能不能塞进
+// JS 字符串字面量"，这里答"Host 头长什么样"。混在一处就会出现先前那种
+// "修一半"——地址被拼成 `10.0.0.5port`（一个**合法**主机名），于是连
+// 400 都不给你，直接把一条坏地址写进书签栏。
+//
+// 返回空串表示"形状里就没有可用的 host"（空串），那是 400 的判据，与
+// "切出来但形状不合法"（validHostShape 拒）分开。
+func hostPortOf(hostport string) string {
+	// 尾随的空冒号：`nas:` → `nas`。**只去这一个**，不去裁任何别的东西。
+	if strings.HasSuffix(hostport, ":") {
+		return hostport[:len(hostport)-1]
+	}
+	return hostport
+}
+
+// validHostShape 认 **host[:port]** 两种形状。
 // 它挡的不是"看起来像地址"，而是"能塞进 JS 字符串字面量的东西"——引号、
 // 反斜杠、尖括号一律拒。
+//
+// **端口是 2026-10-19 跟着 hostPortOf 一起放行的**：这一段原来按单个 host 判，
+// 于是即便上面那处不剥端口，带冒号的整条地址也会被它拒成 400——那正是"修一半"
+// 的形状（IPv4 通、IPv6 反而挂）。所以端口单独一段判：**只能是数字**，
+// 不放行任何别的形状，冒号本身也不许出现第二次（`a:b:c` 不是 host:port）。
 func validHostShape(h string) bool {
-	if strings.HasPrefix(h, "[") {
-		return strings.HasSuffix(h, "]") && !strings.ContainsAny(h, `"'<>`+"`"+`\`)
+	host, port := h, ""
+	if strings.HasPrefix(h, "[") { // IPv6 的冒号在方括号里，不能按冒号切
+		if i := strings.Index(h, "]"); i >= 0 {
+			host, port = h[:i+1], strings.TrimPrefix(h[i+1:], ":")
+		}
+	} else if i := strings.LastIndex(h, ":"); i > 0 {
+		host, port = h[:i], h[i+1:]
 	}
-	if h == "" || strings.ContainsAny(h, `"'<>`+"`"+`\/ \`) {
+	if port != "" {
+		for _, r := range port {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	if strings.HasPrefix(host, "[") {
+		return strings.HasSuffix(host, "]") && !strings.ContainsAny(host, `"'<>`+"`"+`\`)
+	}
+	if host == "" || strings.ContainsAny(host, `"'<>`+"`"+`\/ \`) {
 		return false
 	}
-	for _, r := range h {
+	for _, r := range host {
 		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
 			(r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_'
 		if !ok {

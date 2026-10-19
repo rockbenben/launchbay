@@ -356,6 +356,161 @@ func TestImport_全都进不来时说的是另一句话(t *testing.T) {
 
 // 令牌通路（扩展走的那条）也要说清跳过数：扩展只显示一行结论，
 // 没有逐条明细，所以那个数就是它唯一能说的话。
+// `credTokenOnly` 的**行为证人**（2026-10-19）。
+//
+// 这一档存在的理由是契约：扩展那条 import 通路原先挂在 credScoped 上，而
+// credScoped 在文档侧一律报成 `bearerAuth|sessionCookie` —— 于是契约写着
+// "会话也行"，行为是会话一律 401。照契约写脚本的扩展会拿会话 cookie 换来
+// 一句「令牌认不出来」，进而以为自己会话坏了。
+//
+// **钉的是行为，不是那张表**：把这两条挂回 credScoped、把文档改回两者都行，
+// 这个测试会立刻红（会话就通了）。反过来说，只改文档不改行为，行为没坏、
+// 只是文档如实了——那正是这次要的结果。
+//
+// 顺带钉住"不写盘"：凭证那一关就该把请求挡下来，挡在读 body 之前。
+func TestImportAPI_会话一律401且不写盘(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{"/api/v1/import", "/api/v1/import/apply"} {
+		req := httptest.NewRequest("POST", path, strings.NewReader(nbMixedFile))
+		req.Header.Set("Content-Type", "text/html")
+		req.AddCookie(&http.Cookie{Name: "lb_profile", Value: "dad"}) // 合法会话
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s 带合法会话该 401（这条通路只认档案作用域令牌），实际 %d %.200s",
+				path, rec.Code, rec.Body.String())
+		}
+	}
+
+	after, err := s.LoadBookmarks("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Rev != before.Rev {
+		t.Errorf("被 401 挡下的请求不该碰盘：rev %d → %d", before.Rev, after.Rev)
+	}
+}
+
+// 三道壳对"目标必须为空"是**同一份判据**（2026-10-19 补上令牌壳那道）。
+//
+// 浏览器壳（importGuard）与 CLI（`import-bookmarks`）都有，令牌壳原先没有：
+// 扩展持一枚 dad 的令牌，对**非空**档案跑完 import + apply 就能把浏览器书签
+// **并进**既有档案（ops 全是 add），200、rev+1、快照照做。理由另两处都写着：
+// "导入是**把浏览器那套导进来**，不是往现有档案上叠加"。
+//
+// 判据钉在**写入前**：跑到 apply 才判，那份报告已经读完了，人是读完一份完整
+// 报告才被拒的。
+// 那道闸不能把 404/503 变成 500（2026-10-19 修，回归实证）。
+//
+// 闸排在 `applyBatch` 之前，而"档案不存在"与"书签文件坏"这两种形状是由
+// `applyBatch` 认出来的（翻成 missing/broken 两个字段，再由 handler 答 404/503）。
+// 闸里裸返 err 就跳过了整套分诊，直接落 writeInternalError → 500。症状是
+// 令牌指向一个已删档案时从 404 退化成 500，**而 500 会诱使调用方重试**——
+// 重试多少次都是 500。
+//
+// 触发形状很普通：`DELETE /api/v1/profiles` 之后令牌列表里那枚还留着，
+// 于是它指着一个不存在的档案。
+func TestImportAPI_档案不存在答404不是500(t *testing.T) {
+	s, h := setupBatch(t)
+
+	// 夹具里 dad 已经在了（setupBatch 建好的），**删掉**就得到"令牌指向一个
+	// 不存在的档案"这个形状——正是 DELETE /api/v1/profiles 之后令牌列表还留着
+	// 时的那一种。不必先建再删：建档闸会挡（目录判据，见 TestCreateProfile_目录已存在就算已存在）。
+	if err := s.DeleteProfile("dad"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/v1/import", strings.NewReader(nbMixedFile))
+	req.Header.Set("Content-Type", "text/html")
+	req.Header.Set("Authorization", "Bearer "+dadTok)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("第一步该照常给报告，实际 %d %.200s", rec.Code, rec.Body.String())
+	}
+	var plan struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+
+	req2 := httptest.NewRequest("POST", "/api/v1/import/apply",
+		strings.NewReader(`{"token":"`+plan.Token+`"}`))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+dadTok)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusNotFound {
+		t.Errorf("档案不存在该 404，实际 %d —— 500 会诱使调用方反复重试 %.300s",
+			rec2.Code, rec2.Body.String())
+	}
+}
+
+func TestImportAPI_目标非空时拒绝且不改盘(t *testing.T) {
+	s, h := setupBatch(t)
+
+	// 先给 dad 放一条书签，让它不再满足"空档案"。
+	// **不能用 emptyBookmarks()**：那个只有 Rev 与 Title，Groups 是 nil，
+	// 于是 CountItems 得 0、档案仍是空的、闸根本不会触发——那样这条测试
+	// 会在闸完全没生效的情况下照样变红（第一版就踩了这个）。
+	seeded := emptyBookmarks()
+	seeded.Groups = []model.Group{{
+		ID: "keepme", Title: "常用", Layout: model.LayoutTiles,
+		Items: []model.Item{{ID: "i1", Name: "已有书签", URL: "http://10.0.0.7/x"}},
+	}}
+	if err := seeded.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveBookmarks("dad", seeded); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := s.Current("dad")
+
+	// 第一步：令牌壳照样给计划（读文件不写盘，不该在这里被拒）
+	req := httptest.NewRequest("POST", "/api/v1/import", strings.NewReader(nbMixedFile))
+	req.Header.Set("Content-Type", "text/html")
+	req.Header.Set("Authorization", "Bearer "+dadTok)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("第一步该给报告，实际 %d %.200s", rec.Code, rec.Body.String())
+	}
+	var plan struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+
+	// 第二步：写入前必须被挡住，且**盘上一个字节都不许变**
+	body := strings.NewReader(`{"token":"` + plan.Token + `"}`)
+	req2 := httptest.NewRequest("POST", "/api/v1/import/apply", body)
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+dadTok)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("对非空档案写入该 422，实际 %d %.300s", rec2.Code, rec2.Body.String())
+	}
+	if !strings.Contains(rec2.Body.String(), "import-target-not-empty") {
+		t.Errorf("该带机器可读的 kind %q，实际 %.300s", "import-target-not-empty", rec2.Body.String())
+	}
+	after, _ := s.Current("dad")
+	if after.Rev != before.B.Rev {
+		t.Errorf("被拒的导入改了盘：rev %d → %d", before.B.Rev, after.Rev)
+	}
+}
+
 func TestImportAPI_跳过数在响应里(t *testing.T) {
 	s, h := setupBatch(t)
 	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {

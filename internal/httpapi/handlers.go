@@ -456,16 +456,20 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 	writeInternalError(w, err)
 }
 
-// createProfileResponse 是建档 201 的成功体。键序 id, title, admin 是
-// 契约（openapi.json 与 AGENTS.md 都这么写）——旧写法用 map，Go 按字母
-// 序吐出 admin, id, title，线上与文档从那天起就是两句话（最终整枝
-// 评审 #2；§4.3 的"响应体一律 struct"对这条同样成立）。
+// createProfileResponse 是建档 201 的成功体。键序 id, title 是契约（§4.3 的
+// "响应体一律 struct"）——旧写法用 map，Go 按字母序吐出键，线上与文档从那天
+// 起就是两句话（最终整枝评审 #2）。
 type createProfileResponse struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	// **没有 admin 字段**（2026-10-12）：档案不再有管理员属性，回答"建出来的是不是
-	// 管理员"这个问题本身就没有意义了。响应少一格是契约变更，openapi.json 与
-	// AGENTS.md 已同步。
+	// 管理员"这个问题本身就没有意义了。
+	//
+	// 响应少一格是**契约变更**，所以文档那两处也得跟着少一格（AGENTS.md 的
+	// `200 {id,title}`、openapi.json 的 200 响应）。这一格曾经拖了很久：结构体
+	// 早已没有 admin，注释里还写着"openapi.json 与 AGENTS.md 已同步"，而
+	// openapi.json 里那两处 `{id, title, admin}` 一直没人动——**注释声明自己
+	// 已同步，于是没人去核**。那句话改成只说事实、不说"已同步"了。
 }
 
 // createInput 是建档的全部输入。两条表单通路（引导页、管理页）不问 id，但它们

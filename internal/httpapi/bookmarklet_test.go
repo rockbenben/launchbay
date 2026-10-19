@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -101,6 +102,71 @@ func TestBookmarklet_端点零令牌且认Host(t *testing.T) {
 // 还有一个 /bookmarklet。这条钉的是"管理页上找得到它，而且说清了怎么用"——
 // 只给一个裸链接同样不合格，因为"怎么把这一行 javascript: 变成书签栏里那个能点
 // 的按钮"没人天生知道。
+// **这条钉的是整条地址，不是子串**（2026-10-19）。
+//
+// 原先 `TestBookmarklet_端点零令牌且认Host` 只断言 `javascript:`、`/?add=`
+// 这些子串，于是 `handleBookmarklet` 把 Host 里的**端口剥掉**这件事一路绿灯
+// 活到了今天：输出的地址恒是 `http://<host>/?add=`，而本案的默认端口是 7600
+// （compose 的 `7600:7600`，spec §6.3 写的就是 `http://<NAS_IP>:7600/?add=`）。
+// 按默认配置装好、配好书签栏拖进去之后，按它跳的是 80 端口——那台机器上 80
+// 端口什么都没有。**症状是"按了没反应/打不开"，而这条按钮唯一的卖点是
+// "配一次就永远对"**；只有把这台机器反代到 80 端口的人才会"看起来是好的"，
+// 而 §11 明写不挂反代。
+//
+// 子串断言挡不住这一类：改坏的那一处，一个断言都没碰。
+func TestBookmarklet_地址保留端口(t *testing.T) {
+	_, h := setupServer(t)
+
+	for _, tc := range []struct{ in, want string }{
+		// 默认部署那一档：IPv4 与主机名都必须带端口活着
+		{"10.0.0.5:7600", "http://10.0.0.5:7600/?add="},
+		{"nas.local:7600", "http://nas.local:7600/?add="},
+		{"127.0.0.1:17891", "http://127.0.0.1:17891/?add="},
+		// 反代到 80 端口的那一档：没有端口就是没有端口，别自己加
+		{"10.0.0.5", "http://10.0.0.5/?add="},
+		// 端口是 80 时原样留着（浏览器照样通）：**不为"好看"去特判剥掉**——
+		// 那正是这一段当初写错的那个形状，只是方向反过来。
+		{"10.0.0.5:80", "http://10.0.0.5:80/?add="},
+		// IPv6：切点必须在 ] 之后。裸写的 [fd00::5] 要是按"最后一个冒号"切，
+		// 会被腰斩成 [fd00。
+		{"[fd00::5]:7600", "http://[fd00::5]:7600/?add="},
+		{"[fd00::5]", "http://[fd00::5]/?add="},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/bookmarklet", nil)
+		req.Host = tc.in
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("Host=%q 该 200，实际 %d", tc.in, rec.Code)
+			continue
+		}
+		if js := rec.Body.String(); !strings.Contains(js, "'"+tc.want) {
+			t.Errorf("Host=%q → 地址被改坏了：想要 %q，整条是 %s", tc.in, tc.want, js)
+		}
+	}
+}
+
+// 形状不合法仍是 400 `host-invalid`，且**端口那一段不许放行非数字**：
+// `validHostShape` 跟着地址形状一起改，放行了冒号不等于放行一切。
+func TestBookmarklet_不合法形状仍400(t *testing.T) {
+	_, h := setupServer(t)
+
+	for _, bad := range []string{
+		`evil"onload=x`,  // 引号：它要拼进 JS 字符串字面量
+		`a:b:c`,          // 两个冒号不是 host:port
+		`10.0.0.5:76 00`, // 端口里带空格
+		`10.0.0.5:port`,  // 端口不是数字
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/bookmarklet", nil)
+		req.Host = bad
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("Host=%q 该 400，实际 %d（形状不合法却放行了）", bad, rec.Code)
+		}
+	}
+}
+
 func TestBookmarklet_管理页上有入口和用法(t *testing.T) {
 	_, h := setupServer(t)
 	// 管理页现在要管理权（2026-10-12）：管理员是机器级的一把 key，登进 dad 不算。

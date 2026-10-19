@@ -16,6 +16,7 @@ import (
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
 	"github.com/rockbenben/launchbay/internal/render"
+	"github.com/rockbenben/launchbay/internal/store"
 )
 
 // 上传上限。maxBodyBytes 的 1 MiB 是给 JSON 表单用的（建档/PIN 用不到更大），
@@ -394,12 +395,23 @@ type importApplyResponse struct {
 // 扩展在浏览器里就把树拼成了这个格式，包一层 multipart 只是多一次编码。
 // 服务端拿它喂的仍然是同一个 bookimport.Convert——扩展与网页在服务端看来
 // 是同一件事。
+//
+// **它认令牌不认会话**（`credTokenOnly`，2026-10-19）：会话在这条通路上没有
+// 意义——扩展读不到会话 cookie，而浏览器自己那条 `/import` 走的是零 JS 表单。
+// 写进契约前，这一档与 `credScoped` 共用，于是文档报成"令牌或会话都行"，
+// 照文档写脚本的扩展会拿会话 cookie 换来一句「令牌认不出来」。
 func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	// 管理员令牌（LAUNCHBAY_ADMIN_TOKEN）根本不在档案作用域令牌列表里，所以
 	// 它落到下面那次 Authorize 上只会得到"认不出来"的 401——那是错的答案：
 	// 它不是坏了，是**层级不对**。所以这里单独拦一句，给出 403 与出路。
+	//
+	// **kind 用 `credential-admin-token` 而不是 `credential-scope`**（2026-10-19）：
+	// 那两句出路是相反的——`credential-scope` 说"你管的是别的档案，换个 id"，
+	// 而这里的事实是"你拿的是一把根本不开书签这一面的钥匙"。从前扩展把管理员
+	// key 的 403 翻成"它管的是别的档案，或者那个 id 打错了"，用户照着改档案 id
+	// 改到天亮也进不去。
 	if s.deps.AdminToken.Matches(bearer(r)) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
+		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialAdminToken, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
 		return
 	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
@@ -407,7 +419,7 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌认不出来"})
 		return
 	}
-	if _, _, ok := s.require(r, credScoped, sc.Profile); !ok {
+	if _, _, ok := s.require(r, credTokenOnly, sc.Profile); !ok {
 		s.writeAuthFailure(w, r)
 		return
 	}
@@ -434,21 +446,37 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 // **档案从令牌暂存里取，不从 body 取**（body 只有 token）：令牌在第一步就绑死
 // 了一个档案，于是"令牌与申报对不上"这个错连表达都表达不出来。
 func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Token string `json:"token"`
-	}
-	if err := decodeBody(r, &in); err != nil {
-		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
-		return
-	}
+	// **凭证在前，体在后**（2026-10-19 修）：原先这里先 `decodeBody` 再
+	// `Authorize`，于是凭证根本认不出来的那一次，请求体已经被整份读进内存、
+	// JSON 也已经被解了一遍才给出 401。两个后果：未鉴权的请求能拿 CPU 与内存
+	// 去消耗这台机器（§11 明写不防局域网内的东西，而这一条正是最省事的一档），
+	// 以及**报出去的答案可能是错的**——体不合法时先撞上 422「body-unreadable」，
+	// 凭证不对这件事根本没机会说，调用方拿到的 reason 是"你的 JSON 坏了"。
+	// 项目自己的纪律就是反的：401 与 403 分得很清，正是为了让"换凭证"与
+	// "改请求体"这两件事不要互相冒充。
+	//
+	// **这里不同于 batch / handleCreateProfile / rebuild 那三处，是有理由的，
+	// 别把那三处也照这个改**（2026-10-19 记下，否则下一个读代码的人会以为这是
+	// 第四处口径不一）：那三处之所以"先解码再申报"，是因为**档案 id 就在
+	// body 里**（`in.Profile` / `in.ID`），`require` 要拿它判作用域——没有体就
+	// 无从知道这个请求想动谁，鉴权只能是空的。本条的 body 只有 `{token}`，
+	// 档案**从令牌作用域推导**（见函数头那段），`Authorize` 不需要体就能答，
+	// 所以这里先问凭证是有底的。**判据是"作用域从哪来"，不是"哪个顺序好看"。**
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌认不出来"})
 		return
 	}
-	actor, _, ok := s.require(r, credScoped, sc.Profile)
+	actor, _, ok := s.require(r, credTokenOnly, sc.Profile)
 	if !ok {
 		s.writeAuthFailure(w, r)
+		return
+	}
+	var in struct {
+		Token string `json:"token"`
+	}
+	if err := decodeBody(r, &in); err != nil {
+		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
 		return
 	}
 	out, err := s.applyImport(in.Token, sc.Profile, actor, "extension")
@@ -491,6 +519,9 @@ func importAPIError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusGone, errorResponse{Code: 410, Kind: apierr.ImportPlanStale, Detail: "这次的上传已经过期或被用过了，请重新发起"})
 	case errors.Is(err, errNoStash):
 		writeJSON(w, http.StatusInsufficientStorage, errorResponse{Code: 507, Kind: apierr.InternalError, Detail: "临时存不下这次上传，稍后再试"})
+	case errors.Is(err, errTargetNotEmpty):
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Code: 422, Kind: apierr.ImportTargetNotEmpty,
+			Detail: "这一份里已经有书签了。导入是「把浏览器那套导进来」，不是往现有档案上叠加——换一个空档案，或先自己在界面上清空它。"})
 	default:
 		writeInternalError(w, err)
 	}
@@ -584,6 +615,38 @@ func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, er
 	if !ok {
 		return batchOutcome{}, errStashGone
 	}
+	// **目标必须一条书签都没有**（2026-10-19 补上，判据收在这一处）。
+	//
+	// 浏览器壳（importGuard）与 CLI（`import-bookmarks`）都有这道闸，令牌壳原先
+	// 没有：扩展持一枚 dad 的令牌，对**非空**档案跑一遍 import + apply 就能把
+	// 浏览器书签**并进**既有档案（ops 全是 add），200、rev+1、快照照做。三个壳
+	// 两种判据，而扩展那条最可能是漏掉——理由与另两处一样："导入是**把浏览器
+	// 那套导进来**，不是往现有档案上叠加"。
+	//
+	// 放在 applyImport 而不是 planImport：这是唯一真正写盘的落点，三道壳都
+	// 经过它，两处都判会漏掉"申请令牌时是空的、写入时已经有人写了"那一步。
+	// 浏览器壳与 CLI 仍各自保留自己那道——它们要在**申请之前**就告诉人，
+	// 而不是让人读完一份报告才被拒。
+	//
+	// **这道闸不能裸返 err**（2026-10-19 修）：它排在 `applyBatch` 之前，
+	// 而"档案不存在"与"书签文件坏"这两种形状是由 `applyBatch` 认出来的
+	// （它把两者翻成 `missing` / `broken` 两个字段，再由 handler 答 404/503）。
+	// 裸返 err 会跳过整套分诊直接落 `default: writeInternalError` → **500**。
+	// 症状是令牌指向一个已删档案（DELETE /api/v1/profiles 之后令牌列表还留着）
+	// 时，从 404 退化成 500，而 500 会诱使调用方重试——重试多少次都是 500。
+	// 判据只用 `applyBatch` 认过的那两个哨兵，别在这里重新发明一遍。
+	snap, err := s.deps.Store.Current(profile)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return batchOutcome{missing: true}, nil
+	case errors.Is(err, store.ErrCorrupt):
+		return batchOutcome{broken: corruptDetail(s.deps.Store, profile, err)}, nil
+	case err != nil:
+		return batchOutcome{}, err
+	}
+	if n := bookimport.CountItems(snap.B); n > 0 {
+		return batchOutcome{}, errTargetNotEmpty
+	}
 	res, err := bookimport.Convert(raw, s.deps.Icons, bookimport.Options{})
 	if err != nil {
 		return batchOutcome{}, err
@@ -602,6 +665,8 @@ var (
 	errAllSkipped      = errors.New("读出了书签，但没有一条能进来")
 	errNoStash         = errors.New("临时存不下这次上传")
 	errStashGone       = errors.New("这次的上传已经过期或被用过")
+	// errTargetNotEmpty 是"这一份已经有书签了"那个形状：导入是替换而不是叠加。
+	errTargetNotEmpty = errors.New("这一份里已经有书签了")
 )
 
 func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, v render.ImportView) {
