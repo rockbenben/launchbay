@@ -260,6 +260,39 @@ func TestIconCache_重复同一字节要端回盘上那个时间戳(t *testing.T
 // 成目录，WriteFileAtomic 的 rename 撞目录必败（store/profile_test.go 同款
 // 手法，不去改 store 代码做注入点）。证人两半：新 origin 回滚到"不存在"；
 // 已有 origin 改图失败后回滚到**旧条目**而不是丢也不是新条目。
+// MarkFail 与 Put 是**同一条不变式**：byID 绝不能声称一条盘上的 index.json
+// 里不存在的记录。Put 一直守着，MarkFail 漏了（2026-10-19 修）。
+//
+// 漏了的后果不是"脏内存"这么轻：那条记录是**冷却**，于是这个 origin 在本次
+// 进程里被记 24 小时不重抓（InCooldown 为真），重启即失效——冷却本该跨重启
+// 生效。它悄悄退化成了进程内状态，症状是"图标偶尔抓不到，重启一次又好"。
+//
+// 夹具与上面那条同款：把 index.json 的位置占成目录，rename 撞目录必败。
+func TestIconCache_MarkFail落盘失败回滚冷却(t *testing.T) {
+	c, s, _ := newCache(t)
+	// 先让一个 origin 有图：它那条 MarkFail 是静默 no-op（失败不该抹掉可用的缓存），
+	// 所以另取一个**没有图**的 origin 来触发真正写盘的那一支
+	if _, err := c.Put("http://10.0.0.3:8096", []byte("a"), "png"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(s.IconIndexPath()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(s.IconIndexPath(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.MarkFail("http://10.0.0.9:8080"); err == nil {
+		t.Fatal("index.json 落不下去而 MarkFail 说成功：成功是假的")
+	}
+	if _, ok := c.Lookup("http://10.0.0.9:8080"); ok {
+		t.Error("saveLocked 失败后内存镜像仍记着冷却：盘上没有，重启就失效，冷却悄悄退化成了进程内状态")
+	}
+	if c.InCooldown("http://10.0.0.9:8080") {
+		t.Error("回滚之后这个 origin 还在冷却里")
+	}
+}
+
 func TestIconCache_saveLocked失败必须回滚内存镜像(t *testing.T) {
 	c, s, _ := newCache(t)
 	old, err := c.Put("http://10.0.0.3:8096", []byte("a"), "png")

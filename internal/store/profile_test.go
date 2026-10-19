@@ -114,17 +114,33 @@ func TestCreateProfile_不设PIN也建得出来(t *testing.T) {
 	}
 }
 
-func TestCreateProfileRollsBackHalfWrittenProfile(t *testing.T) {
+// 建档第二次写失败时必须把刚建的档案目录回收掉——留下半个档案比报错更难查。
+//
+// **这个触发形状已经不存在了**（2026-10-19），记下来免得后来的人照它改：
+// 从前这里先 `MkdirAll` 整个档案目录，再让 CreateProfile 建一次，依赖
+// 「存在性只看 profile.json」那道旧闸放行，于是能走到第二次写。现在判据按
+// 目录判（`idTaken`，为了挡住「目录在、profile.json 缺」时静默覆盖既有书签），
+// 预建档案目录会**先被那道闸挡成 ErrExists**，回滚路径压根走不到。
+//
+// 而闸挡住时它**不该**删目录：那个目录里可能装着**别人的书签**（那正是这道闸
+// 要救的形状）。rollbackDir 是 RemoveAll(整目录)，它只在"目录里只有刚建的东西"
+// 时成立——所以这里钉的是"闸挡下不许删盘上的东西"。
+func TestCreateProfile_目录被占时不删盘上已有的东西(t *testing.T) {
 	s := New(t.TempDir())
 	dir := s.ProfileDir("kid")
-	if err := os.MkdirAll(filepath.Join(dir, "bookmarks.json"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "snapshots"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateProfile(NewProfileInput{ID: "kid", Title: "娃", PinHash: "h"}); err == nil {
-		t.Fatal("SaveBookmarks 撞目录该失败")
+	if err := os.WriteFile(filepath.Join(dir, "snapshots", "keep"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if _, statErr := os.Stat(dir); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("写入半途失败必须回收整个档案目录 %s，stat=%v", dir, statErr)
+
+	_, err := s.CreateProfile(NewProfileInput{ID: "kid", Title: "娃", PinHash: "h"})
+	if !errors.Is(err, ErrExists) {
+		t.Fatalf("目录已存在时该返回 ErrExists，实际 %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "snapshots", "keep")); statErr != nil {
+		t.Fatalf("被存在性闸挡下时不该删掉盘上已有的东西：%v", statErr)
 	}
 }
 

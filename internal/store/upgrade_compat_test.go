@@ -98,3 +98,32 @@ func TestLoadProfile_重写一次就完成迁移(t *testing.T) {
 	}
 	var _ = model.Profile{}
 }
+
+// **Profile 的每一格都要落盘，哪怕它是空串**（2026-10-19）。
+//
+// `view` / `pageTitle` / `addrLevel` 都是比老盘晚的字段，它们**空串也写**——
+// 盘上看得见 `"view": ""`，而那是读侧「这一格被考虑过、只是选默认」的那条判据。
+// 省掉它（给字段加 `omitempty`），键存在与键缺失就分不开，于是「没选过」与
+// 「选了默认」在盘上成了两件事。
+//
+// 本项目里 `omitempty` 只用在**条目的可选内容**上（icon / desc / accent，
+// 那几格空着是真的没有内容），从不用于 `Profile` 的这一族。`addrLevel` 加进来
+// 时顺手带了 `omitempty`——那是一个测试没钉住、于是没人发现的偏差。
+//
+// 判据从**一份真实落盘的文件**读，而不是从 struct 的 tag 读：读 tag 钉的是
+// 声明，而这条要钉的是**写出来的那一格真的在**。
+func TestSaveProfile_晚加的那几格空串也落盘(t *testing.T) {
+	s := New(t.TempDir())
+	if _, err := s.CreateProfile(NewProfileInput{ID: "dad", Title: "爸爸"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(s.Root(), "profiles", "dad", "profile.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"view": ""`, `"pageTitle": ""`, `"addrLevel": ""`} {
+		if !strings.Contains(string(raw), key) {
+			t.Errorf("profile.json 里少了 %s：晚加的那几格空串也该落盘（键存在 = 这一格被考虑过）\n%s", key, raw)
+		}
+	}
+}

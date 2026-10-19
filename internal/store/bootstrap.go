@@ -83,6 +83,17 @@ func (s *Store) NextProfileID(title string) string {
 	}
 }
 
+// idTaken 答"这个档案 id 占了没有"，判据是**目录在不在**。
+//
+// **三处共用这一份判据**（2026-10-19 钉死）：`NextProfileID` 派生下一个 id、
+// `RebuildProfile` 判"目录不在 → 404"、`CreateProfile` 判"已存在 → 409"。
+// 从前 `CreateProfile` 问的是 `profile.json` 在不在，于是「目录在、profile.json
+// 缺」这一个形状会穿过建档闸并覆盖既有 bookmarks.json（实测 469 字节含一条
+// 书签被写成 244 字节空文档，无快照、无审计）。三处各问一次就会各答一次，
+// 于是重名字的坏档从缝里漏过去——"这个 id 占了没有"不该有第二个答案的来源。
+//
+// 判据是目录而不是 `profile.json`：**空目录也算占用**，因为目录里可能躺着
+// 坏档的数据（profile.json 读不动正要走 rebuild），那是"占着"，不是"空的"。
 func (s *Store) idTaken(id string) bool {
 	fi, err := os.Stat(s.ProfileDir(id))
 	return err == nil && fi.IsDir()

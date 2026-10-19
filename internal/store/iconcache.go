@@ -142,8 +142,20 @@ func (c *IconCache) MarkFail(origin string) error {
 		return nil // 已经有图：失败不该把可用的缓存抹掉
 	}
 	at := c.now().UTC().Format(time.RFC3339) // 一次采样：At 与 FailAt 说的必须是同一时刻
+	// **落盘失败也要回滚内存镜像**（2026-10-19 修）：这一段与 Put 是同一条不变式，
+	// 而 MarkFail 漏了它——byID 里留着一条 index.json 上不存在的冷却记录，于是
+	// 本次进程里那个 origin 被记 24 小时不重抓（InCooldown 为真），重启即失效。
+	// 症状是"图标偶尔抓不到，重启一次又好"，而冷却本该跨重启生效，所以它悄悄
+	// 成了进程内状态。Put 那边的证人见 TestIconCache_saveLocked失败必须回滚内存镜像，
+	// 这边补同样的形状：回滚的是**内存**，不是冷却意图。
+	old, hadOld := c.byID[origin]
 	c.byID[origin] = IconEntry{Origin: origin, At: at, FailAt: at}
 	if err := c.saveLocked(); err != nil {
+		if hadOld {
+			c.byID[origin] = old
+		} else {
+			delete(c.byID, origin)
+		}
 		return err
 	}
 	c.gen++

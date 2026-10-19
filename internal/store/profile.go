@@ -60,7 +60,23 @@ func (s *Store) CreateProfile(in NewProfileInput) (*model.Profile, error) {
 
 	var created *model.Profile
 	err := s.WithProfileLock(in.ID, func() error {
-		if _, err := os.Stat(s.ProfilePath(in.ID)); err == nil {
+		// **存在性按目录判，不按 profile.json 判**（2026-10-19 修）。
+		//
+		// 原先这里 `os.Stat(s.ProfilePath(in.ID))`，于是"目录在、profile.json 缺"
+		// 这一个形状（手删、改名、拷贝 rsync 半途、坏档被登记过）会**穿过**这道闸，
+		// 紧接着 SaveBookmarks 把盘上那份 bookmarks.json 覆盖成空文档。实测：
+		// 一份 469 字节、含一条书签的档案，建档后变成 244 字节的空文档，
+		// **全程没有快照、没有审计行、返回 201**——书签就这么没了，
+		// 而"写坏了能回退"是这个产品写进首页的承诺。
+		//
+		// 下面 rollbackDir 是 `RemoveAll(整目录)`，它成立的前提是"目录里只有
+		// 刚建的东西"；这个前提在上面的形状里不成立，于是第二次写失败时连
+		// snapshots/ 一起删掉。RebuildProfile 的注释早就写明了这一点
+		// （"正常建档时目录里只有它自己刚建的东西"），那里守住了，这里没守住。
+		//
+		// 判据收在 idTaken（判目录）与前一句同口径：同仓三处"这个 id 占了没有"
+		// 必须是一件事，bootstrap 派生 id 与 rebuild 用的都是它。
+		if s.idTaken(in.ID) {
 			return fmt.Errorf("%w: 档案 %q 已存在", ErrExists, in.ID)
 		}
 		if err := os.MkdirAll(s.ProfileDir(in.ID), 0o755); err != nil {
