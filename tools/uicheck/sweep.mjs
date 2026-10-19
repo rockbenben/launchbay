@@ -34,7 +34,7 @@ const disk = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
 await seedFixture(SRV, ADM, WRT);
 
 // ── 连接与不变量：两份横扫共用 harness.mjs ──────────────────────────────────
-import { connect, makeStep, seedFixture } from './harness.mjs';
+import { connect, goHome, makeStep, openPanel, seedFixture } from './harness.mjs';
 const c = await connect(CDP);
 const { run, ev, sleep, send } = c;
 await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 1300, deviceScaleFactor: 1, mobile: false });
@@ -328,10 +328,30 @@ await step('设置面板 → 分组排法切换', () => ev(`const b=document.que
   outcome: (inv, d) => d.groups.find((g) => g.id === 'tiles-1').layout === 'list' ? [] : ['排法没换'] });
 
 await step('设置面板 → 另开新标签页', async () => {
-  await ev(`document.getElementById('lb-prefs-open').click()`); await sleep(1400);
-  return ev(`const f=document.querySelector('form[action="/prefs/tabs"]'); if(!f) return 'NO-FORM';
+  // **先回档案页再开面板**：上一步「分组排法切换」是整页重载，而在**正在被替换的
+  // 旧文档**上点设置是点不动的——那一下的 fetch 跟着旧文档一起被丢掉，而新文档
+  // 从没收到过那一下，于是面板没开、按键一个都找不到，症状却读作「设置面板里没有
+  // 那颗键」（2026-10-19 实测：这道闸就是这么红的）。回档案页与开面板这两份收在
+  // harness.mjs 里，两道横扫共用。
+  await goHome(c, SRV, login);
+  const opened = await openPanel(c);
+  if (opened !== 'opened') return opened;
+  const hit = await ev(`const f=document.querySelector('form[action="/prefs/tabs"]'); if(!f) return 'NO-FORM';
     const b=f.querySelector('button[value="1"],button[value="0"]'); if(!b) return 'NO-BTN'; b.click(); return 'clicked ' + b.value`);
-}, { wait: 2500, outcome: (inv, d) => d.openInNewTab !== undefined ? [] : ['盘上没那个布尔'] });
+  if (!String(hit).startsWith('clicked')) return hit;
+  await sleep(1200);
+  // **判的是「屏上与盘上都说改了」**：这一格是**就地**改的（app.js 换那颗键的
+  // aria-pressed，不整页重载），所以屏上这一刻就该跟着变——而从前那一步只看
+  // "盘上有没有那个布尔"（字段在就算过），于是"按了没反应"照样绿。
+  return 'pressed=' + JSON.stringify(await run(`document.querySelector('form[action="/prefs/tabs"] button[value="0"]')?.getAttribute('aria-pressed')||''`));
+}, { wait: 2500, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('pressed=')) return [`那一步没走通：${res}`];
+  const m = /pressed="([^"]*)"/.exec(String(res));
+  const pressed = m ? m[1] : '';
+  if (pressed !== 'true') return [`那颗键的 aria-pressed 还是「${pressed}」，要 true`];
+  if (d.openInNewTab !== false) return [`盘上 openInNewTab 是 ${JSON.stringify(d.openInNewTab)}，要 false`];
+  return [];
+} });
 
 say('');
 say('控制台异常：' + JSON.stringify(c.errs.slice(0, 5)));

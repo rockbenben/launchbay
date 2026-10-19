@@ -93,6 +93,52 @@ return JSON.stringify({groups:out,counts,
 bad:[...document.querySelectorAll('#lb-banner.bad')].map(n=>n.textContent.trim()),
 ok:[...document.querySelectorAll('#lb-banner.ok')].map(n=>n.textContent.trim())})})()`;
 
+// waitFor：轮询一个屏上表达式，直到它为真。
+//
+// **为什么是轮询而不是固定等待**：设置面板那几格里有几格是 **`location.reload()`**
+// （theme 就地、其余重载，见 app.js 那段），于是按下去之后屏上要过一会儿才换成
+// 换过的那一份——固定等待在慢机器上会读到"重载还没发生"的那一页，于是判据自己
+// 骗自己（它报的是"没变"，而其实只是还没变完）。
+//
+// **它治不了另一件事**：点「设置」那一下落在**正在被替换的旧文档**上时，那一下
+// 根本不会生效（见 goHome 那一段），轮询多久都等不到面板。
+export async function waitFor(c, expr, ms = 6000) {
+  const until = Date.now() + ms;
+  for (;;) {
+    const v = await c.run(`(()=>{try{return ${expr}}catch(e){return false}})()`);
+    if (v) return v;
+    if (Date.now() > until) return false;
+    await c.sleep(200);
+  }
+}
+
+// goHome：回档案页，并**等它真的稳住**（两道横扫共用这一份）。
+//
+// 为什么要多这一次导航：上一步可能刚触发过**整页重载**（分组排法切换、视图、
+// 标题那几格都是），而在**正在被替换的旧文档**上点「设置」是点不动的——那一下的
+// fetch 跟着旧文档一起被丢掉，而新文档从没收到过那一下，于是面板没开、按键一个
+// 都找不到，症状却读作「设置面板里没有那颗键」（2026-10-19 实测：这道闸就是这么
+// 红的，而它红得毫无道理）。
+//
+// 登录也在里面：会话是 cookie 里的，而导航会带上它；先导航一次再登一次，是为了
+// 「会话还没建好时首页落在选择页」那一种形状也归到同一处。
+export async function goHome(c, srv, login) {
+  await c.send('Page.navigate', { url: srv + '/' }); await c.sleep(1500);
+  if (login) await login();
+  await c.send('Page.navigate', { url: srv + '/' }); await c.sleep(1500);
+}
+
+// openPanel：点顶栏那颗「设置」，并**等面板真的装上**。
+//
+// 面板是 app.js fetch('/prefs') 之后注入的（零 JS 时它就是一次普通跳转），而
+// 上一步可能刚触发过整页重载——在正在被替换的页面上点设置是点不动的，于是面板
+// 没开、按键一个都找不到。两道横扫共用这一份。
+export async function openPanel(c) {
+  await c.ev(`document.getElementById('lb-prefs-open')?.click(); return 'clicked'`);
+  const ok = await waitFor(c, `!!document.querySelector('form[action="/prefs"]')`, 8000);
+  return ok ? 'opened' : 'PANEL-NOT-OPEN';
+}
+
 // diffScreen：屏上与盘上分家的地方，一处一行。
 export function diffScreen(inv, d) {
   const bad = [];

@@ -16,7 +16,7 @@
 //
 //   node tools/uicheck/sweep-variants.mjs <port> <dataDir> [cdpBase]
 import path from 'node:path';
-import { connect, makeStep, seedFixture } from './harness.mjs';
+import { connect, goHome as goHomeShared, makeStep, openPanel, seedFixture, waitFor } from './harness.mjs';
 
 const PORT = process.argv[2] || '';
 const DIR = path.resolve(process.argv[3] || 'labdata-sweep');
@@ -38,24 +38,13 @@ const { run, ev, sleep, send } = c;
 const login = async () => run("fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'profile=dad'}).then(r=>r.status)");
 const step = makeStep({ c, srv: SRV, dataPath: DATA, say, stats, login });
 
-const goHome = async () => {
-  await send('Page.navigate', { url: SRV + '/' }); await sleep(1500);
-  await login();
-  await send('Page.navigate', { url: SRV + '/' }); await sleep(1500);
-};
-// 轮询而不是固定等待：设置面板那几格里有三格是 **`location.reload()`**（theme
-// 就地、其余重载，见 app.js 那段），于是"上一步刚触发重载、这一步就点开面板"
-// 会点在一个正在被替换的页面上——面板没开，后面的按键自然一个都找不到，而症状
-// 读作"设置面板里没有那颗键"。
-const waitFor = async (expr, ms = 6000) => {
-  const until = Date.now() + ms;
-  for (;;) {
-    const v = await run(`(()=>{try{return ${expr}}catch(e){return false}})()`);
-    if (v) return v;
-    if (Date.now() > until) return false;
-    await sleep(200);
-  }
-};
+// 回档案页那份收在 harness.mjs 里（两道横扫共用）：上一步可能刚触发过整页重载，
+// 而在正在被替换的旧文档上点设置是点不动的。
+const goHome = async () => { await goHomeShared(c, SRV, login); };
+// 轮询而不是固定等待的那一份**收在 harness.mjs 里**（两道横扫共用）：设置面板那
+// 几格里有三格是 **`location.reload()`**（theme 就地、其余重载，见 app.js 那段），
+// 于是"上一步刚触发重载、这一步就点开面板"会点在一个正在被替换的页面上——面板
+// 没开，后面的按键自然一个都找不到，而症状读作"设置面板里没有那颗键"。
 const firstIn = (gid) => `[data-gid="${gid}"] li[data-item]`;
 const count = (d, gid) => d.groups.find((g) => g.id === gid).items.length;
 
@@ -103,46 +92,110 @@ await step('恢复联网 → 队列自己重放（屏上 == 盘上）', async ()
 // ── 设置面板其余各格 ────────────────────────────────────────────────────────
 // **先回到干净的首页再开面板**：上一步可能刚触发过 `location.reload()`（view /
 // layout / 标题那几格都是），而人在正在重载的页面上点设置是点不动的——面板是
-// fetch('/prefs') 注入的，那一页替换掉才装得上。轮询等它真的装好再找按键。
+// fetch('/prefs') 注入的，那一页替换掉才装得上。轮询等它真的装好再找按键
+// （轮询与开面板这两份收在 harness.mjs 里，两道横扫共用）。
 const prefs = async () => {
   await goHome();
-  await ev(`document.getElementById('lb-prefs-open')?.click(); return 'clicked'`);
-  const ok = await waitFor(`document.querySelector('button[name=theme]')`);
-  return ok ? 'opened' : 'PANEL-NOT-OPEN';
+  return openPanel(c);
 };
 const clickIn = (sel) => ev(`const b=document.querySelector(${JSON.stringify(sel)}); if(!b) return 'NO:'+${JSON.stringify(sel)};
   b.click(); return 'clicked'`);
 
+// **判的是「屏上真的改了」**：从前这一步的 outcome 是空的（`() => []`），于是它
+// 只按一下、把 h1 打出来就算过——而「在浮层里按了没反应」那一族（2026-10-14 起
+// 的「改名」与 2026-10-19 的「第二行」两格）就是这么从这道闸底下溜过去的：
+// 点得到 ≠ 生效了，而这一步只管前者。
 await step('设置面板 → 改这一页的名字', async () => {
   await prefs();
   await ev(`const f=[...document.querySelectorAll('form[action="/prefs"]')].find(x=>x.querySelector('input[name=title]'));
     if(!f) return 'NO-FORM'; const i=f.querySelector('input[name=title]'); i.value='扫过的那一页'; i.dispatchEvent(new Event('input',{bubbles:true}));
     f.querySelector('button[type=submit]').click(); return 'saved'`);
-  await sleep(1500);
+  // **等屏上真的换成新名字**（轮询而不是固定等待）：这一格按完会整页重载，
+  // 固定等待在慢机器上会读到"重载还没发生"的那一页，于是判据自己骗自己。
+  await waitFor(c, `(document.querySelector('h1')||{}).textContent==='扫过的那一页'`, 8000);
   return 'h1=' + JSON.stringify(await run(`document.querySelector('main h1, .topbar h1, h1')?.textContent||''`));
-}, { wait: 2200, outcome: (inv, d) => [] });
+}, { wait: 2200, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('h1=')) return [`那一步没走通：${res}`];
+  const h1 = String(res).slice(3).replace(/^"|"$/g, '');
+  return h1 === '扫过的那一页' ? [] : [`顶栏大字还是「${h1}」，要「扫过的那一页」`];
+} });
+
+// **第二行印什么**（2026-10-19 加的那一格）：这是它自己的那一步——
+// 「主机名 / 完整地址 / 不显示」三颗键，屏上第二行印什么由这一格说了算。
+// 它从前**根本没有步**，于是「在浮层里按了没反应」没人看见。
+await step('设置面板 → 第二行改成完整地址', async () => {
+  const r = await prefs();
+  if (r !== 'opened') return r;
+  const hit = await clickIn('form[action="/prefs"] button[name=addrLevel][value=full]');
+  if (!String(hit).startsWith('clicked')) return '那颗键不在面板里：' + hit;
+  // 这一格也**整页重载**（改的是 profile.json，而第二行是服务端画出来的），
+  // 所以要等重载完、且等第二行真的变成「完整地址」那一格再读。
+  await waitFor(c, `!!document.querySelector('.card i.addr')`, 8000);
+  return 'line=' + JSON.stringify(await run(`document.querySelector('.card i.addr')?.textContent||''`));
+}, { wait: 2500, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('line=')) return [`那一步没走通：${res}`];
+  const line = String(res).slice(5).replace(/^"|"$/g, '');
+  // **跟盘上那份地址比**：屏上印的必须是**完整地址**，而不是主机名——那正是
+  // 这一格选的那一档（`i.addr` 是 full 那一档的类名；主机名那一档是 `i.host`）。
+  //
+  // **比前缀而不是比全等**：那一格里还挂着一颗编辑笔（app.js 把把手 append 进
+  // 同一个元素），所以 textContent 末尾多一个「✎」。地址本身在前面 ✓。
+  const url = (d.groups.find((g) => g.id === 'tiles-1')?.items || [])[0]?.url || '';
+  return line.startsWith(url) ? [] : [`屏上那张卡的第二行是「${line}」，要完整地址「${url}」`];
+} });
 
 await step('设置面板 → 主题切到浅色', async () => {
   await prefs();
-  return clickIn('button[name=theme][value=light]');
+  const hit = await clickIn('button[name=theme][value=light]');
+  if (!String(hit).startsWith('clicked')) return hit;
+  // 主题是**就地**换的（app.js 换 <html> 上的 data-theme，不整页重载）——但那是
+  // **服务端应答之后**才换的（它先 POST 再改屏上那个属性），所以按下去立刻读会读到
+  // 换之前的值。要等它真的换掉。
+  await waitFor(c, `document.documentElement.dataset.theme==='light'`, 8000);
+  return 'theme=' + JSON.stringify(await run(`document.documentElement.dataset.theme||''`));
 }, { wait: 2200, outcome: (inv, d, res) => {
-  return String(res).startsWith('clicked') ? [] : [`没点到那颗键：${res}`];
+  if (!String(res).startsWith('theme=')) return [`那一步没走通：${res}`];
+  const t = String(res).slice(6).replace(/^"|"$/g, '');
+  return t === 'light' ? [] : [`<html> 上的 data-theme 是「${t}」，要 light`];
 } });
 
 await step('设置面板 → 主题切回深色', async () => {
   await prefs();
-  return clickIn('button[name=theme][value=dark]');
-}, { wait: 2200, outcome: (inv, d, res) => String(res).startsWith('clicked') ? [] : [`没点到那颗键：${res}`] });
+  const hit = await clickIn('button[name=theme][value=dark]');
+  if (!String(hit).startsWith('clicked')) return hit;
+  await waitFor(c, `document.documentElement.dataset.theme==='dark'`, 8000);
+  return 'theme=' + JSON.stringify(await run(`document.documentElement.dataset.theme||''`));
+}, { wait: 2200, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('theme=')) return [`那一步没走通：${res}`];
+  const t = String(res).slice(6).replace(/^"|"$/g, '');
+  return t === 'dark' ? [] : [`<html> 上的 data-theme 是「${t}」，要 dark`];
+} });
 
 await step('设置面板 → 换一种看分组的方式（视图）', async () => {
   await prefs();
-  return clickIn('button[name=view][value=wall]');
-}, { wait: 2500, outcome: (inv, d, res) => String(res).startsWith('clicked') ? [] : [`没点到那颗键：${res}`] });
+  const hit = await clickIn('button[name=view][value=wall]');
+  if (!String(hit).startsWith('clicked')) return hit;
+  // 视图决定**整页怎么画**，没有一个属性可以单独换，所以这一格是整页重载：
+  // 要等重载完再读 body 上那个属性。
+  await waitFor(c, `document.body.dataset.profileView==='wall'`, 8000);
+  return 'view=' + JSON.stringify(await run(`document.body.dataset.profileView||''`));
+}, { wait: 2500, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('view=')) return [`那一步没走通：${res}`];
+  const v = String(res).slice(5).replace(/^"|"$/g, '');
+  return v === 'wall' ? [] : [`<body> 上的 data-profile-view 是「${v}」，要 wall`];
+} });
 
 await step('设置面板 → 分组导航挪到顶栏', async () => {
   await prefs();
-  return clickIn('button[name=layout][value=topbar]');
-}, { wait: 2500, outcome: (inv, d, res) => String(res).startsWith('clicked') ? [] : [`没点到那颗键：${res}`] });
+  const hit = await clickIn('button[name=layout][value=topbar]');
+  if (!String(hit).startsWith('clicked')) return hit;
+  await waitFor(c, `document.body.dataset.profileLayout==='topbar'`, 8000);
+  return 'layout=' + JSON.stringify(await run(`document.body.dataset.profileLayout||''`));
+}, { wait: 2500, outcome: (inv, d, res) => {
+  if (!String(res).startsWith('layout=')) return [`那一步没走通：${res}`];
+  const l = String(res).slice(7).replace(/^"|"$/g, '');
+  return l === 'topbar' ? [] : [`<body> 上的 data-profile-layout 是「${l}」，要 topbar`];
+} });
 
 await step('设置面板 → 改一个分组的颜色', async () => {
   const r = await prefs();

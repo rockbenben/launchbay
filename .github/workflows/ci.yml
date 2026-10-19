@@ -76,9 +76,26 @@ jobs:
           fi
       - name: test
         run: go test ./... -count=1
+      # **竞态检测器**（2026-10-19 加）：它只认得出**两个 goroutine 同时碰同一份
+      # 内存**——而那一族 bug 的症状是"偶发、而且看起来像别的毛病"（这台机器上
+      # 读码就逮到一处真的：i18n 那张文案缓存每个请求都碰它，两个请求同时首次
+      # 加载同一种语言就并发写 map，而 Go 对并发写 map 是 **fatal error**——整个
+      # 进程挂掉，读起来像"导航台自己重启了"）。
+      #
+      # **本机跑不了这一格**（Windows 上没有能用的 C 编译器，而 -race 要 cgo），
+      # 所以它交给 runner：ubuntu 镜像自带 gcc，`CGO_ENABLED` 默认就是 1。
+      # **第一次跑它等于给整个仓库做一次并发体检**——若红，是真的竞态，不是闸坏了
+      # （那时该修的是那一处竞态，而不是把这一步删掉）。
+      #
+      # **只在 ubuntu 上跑**：race 需要 cgo + 支持它的 libc（musl 不行），而
+      # windows runner 上没有现成的 mingw。两个平台各判一次不增加覆盖，只增加
+      # 时间——与上面那三个守卫同一条纪律。
+      - name: test (race)
+        if: matrix.guards == 'true'
+        run: go test -race ./... -count=1
       - name: build
         run: CGO_ENABLED=0 go build ./...
-      # 前端那 ~55 KB JavaScript 此前**没有任何解析门禁**：Go 测试查的是字节、
+      # 前端那 ~180 KB JavaScript 此前**没有任何解析门禁**：Go 测试查的是字节、
       # 预算与指纹，app.js 里一个括号打错也能一路绿到浏览器白屏才有人发现。
       # 这里只**解析不执行**，不引入任何仓库依赖——没有 package.json、没有锁
       # 文件、go.sum 照旧不存在，depguard 的零依赖判定不受影响。
