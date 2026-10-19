@@ -6,7 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
 
-[`docker compose up -d`](https://github.com/rockbenben/launchbay#快速开始) → open http://localhost:7600 in your browser · image ≈ 20MB (13MB when I actually built it)
+[`docker compose up -d`](https://github.com/rockbenben/launchbay#快速开始) → open **http://\<this machine's address\>:7600** in your browser · image ≈ 20MB (13MB when I actually built it)
+
+> Open it from any device on your LAN, not from `localhost` — `localhost` only means "this device", so typing it on your phone opens the phone. Use the NAS's LAN address or hostname (`http://10.0.0.5:7600`), or `http://localhost:7600` if you are sitting at the machine itself.
 
 ![launchbay profile page: top-bar search, sidebar groups, tiles and single-column layouts](docs/home-1280.webp)
 
@@ -17,7 +19,7 @@ It runs on a machine of your own: a home NAS, a Raspberry Pi, a soft router, or 
 
 ## The three things you'll actually care about
 
-- **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. Most things in this category need a script before they will show you a link at all; the purely static, script-free kind really is fast, but it doesn't even have an edit screen, so you hand-edit a config file. Measured: on this machine, 25 bookmarks, first paint LCP 77ms, CLS 0.00, first paint 7.4 KB gzipped (31.4 KB raw); the target I settled on is LAN first-paint LCP < 300ms, and that one you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits"). If the server is temporarily down, the copy in your browser cache still opens.
+- **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. Most things in this category need a script before they will show you a link at all; the purely static, script-free kind really is fast, but it doesn't even have an edit screen, so you hand-edit a config file. Measured: 25 bookmarks render as 12.3 KB gzipped (59.1 KB raw) — those byte counts are from today's build; the LCP 77ms and CLS 0.00 next to them were measured on an earlier, smaller build, and the target I settled on is LAN first-paint LCP < 300ms, which you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits"). If the server is temporarily down, the copy in your browser cache still opens.
 - **One each, nobody else sees it.** One page per person, and you type a 4–6 digit PIN to get in. Sharing one computer doesn't mix people up — **and the admin can't see yours either**: they can create profiles, delete them, set your PIN for you, but they cannot read what is on your page. That isn't done by hiding things in the frontend; the server keeps them apart: an admin key that tries to read somebody else's bookmarks is refused outright (403). To be straight about it, this is not "protecting you from them" in the cryptographic sense — an admin who sets your PIN knows that PIN, and anyone on the LAN can edit a cookie and be somebody else. What I mean is that there is **no route at all** for them to read your bookmarks. The PIN is **optional**, though — tick "No PIN" and that profile opens with one click, for a TV in the living room or a tablet nobody watches. Then it is open to **everyone on the LAN**, which is exactly what the tick says it does; that one page stops being private, the rest are unchanged.
 - **If you break it, you can go back.** Every bulk change takes a backup first; the "Revert" button in the top bar shows you what every older version looked like (how many bookmarks, which groups), and you recognise it and click once to go back — **the current version is saved first too**, so a revert done by mistake can itself be reverted. History is kept, not erased, and **that line has a screen in the top bar**: "Change history" says line by line who touched this profile, when, through what (the page, an AI, the extension, the command line), and to which entry. It does not record what things now look like — the audit line never held content, and this page shouldn't turn into a second copy of your bookmarks. A backup is just an ordinary folder on disk; copying the whole thing is the whole backup.
 
@@ -77,7 +79,7 @@ first (why is under "Where the image comes from" below).
 > docker compose up -d
 > ```
 
-Opening http://localhost:7600 takes you into the **one-time profile setup page**: give the first profile a name and set a 4–6 digit PIN. **There are no default credentials** — there is no `admin/admin` to try; whatever name and digits you type are yours. This page is only live while not a single profile exists on disk, and it closes for good once you are done — so "has this machine ever had a profile" is itself a fact worth protecting, and cannot be used by an anonymous visitor to count how many people live in your house.
+Opening it takes you into the **one-time profile setup page**: give the first profile a name and set a 4–6 digit PIN. **There are no default credentials** — there is no `admin/admin` to try; whatever name and digits you type are yours. This page is only live while not a single profile exists on disk, and it closes for good once you are done — so "has this machine ever had a profile" is itself a fact worth protecting, and cannot be used by an anonymous visitor to count how many people live in your house.
 
 **The PIN is optional, but "no PIN" is a separate tick, not an empty box.** Leave it empty and press Create and you get "PIN must be 4–6 digits" back; tick **No PIN** and the profile is created open to the whole LAN. That is on purpose — the expensive mistake here is typing three digits and hitting enter without noticing, which would quietly publish one person's bookmarks to the house. A profile created without a PIN shows no PIN box at all on the selection page — the card displays the profile's name and service icon, and clicking Enter opens the dashboard directly. You can set one later (`POST /api/v1/profiles/self/pin`, no old PIN needed while it still has none), and you can take it away again by submitting that empty.
 
@@ -95,8 +97,7 @@ The image tag is `:latest`. On the **first** `up` the machine has no such image,
 release; a machine that is already running already has it locally, and `up` does not go back and ask the registry, so you have to
 **`docker compose pull` first** to get the new one.
 
-Releasing rides on a **git tag**: tag a `v0.1.0`, push it, and the pipeline builds and pushes four tags —
-`0.1.0`, `0.1`, `0` and `latest`. There is no second version number in this repo to keep in step — `image:` uses `:latest`, so it takes
+Releasing rides on a **git tag**: tag a `v0.1.0`, push it, and the pipeline builds and pushes five images — the three version tags `0.1.0`, `0.1` and `0`, plus `latest` and one tagged with the commit's short sha. There is no second version number in this repo to keep in step — `image:` uses `:latest`, so it takes
 no part in releasing, and the version comes only from the tag.
 
 Would rather not clone — pull the published image directly (both amd64 and arm64 are built, same name on Docker Hub and GHCR):
@@ -158,6 +159,8 @@ A 403 from that "Try this machine" button is not a broken network; it means **th
 
 Once it is installed: right-click any page → save to launchbay; the settings page can also **import your whole browser bookmark tree** (only the first click asks you for the bookmarks permission, which is set to optional request — someone who installed this only for the right-click save will never see that prompt; and before anything is imported you get a per-entry reconciliation report).
 
+**An import only goes into an empty profile** — that is the rule on all three routes (the web page, the extension, `import-bookmarks` on the command line). An import brings the browser's whole set in; it does not add on top of what is already there. So if the target profile already has bookmarks, the write is refused before it starts (422) and not one byte on disk changes — use an empty profile, or clear that one out yourself first. If you would rather not clear it, save things one at a time; the right-click save has no such limit.
+
 > On install Chrome warns "Read and change your data on all sites": the extension needs that to answer a right-click on any
 > site, which is exactly what it is for. Everything it asks for is `contextMenus` / `storage` / `tabs` / `notifications`,
 > with `bookmarks` as the one optional-request item.
@@ -212,6 +215,11 @@ telling you that same chown command. The page side says the same thing — the c
 
 **The complete endpoint list, request body shapes and error codes are in [AGENTS.md](AGENTS.md)** — that is the authoritative contract written for AI,
 every field name checked against the route table one by one, so changing one makes a test go red; which is why there is no second copy of it here in the README.
+
+**If you drive it from the command line**, two things are worth knowing and neither is documented anywhere else: results and reports go to
+**stdout**, failures go to **stderr** — so `launchbay import-bookmarks … > plan.log` gives you the report and `2> err.log` gives you the reason when it
+goes wrong — and every failure quotes the server's own error code in brackets (`[rev-conflict]`, `[ops-invalid]`) rather than paraphrasing
+it, so a script can branch on the code. `--help` and a subcommand's `-h` both exit 0; a usage error exits 2; everything else exits 1.
 
 The "opening it doesn't wait" line above is not an adjective: bookmarks and the icons they use are written straight into the HTML by the server, so the page does not have to run a script before it can show you a link. **Zero JavaScript is the floor, not the ceiling**: search is a form, creating a profile and setting a PIN are native form submissions, and with JavaScript off every bookmark is still visible and clickable — a test assertion guards that. On top of it sits one layer of enhancement (only there when JavaScript is on): the add sheet, editing a title or address in place, drag reordering, the ⌘K palette, working offline. The two do not conflict: **when the enhancement layer breaks, you fall back to the zero-JS route, and that route is always there.**
 
