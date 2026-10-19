@@ -148,6 +148,9 @@
   "errPlanGone": {
     "message": "That report was already used, or it expired. Read the bookmarks again for a new one."
   },
+  "errTargetNotEmpty": {
+    "message": "This profile already has bookmarks. An import replaces them rather than adding to them — pick an empty profile."
+  },
   "errNoSnap": {
     "message": "That version couldn't be stored, so the save was cancelled — your bookmarks are untouched."
   },

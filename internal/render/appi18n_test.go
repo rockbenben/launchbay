@@ -294,6 +294,8 @@ var notReachable = map[string]string{
 	"import-no-bookmarks":     "导入那一屏是零 JS 页面",
 	"import-nothing-accepted": "同上",
 	"import-plan-stale":       "同上",
+	"import-target-not-empty": "同上（这一码只在令牌/扩展那条 import 通路上产生，网页那三步走零 JS 表单）",
+	"credential-admin-token":  "同上（这一码只在令牌通路上产生：填了管理员那把 key 去打档案作用域端点，网页那条路用的是会话 cookie）",
 	"profile-not-rebuildable": "rebuild 只有管理员与 CLI 走",
 	"ops-invalid":             "外壳的族名：有明细读明细，没明细按状态码兜底",
 	"invalid-request":         "兜底码本身，没有更具体的一句话可给",

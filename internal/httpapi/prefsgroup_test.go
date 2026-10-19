@@ -347,7 +347,7 @@ func TestPrefsGroup_分组没了要说清而不是静默成功(t *testing.T) {
 	}
 }
 
-// 坏档**只撤掉那一节**，其余四行照常可用。
+// 坏档**只撤掉那一节**，外观那几行照常在。
 //
 // 这条钉的是"坏档不挡"的**范围**：改台面偏好只写 profile.json，而书签文件读坏
 // 了正是最需要改排版看看的时候——所以不能整页退化成一句话。可反过来，面板里
@@ -360,7 +360,9 @@ func TestPrefsGroup_坏档只撤掉分组那一节(t *testing.T) {
 		t.Fatalf("坏档不该挡这一页，得到 %d", rec.Code)
 	}
 	html := rec.Body.String()
-	for _, want := range []string{`name="theme"`, `name="view"`, `name="layout"`, `name="title"`} {
+	// **五格台面偏好都在**：theme/layout/view/addrLevel/title——`addrLevel` 是
+	// 2026-10-19 加的，它也只写 profile.json，所以同样不该被坏档带走。
+	for _, want := range []string{`name="theme"`, `name="view"`, `name="layout"`, `name="addrLevel"`, `name="title"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("坏档时 %s 那一行不见了：改台面只写 profile.json，它照旧该能用", want)
 		}

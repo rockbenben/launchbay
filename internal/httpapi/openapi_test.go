@@ -31,10 +31,11 @@ var planned = map[string]bool{}
 // security 由同一条闸的 credSecuritySchemes 那半钉回 Cred（两半都不许自己漂）。
 // 新增 cred 档位时这里必须同步补一条，否则测试直接红而不是静默漏检。
 var xCredentialNames = map[cred]string{
-	credNone:    "none",
-	credScoped:  "token-or-session",
-	credAdmin:   "admin",
-	credSession: "session",
+	credNone:      "none",
+	credScoped:    "token-or-session",
+	credAdmin:     "admin",
+	credSession:   "session",
+	credTokenOnly: "token", // 只有档案作用域令牌，会话一律 401（2026-10-19）
 }
 
 // credSecuritySchemes 是同一份 Cred 在文档 `security` 那一格里该报的形状。写法是
@@ -46,10 +47,11 @@ var xCredentialNames = map[cred]string{
 // 拿 Bearer 去打一条其实拒令牌的通路，少写 sessionCookie 则让人以为页面通路要令牌。
 // Task 5 评审 I-2 实测到的正是前者——POST /admin 的 security 里留着一开始复制来的 bearerAuth。
 var credSecuritySchemes = map[cred]string{
-	credNone:    "",
-	credSession: "sessionCookie",
-	credScoped:  "bearerAuth|sessionCookie",
-	credAdmin:   "bearerAuth|sessionCookie",
+	credNone:      "",
+	credSession:   "sessionCookie",
+	credScoped:    "bearerAuth|sessionCookie",
+	credAdmin:     "bearerAuth|sessionCookie",
+	credTokenOnly: "bearerAuth", // 2026-10-19：照实报，不许顺手加 sessionCookie
 }
 
 // tokensRefusedByForm 是 Cred 与 API 同类、却**不认令牌**的浏览器表单通路：
@@ -137,14 +139,19 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	}
 	form := doc.Paths["/prefs"]["post"].RequestBody.Content["application/x-www-form-urlencoded"]
 	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues,
-		"view": model.ViewValues}
-	// 解析器不许空转：带 enum 的三个字段都得真的带出 enum，否则下面的循环一次都不跑。
+		"view": model.ViewValues, "addrLevel": model.AddrValues}
+	// 解析器不许空转：带 enum 的四个字段都得真的带出 enum，否则下面的循环一次都不跑。
 	// 2026-10-12 起 /prefs 有三个字段（多出来的 `title` 是页面名，无枚举、只有
-	// maxLength），2026-10-13 起四个（`view` = 整页排法）。所以这里数的是
-	// "三个带 enum 的 + 一个带 maxLength 的"，而不是笼统的 3：形状变了这条要能
-	// 指出变的是哪一格。
-	if len(form.Schema.Properties) != 4 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 4 个（theme/layout/view/title）：形状变了这条正在空转",
+	// maxLength），2026-10-13 起四个（`view` = 整页排法），2026-10-19 起五个
+	// （`addrLevel` = 卡片第二行印什么）。所以这里数的是"四个带 enum 的 + 一个带
+	// maxLength 的"，而不是笼统的 5：形状变了这条要能指出变的是哪一格。
+	//
+	// **2026-10-19 补上 addrLevel**：这一格此前只在 description 里（"五个至少给
+	// 一个"），schema 的 properties 却还只有四个——而 description 与 schema 说的
+	// 是同一件事。AI 照 schema 写请求就少了这一格，写出来的 `addrLevel` 被服务端
+	// 收下（它认），可文档说的字段集合与真实的那一份分家了。
+	if len(form.Schema.Properties) != 5 {
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 5 个（theme/layout/view/addrLevel/title）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {

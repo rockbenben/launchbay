@@ -150,16 +150,27 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	// 那三个视图名从前是内部词，家里人看不出分别是什么）。形状判据与它们无关：
 	// 标签稳定、状态走 aria-pressed。改文案时**记得连带改这一行**，那正是它
 	// 存在的理由——标签变了而这里没变，当场红。
-	want := []string{"按分组=true", "并排=false", "紧凑=false", "侧栏=true", "顶栏=false", "跟随系统=true", "暗色=false", "亮色=false", "当前页=true", "另开一页=false"}
+	//
+	// 2026-10-19 从十颗变十三颗：多了「主机名 / 完整地址 / 不显示」三颗
+	// （卡片第二行印什么，Profile.AddrLevel）。静息态 host=true 是因为起点那份
+	// profile.json **没有 addrLevel 键**——"没选过"与"选了 host"是同一件事，
+	// 与 view 那一格同一形状（读侧空串 = 默认，写侧表单要清回默认送 "host"）。
+	want := []string{
+		"按分组=true", "并排=false", "紧凑=false",
+		"主机名=true", "完整地址=false", "不显示=false",
+		"侧栏=true", "顶栏=false",
+		"跟随系统=true", "暗色=false", "亮色=false",
+		"当前页=true", "另开一页=false",
+	}
 	got := panel()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("静息态那十颗键不对：%v，要 %v", got, want)
+		t.Fatalf("静息态那十三颗键不对：%v，要 %v", got, want)
 	}
 	// 开并排视图：三颗视图键里 pressed 只翻一颗，标签一个字不动
 	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("view=wall 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("开完全局视图：%v", got)
 	}
 	// 开顶栏导航：两维互不干涉（view 还开着，dense 那颗仍是 false）
@@ -167,7 +178,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		t.Fatalf("layout=topbar 要 303，得到 %d", rec.Code)
 	}
 	got = panel()
-	if strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("两维都开：%v", got)
 	}
 	page := get(h, "/", dadFormCookie).Body.String()
@@ -185,7 +196,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	if rec := postForm(h, "/prefs", "layout=sidebar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("切回 sidebar 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("关掉顶栏导航：%v", got)
 	}
 }

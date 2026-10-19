@@ -79,6 +79,7 @@ const APP_I18N = {
     "app.cmdk.history": "看这一份的改动历史",
     "app.cmdk.multi": "多选书签（一次改好几条）",
     "app.cmdk.kind": "动作",
+    "app.cmdk.external": "需手动打开",
     "app.cmdk.none": "没有对得上「%s」的书签，也没有对得上的动作。",
     "app.cmdk.empty": "这里还没有可列的东西。",
     "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
@@ -221,6 +222,7 @@ const APP_I18N = {
     "app.cmdk.history": "See this profile's change history",
     "app.cmdk.multi": "Multi-select bookmarks (change several at once)",
     "app.cmdk.kind": "action",
+    "app.cmdk.external": "Open manually",
     "app.cmdk.none": "Nothing matches “%s” — no bookmark, and no action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
     "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
@@ -647,8 +649,9 @@ const APP_I18N = {
   // `form POST /prefs`，抽屉外壳是 JS 画的，改设置不是。fetch 回来的是同一份
   // define（`GET /prefs` 那张独立页渲染的也是它），于是浮层与整页永远一致。
   //
-  // 为什么 fetch 一次而不是把标记内嵌进档案页：面板约 2 KB，而 §7.3 那条操作线
-  // 管的是**每一页**的首屏——不打开面板的绝大多数人（只是来看书签）不该背这 2 KB。
+  // 为什么 fetch 一次而不是把标记内嵌进档案页：面板标记**随分组数变大**（未压缩：
+  // 一份只有一组的档案实测约 12 KB，其中分组清单是最大的一块），而 §7.3 那条操作线
+  // 管的是**每一页**的首屏——不打开面板的绝大多数人（只是来看书签）不该背这份标记。
   // 代价是打开时多一次同源请求；它是本地请求，面板自己不写状态，**失败就退回一次
   // 普通跳转**（一次网络抖动不该把人堵在"浮层开不出来"上）。
   const prefsSheet = $('#lb-prefs');
@@ -783,9 +786,10 @@ const APP_I18N = {
       // 改完就地按一下那颗键的 aria-pressed：那是这一格唯一的可见状态。
       markPressed(form, v);
     });
-    // 改名 / 怎么看 / 分组导航 / 主题那四张（POST /prefs，2026-10-14 补上）。
+    // 改名 / 排法 / 第二行 / 档案形态 / 主题那五张（POST /prefs；2026-10-14 补上
+    // 前四张，2026-10-19 加上第二行）。
     //
-    // **它们不能走 applyOps**：那四格改的是 `profile.json`（台面偏好），不产生
+    // **它们不能走 applyOps**：那五格改的是 `profile.json`（台面偏好），不产生
     // rev、不做快照——而 applyOps 走的是 `/api/v1/batch`（书签文档），那是**另一份
     // 文件**。所以这一族是普通 fetch + 就地改，不假装它是 batch。
     //
@@ -799,13 +803,30 @@ const APP_I18N = {
       e.preventDefault();
       const btn = e.submitter;
       const data = new FormData(form, btn || undefined);
-      const payload = {};
-      // **只交被按下的那一格**：命名过的输入框每次提交都跟着走，
-      // 而一次提交就是"改一件事"。
-      for (const k of ['theme', 'view', 'layout', 'title']) {
-        if (btn && btn.name === k) payload[k] = String(data.get(k) ?? '');
-      }
-      if (!Object.keys(payload).length) return;
+      // **只交这一张表单要改的那一件事**：字段名**从表单自己读**——那张表单里
+      // **唯一**那个名字就是它要改的那一格（四张单选钮表单里是那几颗键的共同
+      // 名字，「改名」那一行里是那个输入框）。
+      //
+      // **为什么不再抄一份名单**（2026-10-19 改判）：抄一份就会漏，而漏掉的那一格
+      // 在浮层里**按了等于没按**——preventDefault 已经把原生提交取消了，而 payload
+      // 是空的，函数直接 return，一个请求都不发：
+      //   - 第二行（addrLevel，2026-10-19 加的）没进那份名单，于是面板里按
+      //     「完整地址」什么都不会发生；
+      //   - 「改名」那一行**一直**是坏的：它的保存键**没有 name**（它说的是
+      //     「保存」，不是"改成哪一档"），于是名单里那个 title 永远匹配不上。
+      // 两格都只在浮层里坏：零 JS 的独立页走原生提交，在那里它们是好的——同一个
+      // 设置，两条路两种结果，而坏的那条正是人最常用的那条。
+      //
+      // **唯一性由面板那条测试钉住**（每张 POST /prefs 表单恰好一个名字），
+      // 所以这一格不猜：名字不唯一就不发（宁可"按了没反应"，也不猜错一格改掉
+      // 另一格）。
+      const names = [...new Set([...form.querySelectorAll('[name]')]
+        .map((el) => el.name).filter(Boolean))];
+      if (names.length !== 1) return;
+      const k = names[0];
+      const v = data.get(k);
+      if (v === null) return;
+      const payload = { [k]: String(v) };
       const body = new URLSearchParams(payload);
       try {
         // 手动跟随 303：fetch 默认不跟，而这一族成功回的就是 303。
@@ -1391,9 +1412,15 @@ const APP_I18N = {
       say(''); // 读成了：把上一轮任何一行状态都清掉（两行一起清，见 say 的注释）
       if (!fTitle.value) fTitle.value = r.title || '';
       if (!fDesc.value) fDesc.value = r.desc || '';
+      // **取 `r.suggestedGroup.id`**（2026-10-19 修）：服务端给的是 `{id,title}`
+      // 对象（`resolveResponse.SuggestedGroup` 是 `*resolveGroup{ID,Title}`），
+      // 而这里从前把整个对象跟 `o.value`（字符串）比 —— 恒不相等，于是**建议分组
+      // 一次都没被选上**，浮层里那格永远停在默认的第一组。
+      // 判据与服务端那份一致：对象里的 `id` 才是分组 id。
       if (r.suggestedGroup && fGroup.value !== NEW_GROUP) {
+        const want = r.suggestedGroup.id;
         for (const o of fGroup.options) {
-          if (o.value === r.suggestedGroup) { fGroup.value = r.suggestedGroup; break; }
+          if (o.value === want) { fGroup.value = want; break; }
         }
       }
       iconChoices(r.iconCandidates);
@@ -1874,7 +1901,10 @@ const APP_I18N = {
         || extra.some((x) => x && x.toLowerCase().includes(q))) {
         total++;
         if (hits.length < 8) {
-          hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '', url: itemURL(li), el: li });
+          // `external` 与正文那一支同源：**它没有 <a href> 就是点不动**，
+          // 于是「点不动」这件事在 DOM 上是现成的，不另找判据。
+          hits.push({ kind: 'item', label: li.querySelector('b')?.textContent || '',
+            url: itemURL(li), el: li, external: !li.querySelector('a[href]') });
         }
       }
     }
@@ -1892,7 +1922,14 @@ const APP_I18N = {
       }, h.kind === 'more'
         // 这一行不是书签，不能长得像书签：没有地址、没有类型角标，只有一句动作。
         ? [el('span', { text: h.label })]
-        : [el('b', { text: h.label }), h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: T('app.cmdk.kind') })]);
+        : [
+          el('b', { text: h.label }),
+          h.external
+            // 复制而不是跳转，这一行得先说清按下去会发生什么——否则「按了没反应」
+            // 只是换了个更隐蔽的形状（地址确实进了剪贴板，可屏上什么都没变）。
+            ? [el('code', { text: h.url }), el('span', { class: 'tag', text: T('app.cmdk.external') })]
+            : h.url ? el('code', { text: h.url }) : el('span', { class: 'tag', text: T('app.cmdk.kind') }),
+        ]);
       if (h.kind === 'more') row.classList.add('cmdk-more');
       cmdkList.append(row);
     }
@@ -1911,7 +1948,23 @@ const APP_I18N = {
   }
   function cmdkRun(hit) {
     cmdkClose();
-    if (hit.kind === 'item') { location.href = hit.url; return; }
+    // **外部条目复制地址，不跳转**（2026-10-19 修）。
+    //
+    // 面板扫的是**全部** `li[data-item]`，模板那一支却把点不动的外部地址
+    // （chrome:// / file:// …）渲染成 `<code>` 纯文本，于是 `itemURL` 能把真实
+    // 地址读回来——到这里为止都对。原先这里无条件 `location.href = hit.url`，
+    // 于是按下去浏览器拒绝跳转、页面原地不动、**一声不吭**：这正是 §8.1
+    // 「点了没反应的东西不进界面」说的那种承诺。
+    //
+    // 模板那一支已经把这枚徽标换成了能按的复制键（见下面那个
+    // `.plain .badge.warn.ext` 循环），判据是同一个 `itemURL`；面板这一支漏了
+    // 同一层，于是**同一个地址在正文里能复制、在面板里点了没反应**。
+    // 出路（复制到地址栏或拖到书签栏）由模板那条路径给出，那边本来就写着。
+    if (hit.kind === 'item') {
+      if (hit.external) { copyText(hit.url); return; }
+      location.href = hit.url;
+      return;
+    }
     hit.run();
   }
   // 把面板里这个词交给页面上那个搜索框——它走的是服务端那条整页搜索，
@@ -2882,10 +2935,16 @@ const APP_I18N = {
     }
     // ⌘/Ctrl ↵：在面板里后台标签打开。它与 Enter 的差别只有一个键，
     // 而那一个键省下来的正是"关掉这一页再开新标签"这一步。
+    //
+    // **外部条目与 Enter 那一支同判**（2026-10-19 修）：这一处读的是同一份
+    // `cmdkHits`、同一个 `cmdkSel`，所以它就是 `cmdkRun` 的第二个入口。
+    // 修那一支时漏了它，于是同一个条目**按回车复制地址、按 ⌘↵ 照样跳**——
+    // 两个键差一个字，行为却相反，而"点不动的地址"那个问题原样还在。
+    // 判据共用 hit.external，不在这里重问一遍协议。
     if (mod(e) && e.key === 'Enter' && !cmdk.hidden) {
       e.preventDefault();
       const hit = cmdkHits[cmdkSel];
-      if (hit && hit.url) window.open(hit.url, '_blank', 'noopener');
+      if (hit && hit.url && !hit.external) window.open(hit.url, '_blank', 'noopener');
       return;
     }
     if (e.key === 'Escape') {

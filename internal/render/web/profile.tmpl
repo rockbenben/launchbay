@@ -12,7 +12,7 @@
 <title>{{.PageTitle}} · {{.Profile.Title}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
+<body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}}{{with .AddrLevel}} data-addr-level="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
 <header>
   {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「改名」那一格里改），
        空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
@@ -163,24 +163,46 @@
   {{range .Items}}
     <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
-        {{/* **这一行是全案唯一一处「屏上不印地址」的形态**：可点的那支在 href 上、
-             正文里点不动的外部地址在 <code> 里，唯独大卡带里点不动的这一行两样都
-             没有——于是脚本按 href 读地址的那几处全都读成空串：编辑模态会照发一条
-             `set …/url=""`（整批 422，屏上只说「这一条没存上」），⌘K 按地址也搜不到它。
-             地址是**数据**不是标记，所以挂在 data-addr 上由脚本读一处（app.js 的
-             `itemURL`）。
+        {{/* **地址既不在 `href` 上、也不在 `<code>` 里**（2026-10-19 改判）：可点的那支
+             在 href 上、正文里点不动的外部地址在 <code> 里，唯独大卡带里点不动的
+             这一行两样都没有——于是脚本按 href 读地址的那几处全都读成空串：编辑模态
+             会照发一条 `set …/url=""`（整批 422，屏上只说「这一条没存上」），⌘K 按地址
+             也搜不到它。地址是**数据**不是标记，所以挂在 data-addr 上由脚本读一处
+             （app.js 的 `itemURL`）。
              **不能叫 data-url**：Go 的 html/template 按属性名判断 URL 上下文，
              `data-icon` 就因此被写成 #ZgotmplZ（那一条的前车之鉴在下面的 data-icon-name）。 */}}
         <span class="feat-card plain" data-addr="{{.URL}}">
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          <span class="host">{{hostOf .URL}}</span>
+          {{/* **这一格也认 `AddrLevel`**（2026-10-19 补）：大卡带里点不动的这一行印的
+               是 `host` 那一格，与它旁边那张能点的卡同形——「第二行印什么」这一格
+               说了算，`none` 档不许在它身上留一行（那一格若还说谎，用户显式选了
+               却拿不到，与"没选"分不开，§8.1 说的正是这个）。
+
+               **只有这一格归它管**：正文卡里点不动的外部地址那一行（`<code>` 加
+               「需手动打开」徽标与复制键）**不归它管**——那是"点不动的地址"那一行
+               （给人照着敲的），不是"第二行"那一格，两者是两件事（与
+               addrlevel_test.go 里那一句同口径）。
+
+               `host` 档印什么：与旁边那张能点的卡同一句判据——有说明印说明、没说明
+               印主机名；而 `hostOf` 对非 http/https 原样返回，于是点不动的地址在
+               这一档里印的就是地址本身（那类地址没有主机名，编一个出来更坏）。 */}}
+          {{if ne $.AddrLevel "none"}}<span class="host" title="{{.URL}}">{{if eq $.AddrLevel "full"}}{{.URL}}{{else if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}</span>{{end}}
         </span>
       {{else}}
         <a class="feat-card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          <span class="host" title="{{.URL}}">{{if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}</span>
+          {{/* **大卡带这一格跟正文那张卡认的是同一个 `AddrLevel`**（2026-10-19）：
+               它从前是第三份写法（有说明印说明、没说明印主机名），于是那一格一改，
+               三处要一起改——而"同一份数据的两种卡片形态读法不同"正是当初把它改掉的
+               理由。判据只有 `AddrLevel` 一处。
+
+               **屏上印主机名而完整地址只进 `title`**（悬停看得到）：大卡带那张是
+               **整个带子里**一行一卡，300px 宽印不下 40 来字符的地址，而它下方的
+               `.feat-g` 还要留给分组名。`full` 那一档在这里印完整地址——它正是
+               为"我想看到多细"设的，挤一点是它自己选的代价。 */}}
+          {{if ne $.AddrLevel "none"}}<span class="host" title="{{.URL}}">{{if eq $.AddrLevel "full"}}{{.URL}}{{else if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}</span>{{end}}
         </a>
       {{end}}
     </li>
@@ -240,15 +262,34 @@
         <a class="card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
           {{template "icon" .}}
           <b title="{{.Name}}">{{.Name}}</b>
-          {{/* **没有说明时印主机名**，与大卡带那张卡是同一句判据（2026-10-16 实测）。
-               从前是 `{{with .Desc}}<i>{{.}}</i>{{end}}`——有说明才印第二行，于是
-               同一份数据在两种卡片形态上读法不同：`.feat-card` 那支早就写了
-               `{{if .Desc}}…{{else}}{{hostOf .URL}}{{end}}`，而正文这一支印的是
-               一张只有名字的卡。实测（48 条真实数据）只有 4 张有第二行，扫一屏时
-               多数格子是"一个名字、没有第二样东西"，而人认一个站点靠的恰恰是它
-               在哪个域上。密集视图与 ≤700px 的磁贴本来就收起第二行（那两条 CSS
-               只判 `.card i`），不受影响。 */}}
-          {{with .Desc}}<i>{{.}}</i>{{else}}<i class="host">{{hostOf .URL}}</i>{{end}}
+          {{/* **第二行印什么由「设置」那一格说了算**（2026-10-19 加）：
+               `host`（默认）有说明印说明、没说明印主机名；`full` 一律印完整地址；
+               `none` 一律不印。判据是 body 的 `data-addr-level`（exec.go 的
+               `addrLevelOf` 归一，空串 = host）。
+
+               **为什么主机名也要能被换掉**：实测 48 条真实数据只有 4 张有说明，所以
+               默认那档印的其实是主机名——但同一台机器上三个人对"我想看到多细"的
+               要求几乎肯定不一样，而只有一个人能配。这一格今天写死了，用户拿不到
+               另外两档（代价与 base.css 那两条覆盖规则一起记在那里）。
+
+               这一层只管**印什么**；**要不要印**由 CSS 按 `data-addr-level` 与
+               视图一起判——分开的理由是磁贴那一档第二行在整块卡下面另起一行，
+               那是版式决定，不是文本决定，模板判不了。
+
+               **实拍（2026-10-19，380px / 两列，每格 150px、内容区 130px）**：
+               `full` 那一档第二行跟着说明一起缩进了 32px（`.tiles .card i` 那条
+               既有规则），于是**第一行是每天要认的名字、第二行只是补充，而补充
+               把名字挤没了**——「有说明短地址」截成「有 说明短 地」，而下面
+               `https://x.com/a` 完整。去掉缩进后两者齐左：地址少一截，名字完整，
+               而名字才是必读的那半（这一族自 2026-10-16 起就是按这个理由定的：
+               「人认一个站点靠的恰恰是它在哪个域上」）。CSS 那侧钉着。
+
+               **第二行为什么还要带 class**：`.host` 那一档 CSS 收窄过（dense 与
+               窄屏磁贴收的是 `.card i`），而 `full` 要压过那两条——判据同名不同类，
+               CSS 那侧认的就是这个 `.addr`。 */}}
+          {{if ne $.AddrLevel "none"}}{{if eq $.AddrLevel "full"}}<i class="addr">{{.URL}}</i>
+          {{else if .Desc}}<i>{{.Desc}}</i>
+          {{else}}<i class="host">{{hostOf .URL}}</i>{{end}}{{end}}
           {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </a>
@@ -282,8 +323,9 @@
   {{/* 页内嵌的那一份浮层：JS 开着时点顶栏「台面」弹的是它；JS 关着时那颗
        `<a href="/prefs">` 正常跳去独立页。两条路渲染的是同一个 define。
 
-       **空壳**（内容由 app.js fetch `/prefs` 后注入）：面板约 2 KB，而 §7.3 那条
-       操作线管的是每一页的首屏——只是来看书签的人不该背这 2 KB。
+       **空壳**（内容由 app.js fetch `/prefs` 后注入）：面板标记**随分组数变大**
+       （未压缩：一份只有一组的档案实测约 12 KB，其中分组清单是最大的一块），而
+       §7.3 那条操作线管的是每一页的首屏——只是来看书签的人不该背这份标记。
 
        tabindex="-1"：浮层打开后焦点要落在面板自己身上（读屏先念可及名），
        而 div 默认不可聚焦。可及名走 aria-labelledby 指向注入进来的那个 h2，
@@ -470,6 +512,25 @@
 
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
+      <span class="prefs-label">{{.T "prefs.addrLevel"}}</span>
+      {{/* **第二行印什么**（2026-10-19）：三颗 pressed 键，与上面 view / layout
+           同一张脸、同一份落点（`POST /prefs` 的 `addrLevel` 一格）。
+
+           **为什么它要压过视图**：`full` 在 dense 与窄屏磁贴下仍然显示，而那两档
+           本来不印第二行——理由与代价写在 base.css 那条覆盖规则旁边（§8.1：
+           一个显式选了却拿不到的开关会说谎）。所以这一格的说明**要说清这一条**，
+           否则人在 dense 档里选了 full、看到行高变了，会以为是 bug。 */}}
+      <p class="prefs-hint">{{.T "prefs.addrLevel.hint"}}</p>
+      <div class="prefs-keys">
+        <button type="submit" name="addrLevel" value="host" aria-pressed="{{if eq .AddrLevel "full"}}false{{else if eq .AddrLevel "none"}}false{{else}}true{{end}}" title="{{.T "profile.addrLevel.host.title"}}">{{.T "profile.addrLevel.host.label"}}</button>
+        <button type="submit" name="addrLevel" value="full" aria-pressed="{{if eq .AddrLevel "full"}}true{{else}}false{{end}}" title="{{.T "profile.addrLevel.full.title"}}">{{.T "profile.addrLevel.full.label"}}</button>
+        <button type="submit" name="addrLevel" value="none" aria-pressed="{{if eq .AddrLevel "none"}}true{{else}}false{{end}}" title="{{.T "profile.addrLevel.none.title"}}">{{.T "profile.addrLevel.none.label"}}</button>
+      </div>
+    </div>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
       <span class="prefs-label">{{.T "prefs.layout"}}</span>
       {{/* 「紧凑档下这一列不画」**接在这一格的说明后面**，而不是从前那样另起一行
            （`{{if .Compact}}<p class="hint">…</p>{{end}}`）。它解释的是**这一格**
@@ -585,10 +646,10 @@
     </div>
   </div>
 
-  {{/* 「回退与历史」不是设置，是**两个出口**——它排在上面四行"这一页长什么样"
-       （改名/怎么看/分组导航/主题/背景）之后，而不在它们中间：
+  {{/* 「回退与历史」不是设置，是**两个出口**——它排在上面那几行"这一页长什么样"
+       （改名/排法/第二行/档案形态/主题/背景）之后，而不在它们中间：
        2026-10-14 之前背景那一节落在它下面，于是这屏读成
-       「四行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
+       「几行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
   {{/* 「点开书签」：**当前标签页 / 新标签页**（openInNewTab）。它排在「分组」那节
        上面而不是上面那几行里，因为它改的是**书签文档**（走 batch：rev + 快照 +
        审计，能在「回退」里退回来），而上面几行改的是台面偏好（只写 profile.json）。

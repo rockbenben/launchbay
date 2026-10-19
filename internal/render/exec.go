@@ -298,6 +298,12 @@ type profileView struct {
 	// 选择页、解释页与管理页**没有**这个字段——它们不属于任何档案，没有主题可说，
 	// 页面跟系统（见 pickerView 上面那段注释）。
 	Theme string
+	// AddrLevel 是**卡片第二行印什么**，归一后只有三档（host/full/none）。
+	//
+	// 归一在这里做而不是模板里 `{{if}}`：模板那个三选一要判三遍，而"空串 =
+	// host"这条判据只该有一份——它与 themeAttr 那个"auto 归一成空串"是同一族
+	// 处置（默认值只在渲染时算，不往盘里编一个字）。
+	AddrLevel string
 	// Compact 是 view ∈ {wall, dense}：**所有分组都摆在同一屏**的那两档。
 	// 判据只有 compactView 那一份，页面（CSS 那两条）与面板（文案）共用它——
 	// 不写两遍"或"是这一族的老规矩（themeAttr / paintedBackground 同一处置）。
@@ -358,7 +364,7 @@ type profileView struct {
 	PrefGroups []groupView
 	// PrefGroupsBroken 是"分组清单画不出来"的原因（非空 = 那一节不画，并说清为什么）。
 	// **坏档不挡面板**：改台面偏好只写 profile.json，而书签文件读坏了正是最需要
-	// 改排版看看的时候——所以那一节单独退化，页面上其余四行照常可用。
+	// 改排版看看的时候——所以那一节单独退化，外观那几行照常在。
 	PrefGroupsBroken string
 	// PrefPalette / PrefPaletteNames 把 model 那张色板原样带上来。**不在这里
 	// 再抄一份**：色块渲成什么、读屏念什么，两边必须与 model 同数同序
@@ -439,6 +445,24 @@ func themeAttr(theme string) string {
 		return ""
 	}
 	return theme
+}
+
+// addrLevelOf 把 Profile.AddrLevel 归一成三档。**空串 = host**：那一格比老盘晚，
+// 升级前落盘的 profile.json 里没有这个键，所以"没选过"必须与"选了 host"是同一件事。
+//
+// 归一在这一处而不是模板里 `{{if}}`：模板那个三选一要判三遍，而"空 = host"这条
+// 判据只该有一份（与 themeAttr 那个"auto 归一成空串"同一族处置）。
+//
+// 盘上不会出现别的值——`Profile.Validate` 挂在读路径上，写侧也只有 `POST /prefs`
+// 一个入口。**这里仍然兜一层**：模板与 CSS 都在按这个值做决定，而一个没被挡住的值
+// 会变成"屏上什么都不印"这种安静的错误。
+func addrLevelOf(v string) string {
+	switch v {
+	case model.AddrFull, model.AddrNone:
+		return v
+	default:
+		return model.AddrHost
+	}
 }
 
 // pickerView / brokenView / adminView 都**没有** Theme 字段：这三页不属于任何
@@ -868,7 +892,7 @@ func sameDay(a, b time.Time) bool {
 // 权限判断不在这里、更不在模板。
 func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, cat *i18n.Catalog) ([]byte, error) {
 	fb, hits, total := matches(query, b)
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,
+	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
@@ -1034,7 +1058,7 @@ const (
 var PrefTabValues = []string{PrefTabLook, PrefTabGroups, PrefTabOut}
 
 func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), CSS: e.cssT,
+	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
 		PrefGroups: gs, PrefGroupsBroken: broken,
 		Bookmarks:  profileData{OpenInNewTab: openNewTab},

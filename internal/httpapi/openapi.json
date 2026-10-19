@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.fd7c57828cc3.js": {
+    "/app.822b3f989f2c.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -136,7 +136,7 @@
         "summary": "⑥ 的 bookmarklet（零令牌，拖进书签栏即用）",
         "x-credential": "none",
         "security": [],
-        "description": "吐出那段拖进书签栏的 JS（spec §6.3）。**里面绝不会有令牌**：Chrome 书签会云同步，写进 bookmarklet 的令牌等于明文外发。家里人不需要在任何地方配令牌——它只做一件事，导航到 `/?add=<当前URL>&t=<标题>`，写走会话 cookie。\n\n**它自己算这台机器的地址**（从请求的 Host 头，且只取 host:port 形状，其余一律不采信），而不是要人来填：填错了的 bookmarklet 会一直把人送到一个打不开的地址，而那种错误要等到用的时候才发现。scheme 写死 `http`——本站自己不上 TLS（§11 明写不防），读 `X-Forwarded-Proto` 等于凭空多一条可伪造的输入。\n\n走完导航后：未登录会进 PIN 步骤而 `?add=` **不会丢**（选择页逐卡片带 `keep_add`，进门后重定向接回）；登录则直接落到档案首屏，⑤ 的浮层自动打开并预填地址与标题，**要人再按一次保存才落库**——bookmarklet 从来不是\"点一下就自动存\"。",
+        "description": "吐出那段拖进书签栏的 JS（spec §6.3）。**里面绝不会有令牌**：Chrome 书签会云同步，写进 bookmarklet 的令牌等于明文外发。家里人不需要在任何地方配令牌——它只做一件事，导航到 `/?add=<当前URL>&t=<标题>`，写走会话 cookie。\n\n**它自己算这台机器的地址**（从请求的 Host 头，且只取 host:port 形状，其余一律不采信），而不是要人来填：填错了的 bookmarklet 会一直把人送到一个打不开的地址，而那种错误要等到用的时候才发现。**端口原样带出去**（2026-10-19 修）：本案的默认端口是 7600，剥掉它会让这条地址跳到 80 端口去——那台机器上 80 端口什么都没有，于是书签栏按钮「点了打不开」，而它唯一的卖点恰恰是「配一次就永远对」。IPv6 的切点在 `]` 之后而不是最后一个冒号，`[fd00::5]` 才不会被腰斩成 `[fd00`。scheme 写死 `http`——本站自己不上 TLS（§11 明写不防），读 `X-Forwarded-Proto` 等于凭空多一条可伪造的输入。\n\n走完导航后：未登录会进 PIN 步骤而 `?add=` **不会丢**（选择页逐卡片带 `keep_add`，进门后重定向接回）；登录则直接落到档案首屏，⑤ 的浮层自动打开并预填地址与标题，**要人再按一次保存才落库**——bookmarklet 从来不是\"点一下就自动存\"。",
         "responses": {
           "200": {
             "description": "bookmarklet 的 JS 源码（no-store；让人复制的那一行）"
@@ -250,7 +250,7 @@
             "description": "左侧那一列当前停在哪一节（2026-10-15）。**它要活过一次保存**：分组那一节里每一次按色块、按排法、改名、建组、删组都是一次提交，而一屏二十个分组时「改完跳回第一类」等于那一节没法用——所以 `/prefs/group` 的表单 action 带着它，303 落回时也带着。**不认识的值落回 `look`**，不是 400 也不是原样渲染：这是一个「停在哪」的记忆，手改过 URL、链接过期、从浮层那条路进来时都该有一份说得通的答案。"
           }
         ],
-        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，六件事收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下）。\n\n**左侧有一列分类 tab（2026-10-15）**：三颗（外观 / 分组 / 回退与历史）。它**零 JS**——三颗 radio 加 `:checked ~ .prefs-panes` 兄弟选择器，因为这张独立页不引 app.js、而同一份 define 也渲染进档案页的浮层，JS 切 class 只会在一条路上有 tab。**退化方向是「看得全」**：pane 默认可见、只被 checked 的那颗关掉，CSS 没加载时三节全部出现。nav 150px + gap 22，面板内容剩 728（最宽的一行是色板 512 + 取色器 44 + gap 8 = 564），窄屏（≤520px）那列翻成顶部一条。\n\n**为什么有这一页**：档案页里那一枚「设置」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板约 2 KB 不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 **303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是 `redirectPicker`，浏览器通路的权限拒绝一律 303，见 spec §6.1；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的各行是各自的**独立表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。「回退与历史」那一节里是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。「分组」那一节含「＋ 新分组」与每组的改名/颜色/排法/删除（`POST /prefs/group`）。",
+        "description": "浏览器表单/导航通路，**AI 不走这条**。渲染的是台面面板：这一页怎么排、叫什么、能退到哪，那六件收在一屏里（2026-10-13：它们此前是顶栏六颗散着的控件——改名 details、主题循环键、排法三颗、档案形态、回退、改动历史——顶栏两行都塞不下；**后来又加了三格**：第二行、背景图、点书签时）。\n\n**左侧有一列分类 tab（2026-10-15）**：三颗（外观 / 分组 / 回退与历史）。它**零 JS**——三颗 radio 加 `:checked ~ .prefs-panes` 兄弟选择器，因为这张独立页不引 app.js、而同一份 define 也渲染进档案页的浮层，JS 切 class 只会在一条路上有 tab。**退化方向是「看得全」**：pane 默认可见、只被 checked 的那颗关掉，CSS 没加载时三节全部出现。nav 150px + gap 22，面板内容剩 728（最宽的一行是色板 512 + 取色器 44 + gap 8 = 564），窄屏（≤520px）那列翻成顶部一条。\n\n**为什么有这一页**：档案页里那一枚「设置」是 `<a href=\"/prefs\">`，app.js 开着时把它拦成浮层、**fetch 这一页并注入同一份标记**（`prefs-panel` 那一个 define 渲染两处），关着时它就是一次普通跳转。降级路径必须自己成立，所以它是页面而不是按钮；浮层失败时 JS 退回一次整页跳转。面板标记**随分组数变大**（未压缩：一份只有一组的档案实测约 12 KB，其中分组清单是最大的一块）不内嵌进档案页——§7.3 那条首屏操作线管的是**每一页**，不打开面板的人不该背它。\n\n**准入**：与 `/revert`、`/history` 同一族（selfProfileOnly，档案从会话推导、**不接受申报**），所以管理员带 cookie 进得了也只能改自己那一份（2026-10-10 边界：管账号、不碰内容）。带令牌一律 **303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是 `redirectPicker`，浏览器通路的权限拒绝一律 303，见 spec §6.1；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。会话指的档案整个没了 → 303 回选择页；**坏档不挡**（改台面偏好只写 profile.json 的 theme/view/layout/addrLevel/pageTitle，而坏档正是最需要改排版看看的时候）。200 是 `no-store`，不进渲染缓存——它是\"出了事去找设置\"的落点，不该是浏览器缓存里的旧值。\n\n改动本身走 `POST /prefs`（普通 form 提交，与这一页同族）：**面板是 JS 画的，改设置不是**。\n\n面板里的各行是各自的**独立表单**（一次按一下只改一件事），主题是三颗显式键而不是一颗三态循环键——三个选项并排摆着可以直接挑，auto（跟随系统）不再是一个只能按顺序绕回去才能回来的东西。「回退与历史」那一节里是两条链接：`/revert` **只在还有快照时画**（判据与 ProfilePage 同一句），`/history` 不判（\"还没有人动过\"本身就是那一页要答的）。「分组」那一节含「＋ 新分组」与每组的改名/颜色/排法/删除（`POST /prefs/group`）。",
         "responses": {
           "200": {
             "description": "no-store 的 HTML 页面（台面面板）",
@@ -275,7 +275,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall|dense，四个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图，dense = 密集视图）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**唯一发出这些字段的界面是台面面板**（`GET /prefs` 那张独立页与档案页里页内嵌的浮层，同一个 define）：六件事此前是顶栏六颗散着的控件，2026-10-13 收进一屏，于是**界面形状也统一了**——排法三颗、档案形态两颗、主题三颗，**每一颗都是标签稳定的 pressed 单选钮**（`aria-pressed`），不再有\"主题是一颗说\"当前是哪一档\"的循环键。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json）。面板那一行是**四张独立的表单**，一次按一下只改一件事，所以没有\"提交\"这一步，也就没有\"忘了提交\"。",
+        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall|dense、addrLevel ∈ host|full|none，五个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图，dense = 密集视图）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**唯一发出这些字段的界面是台面面板**（`GET /prefs` 那张独立页与档案页里页内嵌的浮层，同一个 define）：六件事此前是顶栏六颗散着的控件，2026-10-13 收进一屏，于是**界面形状也统一了**——排法三颗、档案形态两颗、主题三颗、第二行三颗，**每一颗都是标签稳定的 pressed 单选钮**（`aria-pressed`），不再有\"主题是一颗说\"当前是哪一档\"的循环键。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json）。面板上发这些字段的是**五张独立的表单**（改名/排法/第二行/档案形态/主题），一次按一下只改一件事，所以没有\"提交\"这一步，也就没有\"忘了提交\"。",
         "requestBody": {
           "required": true,
           "content": {
@@ -307,6 +307,15 @@
                       "dense"
                     ],
                     "description": "**整页怎么排**，落 profile.json 的 view，与 theme/layout 同族（台面偏好，不是书签数据：不产生 rev、不写快照）。groups = 一组一节（默认）；wall = 全局视图，各组作为列头排进多栏；dense = 密集视图，磁贴去壳、每条一行「图标 + 名字」（参考 Flare）——去壳**只对精确指针生效**，触摸设备仍走 44px 那一族。空串**不在值集里**：表单要清回默认送 groups，而盘上没有这个键（升级前的形状）在**读侧**是合法的——写侧严、读侧宽，判据见 model 的 Profile.View。渲染成 `<body data-profile-view>`，CSS 那一档全靠它。"
+                  },
+                  "addrLevel": {
+                    "type": "string",
+                    "enum": [
+                      "host",
+                      "full",
+                      "none"
+                    ],
+                    "description": "**卡片第二行印什么**（2026-10-19 加），落 profile.json 的 addrLevel，与 theme/layout/view 同族（台面偏好：不产生 rev、不写快照）。host = 默认，有说明印说明、没说明印主机名；full = 一律印完整地址；none = 一律不印。**它与 view 正交**：view 说整页怎么排（会不会本来就不印第二行），addrLevel 说第二行**说什么**，所以 full 要压过 view 自己的隐藏规则（dense 与 ≤700px 磁贴收的是 `.card i`，而 full 印的是 `i.addr`，**同名不同类**）——否则用户显式选了却拿不到，与「没选」分不开，那是个会**说谎**的开关。空串**不在值集里**：表单要清回默认送 host，而盘上没有这个键（升级前的形状）在**读侧**是合法的——写侧严、读侧宽，判据见 model 的 Profile.AddrLevel。渲染成 `<body data-addr-level>`，CSS 那一档全靠它。"
                   },
                   "title": {
                     "type": "string",
@@ -383,7 +392,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，**AI 不走这条**——机器改这几项打 `POST /api/v1/batch` 的 `set groups/<id>/title`、`set groups/<id>/accent`、`set groups/<id>/layout` 与 `remove path=groups/<id>` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/pageTitle；混进来的话，那句「四个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `rename`、`accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**，**或者只给 `remove=1`**（删掉这一组）或**只给 `add=<名字>`**（建一个新分组）——两者与前面那几个互斥。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`、`feature`——**一个分组内部的排法**（`feature` 那一档换的是整块版式与位置，渲染层把它从正文拿走、放进页面顶部那条带子），与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`add=<名字>`：**建一个新分组**（2026-10-15），可选 `layout`（不带就用 tiles），落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以建错了能在「回退」里退回来）。**id 由服务端派生**，判据只有 `store.NextGroupID` 一份（它与档案那条 `NextProfileID` 共用同一个 slug 函数）：slug 得动且这一份里没被占就用它，否则基名 `group` / `group-2` 序列。**中文名派生不出 ASCII**（§11.2 写死在明处的代价），所以中文名多半落在 `group-N` 上——人要看的永远是 `title`，id 只是寻址键。**界面上不问你 id**（`/setup` 与管理页那两张建档表单都不问，这里同一族）。名字空着或超长（> `model.MaxGroupTitleRunes`）→ 422 点名 `add`；`add` 出现多次 → 422。带 `group` 的那些判据在这一支**不参与**：新组还没有 id。\n\n`remove=1`：**删掉这一组**（2026-10-15），发一条 `remove path=groups/<gid>`，落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以删错了能在「回退」里整版找回来）。**它与 rename/accent/layout/add 互斥**，判据同样是**名字**而不是「HTML 只提交被按下的那个控件」——那张表单里名字输入框与取色器都常驻，按删键时它们照样跟着提交；照单发出去就是「顺手把名字和颜色也改了」，顺序写反一点（先 remove 再 set title）更糟：ops 会报目标不存在而**整批不写**，症状是「这一格删不掉」。**服务端不拦「这一组还有条目」**：代价由界面上那颗红键前面那一句说出来（它会念出这一组还有几条 + 还能用「回退」找回），再按条数拦一遍只会让那颗键说谎。空组说的是另一句「这一组是空的，删掉不会少书签」——空组在档案页与面板上**照画**（2026-10-15 改判：添加浮层的分组下拉、拖拽落点、「移动到」名单均从渲染出的标题读取，藏起空组会导致无法再向该组添加内容；因此空组照画并说清自己是空的，删是设置页唯一能清掉它的出口）。该组已经不存在 → **200 把面板重画回来并在顶部说清**，不是静默 303。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
+        "description": "浏览器表单通路，**AI 不走这条**——机器改这几项打 `POST /api/v1/batch` 的 `set groups/<id>/title`、`set groups/<id>/accent`、`set groups/<id>/layout` 与 `remove path=groups/<id>` 即可，字段与判据完全同一份。\n\n**为什么不并进 `POST /prefs`**：那两个字段落在 bookmarks.json 的**分组**上，属于书签数据，所以它走 `applyBatch`（与 `POST /api/v1/batch` 同一个落点，`/api/v1/import/apply` 也是这么走的）：快照、审计线、rev 一道闸不少。`/prefs` 只写 profile.json 的 theme/view/layout/addrLevel/pageTitle；混进来的话，那句「五个字段至少给一个」就会开始管到不属于它的东西。\n\n体是 `application/x-www-form-urlencoded`：必带 `group`（ASCII slug，指向一个存在的分组），再加 `rename`、`accent`、`layout`，或 `apply_custom=1` + `custom=<hex>` **至少一组**，**或者只给 `remove=1`**（删掉这一组）或**只给 `add=<名字>`**（建一个新分组）——两者与前面那几个互斥。一张表单里并排摆着色板、磁贴/单列与取色器三样，分开它们的判据是**名字**：被按下的色块交 `accent`，排法键交 `layout`，取色器那一格叫 `custom` 且只在同一次提交带上 `apply_custom=1` 时才说话。不能写成「靠 HTML 只提交被按下的那个控件」——命名过的输入框每一次提交都跟着走，那样按色块会交出两个 `accent`、按排法会顺手改掉颜色。两样都没交是真有人拼错了字段名——那不是「什么都不改然后成功」。\n\n`layout` ∈ `tiles`、`list`、`feature`——**一个分组内部的排法**（`feature` 那一档换的是整块版式与位置，渲染层把它从正文拿走、放进页面顶部那条带子），与 `/prefs` 的 `layout` ∈ sidebar/topbar **不是一件事**（两个枚举都叫 Layout 是历史遗留，`model.ValidGroupLayout` 与 `model.ValidLayout` 各判各的）。\n\n`accent`：**空串是合法值**，意思是「没设色」，色块退回页面主色（CSS 的 `--sec-accent,var(--accent)`）；非空只认 `#rgb` / `#rrggbb`。面板上那排色板（`model.GroupAccentPalette`）**不是白名单**——它回答的是「大多数人选哪几个」，「自定义」那一格走的正是不在表里的任意 hex。判据只有一份：`model.ValidAccent` 写侧拒、读侧丢。\n\n`add=<名字>`：**建一个新分组**（2026-10-15），可选 `layout`（不带就用 tiles），落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以建错了能在「回退」里退回来）。**id 由服务端派生**，判据只有 `store.NextGroupID` 一份（它与档案那条 `NextProfileID` 共用同一个 slug 函数）：slug 得动且这一份里没被占就用它，否则基名 `group` / `group-2` 序列。**中文名派生不出 ASCII**（§11.2 写死在明处的代价），所以中文名多半落在 `group-N` 上——人要看的永远是 `title`，id 只是寻址键。**界面上不问你 id**（`/setup` 与管理页那两张建档表单都不问，这里同一族）。名字空着或超长（> `model.MaxGroupTitleRunes`）→ 422 点名 `add`；`add` 出现多次 → 422。带 `group` 的那些判据在这一支**不参与**：新组还没有 id。\n\n`remove=1`：**删掉这一组**（2026-10-15），发一条 `remove path=groups/<gid>`，落点与上面几项**完全同一份**（applyBatch：快照、审计行、rev 一道闸不少，所以删错了能在「回退」里整版找回来）。**它与 rename/accent/layout/add 互斥**，判据同样是**名字**而不是「HTML 只提交被按下的那个控件」——那张表单里名字输入框与取色器都常驻，按删键时它们照样跟着提交；照单发出去就是「顺手把名字和颜色也改了」，顺序写反一点（先 remove 再 set title）更糟：ops 会报目标不存在而**整批不写**，症状是「这一格删不掉」。**服务端不拦「这一组还有条目」**：代价由界面上那颗红键前面那一句说出来（它会念出这一组还有几条 + 还能用「回退」找回），再按条数拦一遍只会让那颗键说谎。空组说的是另一句「这一组是空的，删掉不会少书签」——空组在档案页与面板上**照画**（2026-10-15 改判：添加浮层的分组下拉、拖拽落点、「移动到」名单均从渲染出的标题读取，藏起空组会导致无法再向该组添加内容；因此空组照画并说清自己是空的，删是设置页唯一能清掉它的出口）。该组已经不存在 → **200 把面板重画回来并在顶部说清**，不是静默 303。\n\n`expectedRev` **不参与**：面板是服务端渲染的，它画出来那一刻的 rev 未必是人按下那一刻的（另一个人刚改过、或这一页开着很久），而两件事改的是不同字段，ops 在锁内重读当前值再改。\n\n成功 303 回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，回面板才接得上下一次。档案没了 → 303 回选择页。ops 校验没过（最常见是分组已被删）、快照写不下 → **把面板重画回来并在顶部说清为什么**，绝不跳到一个「看起来像成功了」的页面。带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
       }
     },
     "/prefs/tabs": {
@@ -407,7 +416,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，**AI 不走这条**（本产品没有为背景图开 JSON 面：没有脚本或扩展会替人挑自己的壁纸）。**三件事共用这一个端点**：上传/换一张、移除、暂时不显示/恢复显示——一次按下 = 一个意图（与 `/prefs/group` 同一处置）。\n\n**必须 `multipart/form-data`**：文件走不了 urlencoded；而这正是不并进 `POST /prefs` 的原因——那一条的字段名单是 theme|view|layout|pageTitle，把一张几 MB 的图塞进去，那句「至少给一个字段」就会开始管到不属于它的东西。面板上那三张表单里只有「上传」那一张带文件字段，另两张（移除 / 暂时不显示）是 urlencoded，本端点两种编码都收。\n\n字段：`<input type=file name=file>`（**按魔数嗅探类型，不信浏览器给的 Content-Type**；只认 png/jpg/webp/gif——**svg 一律拒**，背景是铺满整屏的位图，而 svg 是一整类执行面；上限 4 MiB）、`remove=1`、`hidden=1|0`。\n\n落点 `data/backgrounds/<档案 id>/<16 位内容哈希>.<后缀>`：**按档案分目录**，于是「删除」只需要删自己那一个文件（单份内容寻址会让 A 删掉之后 B 的背景跟着消失，而「还有谁在用」这个问题的答案会变）；内容寻址那一半让换一张必然换一个 URL（immutable 缓存立刻失效，不会把上一张当这一张端出来）。\n\n写 profile.json 的 `background` / `backgroundOff` 两个键：**不动 rev、不做快照、不写审计行**（与那四条台面动作同类），而它**不随书签导出走**（导出只带 bookmarks.json，背景跟着这台机器与这一份档案走）。换一张会自动把 `backgroundOff` 归位——「暂时不显示」说的是「我不想看**那张**」，而人刚给了新的一张。\n\n形状错 / 不是位图 / 太大 / 零字节 → **422 点名 `file`**（这一格的值不合法，与「这台机器坏了」是两件事，人能自己改）；什么都没带 → 422（不是静默 303，那会让拼错的字段名返回成功）。成功 303 回 `/prefs`——背景这一节在面板上，改完接着还能按下一颗。档案读不出来（坏档）走与 `/prefs` 同一条分诊（503）；带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
+        "description": "浏览器表单通路，**AI 不走这条**（本产品没有为背景图开 JSON 面：没有脚本或扩展会替人挑自己的壁纸）。**三件事共用这一个端点**：上传/换一张、移除、暂时不显示/恢复显示——一次按下 = 一个意图（与 `/prefs/group` 同一处置）。\n\n**必须 `multipart/form-data`**：文件走不了 urlencoded；而这正是不并进 `POST /prefs` 的原因——那一条的字段名单是 theme|view|layout|addrLevel|pageTitle，把一张几 MB 的图塞进去，那句「至少给一个字段」就会开始管到不属于它的东西。面板上那三张表单里只有「上传」那一张带文件字段，另两张（移除 / 暂时不显示）是 urlencoded，本端点两种编码都收。\n\n字段：`<input type=file name=file>`（**按魔数嗅探类型，不信浏览器给的 Content-Type**；只认 png/jpg/webp/gif——**svg 一律拒**，背景是铺满整屏的位图，而 svg 是一整类执行面；上限 4 MiB）、`remove=1`、`hidden=1|0`。\n\n落点 `data/backgrounds/<档案 id>/<16 位内容哈希>.<后缀>`：**按档案分目录**，于是「删除」只需要删自己那一个文件（单份内容寻址会让 A 删掉之后 B 的背景跟着消失，而「还有谁在用」这个问题的答案会变）；内容寻址那一半让换一张必然换一个 URL（immutable 缓存立刻失效，不会把上一张当这一张端出来）。\n\n写 profile.json 的 `background` / `backgroundOff` 两个键：**不动 rev、不做快照、不写审计行**（与那四条台面动作同类），而它**不随书签导出走**（导出只带 bookmarks.json，背景跟着这台机器与这一份档案走）。换一张会自动把 `backgroundOff` 归位——「暂时不显示」说的是「我不想看**那张**」，而人刚给了新的一张。\n\n形状错 / 不是位图 / 太大 / 零字节 → **422 点名 `file`**（这一格的值不合法，与「这台机器坏了」是两件事，人能自己改）；什么都没带 → 422（不是静默 303，那会让拼错的字段名返回成功）。成功 303 回 `/prefs`——背景这一节在面板上，改完接着还能按下一颗。档案读不出来（坏档）走与 `/prefs` 同一条分诊（503）；带令牌一律 **303 回选择页，不是 403**（与 `GET /prefs` 同族同答法：`selfProfileOnly` 对 bearer 的答法是 redirectPicker）。"
       }
     },
     "/revert": {
@@ -1269,7 +1278,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "仅管理员。只给元信息 {id, title, admin, createdAt}——书签条目/URL/分组名一个都不出，列表端点不是书签的第二个读口。",
+        "description": "仅管理员。只给元信息 {id, title, createdAt}（**没有 admin** 那一格——它 2026-10-12 随档案的管理员属性一起删掉了）——书签条目/URL/分组名一个都不出，列表端点不是书签的第二个读口。",
         "responses": {
           "200": {
             "description": "档案元信息",
@@ -1706,7 +1715,7 @@
         },
         "responses": {
           "200": {
-            "description": "已重建，返回 {id, title, admin}（键序即此）",
+            "description": "已重建，返回 {id, title}（键序即此；**没有 admin** 那一格）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1750,7 +1759,7 @@
             }
           },
           "422": {
-            "description": "字段级错误（profile/title/pin/admin）：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
+            "description": "字段级错误（profile/title/pin）：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
           },
           "500": {
             "description": "落盘失败，或写完回读仍读不动（坏档登记留着，原因只进 stderr）",
@@ -2254,13 +2263,10 @@
     "/api/v1/import": {
       "post": {
         "summary": "扩展导入第一步：原始 Netscape HTML → 一份报告（不写盘）",
-        "x-credential": "token-or-session",
+        "x-credential": "token",
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
           }
         ],
         "description": "**给浏览器扩展用的第一步**（网页上的导入走 `/import`，那是表单通路）。\n\n扩展读得到浏览器的整棵书签树（`chrome.bookmarks`），却读不到会话 cookie，所以只能带令牌来。体是**原始 Netscape HTML**（`Content-Type: text/html`）——扩展在浏览器里就把树拼成了那个格式，于是**服务端一行解析都不用改**，与\"手动导出文件再上传\"走的是同一个 `bookimport.Convert`。\n\n**目标档案从令牌作用域推导、不接受申报**：一枚 `name:secret:dad` 的令牌只能导进 dad。这不是省一道校验，而是更强的形状——申报字段根本不存在，于是\"令牌与档案对不上\"这个错在协议层就无法表达。**管理员令牌一律 403**（它只管账号，不碰内容）。\n\n**不写盘**：写入在 `/api/v1/import/apply`，两个端点之间隔着一次调用方能读报告的动作。\n**读出 0 条当场 422**——`Convert` 不拒绝非 Netscape 输入，喂一段普通 HTML 它解析出零条并照常返回，不判就会出现\"导入成功 0 条\"。\n\n成功体多一个 `skipped`：**没能进来的条数**（过不了 `model.CheckURL`：空、解析不了、缺主机名——**`file:` 不在其列，本地路径照收**），逐条明细在 `report` 的「## 没能进来」一节。扩展只显示一行结论，这个数是它唯一能说的话——不说就等于让用户以为浏览器里只有 `count` 条书签。进不来的条目是**跳过**而不是整批失败，写路径那条\"整批拒绝\"的纪律没有因此改动。\n\n**报告句子的语言按读者分**（2026-10-13）：不带 `Accept-Language` 的调用方（curl、Go 的 http.Client、这台机器的 CLI 都不发这个头）拿到的 `report` 是**逐字不变的中文**，可以当对照锚点；带这个头的浏览器扩展拿到那台浏览器界面语言那一份，因为那份报告是原样贴在扩展设置页下面给人看的。**判定、数字与节的结构两种语言里同一份**，换语言不换结论。"
@@ -2269,13 +2275,10 @@
     "/api/v1/import/apply": {
       "post": {
         "summary": "扩展导入第二步：确认写入（一次性令牌）",
-        "x-credential": "token-or-session",
+        "x-credential": "token",
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
           }
         ],
         "description": "**第二步：确认写入。** 体是 `{token}`；令牌**取走即删**，所以同一个令牌重放也写不进第二次。\n\n档案同样从令牌推导（令牌在第一步就绑死了一个档案）。落盘走 `applyBatch`——**与 `POST /api/v1/batch` 同一个落点**：锁内读档案 → 校验 → 快照 → 落盘（rev+1）→ 审计线，四件事一次不落。审计线 `by` 记 `extension`。\n\n**令牌过期或已被用过是 410 Gone**：资源确实没了，而且这正是\"别拿同一枚重试\"的信号——报成 400 会诱使调用方把它当参数错误再发一次。"
@@ -2485,7 +2488,7 @@
             "properties": {
               "id": {
                 "type": "string",
-                "description": "分组 id，可直接用作 batch 里 add 的 path 段 groups/<id>/items"
+                "description": "分组 id，可直接用作 batch 里 add 的 path 段 groups/<id>/items。**消费方要取这一格，不是把整个 suggestedGroup 当 id**（2026-10-19：app.js 与 extension/bg.js 两处都曾把整个对象跟字符串比，于是服务端算好的建议分组一次都没生效过）"
               },
               "title": {
                 "type": "string"
@@ -2528,6 +2531,7 @@
           "body-unreadable",
           "credential-admin-only",
           "credential-missing",
+          "credential-admin-token",
           "credential-scope",
           "credential-unknown",
           "duplicate-id",
@@ -2539,6 +2543,7 @@
           "import-no-bookmarks",
           "import-nothing-accepted",
           "import-plan-stale",
+          "import-target-not-empty",
           "internal-error",
           "invalid-request",
           "missing-target",

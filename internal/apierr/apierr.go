@@ -26,7 +26,19 @@ const (
 	CredentialUnknown   = "credential-unknown"    // 带了，认不出来（换一枚，重试同一发没意义）
 	CredentialScope     = "credential-scope"      // 认出来了，但作用域不含这个档案（换对档案/对角色）
 	CredentialAdminOnly = "credential-admin-only" // 这一条只认管理员
-	PinWrong            = "pin-wrong"             // PIN 不对 / 旧 PIN 不对
+	// CredentialAdminToken 是**填了管理员那把 key**（2026-10-19 加）。
+	//
+	// 它与 CredentialScope 分开，是因为那两句出路是**相反**的：
+	//   - `credential-scope`：你有一枚档案令牌，只是管别的档案 → 换一个档案 id
+	//   - `credential-admin-token`：你填的是 LAUNCHBAY_ADMIN_TOKEN → 这把钥匙
+	//     **根本不开书签这一面**，扩展/CLI 要配的是那份档案自己的令牌
+	//
+	// 从前管理员 key 落到 `credential-scope` 上（`importapi.go` 那处单独拦的
+	// 403），于是扩展把这句话翻成"它管的是别的档案，或者那个 id 打错了"——
+	// **而真相是"你拿错了钥匙"**。用户照着这句话去改档案 id，改到天亮也进不去。
+	// 密钥是层级不对，不是作用域不对。
+	CredentialAdminToken = "credential-admin-token"
+	PinWrong             = "pin-wrong" // PIN 不对 / 旧 PIN 不对
 )
 
 // 档案本身。
@@ -70,6 +82,10 @@ const (
 	ImportNoBookmarks     = "import-no-bookmarks"
 	ImportNothingAccepted = "import-nothing-accepted"
 	ImportPlanStale       = "import-plan-stale"
+	// ImportTargetNotEmpty 是"这一份里已经有书签了"那个形状（2026-10-19）。
+	// 导入是**把浏览器那套导进来**，不是往现有档案上叠加——所以它与
+	// `import-no-bookmarks` 同族：**都是这一次的内容不对**，422。
+	ImportTargetNotEmpty = "import-target-not-empty"
 )
 
 // 抓目标网页这一条（resolve）。
@@ -99,6 +115,7 @@ var Registry = map[string]Info{
 	CredentialUnknown:     {401, "这一把不被认：多半是少复制了字符，或者机器那边换过令牌"},
 	CredentialScope:       {403, "换一枚作用域正好对上这个档案的令牌（管理员那把只管账号）"},
 	CredentialAdminOnly:   {403, "这一条要管理员身份，档案令牌不行"},
+	CredentialAdminToken:  {403, "这是管理密钥，扩展要配的是那份档案自己的令牌"},
 	PinWrong:              {401, "再输一次；忘了就走管理页那格设新 PIN"},
 	ProfileNotFound:       {404, "确认这个 id 还在，或先建一份"},
 	ProfileBroken:         {503, "先修好那个数据文件（管理页会说要重建）"},
@@ -123,6 +140,7 @@ var Registry = map[string]Info{
 	ImportNoBookmarks:     {422, "确认选的是浏览器导出的那份 .html"},
 	ImportNothingAccepted: {422, "这份文件里的地址都进不来，换一份"},
 	ImportPlanStale:       {410, "重新发起一次导入，拿一份新报告"},
+	ImportTargetNotEmpty:  {422, "换一个空档案，或先在界面上清空这一份"},
 	TargetUnreachable:     {502, "那台机器可能没开；照样存下来也行，回头补标题"},
 	InternalError:         {500, "稍后再试；持续发生看容器日志"},
 }

@@ -30,7 +30,7 @@ import (
 // 这条路只由页面表单走进来，走到这里就没人能消费一段 JSON 错误。
 // 422（形状错）与 503（文件读不了）照旧走 JSON 外壳——它们不是权限拒绝。
 //
-// 为什么不写历史行：它不动书签、不产生 rev，与"改自己 PIN"同类。四条不写
+// 为什么不写历史行：它不动书签、不产生 rev，与"改自己 PIN"同类。五条不写
 // 审计行的动作一起记在 spec §15，防止下一个人在这里"顺手补一行"。
 // maxPageTitleRunes 是"这一页叫什么"那一格的长度上限。按**字**（rune）数而不是
 // 按字节：这一格写中文是常态，按字节算会让中文比英文少 3 倍额度而没人说得清为什么。
@@ -56,14 +56,17 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	layout, hasLayout := r.Form["layout"]
 	title, hasTitle := r.Form["title"]
 	view, hasView := r.Form["view"]
-	if !hasTheme && !hasLayout && !hasTitle && !hasView {
+	addr, hasAddr := r.Form["addrLevel"]
+	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
+		why := "要带 theme、layout、view、addrLevel 或 title 至少一个"
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
-			{Kind: apierr.FieldInvalid, Field: "theme", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Kind: apierr.FieldInvalid, Field: "layout", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Kind: apierr.FieldInvalid, Field: "title", Reason: "要带 theme、layout、view 或 title 至少一个"},
-			{Kind: apierr.FieldInvalid, Field: "view", Reason: "要带 theme、layout、view 或 title 至少一个"},
+			{Kind: apierr.FieldInvalid, Field: "theme", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "layout", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "title", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "view", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "addrLevel", Reason: why},
 		})
 		return
 	}
@@ -83,6 +86,13 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	if hasView && (len(view) != 1 || !model.ValidView(view[0])) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			[]fieldError{{Kind: apierr.FieldInvalid, Field: "view", Reason: "只能是 " + strings.Join(model.ViewValues, "|")}})
+		return
+	}
+	// addrLevel 与 view 同一条纪律：枚举里没有空串，留空是"没选过"（读侧形状），
+	// 表单要清回默认就该送 "host"，不是送空。
+	if hasAddr && (len(addr) != 1 || !model.ValidAddrLevel(addr[0])) {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "addrLevel", Reason: "只能是 " + strings.Join(model.AddrValues, "|")}})
 		return
 	}
 	// title 是**这一页叫什么**（profile.PageTitle），不是"这是谁的那一份"。
@@ -113,6 +123,9 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		if hasView {
 			p.View = view[0]
+		}
+		if hasAddr {
+			p.AddrLevel = addr[0]
 		}
 		if hasTitle {
 			// 空串照旧写下去（= 清除），不是"没给"：没给的是 !hasTitle 那一支。

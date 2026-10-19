@@ -114,11 +114,33 @@ func Test一个判据一个出口(t *testing.T) {
 		// 2026-10-16 实测（48 条真实数据）发现它们分叉了：正文那支从前是
 		// `{{with .Desc}}<i>{{.}}</i>{{end}}`，**没有说明时什么都不印**，于是 48 张
 		// 卡里只有 4 张有第二行；而大卡那一支早就写了 else 分支。
-		if n := strings.Count(tmpl, `{{with .Desc}}<i>{{.}}</i>{{else}}<i class="host">{{hostOf .URL}}</i>{{end}}`); n != 1 {
+		//
+		// 2026-10-19：两支都被 `addrLevel` 那三档包起来了（host/full/none），
+		// 所以这一句现在住在 `{{else if .Desc}}…{{else}}…` 里而不是原来的
+		// `{{with}}`。**判据本身没变**——变的只是外面多了"印什么"那一层。
+		// 这条断言仍然钉的是"两支同一句"，所以两支各自的形状都要找得到。
+		if n := strings.Count(tmpl, `{{else if .Desc}}<i>{{.Desc}}</i>`); n != 1 {
+			t.Errorf("正文卡片那一句 desc 优先出现 %d 次，要 1 次", n)
+		}
+		if n := strings.Count(tmpl, `{{else}}<i class="host">{{hostOf .URL}}</i>{{end}}`); n != 1 {
 			t.Errorf("正文卡片那一句主机名兜底出现 %d 次，要 1 次", n)
 		}
-		if !strings.Contains(tmpl, `{{if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}`) {
+		if !strings.Contains(tmpl, `{{else if .Desc}}{{.Desc}}{{else}}{{hostOf .URL}}{{end}}`) {
 			t.Error("大卡卡那一支的主机名兜底没了：两支要同一句判据")
+		}
+		// **每一支都要认 addrLevel**（2026-10-19）：它是"印什么"，各写一遍就会
+		// 分叉——而那正是这一族当初出事的方式（正文印主机名、大卡印说明）。
+		//
+		// **三处**（2026-10-19 补）：正文那张卡、大卡带里能点的那张、以及大卡带里
+		// **点不动的外部条目**（那一支印的也是 `host` 那一格，与它同形）。第三处
+		// 漏了的时候 `none` 档在大卡带里漏网——那一格于是说谎。
+		for _, want := range []string{
+			`{{if ne $.AddrLevel "none"}}`,
+			`{{if eq $.AddrLevel "full"}}`,
+		} {
+			if n := strings.Count(tmpl, want); n < 3 {
+				t.Errorf("%q 出现 %d 次，要 3（正文卡、大卡能点、大卡点不动的外部条目各一处）", want, n)
+			}
 		}
 		// 兜底那一格带的是 `.card i` 的形状：`.host` 的规则只写在 `.feat-card` 下，
 		// 正文卡上它不生效（留着当语义钩子），所以这里钉住那条规则还在。

@@ -26,6 +26,22 @@ var (
 	// wall = 全局视图，各组作为列头、条目压成紧凑单行，多栏流式排满一屏。
 	ViewValues = []string{"groups", "wall", "dense"}
 
+	// AddrValues 是**卡片第二行印什么**（2026-10-19 加）：
+	//
+	//   - host（默认）：有说明印说明，没说明印主机名（`docs.google.com`）——
+	//     这是 2026-10-16 实拍改判定下来的样子，48 条真实数据里只有 4 张有说明，
+	//     而人认一个站点靠的恰恰是它在哪个域上。
+	//   - full：第二行一律印**完整地址**。这是给人"我想看到多细"用的——同一台机器
+	//     上三个人对这一格的要求几乎肯定不一样，而只有一个人能配。
+	//   - none：一律不印第二行。想要纯图标墙、或者卡片已经够满的人用这一档。
+	//
+	// **它与 `view` 是两件事**：view 说的是整页怎么排（会不会本来就不印第二行），
+	// 这一格说的是第二行**说什么**。所以 full 那一档要压过 view 自己的隐藏规则
+	// ——否则这个开关在 wall/dense 与窄屏磁贴下会**开了没反应**，那正是 §8.1
+	// 「点了没反应的东西不进界面」禁掉的那种东西（用户显式选了却拿不到，
+	// 与"没选"分不开）。判据与代价见 render 那边那处注释。
+	AddrValues = []string{AddrHost, AddrFull, AddrNone}
+
 	// GroupLayoutValues 是**一个分组内部**条目的排法：tiles 磁贴 / list 单列 /
 	// feature 大卡（大卡那一档会被渲染层挪到页面顶部独占一块，见 LayoutFeature）。
 	//
@@ -128,6 +144,8 @@ var allowedTheme = valueSet(ThemeValues)
 var allowedLayout = valueSet(LayoutValues)
 var allowedView = valueSet(ViewValues)
 
+var allowedAddr = valueSet(AddrValues)
+
 var allowedGroupLayout = valueSet(GroupLayoutValues)
 
 // ValidTheme / ValidLayout 是这两组枚举的唯一出口：校验走 map，
@@ -138,6 +156,10 @@ func ValidLayout(s string) bool { return allowedLayout[s] }
 // ValidView 认的是**写侧**的值。读侧另有一条：空串是合法的"没选过"，
 // 见 Profile.Validate 里那一句与 Profile.View 的注释。
 func ValidView(s string) bool { return allowedView[s] }
+
+// ValidAddrLevel 认**写侧**的值。读侧另有一条：空串是合法的"没选过"（= host），
+// 见 Profile.Validate 与 Profile.AddrLevel 的注释。
+func ValidAddrLevel(s string) bool { return allowedAddr[s] }
 
 // ValidGroupLayout 认**一个分组自己的**排法。与 ValidLayout（导航放哪）分开，
 // 是因为这两个"layout"改的是不同层的东西，而把它们合并成一个谓词的那一天，
@@ -224,9 +246,6 @@ func CheckURL(u string) error {
 // ExternalScheme 报告这个 URL 的协议是不是非 http/https（url.Parse 已把
 // scheme 转小写）。浏览器禁止从网页跳这类地址，渲染层据此标「需手动
 // 打开」而不是渲染 href——spec §6.2 的"标警告"、§9 的 chrome:// 特例。
-// ExternalScheme 报告这个 URL 的协议是不是非 http/https（url.Parse 已把
-//
-//	scheme 转小写）。
 //
 // **名单是量出来的，不是印象**（2026-10-13 真点击实验，2026-10-14 扩到 28 个协议 ×
 // Chrome + Edge 两个引擎）：在一个 http 页面上放一个链接、用真鼠标点下去（带用户手势，
@@ -393,6 +412,13 @@ func (p *Profile) Validate() error {
 	if p.View != "" && !allowedView[p.View] {
 		return fmt.Errorf("%w: profile %q: view %q 只能是 %s（或留空）", ErrValidation, p.ID, p.View,
 			strings.Join(ViewValues, "/"))
+	}
+	// 空串放过，与 View 同一形状、同一理由（2026-10-19）：这一格比老盘晚，
+	// 判它坏档等于一次升级把全机器的档案变成坏档。空 = 没选过 = host，
+	// 由渲染层兜（见 render 那边）。
+	if p.AddrLevel != "" && !allowedAddr[p.AddrLevel] {
+		return fmt.Errorf("%w: profile %q: addrLevel %q 只能是 %s（或留空）", ErrValidation, p.ID, p.AddrLevel,
+			strings.Join(AddrValues, "/"))
 	}
 	return nil
 }

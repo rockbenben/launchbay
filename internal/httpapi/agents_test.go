@@ -259,15 +259,22 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 	}
 	// 解析器自己也要有证人：表格是这条闸唯一的输入，行格式一旦漂了（比如方法
 	// 并进路径那一列），上面两个循环会同时看见空集、双双通过（P1-③ 点名的
-	// "闸在空转"）。真实表有 20 行，10 是余量。
-	if len(rows) < 10 {
+	// "闸在空转"）。真实表有 52 行，40 是余量。
+	if len(rows) < 40 {
 		t.Fatalf("只从 AGENTS.md 解析出 %d 行端点表，表格形状变了：这条闸正在空转", len(rows))
 	}
 }
 
 // prefsEnumRE 抓 AGENTS.md 里「`theme` ∈ `auto`、`dark`、`light`」这种写法：
 // 组 1 是字段名，组 2 是**限定词**（2026-10-13 加，见下），组 3 是档位清单
-// （到分号或逗号为止，档位之间用顿号分隔）。
+// （**一串反引号包着的词**，档位之间用顿号分隔）。
+//
+// **清单为什么按反引号认，而不是截到分号/逗号为止**（2026-10-19 改判）：从前
+// 截到第一个分号或逗号为止，于是「`addrLevel` ∈ `host`、`full`、`none`（**卡片
+// 第二行印什么**，2026-10-19 加）」那一段会把括号里那半句一起截进来，截到的就
+// 不是清单了——而要覆盖 `view` 与 `addrLevel`，先得让这一段能被干净地读出来。
+// 反引号包着的那一串**就是**清单：文档里每一处枚举都这么写，于是括号、破折号
+// 与破折号后面那半句说明自然落在它外面，不需要为了机器好读去改文档的句子。
 //
 // **限定词为什么必须有**：台面面板新增了 `POST /prefs/group`，那里的 `layout`
 // 收的是 `tiles`/`list`（一个分组内部的排法），而 `POST /prefs` 的 `layout`
@@ -275,7 +282,12 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 // 而这一条闸恰恰是要让文档的档位清单与 model 那张表同集，所以它不能把两者
 // 看成同一段：认错的那一天，文档会拿一份枚举去校另一份，绿得毫无意义。
 // 文档里写成「`layout`（组） ∈ …」与「`layout`（页） ∈ …」，各认各的表。
-var prefsEnumRE = regexp.MustCompile("`(theme|layout)`(?:（(组|页)）)? ∈([^；，]*)")
+//
+// **收进哪几个字段**（2026-10-19 补）：`view` 与 `addrLevel` 从前不在这一闸里，
+// 于是它们那两段文档里的档位清单**没有人对着 model 校**——而它们恰恰是 2026-10-19
+// 才加的两格（加进去的那一轮只补了服务端与界面，文档这一侧漏了）。`view` 与
+// `layout` 的值集都只有一份（`view` 没有分组内部那一版），所以不需要限定词。
+var prefsEnumRE = regexp.MustCompile("`(theme|layout|view|addrLevel)`(?:（(组|页)）)? ∈ ((?:`[^`]+`、?)+)")
 
 // 文档里的值集也必须与 model 那张表同集，两个方向都核：少一档是 AI 写不出
 // 那一档（它不知道有），多一档是 AI 照着文档写出去吃 422。422 的拒绝语已经
@@ -288,16 +300,18 @@ func TestAgentsMD枚举与model同集(t *testing.T) {
 	}
 	text := string(raw)
 	want := map[string][]string{
-		"theme":    model.ThemeValues,
-		"layout":   model.LayoutValues,
-		"layout/组": model.GroupLayoutValues,
+		"theme":     model.ThemeValues,
+		"layout":    model.LayoutValues,
+		"layout/组":  model.GroupLayoutValues,
+		"view":      model.ViewValues,
+		"addrLevel": model.AddrValues,
 	}
 	matches := prefsEnumRE.FindAllStringSubmatch(text, -1)
-	// 解析器不能空转：三段都必须出现（theme、页 layout、组 layout），否则下面的
-	// 循环有一次不跑，这条闸就只是一句"没找到，跳过"。数的是**段**，不是字段名——
-	// 两个 layout 段只按字段名去重会把它们合并成一段，那正是要防的那件事。
+	// 解析器不能空转：五段都必须出现（theme、页 layout、组 layout、view、addrLevel），
+	// 否则下面的循环有一次不跑，这条闸就只是一句"没找到，跳过"。数的是**段**，不是
+	// 字段名——两个 layout 段只按字段名去重会把它们合并成一段，那正是要防的那件事。
 	if len(matches) != len(want) {
-		t.Fatalf("从 AGENTS.md 只抓到 %d 段枚举清单，要 %d 段（theme、layout（页）、layout（组））：写法变了，这条闸正在空转",
+		t.Fatalf("从 AGENTS.md 只抓到 %d 段枚举清单，要 %d 段（theme、layout（页）、layout（组）、view、addrLevel）：写法变了，这条闸正在空转",
 			len(matches), len(want))
 	}
 	for _, m := range matches {

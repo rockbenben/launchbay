@@ -604,9 +604,9 @@ func (r *Renderer) PrefsPage(id, tab string) (Page, error) {
 // 那一页要为整页渲染标题、条目与导航树，而搜索时只渲染命中的分组——于是"面板里
 // 少了几行"会取决于当时有没有在搜东西，而面板与搜索词毫无关系。
 //
-// 读不出来**不算失败**：把这一节撤掉并说清为什么，其余四行照常可用。这与
-// `/prefs` 的"坏档不挡"是同一条纪律——改台面只写 profile.json，而书签文件读坏了
-// 正是最需要改排版看看的时候。
+// 读不出来**不算失败**：把这一节撤掉并说清为什么，外观那几行照常在（今天七行：
+// 改名/排法/第二行/档案形态/主题/背景图/点书签时）。这与 `/prefs` 的"坏档不挡"是
+// 同一条纪律——改台面只写 profile.json，而书签文件读坏了正是最需要改排版看看的时候。
 func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string, bool) {
 	b, err := r.s.LoadBookmarks(id)
 	if err != nil {

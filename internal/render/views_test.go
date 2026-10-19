@@ -1905,8 +1905,9 @@ func mustRender(t *testing.T, s *store.Store, id string) []byte {
 }
 
 // mustPrefs 渲染台面面板的独立页（GET /prefs）。2026-10-13 起，「回退」「改动
-// 历史」「改名」「视图」「档案形态」「主题」这六件事全部只住在这一页/这一浮层里
-// （档案页只剩一颗「台面」入口），所以凡是断言那几件事"画得出来"的测试都要走它。
+// 历史」「改名」「视图」「档案形态」「主题」「背景图」「点书签时」「第二行」这九件事
+// 全部只住在这一页/这一浮层里（档案页只剩一颗「台面」入口），所以凡是断言那几件事
+// "画得出来"的测试都要走它。
 func mustPrefs(t *testing.T, s *store.Store, id string) []byte {
 	t.Helper()
 	p, err := renderer(t, s).PrefsPage(id, "")

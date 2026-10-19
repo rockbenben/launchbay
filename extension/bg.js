@@ -146,6 +146,13 @@ async function saveOne(page, profile) {
       // suggestedGroup 以前被**整个丢掉**：这里构造 picked 时没带它，下面
       // `picked.group` 于是恒为 undefined，服务端算好的建议分组一次都没用上，
       // 每条都落进"第一个分组"。修法是把它接上，而不是在扩展里另猜一套。
+      //
+      // **它是一个对象 {id,title}，不是一个 id 字符串**（2026-10-19 修）：服务端
+      // `resolveResponse.SuggestedGroup` 是 `*resolveGroup{ID,Title}`，JSON 出来
+      // 是 `{"id":"...","title":"..."}`。从前这里整个对象塞进 `group`，而下面拿
+      // 它跟字符串 id 比（`g.id === picked.group`）恒为 false —— 于是**建议分组
+      // 一次都没生效过，每条都落进第一个分组**，而提示还写"已修好"。
+      // 判据只有一处：下面用 `picked.group.id`。
       group: r.suggestedGroup || '',
     };
   } catch {
@@ -158,7 +165,8 @@ async function saveOne(page, profile) {
 
   const groups = (cur && cur.data && cur.data.groups) || [];
   if (groups.some((g) => (g.items || []).some((it) => it.url === page.url))) return { dup: true };
-  const wanted = groups.find((g) => g.id === picked.group);
+  // **取 `picked.group.id`**：服务端给的是 `{id,title}` 对象（见上面那段）。
+  const wanted = groups.find((g) => g.id === (picked.group && picked.group.id));
   const gid = (wanted && wanted.id) || (groups[0] && groups[0].id) || '';
   if (!gid) return { why: t('noGroup'), where: noteTarget('noGroup') };
 
@@ -176,15 +184,59 @@ async function saveOne(page, profile) {
 // 条目 id 从**地址**派生：名字会被 resolve 填、也会被手改，拿它当 id 意味着
 // 改一次名字这条的 id 就变了。形状与 app.js 的 slug() 是同一族（两边各自
 // 实现过一次，改的时候记得两处都要看——这是已知代价，不是疏忽的理由）。
+//
+// **query 要算进去**（2026-10-19 修）：从前只用「主机名首段 + 路径末段」，于是
+// `https://www.youtube.com/watch?v=abc123` 与 `...?v=zzz999` 派生出**同一个**
+// id（`youtube-watch`）。扩展先按 URL 判重（两个 URL 不同 → 不是重复），再按
+// id 写入 —— 两次判据不一致，于是第二个视频**根本没存进去**，服务端答 422
+// `duplicate-id`，而扩展把这句话翻成「这一条已经在这份里了，没有存第二遍」，
+// **把人支去改另一条**。症状是"存了两次同一个网站，第二次说存过了"，
+// 而两条根本不是同一个页面。
+//
+// 判据：**地址不同就该是不同的一条**，所以 query 与 hash 都要进 id。
+// 取法仍是从地址派生（不拿名字），只是把 `?`/`#` 之后那段也算进去。
 function idFor(url, name) {
   let base = '';
   try {
     const u = new URL(url);
-    base = u.hostname.replace(/^www\./i, '').split('.')[0] + '-' +
-           (u.pathname.split('/').filter(Boolean).pop() || '');
+    // **裸 IP 走哈希**（2026-10-19）：与 app.js 的 `slug(text, true)` 同一句判据。
+    //
+    // 从前这里一律取 `hostname` 的第一段，于是 `10.0.2.3:6789` 与
+    // `10.0.2.3:7080` **全部**变成 `10-…`——加第二个内网服务就撞 id，而撞 id 是
+    // 硬错误（duplicate-id），症状是「明明填对了地址却存不进去」。
+    //
+    // 而更早一版是整串 ascii，得到 `192-168-2-36789` 那种：它把**内网地址与端口
+    // 烘进了 id**，而 `GET /api/v1/export` 发的是磁盘原字节——**导出文件发给别人
+    // 就等于把这段拓扑一起发出去**。app.js 那边早就是哈希（见它 `slug()` 里
+    // `isIPv4` 那一支），这里漏了，所以扩展存的内网书签会带着拓扑流出去。
+    //
+    // 判据是「四段全是数字」而不是「含数字」——`10.0.2.3.example.com` 那种仍走
+    // 可读那条，而它不含任何私密信息。
+    const host = u.hostname.replace(/^www\./i, '');
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      return 'ip-' + (hash36(host + (u.port || '')) || 'item');
+    }
+    base = host.split('.')[0] + '-' +
+           (u.pathname.split('/').filter(Boolean).pop() || '') +
+           // query 与 hash：路径末段相同的两个页面（两个视频、两篇文章）靠这段分开
+           (u.search || '') + (u.hash || '');
   } catch { base = ''; }
-  base = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  base = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  // **超长要加哈希后缀**（2026-10-19）：光 slice 的话，两个 query 很长但前 40 字
+  // 相同的地址仍然撞 id。app.js 的 `ascii()` 早就是这么做的（超长时截断并接上
+  // 一个哈希），这里跟上——**两边是同一族判据，改的时候记得两处都要看**。
+  if (base.length > 40) {
+    const h = hash36(base);
+    base = base.slice(0, 40 - h.length - 1) + '-' + h;
+  }
   return base || String(name || url).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'item';
+}
+
+// hash36 是 app.js 那份的同款（FNV-1a 的 32 位变体，转 36 进制）。
+function hash36(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = (h ^ text.charCodeAt(i)) * 16777619 >>> 0;
+  return h.toString(36);
 }
 
 // ── 菜单 ────────────────────────────────────────────────────────────────────

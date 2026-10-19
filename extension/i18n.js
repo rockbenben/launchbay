@@ -37,6 +37,10 @@ const KIND = {
   'credential-unknown': 'err401',
   'credential-scope': 'err403',
   'credential-admin-only': 'errAdminOnly',
+  // **填了管理员那把 key**（2026-10-19）：出路与 credential-scope 相反——
+  // 那句说"管的是别的档案，换个 id"，而这一句说"你拿的是一把根本不开书签
+  // 这一面的钥匙"。从前两者共用 err403，用户照着改档案 id，改到天亮也进不去。
+  'credential-admin-token': 'errAdminOnly',
   'profile-not-found': 'err404',
   'profile-broken': 'errBroken',
   'profile-disabled': 'errDisabled',
@@ -55,6 +59,9 @@ const KIND = {
   'import-no-bookmarks': 'errNoBookmarks',
   'import-nothing-accepted': 'errNothingAccepted',
   'import-plan-stale': 'errPlanGone',
+  // 目标档案已经有书签了：导入是**替换**不是叠加，所以这一码的出路是换一个
+  // 空档案——重试同一枚没有用，档案不会自己变空。
+  'import-target-not-empty': 'errTargetNotEmpty',
 };
 
 const STATUS = {
@@ -126,6 +133,7 @@ export const NOTE_TARGET = {
   netFail: 'settings',
   errNoBookmarks: 'settings',
   errPlanGone: 'settings',
+  errTargetNotEmpty: 'settings',
   noGroup: 'page',
   errDuplicate: 'page',
   errGoneTarget: 'page',
