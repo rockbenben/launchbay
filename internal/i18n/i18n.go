@@ -12,7 +12,7 @@
 //     `⟨profile.search⟩` 这样一眼可辨的东西。返回空串才是事故——那条路会让一处
 //     漏翻变成界面上一块空白，而空白看起来像"设计如此"。
 //  3. **两种语言的 key 必须守恒**：catalog_test.go 逐条比对 zh 与 en 的 key 集合，
-//     少一个就红。这是"翻全了"唯一的机械保证——靠人眼数 168 行文案，早晚漏。
+//     少一个就红。这是"翻全了"唯一的机械保证——靠人眼数 514 条文案，早晚漏。
 package i18n
 
 import (
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/fs"
 	"sort"
+	"sync"
 )
 
 //go:embed messages/*.json
@@ -128,8 +129,22 @@ func (c *Catalog) HTMLLang() string { return c.Lang().HTMLLang() }
 
 // cached 留一份每种语言的已加载文案。语言是机器级设置，一个进程里通常只有一种，
 // 每次渲染重新解析 JSON 纯属浪费；命中缓存的读是纯内存操作，切换语言那条路上
-// 失效一次即可。map 本身只在 loadOnce 之后读，不需要额外加锁。
-var cached = map[Lang]*Catalog{}
+// 失效一次即可。
+//
+// **但它必须加锁**（2026-10-19 补）：这张 map **每个请求都会碰**（每渲染一页都要
+// Load 一次），而 HTTP 服务器是一请求一 goroutine——两个请求同时首次加载同一种
+// 语言时就会**同时写**这张 map。Go 的运行时对并发写 map 是 **fatal error**：整个
+// 进程挂掉，**不是**可 recover 的 panic（一个"导航台临时挂了一下"的症状，病因却是
+// 两行代码）。从前那句"map 本身只在 loadOnce 之后读，不需要额外加锁"把两件事
+// 混成了一件：读是纯内存操作 ✓，而**写**从来不是"之后"才发生的——第一次加载就是
+// 写，而"第一次"在多 goroutine 下是同时。
+//
+// 锁是读写锁：命中缓存的读占绝大多数（每渲染一页都要读），加写锁会把并发读也
+// 串起来。语言只有两种、每种一辈子只解析一次，所以写那一侧几乎不争。
+var (
+	cachedMu sync.RWMutex
+	cached   = map[Lang]*Catalog{}
+)
 
 // Load 取某种语言的文案。解析失败（语言包被改坏）时落回 Default，**不 panic**：
 // 语言包是仓库里的静态文件，真坏了也该由 catalog_test 在 CI 里报出来，
@@ -138,11 +153,18 @@ func Load(l Lang) *Catalog {
 	if !l.Valid() {
 		l = Default
 	}
-	if c, ok := cached[l]; ok {
+	cachedMu.RLock()
+	c, ok := cached[l]
+	cachedMu.RUnlock()
+	if ok {
 		return c
 	}
-	c := mustLoad(l)
+	c = mustLoad(l)
+	// 写这一侧也可能有两个 goroutine 同时 miss（同一语言）——所以写也要锁。
+	// 后写的那个只是把同一个 catalog 再放一遍，值一样，谁赢都行。
+	cachedMu.Lock()
 	cached[l] = c
+	cachedMu.Unlock()
 	return c
 }
 
