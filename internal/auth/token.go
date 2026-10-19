@@ -34,6 +34,12 @@ type Scopes []Scope
 // 段数不对、任一段为空、条目间多一个逗号、profile 不是合法 slug、或两个条目
 // 共用同一个 secret，都算配置错误——最后一种会让人没法单独吊销某一端。
 //
+// **错误消息一律不回显密钥段**（2026-10-19）：这些错误经 `log.Fatalf` 进 stderr，
+// 而 stderr 在容器里就是 `docker logs`。写错一个字符是常事，而从前 `%q` 打整条
+// 令牌，于是那串密钥跟着进了日志——配置里写错能改，日志里出现就改不回来了。
+// 形状由 `redacted` 那一处掌握，名字与档案段留着（那是操作员定位"哪一条写错了"
+// 唯一要用的东西）。
+//
 // 档案段写 `*` 是**明确报错**而不是静默忽略：那是从 2026-10-12 之前的写法沿用下来
 // 的配置，报错里直接指出去哪儿（LAUNCHBAY_ADMIN_TOKEN），省得升级后管理员令牌
 // 静默失效、表现为"建档接口永远 403"。
@@ -46,24 +52,57 @@ type Scopes []Scope
 //
 // 空列表不是"配置坏了"：拿令牌打端点仍然是 401（没有可认的凭证），扩展与 CLI
 // 则各自报"配置里没有作用域为 X 的令牌"并说清要补什么。
+// redacted 把一条令牌回显成**不含密钥**的形状：名字与档案段原样，密钥段写成 `***`。
+//
+// **为什么必须有它**（2026-10-19）：这些解析错误会经 `log.Fatalf` 进 stderr，
+// 而 stderr 在容器里就是 `docker logs`。操作员把环境变量写错一个字符是常事，
+// 而从前的 `%q` 把**整串密钥**打进了日志——从此它躺在日志系统里、被复制进
+// 工单、被备份走。密钥在配置里是"写错就修"，进了日志就是"已经在别处了"。
+//
+// 段数不对时（不是三段）更要小心：那时候第二段**可能就是密钥**，也可能是
+// 档案段——分不清，所以**除第一段外全部抹掉**。名字是第一段，它不是秘密，
+// 而它是操作员定位"哪一条写错了"唯一要用的东西。
+func redacted(parts []string) string {
+	if len(parts) == 0 {
+		return "***"
+	}
+	out := []string{parts[0]}
+	for i := 1; i < len(parts); i++ {
+		out = append(out, "***")
+	}
+	return strings.Join(out, ":")
+}
+
 func ParseScopes(envValue string) (Scopes, error) {
 	if strings.TrimSpace(envValue) == "" {
 		return nil, nil
 	}
 	out := Scopes{}
 	seen := map[string]string{}
-	for _, raw := range strings.Split(envValue, ",") {
+	for i, raw := range strings.Split(envValue, ",") {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
-			return nil, fmt.Errorf("令牌列表 %q 有多余的逗号", envValue)
+			// **不回显整条列表，也指出是哪一条**（2026-10-19 修）：它整条都是密钥，
+			// 而"第几条"是操作员定位唯一要用的信息。名字那一段也留着。
+			return nil, fmt.Errorf("令牌列表的第 %d 条是空的（前面多了一个逗号）", i+1)
 		}
 		parts := strings.Split(raw, ":")
+		// 从这一条起，错误消息里**一律不回显密钥段**（2026-10-19 修）。
+		//
+		// 这条纪律不是洁癖：这些错误经 `log.Fatalf` 进 **stderr**，而 stderr
+		// 在容器里就是 `docker logs` 能读到的内容。操作员把 `LAUNCHBAY_WRITE_TOKENS`
+		// 写错一个字符是常事，而那条错消息会把**整串密钥**打进日志——从此它躺在
+		// 日志系统里、被人复制粘贴进工单、被备份走。密钥在配置里是"写错就修"，
+		// 进了日志就是"已经在别处了"。
+		//
+		// 形状是"名字 + 档案段"（这两段都不是秘密），密钥段一律写作 `***`。
+		// 名字与档案段已经足够定位是哪一条写错了。
 		if len(parts) != 3 {
-			return nil, fmt.Errorf("令牌 %q 应为 name:secret:profile 三段", raw)
+			return nil, fmt.Errorf("令牌 %s 应为 name:secret:profile 三段（密钥段不回显）", redacted(parts))
 		}
 		for i, p := range parts {
 			if strings.TrimSpace(p) == "" {
-				return nil, fmt.Errorf("令牌 %q 的第 %d 段为空", raw, i+1)
+				return nil, fmt.Errorf("令牌 %s 的第 %d 段为空（密钥段不回显）", redacted(parts), i+1)
 			}
 		}
 		// 修剪判空就必须修剪后存入：存 " xxx" 的话，操作员在 env 里
@@ -71,11 +110,11 @@ func ParseScopes(envValue string) (Scopes, error) {
 		name, secret, profile := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
 		if profile == "*" {
 			return nil, fmt.Errorf(
-				"令牌 %q 的档案段是 * —— 管理员改用独立的一把 key（LAUNCHBAY_ADMIN_TOKEN），"+
-					"这里是档案作用域令牌的列表，只放 name:secret:<档案 id>", raw)
+				"令牌 %s 的档案段是 * —— 管理员改用独立的一把 key（LAUNCHBAY_ADMIN_TOKEN），"+
+					"这里是档案作用域令牌的列表，只放 name:secret:<档案 id>", redacted(parts))
 		}
 		if !model.ValidSlug(profile) {
-			return nil, fmt.Errorf("令牌 %q 的档案段 %q 不是 ASCII slug", raw, profile)
+			return nil, fmt.Errorf("令牌 %s 的档案段 %q 不是 ASCII slug", redacted(parts), profile)
 		}
 		if prev, ok := seen[secret]; ok {
 			return nil, fmt.Errorf("secret 同时用于 %q 和 %q，无法分别吊销", prev, name)

@@ -1,6 +1,9 @@
 package auth
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseScopes(t *testing.T) {
 	scopes, err := ParseScopes("ai-dad:xxx:dad,ext-mom:yyy:mom")
@@ -63,6 +66,48 @@ func TestParseScopes空值是合法的(t *testing.T) {
 		if len(scopes) != 0 {
 			t.Errorf("%q 应给出空列表，得到 %+v", empty, scopes)
 		}
+	}
+}
+
+// **错误消息里不得出现密钥段**（2026-10-19）。
+//
+// 这些错误经 `log.Fatalf` 进 stderr，而 stderr 在容器里就是 `docker logs`。
+// 操作员把 `LAUNCHBAY_WRITE_TOKENS` 写错一个字符是常事，从前的 `%q` 把**整串
+// 密钥**打进了日志——从此它躺在日志系统里、被复制进工单、被备份走。
+// 密钥在配置里是"写错就修"，进了日志就是"已经在别处了"。
+//
+// 判据是**消息里不含密钥**，且**仍说得出是哪一条**（名字要留着）。
+func TestParseScopes错误消息不回显密钥(t *testing.T) {
+	const secret = "sup3rs3cr3t"
+	for _, bad := range []string{
+		"dad:" + secret,          // 少一段
+		"dad:" + secret + ":*",   // 档案段是 *
+		"dad::dad",               // 密钥段为空
+		"dad:" + secret + ":Mom", // 档案段不是 slug
+		"dad:" + secret + ":dad,kid:" + secret + ":kid", // 同一 secret 两个条目
+	} {
+		_, err := ParseScopes(bad)
+		if err == nil {
+			t.Fatalf("应拒: %q", bad)
+		}
+		msg := err.Error()
+		if strings.Contains(msg, secret) {
+			t.Errorf("错误消息里回显了密钥 %q：%s", secret, msg)
+		}
+		// 名字要留着——操作员靠它知道是哪一条写错了
+		if !strings.Contains(msg, "dad") {
+			t.Errorf("错误消息里连名字都没留，人无法定位是哪一条：%s", msg)
+		}
+	}
+
+	// 多余逗号那一族报的是"第几条"而不是名字（那一项本身就是空的，
+	// 没有名字可留）——但它**同样不许回显整张列表**。
+	_, err := ParseScopes("dad:" + secret + ":dad,,kid:x:kid")
+	if err == nil {
+		t.Fatal("应拒：多余的逗号")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("多余逗号那条回显了密钥 %q：%s", secret, err.Error())
 	}
 }
 
