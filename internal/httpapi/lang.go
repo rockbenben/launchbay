@@ -1,11 +1,14 @@
 package httpapi
 
 import (
-	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/rockbenben/launchbay/internal/apierr"
 	"github.com/rockbenben/launchbay/internal/i18n"
+	"github.com/rockbenben/launchbay/internal/model"
 )
 
 // handleAdminLanguage 是管理页那个「界面语言」表单的落点：POST /admin/language。
@@ -46,9 +49,30 @@ func (s *Server) handleAdminLanguage(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "language", Reason: "同一个字段只能出现一次"}})
 		return
 	}
-	raw := strings.TrimSpace(r.FormValue("language"))
-	if raw == "" {
+	// **字段没给**与**给了一个空串**是两件事（2026-10-20 改）：空串是"跟随浏览器"
+	// 那一档（管理员要把站级默认取消掉，回到"没人设过"），而字段没给是"这个请求
+	// 没说语言"（脚本漏了它）。从前两者同形，于是"取消默认"这条路根本走不通——
+	// 下拉里那一档按下去，服务端说的是"你没选"。
+	vals, given := r.Form["language"]
+	if !given {
 		redirectAdminFail(w, "nolang")
+		return
+	}
+	if len(vals) > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "language", Reason: "同一个字段只能出现一次"}})
+		return
+	}
+	raw := strings.TrimSpace(vals[0])
+	if raw == "" {
+		// 取消站级默认 → 回到"没人设过"：各人按浏览器说的那一门显示。
+		if err := s.deps.Store.ClearLanguage(); err != nil {
+			// 落盘失败绝不说成功：语言没存下去，界面还是原来那一种。
+			writeInternalError(w, err)
+			return
+		}
+		w.Header().Set("Location", "/admin")
+		w.WriteHeader(http.StatusSeeOther)
 		return
 	}
 	l := i18n.Lang(raw)
@@ -86,7 +110,14 @@ func (s *Server) handleAdminLanguage(w http.ResponseWriter, r *http.Request) {
 // curl 仍然可以一趟发完。两个入口写的是同一个 `store.SetLanguage`，判据只有一份。
 func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
 	if bearer(r) != "" {
-		redirectSetup(w, "permission")
+		// **权限类拒绝不带提示**（2026-10-20 修）：从前这里回
+		// `redirectSetup(w, "permission")`，而 permission 那一句是
+		// 「数据目录写不进去——请把数据目录交给跑它的那个用户（容器里是
+		// uid 65534）」——它是**宿主数据目录不可写**的出路，与"你带令牌来了
+		// 这条路不认令牌"毫无关系。给一个带 Bearer 的请求指去改宿主目录
+		// 权限，比不说更坏。同一族端点全部用 redirectPicker（303 回选择页、
+		// 不带键）。
+		redirectPicker(w)
 		return
 	}
 	n, err := s.deps.Store.CountProfiles()
@@ -113,9 +144,28 @@ func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "language", Reason: "同一个字段只能出现一次"}})
 		return
 	}
-	raw := strings.TrimSpace(r.FormValue("language"))
-	if raw == "" {
+	// 字段没给 = 这个请求没说语言（脚本漏了）；给了空串 = **取消站级默认**
+	// （回到"没人设过"，各人按浏览器说的那一门显示）。两个入口（这里与
+	// /admin/language）同一口径。
+	vals, given := r.Form["language"]
+	if !given {
 		redirectSetup(w, "nolang")
+		return
+	}
+	if len(vals) > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "language", Reason: "同一个字段只能出现一次"}})
+		return
+	}
+	raw := strings.TrimSpace(vals[0])
+	if raw == "" {
+		if err := s.deps.Store.ClearLanguage(); err != nil {
+			writeInternalError(w, err)
+			return
+		}
+		// 回 `/` —— 零档案时那就是引导页本身，所以"回到刚才那一页"与
+		// "换成新语言重画"是同一个跳转。
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	l := i18n.Lang(raw)
@@ -133,7 +183,67 @@ func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// t 是**生产用的通用查表**：按这台机器当前的语言翻一句话，可带占位符。
+// machineLang 是"**没有个人选择时**"这一种语言：这一次请求该用哪一门。
+//
+// 链条只有这一处（2026-10-20），三格：
+//
+//  1. **站级的默认**——管理员在管理页设过的那一个（`store.DefaultLanguage`）。
+//     他设过就是他说过了，后面的格子轮不到。
+//  2. **浏览器语言**（`Accept-Language` 里认得的那一门）——"第一次使用、什么都
+//     还没设过"时，人**正在读**的那一门语言就是最像他的那一门。机器刚装好、
+//     还没人建过档，这一格才轮得到。
+//  3. **en**——上面都答不出来时给英文（国际通用那一门），而不是中文。
+//
+// 为什么第 3 格是 en 而不是中文：中文是**这个项目原本的默认**（作者一家人的
+// 语言），而这一格问的是"读者要哪一门"——**没有读者信息时**，国际通用那一门
+// 比"作者家的那一门"更接近陌生人。而中文仍然是**管理员设的默认**与
+// **没设过任何语言时新建的那一份**的落点（见下）。
+//
+// 判据与渲染层共用一处：这一格是 i18n.ProfileLang 的 fallback 那一半。
+func (s *Server) machineLang(r *http.Request) i18n.Lang {
+	if l, ok := s.deps.Store.DefaultLanguage(); ok {
+		return l
+	}
+	// 请求可以是 nil（单元测试里直接问"这台机器现在是什么语言"）：那就没有
+	// 浏览器说的那一门，于是落 en。
+	if r != nil {
+		if l, ok := browserLangOr(r.Header.Get("Accept-Language")); ok {
+			return l
+		}
+	}
+	return i18n.En
+}
+
+// langOf 拿"这一次请求、这一份档案"该用哪种语言。
+//
+// 链条最上面那一格是**这一份自己记的**（profile.json 的 language）——它最具体，
+// 别人替它选的那一份不算数。没记（空串）就落到 machineLang 那三格。
+func (s *Server) langOf(r *http.Request, profileID string) i18n.Lang {
+	p, err := s.deps.Store.LoadProfile(profileID)
+	if err != nil {
+		return s.machineLang(r)
+	}
+	return s.langOfProfile(r, p)
+}
+
+// langOfProfile 同 langOf，但**档案已经读出来了**（省一次读盘）。
+//
+// 档案页那一头本来就要读它（判停用），顺手把语言一起定了。
+//
+// **判据是 i18n.ProfileLang 一处**（2026-10-20 修）：从前这里把
+// "这一份自己记了没有语言"与"记了一个不认识的值"当成同一件事，于是
+// 手改/拷贝来的 `"language":"zh-CN"`（或 "fr"）会把这一份**静默钉死在中文**——
+// 既不跟站级默认，也不跟浏览器语言，链的后两格被完全跳过。而 i18n.ProfileLang
+// 的新口径是"不认识的 = 没选过"（读侧宽、写侧严），空串与非法值同形。
+func (s *Server) langOfProfile(r *http.Request, p *model.Profile) i18n.Lang {
+	if p == nil {
+		return s.machineLang(r)
+	}
+	return i18n.ProfileLang(p.Language, s.machineLang(r))
+}
+
+// t 是**站级（默认语言）的通用查表**：按这台机器当前的默认语言翻一句话，
+// 可带占位符。
 //
 // 为什么由 httpapi 侧翻好再塞进 view，而不是让模板查表（模板里那六个页面已经是
 // `{{.T .Explain}}` 的形状）：**有些句子要带运行时的值**——
@@ -142,8 +252,59 @@ func (s *Server) handleSetupLanguage(w http.ResponseWriter, r *http.Request) {
 //
 // 所以两处形状并存，各有理由：模板里的 chrome（语言无关的那些）走 view.T，
 // 这一族（要带值）在 Go 侧查表。翻字只有 i18n.Load 这一份。
-func (s *Server) t(key string, args ...any) string {
-	return i18n.Load(s.deps.Store.Language()).T(key, args...)
+//
+// **它说的是"站级那一种"**（2026-10-20 改判）：管理页、选择页、登录页与三张
+// 确认页都是**机器层面**的页面，它们用默认语言。**档案自己那一份**的页面
+// （档案页、台面面板、改动历史、回退、导入）用 trFor(r, id) 翻。
+func (s *Server) t(r *http.Request, key string, args ...any) string {
+	return i18n.Load(s.machineLang(r)).T(key, args...)
+}
+
+// tr 是一种语言下的翻译器。
+//
+// 它存在的理由（2026-10-20）：一台机器上现在**可能同时有好几种语言**——每一份
+// 档案自己记一份，而站级那一份是默认。一个页面上有些句子来自模板的 chrome
+// （渲染层按档案的语言查），有些句子来自 httpapi 侧组装的（带运行时值的那
+// 些）。这两半必须是**同一种语言**，否则一页上会出现中英混排。
+//
+// 所以档案页那一族不用 s.t（那是站级的），改用 trFor(r, id) 拿一个按档案语言
+// 翻话的翻译器；机器层面的页面继续用 s.t。
+type tr struct{ cat *i18n.Catalog }
+
+func (t tr) t(key string, args ...any) string { return t.cat.T(key, args...) }
+
+// trFor 返回一个**按某一份档案**翻话的翻译器（这一次请求里）。
+//
+// 判据只有一处：i18n.ProfileLang——这一份自己记了语言就用它，没记就用
+// machineLang 那三格（站级默认 → 浏览器语言 → en）。档案读不出来（坏档、
+// 刚被删）→ 同 machineLang。
+func (s *Server) trFor(r *http.Request, id string) tr {
+	return tr{cat: i18n.Load(s.langOf(r, id))}
+}
+
+// notice 是 `?err=` 那个键翻成**站级那一种**语言的一句人话。
+//
+// 站级的那些页面用这一条（默认语言）；档案自己那几页用 noticeLang（那一份的
+// 语言）。白名单与查表还是 noticeOf 那一份——这里只是把"用哪种语言"显式化。
+func (s *Server) notice(r *http.Request, key string) string {
+	return noticeOf(s.machineLang(r), key)
+}
+
+// noticeLang 把 `?err=` 那个键翻成**指定语言**的一句人话。
+func (s *Server) noticeLang(lang i18n.Lang, key string) string {
+	return noticeOf(lang, key)
+}
+
+// langValues 是"能选哪几种语言"的那份名单，给 422 的那句话用。
+//
+// 名单只有 i18n.All 一处（新增一种语言只改它），所以这句话不会与下拉框里的
+// 那几档分家。
+func langValues() string {
+	out := make([]string, 0, len(i18n.All))
+	for _, l := range i18n.All {
+		out = append(out, string(l))
+	}
+	return strings.Join(out, "|")
 }
 
 // browserLang 读 `Accept-Language` 里**第一个**能认出来的语言。
@@ -153,17 +314,96 @@ func (s *Server) t(key string, args ...any) string {
 // 就是"调用方不是浏览器"。于是那份逐字不变的中文报告继续是脚本的锚点，一个字都
 // 不用改，也不需要谁去申报什么、申报错了再没人管。
 //
-// 只看第一个标签，不解析 q 值：`de,en;q=0.9` 落默认（中文）而不是猜"他也会英文"。
-// 认不出来的一律落默认，**不 406**——一份显示层的兜底不该让一次导入停下来。
+// 解析只有一份（browserLangOr 那一处，**q 值也看**了——2026-10-20 修：
+// 从前只取第一个标签且不剥 `;q=`，于是 `zh;q=0.9` 整条认不出）。
+//
+// **注意这一份的兜底是中文**（那是导入报告的契约：脚本与 CLI 拿到的那一份
+// 必须逐字不变）。"还没设过语言时给浏览器那一门、认不出给 en"是**另一条**
+// 判据（browserLangOr 的调用方 machineLang），别把两份混成一份。
 func browserLang(h string) i18n.Lang {
-	first := strings.TrimSpace(strings.SplitN(h, ",", 2)[0])
-	tag := strings.ToLower(strings.TrimSpace(strings.SplitN(first, "-", 2)[0]))
-	for _, l := range i18n.All {
-		if string(l) == tag {
-			return l
+	l, _ := browserLangOr(h)
+	if l == "" {
+		return i18n.Default
+	}
+	return l
+}
+
+// browserLangOr 读 `Accept-Language` 里**认得的那一门**，认不出就说认不出
+// （第二个返回值 false）。
+//
+// 它是"什么都还没设过"时那一条链的第三格（见 machineLang）：机器刚装好、
+// 还没人建过档，**浏览器说的那一门**就是最像读者的一门；浏览器说的那一门我们
+// 没有，就交给调用方（那一格落 en，而不是中文）。
+//
+// **权重（q 值）要看**（2026-10-20 修）。从前只取**第一个**标签且不剥
+// `;q=…`，于是 `Accept-Language: zh;q=0.9` 整条认不出（切出来的是
+// "zh;q=0.9"）——一个**说中文的客户端拿到英文首页**。而导入报告那一族
+// （browserLang）落的是中文，于是说英文的扩展拿到中文报告。
+//
+// 现在的口径：
+//   - 按 q 值从高到低找（q 相同按原文顺序，这是 RFC 的稳定排序）；
+//   - `q=0` = 客户端**不接受**这一门，跳过（`en;q=0,zh;q=0.5` → zh）；
+//   - `*` 是"其余都行"，不是"他要哪一门"，跳过；
+//   - 区域码取主标签（`zh-CN` → `zh`）。
+func browserLangOr(h string) (i18n.Lang, bool) {
+	for _, pref := range parseAcceptLanguage(h) {
+		if pref.tag == "*" || pref.q <= 0 {
+			continue
+		}
+		primary := strings.ToLower(strings.TrimSpace(strings.SplitN(pref.tag, "-", 2)[0]))
+		for _, l := range i18n.All {
+			if string(l) == primary {
+				return l, true
+			}
 		}
 	}
-	return i18n.Default
+	return "", false
+}
+
+// langPref 是 Accept-Language 里的一个偏好：标签与权重。
+type langPref struct {
+	tag string
+	q   float64
+}
+
+// parseAcceptLanguage 把 Accept-Language 拆成偏好列表，**按 q 值从高到低**排。
+//
+// 排序用稳定排序（SliceStable）：q 相同按原文顺序——那是客户端自己写的
+// 顺序，而"平手时按原文"是 RFC 的口径，也是人读那份头时的读法。
+//
+// q 解析不出来时按 1.0 算（客户端的首选），q>1 钳到 1。
+func parseAcceptLanguage(h string) []langPref {
+	var out []langPref
+	for _, raw := range strings.Split(h, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		parts := strings.Split(raw, ";")
+		tag := strings.TrimSpace(parts[0])
+		if tag == "" {
+			continue
+		}
+		q := 1.0
+		for _, p := range parts[1:] {
+			p = strings.TrimSpace(p)
+			if !strings.HasPrefix(strings.ToLower(p), "q=") {
+				continue
+			}
+			v, err := strconv.ParseFloat(strings.TrimSpace(p[2:]), 64)
+			if err != nil {
+				continue // 权重写坏了：按 1.0 算（它是客户端的首选）
+			}
+			q = v
+			break
+		}
+		if q > 1 {
+			q = 1
+		}
+		out = append(out, langPref{tag: tag, q: q})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].q > out[j].q })
+	return out
 }
 
 // apiReportWords：`POST /api/v1/import` 那份报告的句子从哪一本语言里查。

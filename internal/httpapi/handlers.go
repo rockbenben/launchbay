@@ -65,6 +65,12 @@ var pinNotices = map[string]string{
 	// 因为"这台机器已经建过档了"本身就是枚举线索（设计 §3）。
 	"noname": "notice.noname",
 	"badpin": "notice.badpin",
+	// 「PIN 与『不设 PIN』两个都给」（2026-10-20）。建档那两张表单各有两格，
+	// 而它们**互斥**：勾了「不设 PIN」就该把 PIN 那一格留空。这一把键存在的
+	// 理由是——从前敲进去的 PIN 被静默丢掉、建出一份不设防的档案，而那个人
+	// 以为门锁上了。CLI 那边早就把它当用法错误退 2（cli.go：「一个旗标被
+	// 静默吞掉，下一个人会以为那道门锁上了」），三处答案不一致。
+	"pinboth": "notice.pinboth",
 	// 名字撞车只有管理页那条路会**发**出这个键：派生 id 在 store 锁外算，两笔并发同名
 	// 才会撞进同一个空位（顺序提交永远拿到下一个空位，见 store.NextProfileID）；引导
 	// 那条撞车等于"窗口已关"，回 / 不带键。这张表是两页共用的**词汇表**，不是发件人
@@ -76,10 +82,14 @@ var pinNotices = map[string]string{
 	// 都用它把键翻成人话。分开两张表的话，同一个词在两处会有两种说法，
 	// 而读日志的人无从知道哪一句才是它。
 	"notfound": "notice.notfound",
-	"selfpin":  "notice.selfpin",
 	// 「不能动自己正在用的这一份」这一句被**删档与停用两处**共用，而两者后果
 	// 完全不同（删=不可逆；停用=随手启回来）。从前统一写成"不能删掉"，于是
 	// 管理员点「停用」时看到的是"不能删掉你正在用的这一份"。拆成两个键，各说各的事。
+	//
+	// **selfpin 这一格 2026-10-20 删掉了**：管理页不再拦"改当前在用的那一份的
+	// PIN"——管理员是机器级的一把 key，不属于任何档案，那道闸在这里从来没有
+	// 依据（本人自己那边 self/pin 照样要旧 PIN）。留着这把永远发不出来的键，
+	// 只会让人以为"改自己的 PIN 还是要走旧 PIN"这条保护在管理页上也成立。
 	"self":        "notice.self",
 	"selfdisable": "notice.selfdisable",
 	"failed":      "notice.failed",
@@ -122,11 +132,6 @@ func noticeOf(lang i18n.Lang, key string) string {
 		return ""
 	}
 	return i18n.Load(lang).T(k)
-}
-
-// notice 是生产用的那一层：按这台机器当前的语言翻。
-func (s *Server) notice(key string) string {
-	return noticeOf(s.deps.Store.Language(), key)
 }
 
 // redirectPinFail 把无 JS 的表单失败送回选择页。成功分支早就按 fromForm
@@ -226,7 +231,11 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		// 页面上的提示随这台机器的语言翻，API 的 detail 不翻——它是给脚本与 AI 读的，
 		// 混进第二种语言会让"这句话在两种语言里各有一份"这件事对不上号，而调用方要的
 		// 是稳定可对照的文本，不是随界面变的散文。
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.ProfileDisabled, Detail: noticeOf(i18n.Default, "disabled")})
+		//
+		// **403 而不是 401**（2026-10-20 改判，与令牌那条同码同状态）：停用不是
+		// 凭证问题——PIN 还没轮到输就被挡了，而令牌那条的凭证是好的。被拒的理由是
+		// 这一份的状态。答 401 会把出路指反（让人以为钥匙坏了去换一把）。
+		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.ProfileDisabled, Detail: noticeOf(i18n.Default, "disabled")})
 		return
 	}
 
@@ -291,7 +300,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			if auth.ReadSession(r).Active != "" {
 				back = "common.back.home"
 			}
-			page, err := s.deps.Render.NotFoundPage(s.t(back))
+			page, err := s.deps.Render.NotFoundPage(s.t(r, back), s.machineLang(r))
 			if err != nil {
 				writeInternalError(w, err)
 				return
@@ -307,7 +316,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	// 用 hidden 字段带上，验证成功后由前端（P1-④）或重定向接住。
 	keepAdd := r.URL.Query().Get("add")
 	// ?err= 只查表，不解释：未登记的键渲染成空字符串，页面回到普通形状。
-	notice := s.notice(r.URL.Query().Get("err"))
+	notice := s.notice(r, r.URL.Query().Get("err"))
 
 	sess := auth.ReadSession(r)
 	// 会话合法性这一次请求只查一遍（与 Task 3 的"一次分诊就够"同一口径）：
@@ -319,8 +328,14 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		auth.ClearSession(w)
 		sess = auth.Session{}
 	}
+	// prof 提到这一层：档案页要**这一份自己记的语言**，而 profile.json
+	// 这一次本来就要读（判停用）——顺手定了语言，不多读一遍盘。
+	var prof *model.Profile
 	if !sess.IsEmpty() {
 		p, err := s.deps.Store.LoadProfile(sess.Active)
+		if err == nil {
+			prof = p
+		}
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			// 档案已删除：这是"没这个档案"，清 cookie 回选择页。
@@ -335,7 +350,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			// 而界面一个字都不说，而他正是被停用的那一个。清会话，并把原因说清楚。
 			auth.ClearSession(w)
 			sess = auth.Session{}
-			notice = s.notice("disabled")
+			notice = s.notice(r, "disabled")
 		}
 	}
 
@@ -349,15 +364,18 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			s.handleError(w, err)
 			return
 		}
+		// 选择页是**机器层面**的页面：它说默认语言（管理员设过的那个），
+		// 没设过就用**浏览器说的那一门**——第一次用这台机器的人正在读哪一门，
+		// 那一门就是他最像的那一门（判据见 machineLang）。
 		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice,
-			HasAdmin: s.hasAdminCookie(r)}
+			HasAdmin: s.hasAdminCookie(r), Lang: s.machineLang(r), DefaultLang: s.rawDefaultLang()}
 		switch {
 		case n == 0:
-			opts.Setup, opts.Heading = true, s.t("picker.heading.none")
+			opts.Setup, opts.Heading = true, s.t(r, "picker.heading.none")
 		case n == 1:
 			// 单人安装不再先问"谁"：标题直接是那个人的名字。名字读不出来
 			// （档案坏了）时不编造，用一句中性话——这一页本来就要输 PIN。
-			opts.Heading = s.onlyProfileTitle()
+			opts.Heading = s.onlyProfileTitle(r)
 		default:
 			// ≥2 这一支**也显式传标题**，从语言包取（2026-10-13 改判）。它原先靠
 			// "不传 → 渲染器退回硬编码的「谁来用？」"，代价是**英文机器上这一页的
@@ -368,7 +386,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			// 另一处变成没人看见的旧话）。现在渲染器里那份降级成**兜底**：正常通路
 			// 走不到它，而它留着仍有意义——标题不许因为漏传而渲染成空白。
 			// 判据本身（"现在是多人形状"）仍然在这里算，没挪地方。
-			opts.Heading = s.t("picker.heading.many")
+			opts.Heading = s.t(r, "picker.heading.many")
 		}
 		page, err := s.deps.Render.PickerPage(opts)
 		if err != nil {
@@ -390,7 +408,10 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	req := render.PageRequest{
 		ID: sess.Active, Query: r.URL.Query().Get("q"),
 		Add: keepAdd, AddTitle: r.URL.Query().Get("t"),
-		HasAdmin: s.hasAdminCookie(r)}
+		HasAdmin: s.hasAdminCookie(r),
+		// 这一页用什么语言：这一份自己记了语言就用它，没记就用默认、再用浏览器
+		// 说的那一门（判据在 langOf / machineLang）。
+		Lang: s.langOfProfile(r, prof)}
 	page, err := s.deps.Render.ProfilePage(req)
 	if errors.Is(err, store.ErrCorrupt) {
 		reason, _ := s.deps.Store.BrokenReason(sess.Active)
@@ -407,10 +428,10 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 // onlyProfileTitle 取唯一那个档案的显示名；读不出来就退回一句中性的话，
 // 不编造名字也不空着。判据（有几个档案）在 handleRoot 已经算过，这里只是取名字——
 // 所以它不改判据，也就不违反"判据只有一份"。
-func (s *Server) onlyProfileTitle() string {
+func (s *Server) onlyProfileTitle(r *http.Request) string {
 	ps, err := s.deps.Store.ListProfiles()
 	if err != nil || len(ps) != 1 || strings.TrimSpace(ps[0].Title) == "" {
-		return s.t("profile.title.default")
+		return s.t(r, "profile.title.default")
 	}
 	return ps[0].Title
 }
@@ -440,9 +461,11 @@ func (s *Server) writePage(w http.ResponseWriter, r *http.Request, p render.Page
 // 两者不是同一个来源，借用 sess.Active 会串。
 func (s *Server) writeBrokenProfile(w http.ResponseWriter, r *http.Request, id, reason string) {
 	if reason == "" {
-		reason = "原因未知（见服务端 stderr）"
+		// 这句从前是**硬编码中文**（2026-10-20 修）：英文机器上坏档页的
+		// <details> 里冒出一句中文。它进语言包，与页面上其余那些句子同一份。
+		reason = s.t(r, "broken.unknownReason")
 	}
-	page, err := s.deps.Render.BrokenPage(id, reason)
+	page, err := s.deps.Render.BrokenPage(id, reason, s.machineLang(r))
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -527,6 +550,20 @@ func permDenied(err error) bool { return errors.Is(err, fs.ErrPermission) }
 // 两条失败各回各的文本：格式错说"要 4-6 位数字"（给人看的那句），auth 内部的
 // 哈希错说它自己的原因（这类错不该被粉饰成格式问题，人读了也修不了）。
 func hashFormPIN(pin string, noPass bool) (string, []fieldError) {
+	// **两个都给不是"以勾选框为准"，是没说清**（2026-10-20 修）。从前这里
+	// 直接 return "", nil —— 敲进去的 PIN 被**静默丢掉**，建出一份不设防的
+	// 档案，而那个人以为门锁上了。而"不设防"这个结果恰恰是这份产品最怕的
+	// 那一种（AGENTS.md：「不设防要单独勾一格」）。
+	//
+	// CLI 那边早就把它当用法错误退 2（cli.go 的注释：「一个旗标被静默吞掉，
+	// 下一个人会以为那道门锁上了」）。三处答案不一致，而表单这一支的后果
+	// 最重——所以这里与 CLI 对齐：两个都给就是没填对。
+	//
+	// 字段名取 "nopass"：这一格说的就是"不设防这一格与 PIN 互斥"，而
+	// setupFieldKey 靠字段名把它与"格式不对"（field=pin）分开。
+	if noPass && pin != "" {
+		return "", []fieldError{{Kind: apierr.FieldInvalid, Field: "nopass", Reason: "PIN 与「不设 PIN」只能给一个"}}
+	}
 	if noPass {
 		// 勾了「不设 PIN」就是**明确**选择不设防，与"忘了填"不是同一件事——
 		// 这正是多这一格勾选框的全部理由（见模板里那条注释）。落盘是空串，
@@ -534,7 +571,7 @@ func hashFormPIN(pin string, noPass bool) (string, []fieldError) {
 		return "", nil
 	}
 	if !auth.ValidPinFormat(pin) {
-		return "", []fieldError{{Kind: apierr.FieldInvalid, Field: "pin", Reason: "要 4-6 位数字"}}
+		return "", []fieldError{{Kind: apierr.FieldInvalid, Field: "pin", Reason: pinFormatReason()}}
 	}
 	hash, err := auth.HashPIN(pin)
 	if err != nil {

@@ -47,11 +47,11 @@ func Test面板上的字段名与契约里收的那几格同集(t *testing.T) {
 	for k := range form.Schema.Properties {
 		want[k] = true
 	}
-	if len(want) != 5 {
-		t.Fatalf("契约里 /prefs 只有 %d 个字段，要 5 个：形状变了这条正在空转", len(want))
+	if len(want) != 6 {
+		t.Fatalf("契约里 /prefs 只有 %d 个字段，要 6 个：形状变了这条正在空转", len(want))
 	}
 
-	// 二、面板上那五张表单各叫什么。
+	// 二、面板上那六张表单各叫什么。
 	rec := get(h, "/prefs", dadFormCookie)
 	if rec.Code != 200 {
 		t.Fatalf("面板页要 200，得到 %d", rec.Code)

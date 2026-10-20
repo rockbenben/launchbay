@@ -58,7 +58,7 @@ var groupFieldKeys = map[string]string{
 	"accent": "history.op.group.accent",
 }
 
-// byChannels 是渠道那一格的话。`by` 是调用方自报的口径（§4.6），七个值。
+// byChannels 是渠道那一格的话。`by` 是调用方自报的口径（§4.6），六个值。
 //
 // 认不出来的值**原样印**，不落"未知"：这台机器的前身写过 `sync-template`
 // 那种现在已经不存在的渠道，把历史里真有的东西说成"未知"，等于在这一页上
@@ -69,9 +69,17 @@ var byChannels = map[string]string{
 	"import": "history.by.import", "cli": "history.by.cli",
 }
 
-func (s *Server) channelLabel(by string) string {
+// channelLabel 是渠道那一格的话。`by` 是调用方自报的口径（§4.6），六个值。
+//
+// 认不出来的值**原样印**，不落"未知"：这台机器的前身写过 `sync-template`
+// 那种现在已经不存在的渠道，把历史里真有的东西说成"未知"，等于在这一页上
+// 撒谎说它没发生过。
+//
+// 它是字典的方法（2026-10-20）：这一页的话按**这一份**的语言翻，而字典已经
+// 带着那一份的翻译器了。
+func (d *historyDict) channelLabel(by string) string {
 	if key, ok := byChannels[by]; ok {
-		return s.t(key)
+		return d.tr.t(key)
 	}
 	return by
 }
@@ -105,7 +113,7 @@ func (s *Server) handleHistoryPage(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	dict := s.historyDict(id)
+	dict := s.historyDict(r, id)
 
 	shown := entries
 	if len(shown) > historyRowsOnPage {
@@ -118,17 +126,17 @@ func (s *Server) handleHistoryPage(w http.ResponseWriter, r *http.Request) {
 
 	view := render.HistoryView{
 		Profile: id,
-		Heading: s.t("history.heading", name),
-		Explain: s.t("history.explain"),
+		Heading: dict.tr.t("history.heading", name),
+		Explain: dict.tr.t("history.explain"),
 		Rows:    rows,
 	}
 	// 截断结论只在真的截断时才有。**"一共记了 N 次"说的是这一份**，不是这台
 	// 机器：审计线是全机器共用的一个文件，那句话说成机器会被读成"别人家的改动
 	// 也混在这一页里"，而这一页要避免的正是那种暗示。
 	if len(entries) > len(shown) {
-		view.Foot = s.t("history.foot", historyRowsOnPage, len(entries))
+		view.Foot = dict.tr.t("history.foot", historyRowsOnPage, len(entries))
 	}
-	page, err := s.deps.Render.HistoryPage(view)
+	page, err := s.deps.Render.HistoryPage(view, s.langOf(r, id))
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -143,7 +151,7 @@ func (s *Server) historyRow(e store.HistoryEntry, dict *historyDict) render.Hist
 	dict.need(e.Rev - 1)
 	row := render.HistoryRow{
 		At:      e.At,
-		Channel: s.channelLabel(e.By),
+		Channel: dict.channelLabel(e.By),
 		Rev:     e.Rev,
 		Count:   len(e.Ops),
 	}
@@ -161,20 +169,20 @@ func (s *Server) historyRow(e store.HistoryEntry, dict *historyDict) render.Hist
 	switch {
 	case e.Actor == "" || e.Actor == e.Profile:
 	case e.Actor == adminActor:
-		row.Channel = s.t("history.actor.admin")
+		row.Channel = dict.tr.t("history.actor.admin")
 	default:
-		row.Actor = s.t("history.actor", e.Actor)
+		row.Actor = dict.tr.t("history.actor", e.Actor)
 	}
 	for i, op := range e.Ops {
 		if i == historyOpsOnRow {
 			// 那句截断话说的是**没列出来的条数**，不是总数：读的人已经从
 			// 上面看到了 6 条，再说"一共 30 条"要他自己减一次。
-			row.More = s.t("history.ops.more", len(e.Ops)-historyOpsOnRow)
+			row.More = dict.tr.t("history.ops.more", len(e.Ops)-historyOpsOnRow)
 			break
 		}
 		row.Ops = append(row.Ops, s.opPhrase(op, dict))
 	}
-	row.Ops = s.collapseRepeats(row.Ops)
+	row.Ops = s.collapseRepeats(dict.tr, row.Ops)
 	return row
 }
 
@@ -188,7 +196,7 @@ func (s *Server) historyRow(e store.HistoryEntry, dict *historyDict) render.Hist
 //
 // **只并相邻的**：不相邻的两句相同（改 A、改 B、改 A）并起来会让人以为
 // 中间那件事没发生过——这一页是审计线，宁可啰嗦不可撒谎。
-func (s *Server) collapseRepeats(ops []string) []string {
+func (s *Server) collapseRepeats(t tr, ops []string) []string {
 	out := make([]string, 0, len(ops))
 	for i := 0; i < len(ops); {
 		j := i + 1
@@ -196,7 +204,7 @@ func (s *Server) collapseRepeats(ops []string) []string {
 			j++
 		}
 		if j-i > 1 {
-			out = append(out, s.t("history.op.times", ops[i], j-i))
+			out = append(out, t.t("history.op.times", ops[i], j-i))
 		} else {
 			out = append(out, ops[i])
 		}
@@ -215,44 +223,44 @@ func (s *Server) collapseRepeats(ops []string) []string {
 //     历史里真有这样一行，界面却说"没这东西"，等于把这一页变成假账。
 func (s *Server) opPhrase(op store.HistoryOp, dict *historyDict) string {
 	if op.Op == "revert" && strings.HasPrefix(op.Path, "snapshots/") {
-		return s.t("history.op.revert", strings.TrimPrefix(op.Path, "snapshots/"))
+		return dict.tr.t("history.op.revert", strings.TrimPrefix(op.Path, "snapshots/"))
 	}
 	switch op.Path {
 	case "profile/pin":
-		return s.t("history.op.pin")
+		return dict.tr.t("history.op.pin")
 	case "profile/disabled":
-		return s.t("history.op.disabled")
+		return dict.tr.t("history.op.disabled")
 	case "profile/rebuild":
-		return s.t("history.op.rebuild")
+		return dict.tr.t("history.op.rebuild")
 	}
 
 	switch sh := ops.ShapeOf(op.Path); sh.Kind {
 	case ops.ShapeGroups:
-		return s.t("history.op.group.add")
+		return dict.tr.t("history.op.group.add")
 	case ops.ShapeGroup:
-		return s.t("history.op.group.remove", dict.groupName(sh.GroupID))
+		return dict.tr.t("history.op.group.remove", dict.groupName(sh.GroupID))
 	case ops.ShapeGroupField:
 		name := dict.groupName(sh.GroupID)
 		if key, ok := groupFieldKeys[sh.Field]; ok {
-			return s.t(key, name)
+			return dict.tr.t(key, name)
 		}
-		return s.t("history.op.group.field", name, sh.Field)
+		return dict.tr.t("history.op.group.field", name, sh.Field)
 	case ops.ShapeItems:
-		return s.t("history.op.item.add", dict.groupName(sh.GroupID))
+		return dict.tr.t("history.op.item.add", dict.groupName(sh.GroupID))
 	case ops.ShapeItem:
 		label := dict.itemName(sh.GroupID, sh.ItemID)
 		if op.Op == "move" {
-			return s.t("history.op.item.move", label)
+			return dict.tr.t("history.op.item.move", label)
 		}
-		return s.t("history.op.item.remove", label)
+		return dict.tr.t("history.op.item.remove", label)
 	case ops.ShapeItemField:
 		label := dict.itemName(sh.GroupID, sh.ItemID)
 		if key, ok := itemFieldKeys[sh.Field]; ok {
-			return s.t(key, label)
+			return dict.tr.t(key, label)
 		}
-		return s.t("history.op.item.field", label, sh.Field)
+		return dict.tr.t("history.op.item.field", label, sh.Field)
 	}
-	return s.t("history.op.other", op.Path)
+	return dict.tr.t("history.op.other", op.Path)
 }
 
 // historyDict 是"这个 id 叫什么"。
@@ -275,6 +283,9 @@ func (s *Server) opPhrase(op store.HistoryOp, dict *historyDict) string {
 type historyDict struct {
 	st     *store.Store
 	id     string
+	// tr 是**这一份**的翻译器（2026-10-20）：这一页的每一句话都要跟档案页
+	// 的 chrome 同一种语言，否则一页上会出现中英混排。
+	tr     tr
 	sep    string
 	groups map[string]string
 	items  map[string]string
@@ -284,8 +295,8 @@ type historyDict struct {
 	reads  int
 }
 
-func (s *Server) historyDict(id string) *historyDict {
-	d := &historyDict{st: s.deps.Store, id: id, sep: s.t("history.sep"),
+func (s *Server) historyDict(r *http.Request, id string) *historyDict {
+	d := &historyDict{st: s.deps.Store, id: id, tr: s.trFor(r, id), sep: s.trFor(r, id).t("history.sep"),
 		groups: map[string]string{}, items: map[string]string{}, opened: map[int64]bool{}}
 	// 坏档、读不动、不存在——都当"现在这一版没有可借的名字"，不拦这一页。
 	if snap, err := s.deps.Store.Current(id); err == nil {

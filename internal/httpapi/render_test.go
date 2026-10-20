@@ -67,7 +67,9 @@ func TestProfilePageHeaders(t *testing.T) {
 func TestPickerHasItsOwnProfileHeader(t *testing.T) {
 	h, _ := setupRender(t)
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Language", "zh") // 这一族夹具是"一个说中文的浏览器"（见 handlers_test 的说明）
+	h.ServeHTTP(rec, req)
 	if got := rec.Header().Get("X-LB-Profile"); got != "picker" {
 		t.Fatalf("选择页的 X-LB-Profile = %q", got)
 	}
@@ -159,14 +161,17 @@ func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t
 
 	// ① 什么 cookie 都没有：入口必须在。
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Language", "zh") // 这一族夹具是"一个说中文的浏览器"（见 handlers_test 的说明）
+	h.ServeHTTP(rec, req)
 	if !strings.Contains(rec.Body.String(), link) {
 		t.Fatalf("无 cookie 的选择页没有管理入口，装完机器的人只能手打 /admin：%.300s", rec.Body)
 	}
 
 	// ② 带着管理权：也必须在（这一条不许因为"已经进得去"就把它撤掉）。
 	rec = httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/", nil)
+	req = httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Language", "zh")
 	req.Header.Set("Cookie", adminOnlyCookie(t))
 	h.ServeHTTP(rec, req)
 	if !strings.Contains(rec.Body.String(), link) {
@@ -176,6 +181,7 @@ func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t
 	// ③ 登着档案、没有管理权：档案页顶栏那枚「管理」不画。
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Language", "zh")
 	req.AddCookie(&http.Cookie{Name: auth.CookieProfile, Value: "dad"})
 	req.AddCookie(&http.Cookie{Name: auth.CookieHome, Value: "dad"})
 	h.ServeHTTP(rec, req)
@@ -197,6 +203,11 @@ func Test404_浏览器拿页面脚本拿kind(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/prefs/nope", nil)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	// **发这个头的就是浏览器**，而浏览器说的话就是界面的话（2026-10-20 修）。
+	// 这一页从前在**渲染层**自己问站级默认，于是全新机器上它是中文——而同一台
+	// 机器上的选择页与档案页都按浏览器说的那一门走（英文），于是 404 页是全站
+	// 唯一一页中文的，还跟那颗英文按钮混排。现在它跟其余每一页一样走整条链。
+	req.Header.Set("Accept-Language", "zh")
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("浏览器那一支的状态码必须是 404，拿到 %d", rec.Code)

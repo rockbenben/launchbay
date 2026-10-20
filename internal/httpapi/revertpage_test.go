@@ -319,8 +319,10 @@ func TestRevertPage_坏档也能进来退(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("坏档不该被挡在门外：%d %s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "这一份读不出来") {
-		t.Error("没照实说「现在这一份读不出来」")
+	// 照实说"现在这一份的**书签**读不出来"：坏的是书签文档（profile.json 读得动，
+	// 否则根本走不到回退页）。说成"这一份读不出来"会让人以为整个档案没了。
+	if !strings.Contains(rec.Body.String(), "这一份的书签读不出来") {
+		t.Error("没照实说「现在这一份的书签读不出来」")
 	}
 	if !strings.Contains(rec.Body.String(), `name="to-rev"`) {
 		t.Error("坏档时连可回退的版本都不列——这一页正是这种时候的出路")

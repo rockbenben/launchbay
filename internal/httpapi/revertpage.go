@@ -171,8 +171,8 @@ func groupSig(b *model.Bookmarks) string {
 // 它是 **Server 的**方法而不是 snapshotChoice 的：这一格要拼给人看的短名，
 // 而语言是机器级的、只有 Server 读得到 store。做成快照自己的方法就只能把
 // 语言当参数传进来——那等于让每一个调用点都要记得传。
-func (s *Server) choiceLabel(c snapshotChoice) string {
-	label := s.t("revert.choice.label", c.Rev, c.Items)
+func (s *Server) choiceLabel(t tr, c snapshotChoice) string {
+	label := t.t("revert.choice.label", c.Rev, c.Items)
 	if c.When != "" {
 		label = c.When + " · " + label
 	}
@@ -185,25 +185,25 @@ func (s *Server) choiceLabel(c snapshotChoice) string {
 	// 于是它什么都不加——不是漏了一句，是那一行确实没有可比的对象。
 	switch {
 	case c.SameAsAbove:
-		label += s.t("revert.choice.same")
+		label += t.t("revert.choice.same")
 	case c.DeltaItems < 0:
-		label += s.t("revert.choice.dropped", -c.DeltaItems)
+		label += t.t("revert.choice.dropped", -c.DeltaItems)
 	case c.DeltaItems > 0:
-		label += s.t("revert.choice.gained", c.DeltaItems)
+		label += t.t("revert.choice.gained", c.DeltaItems)
 	}
 	if c.SameGroups {
 		return label
 	}
 	if len(c.Groups) == 0 {
-		return label + s.t("revert.choice.noGroups")
+		return label + t.t("revert.choice.noGroups")
 	}
 	// 组名只印收进来的那几个、每个按字截：一行六十八字的长句在下拉里会被裁，
 	// 在电话上会占三行，而读屏的人要把整串组名念完才听到最后那句"等 N 组"。
-	out := label + s.t("revert.choice.groups", strings.Join(c.Groups, s.t("revert.sep")))
+	out := label + t.t("revert.choice.groups", strings.Join(c.Groups, t.t("revert.sep")))
 	// N 用 Total 而不是 len(Groups)：后者是"页面上收下了几个名字"，
 	// 拿它当总数就等于把截断说成那一版只有这么几个分组。
 	if c.Total > len(c.Groups) {
-		out += s.t("revert.choice.more", c.Total)
+		out += t.t("revert.choice.more", c.Total)
 	}
 	return out
 }
@@ -226,15 +226,15 @@ func clipRunes(s string, n int) string {
 //
 // 读不出来时照实说读不出来：那正是坏档，而这正是 revert 的出路，不该被这一页
 // 挡在门外。
-func (s *Server) currentLine(id string) (string, error) {
+func (s *Server) currentLine(t tr, id string) (string, error) {
 	cur, err := s.deps.Store.Current(id)
 	if err != nil {
 		if !isUnreadable(err) {
 			return "", err
 		}
-		return s.t("revert.now.unreadable"), nil
+		return t.t("revert.now.unreadable"), nil
 	}
-	return s.t("revert.now.ok", cur.Rev, bookimport.CountItems(cur.B)), nil
+	return t.t("revert.now.ok", cur.Rev, bookimport.CountItems(cur.B)), nil
 }
 
 // handleRevertPage 是第一步：把可选的版本列出来，让人**认出**要退哪一版。
@@ -260,7 +260,7 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 		name = p.Title
 	}
 
-	now, err := s.currentLine(id)
+	now, err := s.currentLine(s.trFor(r, id), id)
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -274,39 +274,43 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 	// Explain 是**纯文本**，一个字都不能是 markdown：`{{.Explain}}` 走 html/template
 	// 的转义，`**这样**` 在页面上就是两个星号（这一版的初稿真这么写过，实拍才发现）。
 	// 强调靠句子结构，不靠符号——与导入报告那条证人同一纪律。
-	explain := now + "\n\n" + s.t("revert.explain.main")
+	explain := now + "\n\n" + s.trFor(r, id).t("revert.explain.main")
 	if unreadable > 0 {
-		explain += "\n\n" + s.t("revert.explain.unreadable", unreadable)
+		explain += "\n\n" + s.trFor(r, id).t("revert.explain.unreadable", unreadable)
 	}
 	if len(choices) == 0 {
-		explain += "\n\n" + s.t("revert.explain.noversions")
+		explain += "\n\n" + s.trFor(r, id).t("revert.explain.noversions")
 	}
 
+	// 这一页是**本人**在用（回退只对自己那一份开放），所以它说**这一份**的语言
+	// （2026-10-20）：LangProfile 告诉渲染器用谁的语言说 chrome，这里这些句子
+	// 用同一份翻译器翻——两半必须是同一种语言。
+	tr := s.trFor(r, id)
 	view := render.AdminAction{
-		Title: s.t("revert.title"), Heading: s.t("revert.heading", name),
+		Title: tr.t("revert.title"), Heading: tr.t("revert.heading", name),
 		Explain: explain,
-		Notice:  s.notice(r.URL.Query().Get("err")),
+		Notice:  s.noticeLang(tr.cat.Lang(), r.URL.Query().Get("err")),
 		Action:  "/revert",
-		Submit:  s.t("revert.submit"),
+		Submit:  tr.t("revert.submit"),
 		// 回管理页对一个非管理员是死路（他根本没有那一页，点了吃一个不解释的 303）。
 		NavHref:  "/",
-		NavLabel: s.t("revert.nav"),
+		NavLabel: tr.t("revert.nav"),
 	}
 	if len(choices) > 0 {
 		view.Choices = make([]render.AdminChoice, 0, len(choices))
 		view.ChoiceName = "to-rev"
-		view.ChoiceLegend = s.t("revert.legend")
+		view.ChoiceLegend = tr.t("revert.legend")
 		// 只有**真的收起过组名**才说这句（判据：存在一行 SameGroups）。全部候选
 		// 都列了组名的时候，这一句是在解释一个页面上根本没发生的现象。
 		for _, c := range choices {
 			if c.SameGroups {
-				view.ChoiceNote = s.t("revert.choice.note")
+				view.ChoiceNote = tr.t("revert.choice.note")
 				break
 			}
 		}
 		for i, c := range choices {
 			view.Choices = append(view.Choices, render.AdminChoice{
-				Value: fmt.Sprintf("%d", c.Rev), Label: s.choiceLabel(c),
+				Value: fmt.Sprintf("%d", c.Rev), Label: s.choiceLabel(tr, c),
 				// 预选**最新一份快照**（列表降序，所以是 i==0）。
 				//
 				// 这一条推得出来是因为 WriteSnapshot 在**写之前**拍：写完 rev3 之后
@@ -324,7 +328,7 @@ func (s *Server) handleRevertPage(w http.ResponseWriter, r *http.Request) {
 		// 一条没有出路的 POST（而那把键还得在页面上说人话，白白多一次往返）。
 		view.NoForm = true
 	}
-	page, err := s.deps.Render.AdminActionPage(view)
+	page, err := s.deps.Render.AdminActionPage(view, s.langOf(r, id))
 	if err != nil {
 		writeInternalError(w, err)
 		return

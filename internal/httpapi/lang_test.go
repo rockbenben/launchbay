@@ -153,7 +153,6 @@ func TestAdminLanguage_不认识的值说清而不是静默落默认(t *testing.
 	for _, tc := range []struct{ lang, key string }{
 		{"fr", "badlang"},
 		{"EN", "badlang"},
-		{"", "nolang"},
 	} {
 		rec := postLangForm(t, h, "/admin/language", "language="+url.QueryEscape(tc.lang), admin, "")
 		if rec.Code != http.StatusSeeOther {
@@ -180,8 +179,75 @@ func TestAdminLanguage_同名多值走422(t *testing.T) {
 	}
 }
 
+// 管理页那个语言下拉要显示**盘上写着的那个**值。
+//
+// 从前它显示的是"这一页正在用的那一种语言"——而"没人设过"时那一页按**浏览器说的**
+// 那一门显示，于是管理员看到"English"被选中，就以为这台机器已经是英文的了；
+// 而他只要按一下那颗按钮，就把"没人设过"悄悄变成了"显式设成英文"，从此整台机器
+// 的默认被冻结在他的浏览器语言上。
+//
+// 所以没人设过时它必须显示**「跟随浏览器」**那一档。
+func Test管理页的语言下拉显示盘上写着的那个值(t *testing.T) {
+	srv, h, admin, _ := langScene(t)
+
+	// 先设一个：下拉里预选的应该是**它**，不是别的。
+	if err := srv.deps.Store.SetLanguage(i18n.En); err != nil {
+		t.Fatal(err)
+	}
+	body := adminPageGet(t, h, "/admin", admin)
+	if !strings.Contains(*body, `<option value="en" selected>`) {
+		t.Errorf("设成英文之后，下拉里预选的不是它：\n%.400s", *body)
+	}
+
+	// 取消掉（= 没人设过）：下拉里预选的必须是「跟随浏览器」。
+	if err := srv.deps.Store.ClearLanguage(); err != nil {
+		t.Fatal(err)
+	}
+	body = adminPageGet(t, h, "/admin", admin)
+	if !strings.Contains(*body, `<option value="" selected>`) {
+		t.Errorf("没人设过时，下拉里预选的不是「跟随浏览器」：\n%.400s", *body)
+	}
+}
+
 // 落盘失败**绝不说成功**：语言没存下去，界面还是原来那一种，回一句成功会让人
 // 以为已经换过来了。
+// **字段没给**与**给了一个空串**是两件事（2026-10-20 改）：
+//
+//   - 没给 → 这个请求没说语言（脚本漏了）→ 303 `?err=nolang`；
+//   - 给了空串 → **「跟随浏览器」那一档**（管理员要把站级默认取消掉）→ 303 回
+//     /admin（不带键），而盘上回到"没人设过"。
+//
+// 从前两者同形（都答 nolang），于是"取消默认"这条路根本走不通：下拉里那一档
+// 按下去，服务端说的是"你没选"。
+func TestAdminLanguage_没给与空串是两件事(t *testing.T) {
+	srv, h, admin, _ := langScene(t)
+
+	// 字段没给。
+	rec := postLangForm(t, h, "/admin/language", "title=x", admin, "")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("字段没给该 303，实际 %d", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/admin?err=nolang" {
+		t.Errorf("字段没给应回到 /admin?err=nolang，实际 %q", loc)
+	}
+	if got := srv.deps.Store.Language(); got != i18n.Zh {
+		t.Errorf("被拒的请求改动了配置：拿到 %q", got)
+	}
+
+	// 给一个空串 = 取消默认。
+	rec = postLangForm(t, h, "/admin/language", "language=", admin, "")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("空串该 303，实际 %d", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/admin" {
+		t.Errorf("空串应回到 /admin（不带键），实际 %q", loc)
+	}
+	// 盘上回到"没人设过"：读侧那一位（DefaultLanguage 的第二个返回值）是 false。
+	if _, ok := srv.deps.Store.DefaultLanguage(); ok {
+		t.Error("空串没有把站级默认取消掉：它还被人设着")
+	}
+}
+
 func TestAdminLanguage_落盘失败不说成功(t *testing.T) {
 	srv, h, admin, _ := langScene(t)
 	// 把 data/ 换成读不进去的形状：把 settings.json 的目录占掉。
@@ -301,7 +367,7 @@ func TestAdminLanguage_两步确认页也随语言翻(t *testing.T) {
 		t.Fatalf("落盘: %v", err)
 	}
 	for _, tc := range []struct{ page, want string }{
-		{"/admin/pin?profile=kid", "Set a PIN for"},
+		{"/admin/pin?profile=kid", "Change the PIN of"},
 		{"/admin/delete?profile=kid", "Delete "},
 		{"/admin/disable?profile=kid", "Disable "},
 	} {
@@ -348,22 +414,35 @@ func TestAdminLanguage_确认页上不留中文界面文案(t *testing.T) {
 // 把脚本认成浏览器，那份逐字对照的中文报告就换了字节；把浏览器认成脚本，扩展
 // 设置页下面贴的就是读者读不懂的话。所以每一档都要有自己的名字，而不是只测
 // "en 与 zh 各一次"。
-func TestBrowserLang_只认第一个标签认不出就落默认(t *testing.T) {
+//
+// **判据 2026-10-20 改判**：从前只取**第一个**标签且不剥 `;q=…`，于是
+// `Accept-Language: en;q=0.9` 整条认不出（切出来的是 "en;q=0.9"）——
+// 一个**说英文的扩展拿到中文报告**。而"只看第一个"这一条现在也改了：
+// 按**q 值从高到低**找第一个认得的标签，认不出才落默认。
+//
+// 为什么不把"只看第一个"留着：客户端自己写了 `de,en;q=0.9`，那是在说
+// "德语优先，英语也行"——照着它的顺序找不是猜，是读它的话。而 `*` 是
+// "其余都行"，不是"他要哪一门"，跳过。
+func TestBrowserLang_按q值从高到低认得出就落那一门(t *testing.T) {
 	for h, want := range map[string]i18n.Lang{
-		"":               i18n.Zh, // curl / Go 的 http.Client / 这台机器的 CLI：不发这个头
-		"*":              i18n.Zh,
-		"en":             i18n.En,
-		"en-US":          i18n.En,
-		"en-US,en;q=0.9": i18n.En,
-		"zh-CN,zh;q=0.9": i18n.Zh,
-		"zh-TW":          i18n.Zh,
-		"en-US,de;q=0.9": i18n.En,
-		"zh":             i18n.Zh,
-		"de,en;q=0.9":    i18n.Zh, // 第二个标签不算数：只看第一个
-		"english":        i18n.Zh, // 含 "en" 三个字母不是语言标签
-		"  en-GB  ":      i18n.En,
-		"fr-FR":          i18n.Zh,
-		"EN-us":          i18n.En, // 大小写不敏感
+		"":                  i18n.Zh, // curl / Go 的 http.Client / 这台机器的 CLI：不发这个头
+		"*":                 i18n.Zh, // 通配不是"他要哪一门"
+		"en":                i18n.En,
+		"en-US":             i18n.En,
+		"en-US,en;q=0.9":    i18n.En,
+		"zh-CN,zh;q=0.9":    i18n.Zh,
+		"zh-TW":             i18n.Zh,
+		"en-US,de;q=0.9":    i18n.En,
+		"zh":                i18n.Zh,
+		"de,en;q=0.9":       i18n.En, // 第一个认不出就往下看（按 q 值）
+		"english":           i18n.Zh, // 含 "en" 三个字母不是语言标签
+		"  en-GB  ":         i18n.En,
+		"fr-FR":             i18n.Zh,
+		"EN-us":             i18n.En, // 大小写不敏感
+		"en;q=0.9":          i18n.En, // 权重要剥掉：从前整条认不出
+		"zh;q=0.9":          i18n.Zh,
+		"en;q=0.5,zh;q=0.9": i18n.Zh, // q 高的那一门是他更要的那门
+		"en;q=0":            i18n.Zh, // q=0 = 不接受这一门
 	} {
 		if got := browserLang(h); got != want {
 			t.Errorf("browserLang(%q) = %s，要 %s", h, got, want)

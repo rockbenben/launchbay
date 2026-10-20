@@ -8,7 +8,7 @@ import (
 
 // 守恒：两种语言的 key 集合必须逐条相等。
 //
-// 这是"翻全了"唯一的机械保证。靠人眼数 514 条文案，早晚会漏一处；而漏一处的
+// 这是"翻全了"唯一的机械保证。靠人眼一条一条数文案，早晚会漏一处；而漏一处的
 // 后果不是编译错，是那一行英文界面印出 ⟨admin.act.delete⟩ 这样一眼可辨的东西——
 // 它至少不是静默的空白，但仍然是坏的页面。
 func TestCatalog_两种语言的key守恒(t *testing.T) {
@@ -86,7 +86,7 @@ func TestCatalog_实参够了不会印MISSING(t *testing.T) {
 	if strings.Contains(got, "%!") {
 		t.Errorf("占位符没填满：%q", got)
 	}
-	if got != "6 found, 20 in this profile" {
+	if got != "6 found out of 20 in this profile" {
 		t.Errorf("英文渲染不对：%q", got)
 	}
 	gotZh := Load(Zh).T("profile.hits", 6, 20)
@@ -222,5 +222,5 @@ func TestCatalog_非法语言也能拿到可用文案(t *testing.T) {
 func ExampleCatalog_T() {
 	c := Load(En)
 	fmt.Println(c.T("profile.hits", 6, 20))
-	// Output: 6 found, 20 in this profile
+	// Output: 6 found out of 20 in this profile
 }

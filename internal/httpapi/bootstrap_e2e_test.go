@@ -606,8 +606,10 @@ func TestSetup_语言下拉在装机窗口外不可用(t *testing.T) {
 func TestSetup_语言下拉的形状错说人话(t *testing.T) {
 	_, h := setupZero(t)
 	for _, tc := range []struct{ body, want string }{
+		// **字段没给** = 这个请求没说语言（脚本漏了）→ nolang。
 		{"", "nolang"},
-		{"language=", "nolang"},
+		// 给了空串 = 「跟随浏览器」那一档（取消站级默认）→ 正常 303，不带键。
+		{"language=", ""},
 		{"language=fr", "badlang"},
 		{"language=EN", "badlang"},
 		{"language=zh&language=en", "body"},
@@ -623,7 +625,12 @@ func TestSetup_语言下拉的形状错说人话(t *testing.T) {
 			t.Errorf("%q 要 303，得到 %d", tc.body, rec.Code)
 			continue
 		}
-		if want := "/?err=" + tc.want; rec.Header().Get("Location") != want {
+		// want 为空 = **不带键**（那一条是"取消默认"，不是失败）。
+		want := "/"
+		if tc.want != "" {
+			want = "/?err=" + tc.want
+		}
+		if rec.Header().Get("Location") != want {
 			t.Errorf("%q 的 Location = %q，要 %s", tc.body, rec.Header().Get("Location"), want)
 		}
 	}

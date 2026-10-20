@@ -213,13 +213,19 @@ func TestRebuild_坏档重建后书签快照历史一字不动(t *testing.T) {
 	if got.Theme != "auto" || got.Layout != "sidebar" {
 		t.Errorf("默认值没落地: theme=%q layout=%q", got.Theme, got.Layout)
 	}
-	// 而 pageTitle / view 的默认**就是空串**（"没选过"），这两格不住在 RebuildProfile
-	// 那个字面量里，所以它们必须是零值——列在这里是为了：将来谁往那个字面量里
-	// 补一个 `PageTitle: …` 或 `View: …`，这条会当场说出是哪一格多写了。
-	// AGENTS.md 的 rebuild 那一行列的就是这五格，判据只有一份。
-	if got.PageTitle != "" || got.View != "" {
-		t.Errorf("rebuild 不该给台面偏好编一个值: pageTitle=%q view=%q，两个都要空（空 = 没选过）",
-			got.PageTitle, got.View)
+	// 而 pageTitle / view / language 的默认**就是空串**（"没选过"），这三格不住在
+	// RebuildProfile 那个字面量里，所以它们必须是零值——列在这里是为了：将来谁往那个
+	// 字面量里补一个 `PageTitle: …`、`View: …` 或 `Language: …`，这条会当场说出是哪一格
+	// 多写了。
+	// AGENTS.md 的 rebuild 那一行列的就是这六格，判据只有一份。
+	//
+	// **language 为什么也在里面**：这一格是这一份自己的界面语言（空 = 跟着站级默认），
+	// 而 rebuild 修的正是"profile.json 读不出来"的那一种——读不出来的那份里写着什么
+	// 语言，服务端根本不知道，所以它**只能**回到空串（跟着站级默认）。文档里漏掉它
+	// 会让人以为重建之后语言还在，那就成了一个做不到的承诺。
+	if got.PageTitle != "" || got.View != "" || got.Language != "" {
+		t.Errorf("rebuild 不该给台面偏好编一个值: pageTitle=%q view=%q language=%q，三个都要空（空 = 没选过）",
+			got.PageTitle, got.View, got.Language)
 	}
 	if _, err := time.Parse(time.RFC3339, got.CreatedAt); err != nil {
 		t.Errorf("createdAt 该是 RFC3339（不是空串、不是别的形状）: %q", got.CreatedAt)

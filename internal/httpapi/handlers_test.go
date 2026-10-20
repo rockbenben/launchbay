@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
@@ -19,6 +20,17 @@ import (
 func setupServer(t *testing.T) (*Server, http.Handler) {
 	t.Helper()
 	s := store.New(t.TempDir())
+	// **这台机器的默认语言 = 中文**（2026-10-20）："什么都还没设过"时页面按
+	// **浏览器说的那一门**说话（httpapi 的 machineLang），而这一族夹具里的
+	// HTTP 客户端**不发 Accept-Language** ——那一格于是落 en，把满屏中文的
+	// 断言全掀翻。
+	//
+	// 所以夹具代表的是**一台装好、而且管理员已经说过要中文的机器**：写一份
+	// 默认语言（落 data/settings.json），页面于是是中文。"还没设过"那一种由
+	// 专门那几支用例自己搭（它们要的就是那一格）。
+	if err := s.SetLanguage(i18n.Zh); err != nil {
+		t.Fatal(err)
+	}
 	hash := func(pin string) string {
 		h, err := auth.HashPIN(pin)
 		if err != nil {
@@ -46,9 +58,17 @@ func setup(t *testing.T) (*store.Store, http.Handler) {
 	return srv.deps.Store, h
 }
 
+// **这一族夹具是"一个说中文的浏览器"**（2026-10-20）："什么都还没设过"
+// 时页面按**浏览器说的那一门**说话（httpapi 的 machineLang），而这一族夹具
+// 自己不发 Accept-Language ——那一格于是落 en，把满屏中文的断言全掀翻。
+//
+// 所以请求一律带上 `Accept-Language: zh`：**发这个头的就是浏览器**，而浏览器
+// 说的话就是界面的话。"没有这个头"的那一格（脚本与 CLI）由专门那几支用例
+// 自己造（它们要的就是那一格）。
 func post(h http.Handler, path, body, cookie, bearer string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest("POST", path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Language", "zh")
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}
@@ -62,6 +82,7 @@ func post(h http.Handler, path, body, cookie, bearer string) *httptest.ResponseR
 
 func get(h http.Handler, path, cookie string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest("GET", path, nil)
+	req.Header.Set("Accept-Language", "zh")
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}
@@ -74,6 +95,7 @@ func get(h http.Handler, path, cookie string) *httptest.ResponseRecorder {
 func postForm(h http.Handler, path, body, cookie string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest("POST", path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept-Language", "zh")
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}

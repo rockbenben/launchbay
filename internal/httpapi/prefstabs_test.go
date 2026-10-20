@@ -49,9 +49,31 @@ func TestPrefsTabs_改的是书签文档所以有版本也能退回来(t *testin
 	if rev := revOf(t, s, "dad"); rev != rev0+2 {
 		t.Errorf("rev = %d，要 %d", rev, rev0+2)
 	}
-	if p := getBody(t, h, "/", dadFormCookie); strings.Contains(p, `target="_blank"`) {
-		t.Error("切回来之后页面还在发 target=_blank")
+	// 切回来之后，**书签卡**上不许再带 target=_blank。
+	//
+	// 收窄到那一张卡（2026-10-20）：整页扫 `target="_blank"` 会撞上**外链**——
+	// 顶栏那枚 GitHub 猫头永远新标签打开（它是站外的链接，离开这一页就丢了
+	// 面板状态，而这一格管的是**书签**在不在新标签页打开）。这一条要问的是
+	// 「书签怎么开」，不是「页面上有没有哪个链接新标签打开」。
+	if p := getBody(t, h, "/", dadFormCookie); strings.Contains(cardTagOf(p, `class="card" href="https://youtube.com/"`), `target="_blank"`) {
+		t.Error("切回来之后书签卡还在发 target=_blank")
 	}
+}
+
+// cardTagOf 从页面里取出**那一张书签卡**的 <a> 标签（从 class 到 > 为止）。
+//
+// 为什么不再扫整页：页面上有别的 target=_blank（站外的链接），而这一格管的是
+// 书签怎么开——整页扫会把「站外链接新标签打开」也算成「书签卡新标签打开」。
+func cardTagOf(page, marker string) string {
+	i := strings.Index(page, marker)
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(page[i:], ">")
+	if j < 0 {
+		return ""
+	}
+	return page[i : i+j+1]
 }
 
 func TestPrefsTabs_只认0或1且拒了不写盘(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
 	"github.com/rockbenben/launchbay/internal/render"
@@ -57,16 +58,18 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	title, hasTitle := r.Form["title"]
 	view, hasView := r.Form["view"]
 	addr, hasAddr := r.Form["addrLevel"]
-	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr {
+	lang, hasLang := r.Form["language"]
+	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr && !hasLang {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
-		why := "要带 theme、layout、view、addrLevel 或 title 至少一个"
+		why := "要带 theme、layout、view、addrLevel、language 或 title 至少一个"
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
 			{Kind: apierr.FieldInvalid, Field: "theme", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "layout", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "title", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "view", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "addrLevel", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "language", Reason: why},
 		})
 		return
 	}
@@ -105,6 +108,25 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.FieldInvalid, Field: "title", Reason: fmt.Sprintf("最多 %d 个字，空着 = 用默认名", maxPageTitleRunes)}})
 		return
 	}
+	// language 是**这一份自己的界面语言**（2026-10-20）。空串是**合法值**，
+	// 意思是"跟随默认"（管理员在管理页设的那一个）——与 title 的空串同一形状。
+	//
+	// 写侧严格：不认识的值 422 点名 language（不把垃圾写进盘上）；读侧净化
+	// （i18n.ProfileLang）——手改 profile.json 写坏这一格，最多让那个人看到
+	// 默认语言，而不会把整份档案判成坏档。
+	if hasLang && len(lang) != 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldInvalid, Field: "language", Reason: "同一个字段只能出现一次"}})
+		return
+	}
+	if hasLang {
+		v := strings.TrimSpace(lang[0])
+		if v != "" && !i18n.Lang(v).Valid() {
+			writeFieldErrors(w, http.StatusUnprocessableEntity,
+				[]fieldError{{Kind: apierr.FieldInvalid, Field: "language", Reason: "只能是 " + langValues() + "，或者留空 = 跟随默认"}})
+			return
+		}
+	}
 	var saveErr error
 	id := sess.Active
 	// 读→改→验→写整段进锁，与 handleSelfPin 同形（评审 Important 1 的教训：
@@ -130,6 +152,11 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 		if hasTitle {
 			// 空串照旧写下去（= 清除），不是"没给"：没给的是 !hasTitle 那一支。
 			p.PageTitle = strings.TrimSpace(title[0])
+		}
+		if hasLang {
+			// 空串 = 跟随默认（这一份没自己选语言）。写下去的是**空串**而不是
+			// 默认语言本身：跟着默认的人，管理员改默认时要跟着变。
+			p.Language = strings.TrimSpace(lang[0])
 		}
 		saveErr = s.deps.Store.SaveProfile(p)
 		return nil
@@ -177,7 +204,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	page, err := s.deps.Render.PrefsPage(id, prefsTab(r))
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -228,7 +255,7 @@ func (s *Server) createGroupFromForm(w http.ResponseWriter, r *http.Request, pro
 	// 于是这一族自己已有的那个形状（组已被删 → 200 重画面板并在顶部说清）用在这里，
 	// 点名那一格的话由语言包给（英文站不再吐中文）。**不写盘**这一条没变。
 	if title == "" {
-		s.renderPrefsNotice(w, r, profile, s.t("prefs.err.groupNameEmpty"))
+		s.renderPrefsNotice(w, r, profile, s.trFor(r, profile).t("prefs.err.groupNameEmpty"))
 		return
 	}
 	if len([]rune(title)) > model.MaxGroupTitleRunes {
@@ -255,7 +282,7 @@ func (s *Server) createGroupFromForm(w http.ResponseWriter, r *http.Request, pro
 		// 读不出来就把整节撤掉），所以能走到这儿只可能是书页开着、文件随后坏了。
 		// 说清是什么坏了，别把人支去修一个没坏的文件——与 applyPrefsOps 那一支
 		// 同一句话、同一落点。
-		s.renderPrefsNotice(w, r, profile, s.t("prefs.err.bookmarksUnreadableAdd"))
+		s.renderPrefsNotice(w, r, profile, s.trFor(r, profile).t("prefs.err.bookmarksUnreadableAdd"))
 		return
 	}
 	used := make(map[string]bool, len(b.Groups))
@@ -368,7 +395,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		// 往下走让 ops 报一句「title 为空」，那句话说的是文档校验，说不出
 		// "是这一格没填"。
 		if strings.TrimSpace(rename[0]) == "" {
-			s.renderPrefsNotice(w, r, id, s.t("prefs.err.renameEmpty"))
+			s.renderPrefsNotice(w, r, id, s.trFor(r, id).t("prefs.err.renameEmpty"))
 			return
 		}
 	} else if !hasAccent && !hasLayout && !wantsCustom {
@@ -428,7 +455,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 		t := strings.TrimSpace(rename[0])
 		if onlyRename {
 			if t == "" {
-				s.renderPrefsNotice(w, r, id, s.t("prefs.err.renameEmpty"))
+				s.renderPrefsNotice(w, r, id, s.trFor(r, id).t("prefs.err.renameEmpty"))
 				return
 			}
 			if len([]rune(t)) > model.MaxGroupTitleRunes {
@@ -520,7 +547,7 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 		// 整批没写：最常见的是"这个分组已经没了"（被人删了），把 ops 的原话带出去。
 		s.renderPrefsNotice(w, r, id, out.verrs[0].Reason)
 	case out.snapErr != nil:
-		s.renderPrefsNotice(w, r, id, s.t("app.opsNoSnap"))
+		s.renderPrefsNotice(w, r, id, s.trFor(r, id).t("app.opsNoSnap"))
 	default:
 		// **落回时把 `?tab=` 带上**（2026-10-15）：这一族（/prefs/group 与
 		// /prefs/tabs）每一次按色块/排法都是一次提交，而分组那一节有二十行时
@@ -530,13 +557,62 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 	}
 }
 
+// handlePrefsPin 是台面面板里那张「我的 PIN」表单的落点（2026-10-20）。
+//
+// **它与 API 那条（/api/v1/profiles/self/pin）共用 selfPin 那一处判据**——
+// 这一族的判据有五处（旧的要不要、新的格式、空串是不是取消、取消要不要旧 PIN、
+// 谁有资格改），抄一遍就是抄错一遍。
+//
+// 浏览器表单通路**只认会话**：带令牌一律 303 回选择页（/prefs、/switch 同族纪律）。
+func (s *Server) handlePrefsPin(w http.ResponseWriter, r *http.Request) {
+	if bearer(r) != "" {
+		redirectPicker(w)
+		return
+	}
+	sess := auth.ReadSession(r)
+	if _, _, ok := s.require(r, credSession, sess.Active); !ok {
+		redirectPicker(w)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	if err := r.ParseForm(); err != nil {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
+		return
+	}
+	// 同名多值不是"取第一个"，是没说清要哪个（/prefs、/setup 同纪律）。
+	for _, f := range []string{"old", "new"} {
+		if n := len(r.Form[f]); n > 1 {
+			writeFieldErrors(w, http.StatusUnprocessableEntity,
+				[]fieldError{{Kind: apierr.FieldDuplicate, Field: f, Reason: "同一个字段只能出现一次"}})
+			return
+		}
+	}
+	tr := s.trFor(r, sess.Active)
+	res := s.selfPin(sess.Active, r.FormValue("old"), r.FormValue("new"))
+	switch {
+	case res.BadOld:
+		s.renderPrefsNotice(w, r, sess.Active, tr.t("prefs.pin.badOld"))
+	case res.BadNew:
+		s.renderPrefsNotice(w, r, sess.Active, tr.t("prefs.pin.badNew"))
+	case res.ReadErr != nil:
+		s.writeProfileReadFailure(w, sess.Active, res.ReadErr)
+	case res.SaveErr != nil:
+		writeInternalError(w, res.SaveErr)
+	default:
+		// 成功：回面板的那一节（新 PIN 这一节）。新门锁立刻生效，而**会话不受影响**
+		// （会话挂在档案 id 上，不挂在 PIN 上）——下一次进门才要输新的那个。
+		http.Redirect(w, r, "/prefs?tab=pin", http.StatusSeeOther)
+	}
+}
+
 // renderPrefsNotice 把"这次没改成，因为…"画回面板顶部，而不是把人丢到一个
 // 没有出错的首页上（那与"成功了"长得一模一样）。
 //
 // 落点复用的是 handlePrefsPage 的那道分诊（读不动 profile.json → 503），
 // 所以这里只多一句 notice，页面本身由同一条渲染路径出。
 func (s *Server) renderPrefsNotice(w http.ResponseWriter, r *http.Request, id, notice string) {
-	page, err := s.deps.Render.PrefsPage(id, prefsTab(r))
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
 	if err != nil {
 		s.handleError(w, err)
 		return
