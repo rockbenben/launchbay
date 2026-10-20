@@ -145,16 +145,31 @@ AI agent（我）── curl / REST ──────────────�
 ```
 data/
   profiles/<id>/
-    profile.json      # 名字、PIN 哈希、admin 标记、显示偏好
+    profile.json      # 名字、PIN 哈希、显示偏好（**没有 admin 标记**：2026-10-12 档案不再有管理员属性）
     bookmarks.json    # 该人的书签（服务端可写）
     usage.json        # 点击计数、最近使用（前端节流批量经 /api/v1/usage 上报）
     snapshots/        # 写前快照，保留 50 份，目录名 = rev，内含该 rev 的 bookmarks.json 副本
 ~~  templates/nas.json  # 建档模板（不参与渲染）~~ **2026-10-10 删**：这一行与整个 `templates/` 目录都不再存在
   icons/              # favicon 内容寻址缓存 + index.json（origin → 缓存项与失败冷却）；站级共享，不随档案切分，§5
+  backgrounds/<id>/   # 背景图字节，**按档案分目录**（2026-10-14）；目录名是档案 id，里面只有一张图与它的内容哈希
+  settings.json       # 站级**默认**界面语言（2026-10-11，管理员设过的那一个）；一份档案自己的语言在它自己的 profile.json 里
   history.jsonl       # 全局逐条动作记录，每行带 profile 与 actor
 ```
 
 渲染一个页面只读 `profiles/<id>/` 一个目录，代码里不存在"跨档案合并"这条路径 —— 这是不串号的结构性保证。唯一例外是 `icons/`：里面只有按内容哈希命名的图片字节与 `origin → 哈希` 的索引，没有档案 id、没有姓名、没有书签 URL，任何档案渲染 `auto` 项时读到的都是同一份站级缓存（§5 明写它不随档案切分），所以它不构成跨档案信息通道。
+
+**2026-10-20 补：例外不止一个了。** 上面那段是 2026-10-10 的读数。今天渲染一页会碰到的
+档案目录之外的东西有三样，逐样说清它为什么仍然不构成跨档案信息通道：
+
+- `data/icons/` —— 同上：站级图片缓存与索引。
+- `data/settings.json` —— 站级**默认**界面语言（2026-10-11）。它是一枚语言代号，
+  不是内容；"哪一份"那一维由会话决定，不在这份文件里，而每一份自己的语言存在
+  它自己的 `profile.json` 里（2026-10-20 起每一份自己一份）。
+- `data/backgrounds/<档案 id>/` —— 背景图字节，**按档案分目录**（2026-10-14）。目录名
+  是档案 id，但里面只有一张图与它的内容哈希，没有别人的东西；对外只走
+  `/backgrounds/{name}` 那一条**带会话闸**的端点（§6.1），A 的会话连 B 的那张都读不到。
+
+**结构性保证本身没变**：没有任何一条路径让渲染把 A 的内容读出来给 B 看。
 
 ### 4.2 `profile.json`
 
@@ -210,6 +225,15 @@ JSON 写出契约（不遵守会让 AI 与人的 diff 整片乱跳）
 一次写入 = 一批 ops，**全成或全败**，落到同一个新 `rev`。
 
 路径文法：`groups/<groupId>[/items[/<itemId>]][/<field>]`。寻址只用 `id`，**不用数组下标**——插入一条之后下标会指错条目，这是并发编辑最容易踩的错。
+
+**2026-10-14 改判：文法里还少一条根级标量。** 上面那句只写了树，而 `set` 现在也认
+**文档自己那几格**——`{"op":"set","path":"openInNewTab","value":true}` 这种**根级标量**
+是合法路径。完整文法是 `groups/<groupId>[/items[/<itemId>]][/<field>]` **或** `<field>`
+（后者只认 `title` / `footer` / `openInNewTab` / `clock` 四个）。三张白名单在
+`internal/ops/path.go`：分组 `title`/`layout`/`accent`、条目
+`name`/`url`/`icon`/`desc`/`alias`/`tags`/`aiNote`、根级那四个。`rev`（并发判据
+本身）、`groups`（整表替换，§4.4 明写不给）、`search`/`weather`（对象且页面不渲染）
+一律拒，**每种拒法给自己的理由**。机器契约与 `AGENTS.md` 是今天的准。
 
 `op` 只有四种：`add`（带 `value`，可带 `index`）、`remove`、`set`（改一个字段）、`move`（`to` + `index`）。不给整表替换型 op（AI 一次换整表会把别人的并发写入抹掉）。
 
@@ -269,7 +293,18 @@ favicon 抓取（`icon: auto` 才用，非主力）
 
 ### 6.1 REST 契约
 
-`openapi.json`、`icons`（含 §5 的 `/icons/*` 图片缓存）、`healthz` 之外的端点**大多**要凭证——凭证指下面两类令牌或会话。**免凭证的三条**（Task 6 复扫实测纠正过一句"只有两条"；2026-10-10 `GET /api/v1/template` 随模板机制拆掉后又回到三条）：`GET /`（有 cookie 才渲染书签，没 cookie 画进门页三形状，零条目零 URL）、`POST /pin`（它收的 PIN 本身就是换会话用的凭据，不要"预先有的"凭证）、**零档案时的引导建档 `POST /setup`**（§8.0、§11：磁盘上有档案之后这条按目录数判据关闭，建成也不发会话；把档案删光 = 主动重置成零档案，窗口随之重开，这是 §8.0 那一行"0 个 → 引导表单"的另一面）。这三类之外都要凭证（P1-④.6 新增的 `POST /api/v1/profiles/rebuild` **要**凭证，免凭证的还是这三条——写这条端点的人不许顺手把"大多要凭证"改成别的口径来迁就它）。两类凭证：
+`openapi.json`、`icons`（含 §5 的 `/icons/*` 图片缓存）、`healthz` 之外的端点**大多**要凭证——凭证指下面两类令牌或会话。**免凭证的三条**（Task 6 复扫实测纠正过一句"只有两条"；2026-10-10 `GET /api/v1/template` 随模板机制拆掉后又回到三条）：`GET /`（有 cookie 才渲染书签，没 cookie 画进门页三形状，零条目零 URL）、`POST /pin`（它收的 PIN 本身就是换会话用的凭据，不要"预先有的"凭证）、**零档案时的引导建档 `POST /setup`**（§8.0、§11：磁盘上有档案之后这条按目录数判据关闭，建成也不发会话；把档案删光 = 主动重置成零档案，窗口随之重开，这是 §8.0 那一行"0 个 → 引导表单"的另一面）。这三类之外都要凭证（P1-④.6 新增的 `POST /api/v1/profiles/rebuild` **要**凭证，免凭证的还是这三条——写这条端点的人不许顺手把"大多要凭证"改成别的口径来迁就它）。
+
+**2026-10-20 补：免凭证的已经不止那三条。** 上面这段是 2026-10-10 的读数。今天公开的
+端点逐条是：`/healthz`、`/api/v1/openapi.json`、`/api/v1/icons` 与它那三格 HTML
+（`/icons/tiles`、`/icons/browse`、`/icons/starter`）、`/icons/{name}`、静态资产
+（`/app.<指纹>.js`、`/app.<指纹>.css`、`/sw.js`、`/manifest.webmanifest`、`/bookmarklet`）、
+`GET /`、`POST /pin`、`POST /lang` 与 `POST /setup`（后两条的判据是**磁盘**：只在零档案
+时开放），以及 `POST /admin/login` 与 `POST /admin/logout`（那两条本身就是登录与登出，
+"没有管理权"不是它们的前置条件）。**完整的清单以 `AGENTS.md` 的端点表为准**——那里
+逐条写了凭证与判据，本文不重复，免得两处各说一半。
+
+两类凭证：
 
 - **令牌**（AI / 浏览器扩展 / CLI 子命令）：`Authorization: Bearer <secret>`，三段式 `name:secret:<profileId|*>`。作用域是具体档案时，请求的 `profile` 必须等于它；`*` 只给管理员令牌。误写别人档案会变成 403，不是写进去。bookmarklet 与页面浮层不用令牌，走会话（§6.3）。
 - **会话**（浏览器）：~~cookie 两条，均不签名——`lb_profile=<当前档案>`（权限永远只看它）、`lb_home=<验证时进入的档案>`（**不参与任何权限判定**，只喂两处：管理横幅的判定与历史 `actor` 的填写，§4.6、§8.9）。免 PIN 切档的许可由**当前在用的那个档案**（`lb_profile`）的 `admin` 标记给出，服务端回查磁盘、不信 cookie 形状：伪 `lb_home=dad` 换不到切档，伪 `lb_profile=dad` 能——但那条 cookie 本来就已经让他直接是 dad 了，所以这条规则没有扩大暴露面。后果如实记录：管理员进入他人档案后想再进第三个，得先「退出管理」（把 `lb_profile` 写回 `lb_home`，这一步只需 `lb_home` 合法、不给任何新权限）。~~
@@ -285,6 +320,16 @@ favicon 抓取（`icon: auto` 才用，非主力）
 选择页并带 `?err=` 提示（`pinNotices` 那张表），不许被一起"统一"成裸 303。两张建档表单的
 "字段没填对"同走这一族，键只有 `noname`、`badpin` 与 `nametaken`（前两个 `/setup` 与 `POST /admin`
 都用，`nametaken` 只有 `POST /admin` 发得出；`/setup` 撞在"窗口已关"上是裸 303，§8.0、§11）。
+
+**2026-10-20 补：键不止那三把。** 上面那句是 2026-10-10 的读数。今天 `?err=` 的**词汇表**
+有一张（`internal/httpapi/handlers.go` 的 `pinNotices`），**进门页与管理页共用它**——
+同一个词不许在两处有两种说法，而读日志的人无从知道哪一句才是它。键逐条是：
+`pin` / `profile` / `disabled`（进门那三条）、`noname` / `badpin` / `pinboth` /
+`nametaken`（建档那族）、`notfound` / `self` / `selfdisable` / `failed`（管理页那几条
+零 JS 写动作）、`badsnap` / `gone` / `nosnap`（回退页）、`permission`（宿主上的数据目录
+对跑服务的那个用户不可写）、`nolang` / `badlang` / `langfail`（界面语言）、
+`badkey`（管理 key 不对）。不在表里的值**一个字都不进页面**——query 用户可控，
+原样渲染等于开一个反射点。
 表单发不出 JSON，所以浏览器通路不复用 API 端点、反之亦然；但 `/setup`、`/prefs`、`/switch`、`/admin`
 同样是 `routes()` 注册的路由，必须一起进 `openapi.json` 与 `AGENTS.md`——契约闸遍历的是全部路由，
 不只 `/api/v1/*`。
@@ -308,7 +353,7 @@ favicon 抓取（`icon: auto` 才用，非主力）
 | `/api/v1/profiles/self/pin` | POST | 改自己的 PIN，体 `{old, new}`，会话作用域；旧 PIN 不对拒改 |
 | `/api/v1/usage` | POST | 点击计数上报，体 `{itemIds: []}`，前端节流批量。凭证同 `batch`（会话或令牌），**只写当前档案的 `usage.json`**——不许凭一个凭证给别人档案刷点击。不参与 rev、不进快照、不进历史 |
 | `/api/v1/profiles/pin` | POST | 给任意档案设 PIN。仅管理员，且进目标档案历史 |
-| `/api/v1/profiles/rebuild` | POST | 只重写 `profile.json` 的坏档出路。仅管理员（`*` 令牌或管理员会话；档案作用域令牌打它是 403，这是设计不是故障）。体 `{profile, title, admin, pin}`，四格都必须出现。判据在 store 锁内：**读得动 → 409**（改 PIN 请走 `profiles/pin`）；目录不存在 → 404（**这条端点不建目录**，建档案是 `POST /api/v1/profiles` 的事）；只有"内容错"与"文件不在"才允许覆盖，其它读失败原样上报不许盖。写完在同一把锁内回读一次，读不动答 500——"200"意味着进门页那张卡真的回来了。`bookmarks.json`/`snapshots/`/历史已有内容不碰一个字节；历史追一行 `{rev:0, ops:[{op:"set", path:"profile/rebuild"}]}`；`X-LB-By` 头可选，缺省 `web`。`theme`/`layout`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项，明写在 §12） |
+| `/api/v1/profiles/rebuild` | POST | 只重写 `profile.json` 的坏档出路。仅管理员（`*` 令牌或管理员会话；档案作用域令牌打它是 403，这是设计不是故障）。体 `{profile, title, admin, pin}`，四格都必须出现。**2026-10-12 改判：体是 `{profile, title, pin, nopass}`——没有 `admin`**（旧脚本送来是 422 且点名该字段），而 `pin` 与 `nopass` **二选一**：`nopass:true` 重建出一份**不设防**的档案（rebuild 必须能造出这个形状，它是唯一能整份重写 profile.json 的动作），两个都给答 422 点名 `nopass`、都不给答 422 点名 `pin`。判据在 store 锁内：**读得动 → 409**（改 PIN 请走 `profiles/pin`）；目录不存在 → 404（**这条端点不建目录**，建档案是 `POST /api/v1/profiles` 的事）；只有"内容错"与"文件不在"才允许覆盖，其它读失败原样上报不许盖。写完在同一把锁内回读一次，读不动答 500——"200"意味着进门页那张卡真的回来了。`bookmarks.json`/`snapshots/`/历史已有内容不碰一个字节；历史追一行 `{rev:0, ops:[{op:"set", path:"profile/rebuild"}]}`；`X-LB-By` 头可选，缺省 `web`。`theme`/`layout`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项，明写在 §12） |
 | `/healthz` | GET | 存活 |
 | `/icons/{name}` | GET | §5 抓来的 favicon 缓存，文件名必须是 `<hex 哈希>.<png\|ico\|svg\|webp\|gif>`；不匹配这个形状直接 404，不做目录解析。公开、`immutable`（§7.1）；一律带 `Content-Security-Policy: sandbox`——第三方字节由本服务自己的 origin 端出，直接被浏览器当文档打开（尤指 svg）时不许有执行能力 |
 
@@ -403,6 +448,15 @@ LAUNCHBAY_WRITE_TOKENS=ai-dad:xxx:dad,ext-dad:yyy:dad
 **串号（爸爸手机上出现妈妈的书签）是这套设计最贵的一类 bug**，所以键里处处带档案：
 
 - 渲染内存缓存键 = `(profileId, home, homeFingerprint, rev, bookmarksMtime, profileFingerprint, iconGen)`，不是单独的 `rev`（两个档案 rev 恰好相等是常事）。`bookmarksMtime` 让外部程序改盘也能失效重算（§12 最后一条）；`profileFingerprint` 是 `profile.json` 的**内容**指纹（不是它的 mtime：Linux 的 tmpfs/overlayfs 与 CIFS/9p 挂载能把时间戳粒度粗到“写完立刻 stat 还是旧值”，P1-④ 验收实测过两次原子替换的 mtime 纳秒级相同），主题与档案形态存在那里，缺这一维或只认时间戳，都是按钮按下去没反应（P1-④）；`home` 是管理横幅那一维：横幅取决于 `lb_home`，而页面渲染的是 `lb_profile` 的书签，缺这一维会把"带横幅的页面"缓存给被管理的本人看到，正是串号；~~这一维随代管态一起作废（2026-10-10：横幅不存在了，键里那一位也删了——留着它等于为一个不存在的形状占着键位）~~；`iconGen` 是 favicon 缓存的代次计数：`data/icons/` 一变化就让页面重算，否则刚抓到的图标要等下次写入才显示。带 `?q=` 的请求**不进这个缓存**（否则键空间随击键膨胀），但照样发 ETag。
+
+**2026-10-20 补两维**：`lang`（站级界面语言）与 `hasAdmin`（这次请求有没有带一把真的
+管理权）。两者的共同点是**不推进 rev、不改 mtime、不改 profile.json**——管理员在管理页
+改一次语言，所有档案的 rev、mtime、指纹全都一模一样，键却必须变，否则每个档案都拿
+缓存里那份旧语言的页面继续发（而那个旧条目的键与新的完全相等）；管理权那一位更直接：
+顶栏那枚「管理」徽标**由它决定画不画**，而同一个人在同一个浏览器里先输了 key、又清了
+key，键却必须变，否则第二个人会拿到带着管理入口的缓存页面。**放在键里而不是"改语言时
+遍历清一遍缓存"**：清缓存是**要记得做**的事，忘了就是一个"改了不生效、得重启容器"的
+现象；进键是**不用记得**的事，判据只有一份。
 - `ETag` 由 `(profileId, rev, 内容哈希)` 算出，跨档案不得相同。
 - SW 的 HTML 缓存名 = `html-<profileId>`；无 cookie 时只允许命中 `html-picker`。
 - 三条各配单测，外加 §13 的双档案离线端到端回归。
@@ -544,6 +598,13 @@ Chrome / Edge / Firefox / Safari 都能导出这一个格式，所以**一个解
 
 - 地址要有主机名。`javascript:`、`data:`、`file:` 因此进不来；`chrome://extensions/`
   有主机名，按 §6.2 原样保留（渲染层给「需手动打开」角标）。
+
+  **2026-10-12 改判：`file:` 照收。** 上面那句是 2026-10-10 的读数。今天的判据只有
+  一份（`model.CheckURL`）：**有主机名**，或者是 `file:` 且**有路径**。于是
+  `javascript:` / `data:` 仍然进不来（它们没有主机名），而 `file:///C:/…` **照收**——
+  本机文件也是人想存回来的东西；浏览器从 http 页面点不开它（`model.ExternalScheme`
+  量过：Chrome 与 Edge 都拦），于是渲染层给它「需手动打开」角标，与 `chrome://`
+  同一族。`chrome://extensions/` 有主机名，按 §6.2 原样保留。
 - 空名字的书签同样挑出去（`model` 的 name 判据也不许空，两条拼起来才判得全）。
 - 挑出去的那些**逐条点名地址与理由**进报告的「## 没能进来」一节，不静默丢；网页摘要
   与 `/api/v1/import` 的响应都另外给一个**跳过条数**（`skipped`），因为只说"会加 N 条"
@@ -820,5 +881,15 @@ MV3，右键单条收藏 + 批量收藏当前窗口，令牌存 `chrome.storage.
 - 建档与发 PIN 是一次性人工动作：管理员在管理页建好、口头告知 PIN。不做邀请链接、邮件、自助注册。**④.5 已落地**：零档案时首页自己建第一个（`POST /setup`，建成就是管理员、建完这条关闭），其余档案在管理页建（`POST /admin` 的表单，§8.8）；这与本节以前"建档要等 ⑤ 的 JS"的口径不一致，矛盾由首次运行设计消解。
 - 陌生人打开首页只看到档案名字（三形状见 §8.0：0 个档案时连名字都没有，只有一张引导表单），零条目零 URL 零分组名。若将来要"来客临时页"，加一个空内容的 `guest` 档案，而不是给陌生人放开读。
 - **不写审计行的动作**：删档、改自己 PIN、改偏好（`/prefs`）、会话动作（`/switch`）、`resolve`。共同点是都不产生 `rev`、都不动别人的书签数据。清单写在这里，是为了防止下一个人在其中某一处"顺手补一行历史"，让这几条各自分家。
+
+  **2026-10-20 订正两处**：上面那句把「改自己 PIN」与「改偏好」混在一处说了，而两者的
+  形状不同——
+
+  - **改自己 PIN 是写审计行的**（`profile/pin`，`rev:0`）：它是账号层的一次改动，
+    `self/pin` 与 `admin/pin` 两处都写。
+  - **改偏好分两族**：`POST /prefs` 只写 `profile.json`，**不写**审计行；而
+    `POST /prefs/group` 与 `POST /prefs/tabs` **走书签写通路**——快照、审计线、`rev`
+    一道闸不少（它们改的是书签文档本身，`/prefs/tabs` 改的就是 `openInNewTab`）。
+  - **停用也写审计行**（`profile/disabled`，`rev:0`，2026-10-10 起）：它同样是账号层改动。
 - 接管 7570 的时间点由人工确认，不在实施计划里自动执行。
 - `tabler` 对冷门内网服务（青龙面板、弹幕姬、SRS Stack、无名杀、小雅影视）只能取语义近似，实际效果在 P1 导入后目测一轮再定别名表。

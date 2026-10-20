@@ -10,10 +10,13 @@
 > **2026-10-12：本文里凡带 `admin` 的契约形状全部作废**（档案不再有管理员属性）。
 > 照抄即失败的那几处，正文里已就地改写；其余由这段覆盖：
 >
-> - 请求体是 **`{profile, title, pin}` 三格**，**没有 `admin`**。送 `admin` 来会得到
+> - 请求体是 **`{profile, title, pin, nopass}` 四格**，**没有 `admin`**。送 `admin` 来会得到
 >   **422 且点名该字段**（不是静默忽略——沉默会让脚本以为"建成管理员了"）。
+>   而 `pin` 与 `nopass` **二选一**：`nopass:true` 重建出一份**不设防**的档案
+>   （rebuild 必须能造出这个形状，它是唯一能整份重写 `profile.json` 的动作），
+>   两个都给答 422 点名 `nopass`、都不给答 422 点名 `pin`。
 > - 成功响应是 **`{id, title}`**，没有 `admin` 那一格。
-> - CLI 是 `launchbay profile rebuild --id <slug> --title <名字> --pin <4-6位>`，
+> - CLI 是 `launchbay profile rebuild --id <slug> --title <名字> (--pin <4-6位> | --nopass)`，
 >   **没有 `--admin` 旗标**。凭证是 `LAUNCHBAY_ADMIN_TOKEN` 那把机器级 key，
 >   不是从 `LAUNCHBAY_WRITE_TOKENS` 里挑一枚。
 > - 下面"必填字段"那一行、`--admin` 的开关与"省略发 false"那条接线证人、以及

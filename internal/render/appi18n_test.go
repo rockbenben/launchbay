@@ -281,6 +281,7 @@ func TestAppJS_每种错误码都有交代(t *testing.T) {
 // 理由要能被下一个人复核——"界面上没有那条通路"与"我懒得映射"得区分得开。
 var notReachable = map[string]string{
 	"pin-wrong":               "PIN 那一族是零 JS 表单，句子在 ?err= 白名单里（render 侧）",
+	"pin-old-wrong":           "同上：改自己 PIN 那一族也是零 JS 表单（self/pin 的 403）",
 	"profile-disabled":        "会话进不来这一份，浏览器这一侧不会收到",
 	"profile-exists":          "建档只有 POST /api/v1/profiles 与管理页两张表单，这一份脚本都不走",
 	"credential-admin-only":   "管理页那些表单是零 JS 通路",

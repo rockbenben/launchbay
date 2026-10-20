@@ -50,15 +50,24 @@ var credSecuritySchemes = map[cred]string{
 	credNone:      "",
 	credSession:   "sessionCookie",
 	credScoped:    "bearerAuth|sessionCookie",
-	credAdmin:     "bearerAuth|sessionCookie",
+	// **adminCookie 而不是 sessionCookie**（2026-10-20 修）：credAdmin 这一族要的是
+	// **管理权**，而档案会话（`lb_profile`）**一律 403**——登进 dad 也不等于能管这台
+	// 机器。真正能用的那条通路是 `lb_admin`（管理 cookie），而从前契约里**没有它**：
+	// 于是机器可读的那一格写着一个永远被拒的方案，却没写唯一能用的那个。
+	// 这一格是 AI 最会照抄的一格（AGENTS.md：「文档骗 AI 比骗人更贵」）。
+	//
+	// 顺序是**归一后的形状**（方案名排序，见 securitySchemes）：adminCookie 在
+	// bearerAuth 前面。
+	credAdmin:     "adminCookie|bearerAuth",
 	credTokenOnly: "bearerAuth", // 2026-10-19：照实报，不许顺手加 sessionCookie
 }
 
 // tokensRefusedByForm 是 Cred 与 API 同类、却**不认令牌**的浏览器表单通路：
-// 文档只能报 sessionCookie。判据的权威不在这张表——"这条路收到 Bearer 就 303
-// 且不写盘"由 TestAdmin_表单通路不认令牌 在行为那头钉着；这张表只回答"文档有没有
-// 跟着行为走"。所以它的每一行都必须在路由表与文档里真的存在（下面 HasNoGhost…
-// 之外这里再查一次），行为哪天变了，那张表要一起删。
+// 文档只能报 adminCookie（2026-10-20 改：原先报 sessionCookie——那是档案会话，
+// 与管理权无关，而这一族要的是管理权）。判据的权威不在这张表——"这条路收到
+// Bearer 就 303 且不写盘"由 TestAdmin_表单通路不认令牌 在行为那头钉着；这张表
+// 只回答"文档有没有跟着行为走"。所以它的每一行都必须在路由表与文档里真的存在
+// （下面 HasNoGhost… 之外这里再查一次），行为哪天变了，那张表要一起删。
 // **加第二行之前先给它配同一条行为证人**：这一行的合法性来自 handler 真拒令牌，
 // 不来自这张表自己。
 // 2026-10-09 加入管理页那两条零 JS 写动作的四个端点：它们的 handler 第一件事
@@ -90,6 +99,11 @@ type docOperation struct {
 	XStatus     string                        `json:"x-status"`
 	XCredential string                        `json:"x-credential"`
 	Security    *[]map[string]json.RawMessage `json:"security"`
+	// Responses 是这一条 operation 的**响应契约**。
+	//
+	// 它用 map 而不是结构体：状态码是开放的一组（200/303/401/403/404/409/410/422/500/503/507…），
+	// 而这里要判的是**有没有**与**有几种**，不是每一格长什么样（那由 openapi.json 自己说）。
+	Responses map[string]json.RawMessage `json:"responses"`
 }
 
 // securitySchemes 把一条 operation 的 security 数组归成可比较的形状串：每个
@@ -143,15 +157,19 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	// 解析器不许空转：带 enum 的四个字段都得真的带出 enum，否则下面的循环一次都不跑。
 	// 2026-10-12 起 /prefs 有三个字段（多出来的 `title` 是页面名，无枚举、只有
 	// maxLength），2026-10-13 起四个（`view` = 整页排法），2026-10-19 起五个
-	// （`addrLevel` = 卡片第二行印什么）。所以这里数的是"四个带 enum 的 + 一个带
-	// maxLength 的"，而不是笼统的 5：形状变了这条要能指出变的是哪一格。
+	// （`addrLevel` = 卡片第二行印什么），2026-10-20 起六个（`language` = 这一份
+	// 自己的界面语言）。所以这里数的是"四个带 enum 的 + 一个带 maxLength 的 +
+	// 一个带 enum 的语言"，而不是笼统的 6：形状变了这条要能指出变的是哪一格。
 	//
 	// **2026-10-19 补上 addrLevel**：这一格此前只在 description 里（"五个至少给
 	// 一个"），schema 的 properties 却还只有四个——而 description 与 schema 说的
 	// 是同一件事。AI 照 schema 写请求就少了这一格，写出来的 `addrLevel` 被服务端
 	// 收下（它认），可文档说的字段集合与真实的那一份分家了。
-	if len(form.Schema.Properties) != 5 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 5 个（theme/layout/view/addrLevel/title）：形状变了这条正在空转",
+	//
+	// **2026-10-20 补上 language**：同一族的同一件事——面板上有了「界面语言」
+	// 那一格，schema 里也得有它（空串 = 跟随默认，所以它的 enum 里带一个空串）。
+	if len(form.Schema.Properties) != 6 {
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 6 个（theme/layout/view/addrLevel/title/language）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {
@@ -184,6 +202,17 @@ func TestOpenAPICoversEveryRoute(t *testing.T) {
 			docOps[key] = op
 			if op.Summary == "" {
 				t.Errorf("%s 在文档里没有 summary", key)
+			}
+			// **每一格都得有响应契约**（2026-10-20 补）。
+			//
+			// 从前有十二条端点在文档里只写了「它是什么」，没写「它答什么」——而
+			// openapi.json 是 AI 照着写请求的那份（AGENTS.md：「文档骗 AI 比骗人更贵」）：
+			// AI 读不到响应形状就会自己编一个，于是它编的那个可能与真实现分道扬镳。
+			//
+			// 这条闸是**结构性的**：不点名哪几条该有几格（那是实现者的事），只判
+			// 「有没有」。缺了就红，并指名是哪一条。
+			if len(op.Responses) == 0 {
+				t.Errorf("%s 在文档里没有 responses——AI 读不到它答什么，就会自己编一个", key)
 			}
 			if planned[key] && op.XStatus != "planned" {
 				t.Errorf("%s 是计划中的端点，必须标 x-status: planned", key)
@@ -226,7 +255,13 @@ func TestOpenAPICoversEveryRoute(t *testing.T) {
 			continue
 		}
 		if tokensRefusedByForm[key] {
-			wantSec = "sessionCookie"
+			// 这一族是**浏览器表单通路**：只认管理 cookie，收到 Bearer 一律 303
+			// 拒（所以文档里不能写 bearerAuth）。而它要的管理权**不是**档案会话
+			// （`lb_profile`——那一律 403），是 `lb_admin`。2026-10-20 之前这里
+			// 写的是 sessionCookie，于是这一族的文档说的凭证是**永远被拒**的那一个。
+			if rt.Cred == credAdmin {
+				wantSec = "adminCookie"
+			}
 		}
 		if got := securitySchemes(op); got != wantSec {
 			t.Errorf("%s 的 security = %q，Cred(%s) 该报 %q", key, got, want, wantSec)

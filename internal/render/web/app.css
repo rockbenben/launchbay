@@ -9,7 +9,7 @@
 /* 这一条的本意是**字段标签**（包住控件的那种 label）占一行、小字、次级色——
    下面 `.fld-group` 那段注释说的就是它。但它从前写的是裸的 `.sheet label`，
    与 base.css 的 `.prefs-nav label{display:flex;align-items:center}` **同权重**，
-   而 app.css 在它之后 → 台面面板那三颗 tab 的 label 在浮层里被收成 block：
+   而 app.css 在它之后 → 台面面板那四颗 tab 的 label 在浮层里被收成 block：
    44px 的盒子里文字贴顶（实测上留白 1px / 下留白 27px，独立页是 12 / 14），
    那颗"当前在哪一节"的主色竖条也从 flex 项掉回内联盒、高度不再说话。
    **同一份 define 在两处落地长得不一样**，正是 base.css 那段"两处是同一个数"
@@ -107,6 +107,25 @@
 .sheet .close{position:absolute;top:10px;right:10px;width:auto;min-width:44px;font-size:20px;
   background:transparent;border:1px solid var(--line);color:var(--ink);
   border-radius:8px;cursor:pointer}
+/* × 与标题的让位（2026-10-20）。那颗 × 是**绝对定位**在浮层右上角的
+   （top:10px;right:10px，最少 44px 宽），而标题 h2 从**内容边**起排（浮层内衬 22px）
+   ——两者之间只隔着 22px，于是标题一长就从 × 底下穿过去（英文那句
+   "Pick one from the icon library" 最容易撞上）。
+
+   右边留 56px：44（× 的宽）+ 10（它离右沿的距离）+ 2（缝），标题就永远停在 × 左边。
+
+   判据是**这一层有没有 ×**：那些没有 × 的小层（挑组 / 挑标签 / 确认 / 就地编辑）
+   右边是空的，给它们留白只会让标题凭空短一截。`:has()` 本文件已经在用
+   （`.sheet label:has(input,…)`），base.css 也有两处（`.act .choice:has(input:checked)`），
+   不认它的浏览器只是标题仍会压到 × 底下——那与从前一样，不是新问题。
+
+   **提示句也归它让**（2026-10-20）：台面面板的「我的 PIN」那一族答错时，浮层顶上
+   会多出一句提示（服务端把它插在面板之前，见 renderPrefsNotice），而 × 是
+   `position:absolute` 贴在浮层的右上角——于是它落在提示句那一格里。标题本来就有
+   让位的规矩（`padding-right`），那一条护的是**文字**；提示句是个**盒子**，盒子
+   护不住——要护住它，得让盒子在右边**短一截**，让 × 落在空出来的那一截里。 */
+.sheet:has(.close) h2{padding-right:56px}
+.sheet:has(.close) .notice{margin-right:44px}
 
 /* ⌘K 面板是**叠加**不是另一个页面（§8.6）：浮在上层，页面照常可点。
    与 .sheet 同一套面板语言（居中 + 背板），只是贴在上方 10vh 处、更宽一档。 */
@@ -413,6 +432,11 @@ body[data-multi] main{padding-bottom:96px}
   z-index:70;width:max-content;max-width:min(560px,calc(100vw - 32px));
   margin:0;display:flex;align-items:center;gap:10px;
   box-shadow:0 10px 28px rgba(0,0,0,.42);animation:lb-toast .18s ease-out}
+/* **多选时横幅要抬高**（2026-10-20）：多选条是 fixed 在底部（69px 高），而
+   横幅原本也在 bottom:18px——于是进多选的那一刻，横幅正好**压住**多选条上那
+   五颗键（移动到/打标签/删掉/取消全选），而横幅自己可点，下面的键就点不到。
+   多选期间把它抬到多选条上面（69 + 18 + 一点缝）。 */
+body[data-multi] #lb-banner{bottom:88px}
 @keyframes lb-toast{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 /* 会自己走的那一条：底边一条会缩的细线，**它就是"几秒后消失"这句话本身**——
    没有它，一条自动消失的消息就是一次突袭，而这条线让"它在走"变成看得见的。
@@ -474,6 +498,14 @@ body[data-multi] main{padding-bottom:96px}
    44 那条触摸地板仍然一寸不让——动的是列宽与格高，不是命中区。 */
 .icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;
   margin-top:4px;max-height:min(52vh,360px);overflow:auto}
+/* 网格里的两行**整宽**的东西：段标题与「再加载一批」那枚键。
+   它们是网格的**一项**（跨满所有列），不是网格外面的一行——网格是要滚的，
+   外面那行永远在视口里，于是"还有没有"这件事看不见了（而那正是这一行要说的）。
+   段标题是小字弱色：它是**分段**的说明，不是又一颗主键。 */
+.icpick-sec{grid-column:1/-1;margin:6px 0 0;font-size:12px;color:var(--ink2)}
+.icpick-sec:first-child{margin-top:0}
+.icpick-more{grid-column:1/-1;display:flex;justify-content:center;padding:10px 0 2px}
+.icpick-more .fld{width:auto}
 .icpick-tile{min-height:76px;padding:8px 4px;display:grid;gap:3px;place-items:center}
 /* 名字那一行是这一格的**判据**（认不出两枚鲸鱼哪枚是哪枚时，只有这行字能分开它们），
    所以它不参与换行：超长走省略号，而全键在 `title` 与 `data-icon` 里都在。 */
@@ -488,17 +520,14 @@ body[data-multi] main{padding-bottom:96px}
    把它塞进状态行，空态就变成一句不回答问题的科普，于是读作"什么都没有"。 */
 .icpick-hint{margin:0;font-size:12px;color:var(--ink2)}
 
-
 /* 报告里那些列表要**带回符号**：全局把 list-style 复位了，不显式要回来，
-   1. 2. 3. 会全变成无编号的缩进块。 */
-.rep-list{margin:6px 0;padding-left:22px;list-style:revert}
-ul.rep-list{list-style:disc}
-ol.rep-list{list-style:decimal}
-.rep-list li{display:list-item}
-.rep-list li{margin:3px 0;font-size:13px}
-.rep code{font-size:12px;word-break:break-all;direction:ltr}
-.rep b{font-weight:600}
-@media (forced-colors:active){.rep{border:1px solid CanvasText}}
+   1. 2. 3. 会全变成无编号的缩进块。
+
+   **这五条原来住在 app.css，而报告页只内联 base.css**（2026-10-20 移过去）：
+   导入那一页是**零 JS** 的（§7.2），它不引 app.css ——于是这几条规则在真正
+   画报告的那一页**一条都没生效**：ul 变成没有符号的缩进块（`ul{list-style:none}`
+   是全局复位），`code` 没有 word-break（长地址能把整页撑破）。规则写在用不到它
+   的文件里，等于没写。 */
 
 /* ── 大卡带（2026-10-14 建，2026-10-15 扩）────────────────────────────────
    设成「大卡」的那些分组合在这一块里，位置在所有分组之前。**它量的东西与磁贴
@@ -653,4 +682,9 @@ html[data-restore] .card,html[data-restore] .plain,html[data-restore] .feat-card
      的正事；关掉的是"看着它在走"这件事，够安静，也仍然留着一颗「知道了」可按。 */
   #lb-banner{animation:none}
   #lb-banner.ok::after{display:none}
+  /* 大卡带那三张也要关（2026-10-20）：base.css 的 reduced-motion 只点名了
+     .card/.pick，**大卡这张脸是自己写的**（app.css 的 .feat-card），于是开了
+     "减弱动效"的人悬停大卡仍然抬 3px、图标仍然放大 1.08。 */
+  a.feat-card:hover{transform:none}
+  a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transform:none}
 }

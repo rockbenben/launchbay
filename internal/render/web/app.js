@@ -29,6 +29,7 @@ const APP_I18N = {
     "app.field.title": "名字",
     "app.field.desc": "描述",
     "app.field.group": "分组",
+    "app.field.newGroup": "新分组名",
     "app.field.icon": "图标",
     "app.ph.title": "网站标题，可改",
     "app.ph.desc": "一句话说明，可不填",
@@ -36,16 +37,19 @@ const APP_I18N = {
     "app.icon.none": "不选图标（用名字第一个字）",
     "app.icon.auto": "抓这个网站的图标",
     "app.icon.currentSuffix": "（现在的）",
-    "app.icon.fetch": "去看这一站的图标",
+    "app.icon.fetch": "查这一站有哪些图标",
     "app.icon.lib": "图标库…",
     "app.icon.libTitle": "从图标库里挑一个",
     "app.icon.libPh": "搜名字，比如 docker、github、相册",
     "app.icon.libHint": "常见的牌子都有；也可以按东西搜，比如相机、相册、下载。",
-    "app.icon.libStart": "在上面搜一个名字，图标就出现在这里。",
+    "app.icon.libStart": "在上面搜一个名字，或者往下翻整个图库。",
     "app.drop.dup": "这一份里已经有这一条了，没有再存一遍。",
     "app.added.saved": "存进「%s」了。",
     "app.drop.noGroup": "这一份还没有分组，拖进来的地址没地方放。先建一个分组，再拖一次。",
-    "app.icon.libStarter": "这一份已经在用的图标；在上面搜名字可以找库里其余的。",
+    "app.icon.libStarter": "这一份已经在用的",
+    "app.icon.libCommon": "常用的",
+    "app.icon.libAll": "图库里的全部（%s 个）",
+    "app.icon.libLoad": "再加载一批（已显示 %s 个）",
     "app.icon.libNone": "图标库里没有叫「%s」的。",
     "app.icon.libMore": "共 %s 个，先看前 %s 个",
     "app.icon.libFail": "图标库没查到（这一格连不上，稍后再试一次）。",
@@ -71,7 +75,7 @@ const APP_I18N = {
     "app.offline.left": "还有 %d 条没存进去：%s",
     "app.saving": "正在保存…",
     "app.saved": "已保存。",
-    "app.conflict": "这一份已经被改过（可能另一边也动了）。刷新后再来一次。",
+    "app.conflict": "这一份已经被改过了（可能另一边也动了）。刷新之后再试一次。",
     "app.cmdk.placeholder": "搜书签，或做点什么",
     "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
     "app.cmdk.aria": "命令面板",
@@ -92,7 +96,7 @@ const APP_I18N = {
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
   "app.group.new": "＋ 新分组…",
-  "app.group.shape": "这一组用",
+  "app.group.shape": "这一组的排法",
     "app.layout.rows": "单列",
     "app.layout.feature": "大卡",
     "app.layout.featureTitle": "挪到页面顶部那块放大的区域：卡更大、名字下面是主机名。几个分组都设成「大卡」会并进同一块，这一块会一直往下长",
@@ -101,7 +105,7 @@ const APP_I18N = {
     "app.multi.move": "移动到（%d）",
     "app.multi.tags": "打标签（%d）",
     "app.multi.delete": "删掉（%d）",
-    "app.multi.none": "全不选",
+    "app.multi.none": "取消全选",
     "app.multi.exit": "退出",
     "app.multi.hint": "已经在多选里：点卡片选上或取消，下面那一排是批量动作，按 Esc 退出。",
     "app.move.aria": "移动到哪个分组",
@@ -122,17 +126,17 @@ const APP_I18N = {
     "app.keys.long": "进多选：一次移动或打标签好几条",
     "app.keys.arrows": "在面板里选择",
     "app.keys.esc": "关掉当前浮起来的那一层",
-    "app.keys.escAll": "Esc 关掉这一页",
+    "app.keys.escAll": "Esc 关掉这个面板",
     "app.sw.dismiss": "知道了",
     "app.sw.aria": "关掉这条提醒",
-    "app.sw.updated": "书签页面已更新。点刷新用上新的。",
+    "app.sw.updated": "书签页面已更新。刷新一下页面就能用上新的。",
     "app.generic.cancel": "取消",
     "app.generic.save": "保存",
     "app.ops.item": "这一条",
     "app.ops.move": "移动",
     "app.ops.layout": "这一组的排法",
-  "app.ops.group": "这一下",
-  "app.ops.tabs": "点开书签",
+  "app.ops.group": "这一组的改动",
+  "app.ops.tabs": "点书签的方式",
   "app.ops.prefs": "这一格设置",
   "app.ops.bg": "背景图",
     "app.ops.bulkMove": "批量移动",
@@ -147,7 +151,7 @@ const APP_I18N = {
     "app.delete.aria": "批量删除",
     "app.delete.undoHint": "删掉之后还能用「设置 → 回退与历史」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
-    "app.opsConflict": "这一份已经被改过，刷新之后再试。",
+    "app.opsConflict": "这一份已经被改过了。刷新之后再试一次。",
     "app.opsWrongProfile": "这一页改的不是你正在用的那一份。点右上角的档案名，重新进一次。",
     "app.opsStale": "那一组或那一条已经不在了——可能别人刚改过。刷新之后再看一次。",
     "app.opsDuplicate": "这一条已经在这份里了（同一条书签不能存两次）。要改它，就在那一条上按 ✎。",
@@ -158,7 +162,7 @@ const APP_I18N = {
     "app.opsBroken": "这一份的数据文件读不动，刚才的改动没有写进去。这不是重试一次能解决的——要在这台机器上修好那个文件。",
     "app.opsRejected": "这一批没有写进去：这台机器不收刚才那些内容。（原因在浏览器控制台里。）",
     "app.opsNoSnap": "这一版存不下，改动已经取消，书签一个字都没变。",
-    "app.opsServerError": "这台机器刚才没能完成（HTTP %s）。稍后再试一次。",
+    "app.opsServerError": "这台机器刚才没能完成这个请求（HTTP %s）。稍后再试一次。",
     "app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",
     "app.sep": "、",
     "app.keys.mod": "⌘ 或 Ctrl",
@@ -172,6 +176,7 @@ const APP_I18N = {
     "app.field.title": "Name",
     "app.field.desc": "Description",
     "app.field.group": "Group",
+    "app.field.newGroup": "New group name",
     "app.field.icon": "Icon",
     "app.ph.title": "Page title, editable",
     "app.ph.desc": "One-line note, optional",
@@ -179,16 +184,19 @@ const APP_I18N = {
     "app.icon.none": "No icon (use the first letter)",
     "app.icon.auto": "Fetch this site's icon",
     "app.icon.currentSuffix": " (current)",
-    "app.icon.fetch": "Look up this site's icons",
+    "app.icon.fetch": "See the icons for this site",
     "app.icon.lib": "Icon library…",
     "app.icon.libTitle": "Pick one from the icon library",
     "app.icon.libPh": "Search by name — docker, github, photos",
     "app.icon.libHint": "Most well-known brands are in here. You can also search for the thing itself: camera, photos, downloads.",
-    "app.icon.libStart": "Search for a name above and the icons show up here.",
+    "app.icon.libStart": "Search for a name above, or scroll through the whole library.",
     "app.drop.dup": "This profile already has that one — it was not saved twice.",
     "app.added.saved": "Saved into %s.",
     "app.drop.noGroup": "This profile has no group yet, so the dropped link has nowhere to go. Make a group first, then drop it again.",
-    "app.icon.libStarter": "Icons already used in this profile. Search above for the rest of the library.",
+    "app.icon.libStarter": "Already used in this profile",
+    "app.icon.libCommon": "Common ones",
+    "app.icon.libAll": "All of them in the library (%s)",
+    "app.icon.libLoad": "Load more (%s shown so far)",
     "app.icon.libNone": "Nothing in the library is called %s",
     "app.icon.libMore": "%s in all, showing the first %s",
     "app.icon.libFail": "The icon library could not be reached (try again in a moment)",
@@ -237,7 +245,7 @@ const APP_I18N = {
   "app.group.new": "+ New group…",
   "app.group.shape": "Arrange it as",
     "app.layout.rows": "Single column",
-    "app.layout.feature": "Feature",
+    "app.layout.feature": "Big card",
     "app.layout.featureTitle": "moves into the enlarged area at the top: bigger cards with the host under the name. Groups set to this join the same area, which keeps growing",
     "app.layout.aria": "Switch the group “%s” from %s to %s",
     "app.multi.aria": "Bulk actions",
@@ -268,14 +276,14 @@ const APP_I18N = {
     "app.keys.escAll": "Esc closes this panel",
     "app.sw.dismiss": "Got it",
     "app.sw.aria": "Dismiss this notice",
-    "app.sw.updated": "The bookmark page has been updated. Refresh to use it.",
+    "app.sw.updated": "The bookmark page has been updated. Refresh the page to use the new one.",
     "app.generic.cancel": "Cancel",
     "app.generic.save": "Save",
     "app.ops.item": "That bookmark",
     "app.ops.move": "The move",
     "app.ops.layout": "The group's layout switch",
-  "app.ops.group": "That change",
-  "app.ops.tabs": "Opening a bookmark",
+  "app.ops.group": "That group's change",
+  "app.ops.tabs": "How bookmarks open",
   "app.ops.prefs": "That setting",
   "app.ops.bg": "The background",
     "app.ops.bulkMove": "The bulk move",
@@ -301,7 +309,7 @@ const APP_I18N = {
     "app.opsBroken": "That profile's data file can't be read, so the change wasn't written. Retrying won't help — the file has to be fixed on this machine.",
     "app.opsRejected": "That batch wasn't written — this machine didn't accept what was in it. (The reason is in the browser console.)",
     "app.opsNoSnap": "This version couldn't be stored, so the change was cancelled — your bookmarks are untouched.",
-    "app.opsServerError": "This machine couldn't finish that (HTTP %s). Try again in a moment.",
+    "app.opsServerError": "This machine could not finish that request (HTTP %s). Try again in a moment.",
     "app.opsGone": "This page is no longer signed in. Click your profile name at the top right to sign in again.",
     "app.sep": ", ",
     "app.keys.mod": "⌘ or Ctrl",
@@ -485,8 +493,20 @@ const APP_I18N = {
     // inert 里（面板没了，一个字都点不动）。它的收尾还要把焦点还给打开它的那颗键。
     if (iconPick.panel) { closeIconPicker(); return true; }
     // 那些"用完即弃"的小层（挑组 / 挑标签 / 确认）：DOM 里现找，摘掉。
+    //
+    // **焦点要还回去**（2026-10-20）：这一层是被某个按钮打开的（挑组是从
+    // 「移动到」那颗键、标签是从卡片上那枚笔），关掉它以后焦点原本停在被
+    // 摘掉的那个节点上——那个节点已经不在文档里了，于是焦点掉回 <body>，
+    // 键盘用户被扔到页面最顶端（他刚按的 Tab 从那儿重新开始）。
+    // 同文件里台面面板的关闭与添加浮层的 × 都写了 focus()，这一支原先漏了。
     const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
-    if (dlg) { dlg.remove(); syncTrap(); return true; }
+    if (dlg) {
+      const opener = dlg.__opener || document.activeElement;
+      dlg.remove();
+      syncTrap();
+      if (opener && opener.isConnected) opener.focus();
+      return true;
+    }
     for (const n of [help, cmdk, sheet]) {
       if (!n.hidden) { n.hidden = true; syncTrap(); return true; }
     }
@@ -556,7 +576,12 @@ const APP_I18N = {
     el('button', { type: 'button', class: 'fld', 'aria-pressed': 'true', text: T('app.layout.tiles'), on: { click: () => pickShape('tiles') } }),
     el('button', { type: 'button', class: 'fld', 'aria-pressed': 'false', text: T('app.layout.rows'), on: { click: () => pickShape('list') } }),
   ]);
-  const fGroupShapeWrap = el('label', {}, [
+  // **这一组是「这一组用哪种排法」**（2026-10-20）：从前它是一个 <label> 包着
+  // 两颗 button，而 label 的隐式目标是**第一颗 button**，它自己又没有 for——
+  // 于是读屏只念「磁贴 按钮 已按下」，听不出这是关于排法的；点标签文字还会
+  // 顺带触发第一颗。台面面板那一处已经是 role=radiogroup（profile.tmpl），
+  // 这里照它那一套：div[role=group] + 组名。
+  const fGroupShapeWrap = el('div', { role: 'group', 'aria-label': T('app.group.shape') }, [
     el('span', { text: T('app.group.shape') }),
     fGroupShape,
   ]);
@@ -616,7 +641,12 @@ const APP_I18N = {
     // `app.field.group` 这个 key **早就躺在四份词典里**（zh/en × 服务端/前端），
     // 而全仓再没有第二处引用它——所以这不是新增文案，是把一条早就写好、
     // 一直没人接的判据接回去。（写这一行注释时先 grep 过：它此前只被声明。）
-    el('label', { text: T('app.field.group') }, [fGroup, fNewGroup, fGroupShapeWrap]),
+    // **新分组名那一格有自己的 label**（2026-10-20）：它从前跟分组下拉共用一个
+    // <label>，于是「新分组名」输入框的可及名也是「分组」——两个控件同名，
+    // 读屏分不出哪个是哪个。
+    el('label', { text: T('app.field.group') }, [fGroup]),
+    el('label', { text: T('app.field.newGroup') }, [fNewGroup]),
+    fGroupShapeWrap,
     el('div', { class: 'icrow' }, [
       el('label', { text: T('app.field.icon') }, [fIcon]),
       iconLibraryButton(fIcon),
@@ -693,13 +723,7 @@ const APP_I18N = {
           type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
           on: { click: prefsClose },
         }));
-        wireBgFileName(prefsSheet);
-        wireGroupRename(prefsSheet);
-        // 切一节就记住它——**不是为了这次**（DOM 自己就保持着），是为了下一次
-        // 重载/重开。`change` 只在真的换了那颗时响（点已选中的那颗不响）。
-        for (const r of prefsSheet.querySelectorAll('.prefs-tab')) {
-          r.addEventListener('change', () => rememberPrefsTab(r.id));
-        }
+        wirePrefsPanel(prefsSheet);
         prefsLoaded = true;
       } catch {
         location.href = '/prefs';
@@ -713,6 +737,43 @@ const APP_I18N = {
     // 焦点给它只会让读屏从一行字开始念。落在面板自己身上（tabindex=-1 加在
     // 空壳上），读屏先念可及名——也就是那个 h2。
     prefsSheet.focus();
+  }
+
+  // wirePrefsPanel 重连那几根**按内容找元素**的线：背景文件名回显、分组名字的
+  // 回车提交、tab 那颗的 change 监听。
+  //
+  // 最后一根记着"停在哪一节"——**不是为了这次**（DOM 自己就保持着），是为了下一次
+  // 重载/重开。`change` 只在真的换了那颗时响（点已选中的那颗不响）。
+  function wirePrefsPanel(root) {
+    wireBgFileName(root);
+    wireGroupRename(root);
+    for (const r of root.querySelectorAll('.prefs-tab')) {
+      r.addEventListener('change', () => rememberPrefsTab(r.id));
+    }
+  }
+
+  // replacePrefsPanel 把浮层里的面板整块换成服务端刚画的那一份，并把它顶上那句
+  // 提示一起搬过来。
+  //
+  // 为什么需要它：「我的 PIN」那一族改完之后**形状变了**（多一格「现在的 PIN」
+  // / 少一格），所以不能只改一格的状态。
+  //
+  // **那句话在面板外面**：服务端把它插在 `<section class="prefs">` 之前
+  // （renderPrefsNotice），于是只换面板会把它落下——"错话说过了而屏上没这句话"。
+  //
+  // **提交委托是挂在浮层壳上的**（不是挂在表单上），所以换掉面板里的内容不会把
+  // 那些委托摘掉；要重连的是 wirePrefsPanel 那三根。
+  function replacePrefsPanel(panel, notice) {
+    const old = prefsSheet.querySelector('section.prefs');
+    if (old) old.replaceWith(panel);
+    // 面板顶上原来那一句是**上一次**留下的（上一轮错话），先摘掉再放这一次的。
+    for (const n of prefsSheet.querySelectorAll('.notice')) n.remove();
+    if (notice) panel.before(notice);
+    wirePrefsPanel(prefsSheet);
+    // 焦点别丢：换掉整块面板之后焦点会掉回 <body>，而人下一步要敲的正是
+    // 那一格（改错了要改「现在的」，改对了要接着填「新的」）。
+    const first = panel.querySelector('input[type=password]');
+    if (first) first.focus();
   }
 
   function prefsClose() {
@@ -785,6 +846,89 @@ const APP_I18N = {
       // 于是「按一下 → 面板消失」与「整页跳走」是同一种丢失。
       // 改完就地按一下那颗键的 aria-pressed：那是这一格唯一的可见状态。
       markPressed(form, v);
+    });
+    // 背景那一族（POST /prefs/background，2026-10-20 补上）。
+    //
+    // **它从前是原生提交的**，于是浮层里按一下「暂时不显示」，整页导航到独立
+    // 那一页（实拍复现）：浮层没了、滚动位置没了、还落回"外观"而不是你刚才
+    // 所在的那一节。同一屏里其余每一行都是就地更新——这一族是唯一的例外。
+    //
+    // 文件那一格是 multipart，所以不能像别的族那样交 URLSearchParams：直接
+    // 把 FormData 交出去（边界由浏览器带）。
+    //
+    // 改完**要重载**：背景的预览图是按内容哈希的 URL，改了就得重新取一张。
+    // 但要记住"面板还开着"（OPEN_KEY），否则重载后面板整个不见了——那正是
+    // 这一族此前那个症状的另一半。
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action="/prefs/background"]');
+      if (!form) return;
+      e.preventDefault();
+      const data = new FormData(form, e.submitter || undefined);
+      try {
+        await fetch('/prefs/background', { method: 'POST', body: data, credentials: 'same-origin' });
+      } catch (err) {
+        say(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        return;
+      }
+      try { sessionStorage.setItem(OPEN_KEY, '1'); } catch { /* 存不下就当没记 */ }
+      reloadKeepingPlace();
+    });
+    // 「我的 PIN」那一格（POST /prefs/pin，2026-10-20 补上）。
+    //
+    // **它从前是原生提交的**，而服务端答 303 回 `/prefs?tab=pin`——于是在浮层里
+    // 按一下「改这道门」，整页导航到独立页（实拍复现）：浮层没了、你刚待的那一
+    // 节没了，症状读作「设置变成单独页面了」。**与 2026-10-14 给「点开书签」那
+    // 一格修过的是同一件事**（那一族的注释写得很清楚），这一族是漏了同一份委托。
+    //
+    // **这一族特殊在形状会变**：设上第一个 PIN 之后面板要多画一格「现在的 PIN」，
+    // 撤掉之后又要少一格——所以改完**不能只动一格**，得把面板整块换掉。
+    //
+    // 换的那一块**由服务端画**，而两种答法**形状一样**：成功时是 303 跟到
+    // `/prefs?tab=pin`（新形状），失败时是 200 且面板顶上带着那句提示
+    // （`renderPrefsNotice` 重画的就是它）。所以这里不必分成功与失败——从答里
+    // 取 `section.prefs` 换进去，成功看到的是新形状，失败看到的是新形状加那句话。
+    //
+    // **体是 urlencoded**：服务端那条落点收的是 `application/x-www-form-urlencoded`
+    //（`r.ParseForm`），而 FormData 是 multipart——所以这里转成 URLSearchParams
+    // 再交（同 `/prefs` 那一族那样）。
+    prefsSheet.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[action^="/prefs/pin"]');
+      if (!form) return;
+      e.preventDefault();
+      const data = new FormData(form, e.submitter || undefined);
+      const body = new URLSearchParams();
+      for (const [k, v] of data.entries()) body.append(k, String(v));
+      let html;
+      try {
+        // **地址取表单自己的 action**：它带着 `?tab=pin`（这一格只出现在「我的
+        // PIN」那一节），而服务端答错时把面板连同那句话一起重画、读的就是它。
+        // 写死成 `/prefs/pin` 的话，错话会落回第一颗 tab（屏上是「外观」那一节
+        // 顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
+        //
+        // **Accept: text/html 是必须的**：答对了是 303，跟过去的那次 GET 若带
+        // `*/*`，Service Worker 会把它按**指纹资源**缓存住（那一族 immutable、
+        // 永不过期）——于是面板被永久钉住，"改完看到的还是上一次的"。sw.js 里
+        // 那条注释说的正是这个坑（它当年是面板第一次取到的那一份被钉住）。
+        const res = await fetch(form.getAttribute('action'), {
+          method: 'POST', body, headers: { Accept: 'text/html' },
+          credentials: 'same-origin', redirect: 'follow',
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        html = await res.text();
+      } catch (err) {
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        return;
+      }
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const panel = doc.querySelector('section.prefs');
+      if (!panel) {
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), 'no panel'));
+        return;
+      }
+      // 那句话在 `<main>` 里、面板**之前**（renderPrefsNotice 插在那儿），
+      // 所以连它一起搬进来——否则「错话说过了」而屏上什么都没有。
+      const notice = doc.querySelector('main > .notice');
+      replacePrefsPanel(panel, notice);
     });
     // 改名 / 排法 / 第二行 / 档案形态 / 主题那五张（POST /prefs；2026-10-14 补上
     // 前四张，2026-10-19 加上第二行）。
@@ -1007,8 +1151,8 @@ const APP_I18N = {
 
   // ── 图标库：挑一枚图标（2026-10-14）────────────────────────────────────
   //
-  // 内嵌索引有六千多个名字（品牌层 simple-icons + 概念层 tabler），而两个浮层原本
-  // 只给三样：不选图标 / 自动按网址抓 / resolve 给的至多 5 条候选。库里那六千个
+  // 内嵌索引有一万多个名字（品牌层 simple-icons + 概念层 tabler），而两个浮层原本
+  // 只给三样：不选图标 / 自动按网址抓 / resolve 给的至多 5 条候选。库里那一万个
   // 于是**在界面上一个出口都没有**——ops 认 icon 字段、CLI 能查名字，而"给一条书签
   // 换个图标"只能去打接口。
   //
@@ -1017,7 +1161,21 @@ const APP_I18N = {
   // 那一格用的是页面画卡片图标时同一个 svgMarkup，于是挑的时候看见的形状与存下去
   // 之后卡片上那一枚逐像素相同。
   const iconTilesLimit = 24;
-  const iconPick = { sel: null, panel: null, input: null, grid: null, note: null, timer: 0, seq: 0, opener: null };
+  // 图库翻页的页大小（2026-10-20）。60 是一次三百来 KB 的 markup——局域网上一瞬
+  // 就到，而一次倒一万个是十几 MB（面板会卡死、家用机器的内存也吃不住）。
+  const iconBrowsePageSize = 60;
+  const iconPick = {
+    sel: null, panel: null, input: null, grid: null, note: null, timer: 0, seq: 0, opener: null,
+    // 浏览视图的三段（2026-10-20）：这一份已经在用的 / 常用的 / 图库里的全部。
+    used: [],        // 这一份已经在用的（克隆卡片上那一枚）
+    common: [],     // 服务端那份人工挑的常用清单
+    browse: [],     // 已经翻出来的图库页（累积）
+    libLabel: null, // 图库那一段的标题（与第一页一起出现）
+    browseTotal: 0, // 全库条数
+    browseOffset: 0,
+    loading: false, // 正在翻页（别重复要）
+    mode: 'browse', // 'browse'（浏览视图） | 'search'（搜索结果）
+  };
 
   // 「图标库…」那颗键。**它不进 <label> 里**：label 包着的控件是那个 <select>，
   // 而点 label 里的任何一点都会连带激活它——于是点「图标库…」会顺带把那颗下拉
@@ -1075,13 +1233,59 @@ const APP_I18N = {
       const tile = e.target.closest('.icpick-tile');
       if (tile) pickIcon(tile.dataset.icon);
     });
+    // 滚到底就再要一页（浏览视图）。搜索视图下不翻——那一屏是"你搜到的那些"。
+    grid.addEventListener('scroll', () => {
+      if (iconPick.mode !== 'browse' || !iconPick.grid) return;
+      const g = iconPick.grid;
+      if (g.scrollTop + g.clientHeight >= g.scrollHeight - 80) loadIconBrowse();
+    });
+    iconPick.used = starterIconTiles();
     paintIconStarter();
+    loadIconCommon();
+    loadIconBrowse();
+  }
+
+  // 常用那一批（2026-10-20）：**服务端给的一份人工挑的常用清单**
+  // （`GET /api/v1/icons/starter`），与服务端画卡片图标走同一个出口。
+  //
+  // **为什么要有它**：面板从前打开是一张空网格 + 一句「先搜个名字」。起始格
+  // （这一份已经在用的那些）救不了它——书签默认 icon=auto（去抓 favicon），
+  // 而 auto 与"没设"都被那一格排除掉，于是实测里**这一格几乎永远是空的**，
+  // 面板也就永远空着。那是 2026-10-16 那次想治的同一个症状，而它自己写着
+  // "没回答点这颗按钮的人真正想问的'给我看几个'"。
+  //
+  // 换判据不如换一个**一定有货**的来源：库里一万多个名字不会全倒出来（那是
+  // 一屏噪声），但一份常用清单永远是有的。
+  //
+  // 走 fetch 而不是让服务端把这一批内联进页面：图库不进首屏（§7.3 那条操作线），
+  // 而这一批只在**有人点开这个浮层**时才需要。
+  async function loadIconCommon() {
+    try {
+      const res = await fetch('/api/v1/icons/starter', { headers: { Accept: 'text/html' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const html = await res.text();
+      // 关掉了就别写了：那一层已经从文档里摘掉，往一个不在的格子里画等于
+      // 往虚空里画（下面的 paintIconStarter 自己也会因为 grid 为空而退出）。
+      if (!iconPick.panel) return;
+      // 插入走 DOMParser 而不是 innerHTML：那一段是本服务自己画的（路径数据来自
+      // 内嵌索引、属性值在 svgMarkup 里逐个转义），但它终究跨了一次 fetch，
+      // 而 parse 出来再取节点顺带把 script 与内联事件一起丢掉——"它是我们自己
+      // 画的"是注释，parse 是机制。
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      iconPick.common = [...doc.body.querySelectorAll('.icpick-tile')];
+      paintIconStarter();
+    } catch (err) {
+      if (!iconPick.panel) return;
+      const { note } = iconPick;
+      note.textContent = T('app.icon.libFail');
+      note.className = 'sheet-status bad';
+    }
   }
 
   // 起始格：**这一份已经在用的那些图标**（2026-10-16）。
   //
   // 此前打开就是一张空网格 + 一句"先搜个名字"（app.icon.libStart）。那是
-  // 2026-10-14 定下的空态，判据本身没错——库有六千多条，空查询倒出来是一屏
+  // 2026-10-14 定下的空态，判据本身没错——库有一万多条，空查询倒出来是一屏
   // 噪声——可它没有回答点这颗按钮的人真正想问的"给我看几个"，症状是实拍到的
   // 那一屏：面板开了、搜索框在、**什么也没有**。
   //
@@ -1115,15 +1319,120 @@ const APP_I18N = {
     return out;
   }
 
-  // 清空搜索框要**回到起始格**而不是回到空白：那一下是"我不搜了，看刚才那批"，
+  // 翻图库（2026-10-20）：**整个**图标库，不只是常用那一批。
+  //
+  // 面板从前只有两批来源——"搜一个词"与"这一份已经在用的"——于是"这台机器里到底
+  // 有哪些图标、随便挑一个"这条路是断的。而那一万个图标是**内嵌在二进制里**的
+  // （spec §5）：它不是"别人的东西"，是这台机器自带的；人工挑的常用清单只是
+  // 其中三十六个，其余九千多个仍然够不着。
+  //
+  // 一次倒出来是十几 MB 的 markup（面板会卡死、这台家用机器的内存也吃不住），
+  // 所以按页要：服务端按 offset 给一页，界面滚到底再要下一页。
+  //
+  // **顺序是稳定的**（服务端 icons.Index.AllNames）：品牌层在前、通用层在后、
+  // 层内按名字排序。翻页的位置就是顺序里的位置，顺序一变就等于翻乱了。
+  async function loadIconBrowse() {
+    if (iconPick.loading || !iconPick.panel) return;
+    if (iconPick.browseTotal > 0 && iconPick.browse.length >= iconPick.browseTotal) return;
+    iconPick.loading = true;
+    try {
+      const res = await fetch('/api/v1/icons/browse?offset=' + iconPick.browseOffset +
+        '&limit=' + iconBrowsePageSize, { headers: { Accept: 'text/html' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const total = Number(res.headers.get('X-LB-Icons-Library') || 0);
+      const html = await res.text();
+      // 关掉了就别写了（那一层已经从文档里摘掉）。
+      if (!iconPick.panel) return;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const tiles = [...doc.body.querySelectorAll('.icpick-tile')];
+      iconPick.browseTotal = total;
+      iconPick.browseOffset += tiles.length;
+      iconPick.browse = iconPick.browse.concat(tiles);
+      // 图库那一段的标题：**与第一页一起出现**（见 paintIconStarter 那段注释——
+      // 在第一页到达之前那个"共 N 个"是 0，而"0 个"是一句假话）。
+      if (!iconPick.libLabel) {
+        iconPick.libLabel = el('p', { class: 'icpick-sec' });
+      }
+      iconPick.libLabel.textContent = T('app.icon.libAll', String(total));
+      // 正在搜的时候不在屏上插（那一屏答的是"你搜到哪几个"），
+      // 但**照样记进 browse**——清掉搜索词回到浏览视图时它们要还在。
+      if (iconPick.mode === 'browse') appendBrowseTiles(tiles);
+    } catch (err) {
+      if (!iconPick.panel) return;
+      const { note } = iconPick;
+      note.textContent = T('app.icon.libFail');
+      note.className = 'sheet-status bad';
+    } finally {
+      iconPick.loading = false;
+    }
+  }
+
+  // 新的一页**插在「再加载一批」那枚键前面**，而不是整张网格重画：重画会把网格的
+  // 滚动位置拨回顶部，于是"往下翻"在翻页时被打断——人按了「再加载一批」，看到的
+  // 却是自己回到了第一屏。
+  function appendBrowseTiles(tiles) {
+    const { grid } = iconPick;
+    if (!grid || !tiles.length) return;
+    const frag = document.createDocumentFragment();
+    // 那一段的标题排在它的格子**前面**（第一次插入时才插，之后它已经在屏上了）。
+    if (iconPick.libLabel && !iconPick.libLabel.isConnected) frag.append(iconPick.libLabel);
+    for (const t of tiles) frag.append(t);
+    const more = grid.querySelector('.icpick-more');
+    if (more) {
+      grid.insertBefore(frag, more);
+      const btn = more.querySelector('button');
+      if (btn) btn.textContent = T('app.icon.libLoad', String(iconPick.browse.length));
+    } else {
+      grid.append(frag);
+    }
+  }
+
+  // 清空搜索框要**回到浏览视图**而不是回到空白：那一下是"我不搜了，看刚才那批"，
   // 而把它变成一张空网格等于逼着人重新敲一遍刚才已经看过的词。
+  //
+  // 浏览视图是**三段**：这一份已经在用的（克隆卡片上那一枚，与卡片逐像素同源）
+  // + 常用的（服务端那份清单）+ **图库里的全部**（可往下翻）。**自己那批在前**
+  // ——自己用过的更可能是想要的那个。
   function paintIconStarter() {
     const { grid, note } = iconPick;
     if (!grid) return;
-    const tiles = starterIconTiles();
-    grid.replaceChildren(...tiles);
-    note.textContent = tiles.length ? T('app.icon.libStarter') : T('app.icon.libStart');
-    note.className = 'sheet-status';
+    const parts = [];
+    if (iconPick.used.length) {
+      parts.push(el('p', { class: 'icpick-sec', text: T('app.icon.libStarter') }));
+      parts.push(...iconPick.used);
+    }
+    if (iconPick.common.length) {
+      // 自己去重：自己用过的那个图标**也可能就在常用那批里**（github 就是），
+      // 两格一模一样地并排摆着，人会以为界面上多了一枚。
+      // 图库那一段**不去重**：它承诺的是"图库里的全部"，跳掉几条就破了这句话。
+      const seen = new Set(iconPick.used.map((t) => t.dataset.icon));
+      const rest = iconPick.common.filter((t) => !seen.has(t.dataset.icon));
+      parts.push(el('p', { class: 'icpick-sec', text: T('app.icon.libCommon') }));
+      parts.push(...rest);
+    }
+    // 图库那一段的标题**与它的第一页一起出现**：标题上写着"共 N 个"，而第一页
+    // 还没到时那个 N 是 0——"0 个"是一句假话，而这一格恰恰是**不许说假话**
+    // 的那一族（它答的是"这台机器里有多少图标"）。所以那一段在第一页到达
+    // 之前根本不出现（appendBrowseTiles 里把它插在第一格之前）。
+    if (iconPick.libLabel) parts.push(iconPick.libLabel);
+    parts.push(...iconPick.browse);
+    // 「再加载一批」那枚键**在网格里面**（不是网格外面）：网格是要滚的，
+    // 外面那行永远在视口里，于是"还有没有"这件事看不见了。
+    if (!iconPick.browseTotal || iconPick.browse.length < iconPick.browseTotal) {
+      parts.push(el('div', { class: 'icpick-more' }, [
+        el('button', {
+          type: 'button', class: 'fld', text: T('app.icon.libLoad', String(iconPick.browse.length)),
+          on: { click: () => loadIconBrowse() },
+        }),
+      ]));
+    }
+    grid.replaceChildren(...parts);
+    // 浏览视图下状态行说的是"**怎么找到**"：搜一个名字，或者往下翻。
+    // 搜索视图下它说的是搜到了几个（runIconSearch 自己写）。
+    if (iconPick.mode === 'browse') {
+      note.textContent = T('app.icon.libStart');
+      note.className = 'sheet-status';
+    }
   }
 
   function closeIconPicker() {
@@ -1135,7 +1444,10 @@ const APP_I18N = {
       opener?.focus();
     }
     // seq 归零同样重要：关掉之后还在飞的答复回来时不该去写已经不在的那一格
-    Object.assign(iconPick, { sel: null, panel: null, input: null, grid: null, note: null, opener: null, seq: 0 });
+    Object.assign(iconPick, {
+      sel: null, panel: null, input: null, grid: null, note: null, opener: null, seq: 0,
+      used: [], common: [], browse: [], libLabel: null, browseTotal: 0, browseOffset: 0, loading: false, mode: 'browse',
+    });
   }
 
   async function runIconSearch() {
@@ -1148,6 +1460,9 @@ const APP_I18N = {
       note.className = 'sheet-status' + (bad ? ' bad' : '');
     };
     if (!q) {
+      // 清空搜索 = 回到**浏览视图**（那三段 + 已翻出来的那几页）。
+      // 浏览视图是"这一份用过的 + 常用的 + 整个图库"，不是一张空网格。
+      iconPick.mode = 'browse';
       paintIconStarter();
       return;
     }
@@ -1171,6 +1486,9 @@ const APP_I18N = {
     // 再 replaceChildren 顺带把 script 与内联事件一起丢掉——"它是我们自己画的"是
     // 注释，parse 是机制。
     const tiles = [...new DOMParser().parseFromString(markup, 'text/html').body.children];
+    // 搜索结果**整张网格换掉**（浏览那一档暂时收起来）：这一屏答的是"你搜到哪几个"，
+    // 混着浏览的三段会让人以为那些也是搜出来的。
+    iconPick.mode = 'search';
     grid.replaceChildren(...tiles);
     if (!tiles.length) show(T('app.icon.libNone', q));
     else if (total > tiles.length) show(T('app.icon.libMore', total, tiles.length));
@@ -1495,8 +1813,16 @@ const APP_I18N = {
       // `10.0.2.3.example.com` 那种仍走可读那条，而它不含私密信息。
       const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
       if (isIPv4) return 'ip-' + (hash36(host + (u.port || '')) || 'item');
+      // **整条路径 + query + hash**（2026-10-20 与扩展对上）：从前只取末段，
+      // 于是 github.com/userA/project 与 github.com/userB/project 派生出同一个
+      // id（撞 id = duplicate-id = 422），而两个视频/两篇文章（只有 query 不同）
+      // 同样会撞。
+      //
+      // **这一段与 extension/bg.js 的派生是同一条判据**：同一个地址在页面与扩展
+      // 上必须得到**同一个 id**，否则同一条书签会被存成两条（两边各存一条）。
       const base = host.split('.')[0] + '-' +
-        (u.pathname.split('/').filter(Boolean).pop() || '');
+        (u.pathname.split('/').filter(Boolean).join('-') || '') +
+        (u.search || '') + (u.hash || '');
       return ascii(base) || ascii(text) || hash36(String(text)) || 'item';
     }
     return ascii(text) || 'g-' + hash36(String(text));
@@ -1537,7 +1863,11 @@ const APP_I18N = {
     if (!navigator.onLine) {
       enqueue({ gid: g.gid, ops: g.ops, value });
       say(T('app.offline.queued'), 'warn');
-      if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else { sheet.hidden = true; }
+      // **关掉浮层要 syncTrap()**（2026-10-20）：这一支从前只写
+      // `sheet.hidden = true`，而 syncTrap 是**唯一**给 body 其余子元素
+      // 摘/挂 inert 的地方——于是离线存完一条之后整页永久 inert：点不动、
+      // Tab 也进不去，只能刷新。在线那一支（下面）一直记得调它。
+      if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else { sheet.hidden = true; syncTrap(); }
       paintQueue();
       return;
     }
@@ -1839,8 +2169,10 @@ const APP_I18N = {
   // ── ⌘/Ctrl K 命令面板（§8.6）───────────────────────────────────────────
   // **叠加能力而不是默认视图**：它是覆盖在上层的一个框，页面本身照常可点、
   // 可用浏览器找词。做成"另一个页面"的话，⌘K 就把搜索框和阅读位置全丢了。
-  const cmdkInput = el('input', { type: 'text', id: 'lb-k', class: 'fld', placeholder: T('app.cmdk.placeholder'), autocomplete: 'off' });
-  const cmdkList = el('ul', { class: 'cmdk-list', role: 'listbox' });
+  const cmdkInput = el('input', { type: 'text', id: 'lb-k', class: 'fld', role: 'combobox',
+    'aria-expanded': 'true', 'aria-controls': 'lb-k-list', 'aria-autocomplete': 'list',
+    placeholder: T('app.cmdk.placeholder'), autocomplete: 'off' });
+  const cmdkList = el('ul', { class: 'cmdk-list', id: 'lb-k-list', role: 'listbox' });
   const cmdk = el('div', { class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.cmdk.aria') }, [
     cmdkInput, cmdkList,
   ]);
@@ -1848,13 +2180,24 @@ const APP_I18N = {
 
   let cmdkHits = [], cmdkSel = 0;
   function cmdkOpen() {
+    // **记住是谁打开它的**（2026-10-20）：关掉时要把焦点还给那一位——
+    // 那个按钮/输入框此刻多半还停在原地。
+    cmdk.__opener = document.activeElement;
     cmdk.hidden = false;
     syncTrap();
     cmdkInput.value = '';
     cmdkRender();
     cmdkInput.focus();
   }
-  function cmdkClose() { cmdk.hidden = true; syncTrap(); }
+  // **焦点要还回去**（2026-10-20）：Esc 关掉 ⌘K 之后，焦点原本停在那个被
+  // hidden 掉的输入框上——节点不在了，焦点掉回 <body>，键盘用户被扔到页面
+  // 最顶端。台面面板那一份（prefsClose）一直记得还。
+  function cmdkClose() {
+    const opener = cmdk.__opener || document.activeElement;
+    cmdk.hidden = true;
+    syncTrap();
+    if (opener && opener.isConnected) opener.focus();
+  }
 
   function cmdkRender() {
     const q = cmdkInput.value.trim().toLowerCase();
@@ -1915,6 +2258,11 @@ const APP_I18N = {
     for (const h of cmdkHits) {
       const row = el('li', {
         role: 'option', 'aria-selected': 'false',
+        // **每行一个稳定 id**（2026-10-20）：输入框要靠 aria-activedescendant
+        // 指着当前那一行——它是一个 listbox，焦点一直在输入框上，读屏要靠
+        // 这一格才知道"现在选中的是哪一条"。没有它，上下移动只有底色变化，
+        // 读屏一个字都不说。
+        id: `lb-k-opt-${cmdkList.children.length}`,
         on: {
           click: () => cmdkRun(h),
           mouseenter: () => { cmdkSel = cmdkHits.indexOf(h); cmdkPaint(); },
@@ -1945,6 +2293,12 @@ const APP_I18N = {
       row.setAttribute('aria-selected', i === cmdkSel ? 'true' : 'false');
       row.classList.toggle('sel', i === cmdkSel);
     });
+    // **告诉读屏"现在选中的是哪一行"**（2026-10-20）：焦点始终在输入框上
+    // （它是个 listbox，焦点不能落在 option 上），所以读屏只能靠这一格知道
+    // 当前项。没有它，上下移动只有底色变化——听屏的人一个字都收不到。
+    const sel = cmdkList.children[cmdkSel];
+    if (sel && sel.id) cmdkInput.setAttribute('aria-activedescendant', sel.id);
+    else cmdkInput.removeAttribute('aria-activedescendant');
   }
   function cmdkRun(hit) {
     cmdkClose();
@@ -2666,7 +3020,9 @@ const APP_I18N = {
   // ── 分组级的布局切换（§8.3：tiles 磁贴 / list 单行） ──────────────────────
   //
   // **为什么需要它**：`layout` 从前只能由机器改（ops 的 `groups/<id>/layout`，
-  // ops.go 那边校验只收 tiles/list），页面上一个入口都没有——而"哪一组用磁贴、
+  // ops.go 那边校验只收 tiles/list/feature —— **feature 是第三档**：那一组不再出现在
+  // 正文里，而是被渲染层挪到页面顶部独占一块，见 model.LayoutFeature），
+  // 页面上一个入口都没有——而"哪一组用磁贴、
   // 哪一组用单列"恰恰是**人**的判断：条目多而杂的用磁贴，少而常用的用单列。
   // 导入时那个默认值（书签栏 tiles、其余 list，见 bookimport/convert.go）只是猜的，
   // 猜错了总得有人能改。
@@ -2820,7 +3176,14 @@ const APP_I18N = {
         type: 'button', class: 'fld', text: T('app.move.cancel'), on: { click: () => dlg.remove() },
       })]),
     ]);
+    // 记住是谁打开它的（2026-10-20）：关掉时把焦点还回去。
+    dlg.__opener = document.activeElement;
     body.append(dlg);
+    // **这一层也要 syncTrap()**（2026-10-20）：它是 role=dialog aria-modal=true，
+    // 可没被摘进 inert 的话，背景页照样能聚焦、能滚动，Tab 从它身上直接走到
+    // 背后——aria-modal 只是一句空声明。打开浮层/台面/⌘K/图标库那几处都记得调，
+    // 这三处原先漏了。
+    syncTrap();
   }
 
   async function pickTags() {
@@ -2851,7 +3214,9 @@ const APP_I18N = {
         el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
       ]),
     ]);
+    dlg.__opener = document.activeElement;
     body.append(dlg);
+    syncTrap();
     input.focus();
   }
 
@@ -2889,7 +3254,9 @@ const APP_I18N = {
         el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
       ]),
     ]);
+    dlg.__opener = document.activeElement;
     body.append(dlg);
+    syncTrap();
     // 焦点落在**取消**上，不落在删除上：走到这一步的人可能只是按错了那颗键，
     // 而默认位置决定了他按 Enter 会发生什么。
     dlg.querySelector('.sheet-actions:last-of-type button:last-of-type').focus();
@@ -2959,6 +3326,11 @@ const APP_I18N = {
     if (e.key === '?') {
       e.preventDefault();
       help.hidden = !help.hidden;
+      // **开关都要 syncTrap()**（2026-10-20）：这一层是 role="dialog"
+      // aria-modal="true"，可它没被摘进 inert 的话，背景页照样能聚焦、
+      // 能滚动，Tab 从它身上直接走到背后——aria-modal 只是一句空声明。
+      // 打开时要把 ⌘K 让开（下面那一支），关掉时要把背景还回来。
+      syncTrap();
       if (!help.hidden) cmdkClose();
     }
   });
@@ -2989,7 +3361,11 @@ const APP_I18N = {
     if (old) old.remove();
     clearTimeout(bannerTimer); // 上一条还没走完的倒计时不能替这一条续命
     const cls = 'notice' + (kind === 'bad' ? ' bad' : kind === 'ok' ? ' ok' : '');
-    const p = el('p', { class: cls, id: 'lb-banner', role: 'status' }, [
+    // **role 按 kind 选**（2026-10-20）："没存进去"（bad）是** assertive**——
+    // 读屏要立刻念出来；其余（中性提示、成了）是 polite，等个空隙再念。
+    // 从前一律 role="status"（polite），于是"刚才没存进去"可能被安静地略过，
+    // 而同一文件里字段错误那一条用的是 role="alert"——两套播报词汇。
+    const p = el('p', { class: cls, id: 'lb-banner', role: kind === 'bad' ? 'alert' : 'status' }, [
       el('span', { text }),
       el('button', { type: 'button', class: 'dismiss', text: T('app.sw.dismiss'), 'aria-label': T('app.sw.aria'),
         on: { click: () => p.remove() } }),

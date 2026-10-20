@@ -32,9 +32,11 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 - **管理员只管账号，不碰内容**（2026-10-10 改判，2026-10-12 换了形状）。带它能过的
   只有账号层面那一族：`/admin` 系列、`POST /api/v1/profiles`（建档）、
   `DELETE /api/v1/profiles`、`/api/v1/profiles/pin`、`/api/v1/profiles/disable`、
+  `POST /api/v1/profiles/rebuild`（重建读不动的 profile.json）、
   `GET /api/v1/status`、`GET /api/v1/history`（省略 profile 的全家庭聚合）。
   **凡是带 profile 的内容端点（`/api/v1/data`、`/api/v1/export`、`/api/v1/batch`、
-  `/api/v1/revert`、`/api/v1/usage`、`/api/v1/resolve`、`/api/v1/import`）一律 403**
+  `/api/v1/revert`、`/api/v1/usage`、`/api/v1/resolve`、`/api/v1/import`、
+  `/api/v1/import/apply`）一律 403**
   ——写某个人的书签必须用作用域正好是那个人的令牌（`name:secret:dad`）。CLI 的
   `revert` / `import-bookmarks` 因此逐档案换令牌。
 - **管理员 cookie 与档案会话是两件独立的事**（2026-10-12）。管理员可以一边登着自己
@@ -51,6 +53,11 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
   对不上"在协议层就无法表达。收会话只为迁就一份写错的文档，是本末倒置。加这一档时
   `openapi_test.go` 的 `xCredentialNames` 与 `credSecuritySchemes` 两张表各补一行；
   **新增 cred 档位时这两张表不补，测试会直接红**（这是刻意的，见那两处的注释）。
+  **这一档自己兑现"不认会话"**（2026-10-20 修）：从前 `require` 里**没有这一支**，
+  带会话的请求会一路落到最后一行放行——那一档的"不认会话"只由两个 import handler
+  在调用 `require` **之前**多写了一遍 `Authorize` 撑着，而端点层那一遍是纵深防御、
+  不是判据（实测改之前 `require(带 lb_profile=dad, credTokenOnly, "dad")` → ok=true）。
+  现在 `require` 里有这一支，端点层那两遍留作纵深防御。
 - **档案上不再有 `admin` 属性**（2026-10-12）。"第一个档案自动是管理员"这条规则随之
   消失：管理员与档案无关，于是 `/setup` 建出来的就是第一个人的书签页。相应地
   `POST /api/v1/profiles` 与 `POST /api/v1/profiles/rebuild` 的请求体里那个 `admin`
@@ -62,6 +69,14 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
   死一个可用令牌）。管理员那把 key 与管理员 cookie 都算"认出来了"，所以打错门
   （例如只认会话的 `/api/v1/profiles/self/pin`）是 **403 而不是 401**——说成"令牌无效"
   等于告诉人一把好钥匙是废的。
+- **被停用的档案：令牌那一族一律 403**（2026-10-20 补上，kind `profile-disabled`）。
+  从前只有浏览器那条 PIN 门在拒，档案作用域令牌**照读照写**——于是"停用"对扩展与
+  脚本是**空的**（扩展里那句「这一份被停用了」一次都不会出现）。现在
+  `data` / `export` / `batch` / `revert` / `import` / `import/apply` 六条都在
+  `profileDisabledRefuse`（`internal/httpapi/batch.go`）那一个判据上挡它。
+  **403 而不是 401**：凭证是好的（作用域正对），被拒的理由是这一份的状态——
+  答 401 会把出路指反（让人以为自己的令牌坏了去换一把，而它没坏）。
+  **管理员那一族不受这条约束**：停用要能被启回来，而管理员管的正是账号层面。
 - 浏览器通路的档案会话是 cookie（`lb_profile`），不是令牌；bookmarklet 与页面浮层
   零令牌。令牌只发给 AI（REST）、扩展和 CLI。
 - **`lb_home` 是升级前那条 cookie**（2026-10-10 代管态下线之后服务端不再发它）。
@@ -83,19 +98,19 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 除 `/`、`/pin`、`/healthz` 三条浏览器通路外，每一条都要列在这里。方法、要哪
 种凭证、成功响应都对照 `openapi.json`。
 
-**`/admin`、`/setup`、`/prefs`、`/switch`、`/revert` 与 `/history` 是浏览器表单/导航通路，AI 不走这六条**：其中 `/setup`、`/prefs`、`/switch`、`/revert`
+**`/admin`、`/setup`、`/prefs`、`/switch`、`/revert` 与 `/history` 是浏览器表单/导航通路，AI 不走这些**（表单与导航通路不止这六条：面板那几族 `/prefs/group`、`/prefs/tabs`、`/prefs/pin`、`/prefs/background`，导入那三族 `/import`、`/import/apply`，管理页那几族 `/admin/pin`、`/admin/delete`、`/admin/disable`、`/admin/language` 同样只由页面表单走进来）：其中 `/setup`、`/prefs`、`/switch`、`/revert`
 与 `POST /admin` 只由页面里的 `<form method=post>` 走进来，收 `application/x-www-form-urlencoded`，没有 JSON 版，
-也没有 `by` 字段；`/admin` 是 GET 的 HTML 管理页，`*` 令牌打它拿到的也是这张页面而不是
+也没有 `by` 字段；`/admin` 是 GET 的 HTML 管理页，**管理员那把 key 打它拿到的也是这张页面**而不是
 另一份 JSON——这不是第二条 API 面，要机器可读的同一份跨档案聚合请打
 `GET /api/v1/status`。`/setup` 是**零档案时的一次性通路**（判据是磁盘上 `profiles/` 的目录数，
 不是"谁有资格"），它同样是浏览器表单通路而不是第二条 API 面，脚本别去 POST 它——
 有档案之后它只会 303。浏览器通路的**权限类**拒绝答 303 回档案选择页而不是 401/403
-（spec §6.1）：`GET /admin`、`/prefs`、`/switch`、`/admin/pin`、`/admin/delete`、`/revert` 与
+（spec §6.1）：`/prefs`、`/switch`、`/admin/pin`、`/admin/delete`、`/revert` 与
 `POST /admin`、`/admin/pin`、`/admin/delete`、`/revert` 的权限类（无会话、非管理员、
-带 `*` 令牌）都是**不带提示**的 303；只有**字段没填对**才带 `?err=<码>`——`/pin` 说
+带管理员那把 key）都是**不带提示**的 303；只有**字段没填对**才带 `?err=<码>`——`/pin` 说
 `pin`/`profile`/`disabled`（**没有 `missing`**：2026-10-12 起空表单与错 PIN 是同一件事，
 给它们分两把键只会让其中一句有一半是假的），`/setup` 与 `POST /admin` 用建档那几种码
-（`noname`、`badpin`、`permission`，管理页还多一个 `nametaken`）；`/admin/pin` 与 `/admin/delete` 说`badpin`/`notfound`/`selfpin`/`self`/`failed`，`/revert` 说`badsnap`/`gone`/`nosnap`。都不是 JSON 错误；`/setup` 的"窗口已关"是例外，它回 `/` 且**不带**键，
+（`noname`、`badpin`、`pinboth`、`permission`，管理页还多一个 `nametaken`）；`/admin/pin` 说`badpin`/`notfound`/`failed`，`/admin/delete` 说`notfound`/`self`（**没有 `failed`**：它只有"不存在"与"不能删自己正在用的那一份"两种，落盘失败走 500 JSON 外壳），`/admin/disable` 说`selfdisable`/`notfound`（**不是 `self`**：删=不可逆、停用=随手启回来，两件事后果不同，所以拆成两把键），`/revert` 说`badsnap`/`gone`/`nosnap`。都不是 JSON 错误；`/setup` 的"窗口已关"是例外，它回 `/` 且**不带**键，
 因为"这台机器已经建过档了"本身就是那条枚举线索（同 `/switch` 的判据口径）。`/prefs` 的形状错
 （422）与文件读不了（503）仍然走 JSON 外壳，它们不是权限拒绝，`/setup` 的表单读不出来
 （超上限、同名多值）与落盘失败（500）同这一族——**只有 `permission` 一个例外**（见下）。`/switch` 连这两种都没有——它每条出路
@@ -123,6 +138,11 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
   CLI `--nopass`）。少了这一格，"忘了敲一位就回车"会静悄悄地建出一份局域网里谁
   都能进的书签页——而这个产品最核心的那句承诺正是「各人一份，别人看不见」。
   **不勾而 PIN 为空照旧被拒**（API 422 点名 `pin`；表单 `?err=badpin`；CLI 退 2）。
+  **而两格同给（PIN 与「不设 PIN」都填/都勾）不是"以勾选框为准"，是没说清**
+  （2026-10-20 修）：从前敲进去的 PIN 被**静默丢掉**，建出一份不设防的档案，而
+  那个人以为门锁上了——而"不设防"恰恰是这份产品最怕的那一种。CLI 早就把它当
+  用法错误退 2，三处答案不一致。现在表单回 `?err=pinboth`、API 回 422 点名
+  `nopass`，**一个档案都不建**。
 - **选择页上不设防的那一份不给 PIN 输入框**，卡上就是名字 + 服务图标 + 一枚
   「进入」，按下去直接进——**不多说一句**（2026-10-12 撤掉了原先那句
   「不设 PIN，点一下就进」）。名字**要**留在卡上：它是区分档案的那一维，而两
@@ -131,8 +151,11 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
   `icon.go` 的 `faceOf` 挑（favicon 优先于图标名，tiles 分组先挑），三取一仍
   是 `pieceFor`，与档案页同一份判据。要不要给框的判据是 `pickerEntry.NeedsPIN`
   （`auth.HasPin(p.PIN)`），**逐份**算而不是按机器算——隔壁有 PIN 的那份仍然要有框。
-- **能设就能撤**：`new` 留空 = 取消这一份的 PIN，`isNoPass` 是唯一那处判据（表单与
-  API 共用）。本人走 `POST /api/v1/profiles/self/pin`，管理员走
+- **能设就能撤**：`new` 留空 = 取消这一份的 PIN，`wantsNoPin` 是唯一那处判据（表单与
+  API 共用）。**而 `new` 缺席不是"取消"**（2026-10-20 修）：缺席与空串必须分得开
+  （`New *string`），否则漏字段的脚本会静悄悄地**拆掉一道门**并收到 200——而
+  「不要这道门必须是一个被说出来的决定」管的就是这件事。缺 `new` → 422 点名 `new`。
+  本人走 `POST /api/v1/profiles/self/pin`，管理员走
   `POST /api/v1/profiles/pin`。**本人撤自己那道锁仍然要给旧 PIN**——没有的东西不需要
   证明，但一道**锁着的**门撤锁要证明一次。
 - **代价写在页面上**：取消之后，这一份对**局域网里所有能访问这台机器的人**开放。
@@ -146,39 +169,44 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 
 | 方法 | 路径 | 凭证 | 成功响应 | 说明 |
 |---|---|---|---|---|
-| GET | `/app.822b3f989f2c.js` | 无（公开） | 200 脚本字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤ 的应用脚本：顶栏「＋ 添加」浮层、⌘K 面板、多选、拖入与站内排序的动效。**它一整套交互规格不在这张表里**（这一格早先是 5,394 字，15 个互不相干的主题挤在一个单元里，表格结构让它们既读不下去、也改不动）——逐条判据见下面「`app.js`：档案页那套交互」一节。路径里那 12 位是内容指纹（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变，指纹由 `internal/render/assets.go` 在启动时从 embed 的字节算出，**不需要构建步骤** |
+| GET | `/app.df9d494aaa0b.js` | 无（公开） | 200 脚本字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤ 的应用脚本：顶栏「＋ 添加」浮层、⌘K 面板、多选、拖入与站内排序的动效。**它一整套交互规格不在这张表里**（这一格早先是 5,394 字，15 个互不相干的主题挤在一个单元里，表格结构让它们既读不下去、也改不动）——逐条判据见下面「`app.js`：档案页那套交互」一节。路径里那 12 位是内容指纹（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变，指纹由 `internal/render/assets.go` 在启动时从 embed 的字节算出，**不需要构建步骤** |
 | GET | `/sw.js` | 无（公开） | 200 脚本字节 + `Cache-Control: no-cache` | P1-⑥ 的 Service Worker，**路径不带指纹**（浏览器自己按注册处比字节决定更新）。**必须在根路径**：SW 的作用域是所在目录，挪到 `/assets/` 下就管不到首页。HTML 走 network-first + 1.5 秒超时回退缓存；按响应头 `X-LB-Profile` 分桶存 `html-<id>` 与 `html-picker`，**`-admin` 一律不存**（它含全家庭条目数与 rev，比选择页敏感一档），空头也不存。回退时按 `[currentProfile, picker]` 的顺序查桶，命中即交，**查不到就是失败**（不是"随便拿一份"）。切档时清掉上一个档案的桶——`app.js` 把 `/switch` 表单的 `to=picker` 转成空串发过来，所以 `sw.js` 那一支只删桶、**不写 `currentProfile`**；于是它可能仍指向一个刚被删掉的档案，回退查不到就落到 `html-picker`，与 §15 那条"删档后残留"的边界是同一族 |
 | GET | `/manifest.webmanifest` | 无（公开） | 200 manifest JSON + `Cache-Control: public, max-age=86400` | P1-⑥ 的 Web App Manifest：平板/手机「添加到主屏幕」即成独立全屏应用（§6.3） |
-| GET | `/app.3162e292f9c3.css` | 无（公开） | 200 样式表字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤/⑥ 的**交互**样式（浮层、⌘K 面板、编辑模态、拖拽把手）。走**外部**指纹文件而不内联：首屏骨架在 `base.css` 里内联，而这部分只有档案页用得到——内联等于让选择页/引导页/管理页/坏档页各白带一份，而且会把内联 CSS 顶出 §7.3 的操作线。**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变 |
+| GET | `/app.440ec1e4fc63.css` | 无（公开） | 200 样式表字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤/⑥ 的**交互**样式（浮层、⌘K 面板、编辑模态、拖拽把手）。走**外部**指纹文件而不内联：首屏骨架在 `base.css` 里内联，而这部分只有档案页用得到——内联等于让选择页/引导页/管理页/坏档页各白带一份，而且会把内联 CSS 顶出 §7.3 的操作线。**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变 |
 | GET | `/bookmarklet` | 无（公开） | 200 JS 源码（no-store） | P1-⑥ 的 bookmarklet：拖进书签栏，在任何网站上一点就把当前地址带回这台机器。**里面绝不会有令牌**——Chrome 书签会云同步，写进 bookmarklet 的令牌等于明文外发；它只做一件事，导航到 `/?add=<当前URL>&t=<标题>`，写走会话 cookie（§6.3）。**它自己从 Host 头算这台机器的地址**，不让人填（填错的那种错要等到用时才发现）。**端口必须原样带出去**（2026-10-19 修）：原先那一段把 Host 里的端口剥掉了，而本案默认端口是 7600（compose `7600:7600`，spec §6.3 写的就是 `http://<NAS_IP>:7600/?add=`）——照默认配置装好、配好拖进书签栏之后，按它跳的是 80 端口，那台机器上什么都没有，症状是「点了打不开」，而这条按钮唯一的卖点恰恰是"配一次就永远对"；只有反代到 80 的人会看起来是好的，而 §11 明写不挂反代。判据：`hostPortOf` **几乎什么都不做**，唯一加工是去掉一个空的尾随冒号（`nas:` → `nas`）；切点问题因此不存在——**IPv6 的方括号里自己带冒号，按「最后一个冒号」切会把 `[fd00::5]` 腰斩成 `[fd00`，所以别再引入那个切法**。`validHostShape` 跟着一起改成两段判（host 按标签数字点 / IPv6 方括号，**port 只许是数字**，冒号不许出现第二次），两处分开是刻意的：混在一处会造出「修一半」——地址被拼成 `10.0.0.5port`（一个**合法**主机名），连 400 都不给，直接把坏地址写进书签栏。**这条测试钉整条地址，不钉子串**（`TestBookmarklet_地址保留端口`）：原先只断言 `javascript:`、`/?add=`，改坏的那一处一个断言都没碰，它一路绿灯活到今天。未登录时 `?add=` 穿过 PIN 步骤不丢；登录后 ⑤ 的浮层自动打开预填，**要人再按一次保存才落库** |
 | GET | `/api/v1/openapi.json` | 无（公开） | 200 内嵌契约原字节 | 机器可读契约，无个人信息 |
 | GET | `/api/v1/data` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, modified, data}` | 单档案全量数据 + rev，`?profile=<id>` 必填；**管理员令牌与管理员 cookie 都 403**（管理员看不见别人的书签） |
 | GET | `/api/v1/export` | **档案作用域**令牌/本人会话 | 200 磁盘原字节 + attachment | 导出不重编码，可直接喂 batch 对照；同样只给本人（管理员 403） |
 | GET | `/api/v1/history` | 令牌/会话 | 200 `{entries:[{at,profile,actor,by,rev,ops}]}` | 审计线，ops 只有动作与路径无 value；省略 `profile` = 全家庭聚合，**仅管理员**（档案作用域令牌 403）；账号类动作的 `actor` 记 `admin` |
 | GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名 + `auto` 且缓存无图，空 `icon` 不算缺，口径见 openapi 的 `/status`）。**每行没有 `admin` 字段**（2026-10-12，档案不再是管理员） |
-| GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profiles:[{id,title,createdAt}]}` | 档案元信息列表，零条目零 URL；**同样没有 `admin` 字段** |
-| POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 201 `{id,title}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409。**「已存在」按档案目录判，不按 `profile.json` 判**（2026-10-19 修）：原先那道闸问的是 `profile.json` 在不在，于是「目录在、profile.json 缺」这一个形状（手删、rsync 半途、坏档被登记过）会穿过它，紧接着把盘上那份 `bookmarks.json` 覆盖成空文档——实测 469 字节含一条书签变成 244 字节空文档，**无快照、无审计行、返回 201**，书签就这么没了。判据收在 `store.idTaken`，与 `NextProfileID` 派生 id、`RebuildProfile` 是**同一个**「这个 id 占了没有」；三处各问一次就会各答一次，于是重名字的坏档从缝里漏过去。**连带**：`rollbackDir` 是 `RemoveAll(整目录)`，只在「目录里只有刚建的东西」时成立——所以闸挡住时**不许**删目录（那目录里可能装着别人的书签）。**请求体没有 `admin` 那一格**（2026-10-12）——送来是 422 且点名该字段，脚本作者据此知道该删哪一行。**PIN 选填**：`{"id","title","nopass":true}` 建出一份**不设防**的档案（局域网里谁都能进）；`pin` 为空且**没给** `nopass` 照旧 422 点名 `pin` |
-| DELETE | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{deleted}` | 删档连 `snapshots/`，历史保留，`?profile=<id>` |
-| POST | `/api/v1/profiles/pin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profile,pinChanged}` | 给任意档案设 PIN（不要旧 PIN），进目标档案历史 `rev:0`。**`new` 留空 = 取消这一份的 PIN**（2026-10-12）——管理员是唯一能给别人去/留这道门的人：一个都不锁的家族里，他得能把门重新锁上；非空但格式错仍 422 点名 `new` |
-| POST | `/api/v1/profiles/rebuild` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{id,title}` | **坏档的唯一出路**：某档案 `profile.json` 读不动时只重写这一个文件，书签、快照、历史已有内容**逐字节不碰**。体 `{profile,title,pin,nopass}`，**没有 `admin`**（2026-10-12 随档案属性一起删除；送来是 422 且点名该字段）。`nopass:true` 重建出一份**不设防**的档案——rebuild 必须能造出这个形状，它是唯一能整份重写 profile.json 的动作。判据全在 store 锁内：**读得动 → 409**（改 PIN 走 `/api/v1/profiles/pin`，这条不是改档用的）；**目录不在 → 404**（它不建目录，建档仍只有 `POST /api/v1/profiles`）；只有"内容错"与"文件不在"才允许覆盖，权限/磁盘那一类读失败原样上报不许盖。`theme`/`layout`/`pageTitle`/`view`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项；
-`pageTitle` 与 `view` 从前没列在这里，是文档漏了两格而不是它们不被重置——
-rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都回默认）。200 意味着"进门页那张卡真的回来了"——写完在同一把锁内回读过。历史追一行 `rev:0`、`path:"profile/rebuild"`；审计行写不下去仍报 200（**这条动作不幂等**，重试会拿 409，报 500 等于对已修好的档案说"没修好"），缺口只进 stderr |
-| POST | `/api/v1/profiles/self/pin` | 仅会话 | 200 `{profile,pinChanged}` | 改自己 PIN；令牌一律拒（管理员令牌也是 403——它是一把好钥匙，不是废钥匙）。**旧 PIN 只在这一份现在有 PIN 时才要**（2026-10-12）：没有的东西不需要证明，所以一份不设防的档案可以直接给自己设上第一个 PIN（`old` 可以不给，给了也不校验）。**`new` 留空 = 取消这一份的 PIN，且此时仍要 `old`**——撤的是一道锁着的门 |
-| POST | `/api/v1/batch` | **档案作用域**令牌/本人会话 | 200 `{profile,rev,applied,warnings}` | 唯一的书签写通路，一批 ops 原子写入；**管理员令牌与管理员 cookie 都 403** |
+| GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles:[{id,title,createdAt}]}` | 档案元信息列表，零条目零 URL；**同样没有 `admin` 字段** |
+| POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 201 `{id,title}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409。**「已存在」按档案目录判，不按 `profile.json` 判**（2026-10-19 修）：原先那道闸问的是 `profile.json` 在不在，于是「目录在、profile.json 缺」这一个形状（手删、rsync 半途、坏档被登记过）会穿过它，紧接着把盘上那份 `bookmarks.json` 覆盖成空文档——实测 469 字节含一条书签变成 244 字节空文档，**无快照、无审计行、返回 201**，书签就这么没了。判据收在 `store.idTaken`，与 `NextProfileID` 派生 id、`RebuildProfile` 是**同一个**「这个 id 占了没有」；三处各问一次就会各答一次，于是重名字的坏档从缝里漏过去。**连带**：`rollbackDir` 是 `RemoveAll(整目录)`，只在「目录里只有刚建的东西」时成立——所以闸挡住时**不许**删目录（那目录里可能装着别人的书签）。**请求体没有 `admin` 那一格**（2026-10-12）——送来是 422 且点名该字段，脚本作者据此知道该删哪一行。**PIN 选填**：`{"id","title","nopass":true}` 建出一份**不设防**的档案（局域网里谁都能进）；`pin` 为空且**没给** `nopass` 照旧 422 点名 `pin` |
+| DELETE | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{deleted}` | 删档连 `snapshots/`，历史保留，`?profile=<id>` |
+| POST | `/api/v1/profiles/pin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profile,pinChanged}` | 给任意档案设 PIN（不要旧 PIN），进目标档案历史 `rev:0`。**`new` 留空 = 取消这一份的 PIN**（2026-10-12）——管理员是唯一能给别人去/留这道门的人：一个都不锁的家族里，他得能把门重新锁上；非空但格式错仍 422 点名 `new`。**`new` 缺席 = 没填对 → 422 点名 `new`**（2026-10-20 修，缺席与空串是两件事：前者是"漏了字段"，后者是"明确取消"，而从前它们同形，漏字段会**静悄悄拆掉一道门**并答 200）。**鉴权排在参数校验之前**（2026-10-20 修）：无凭证答 401、档案作用域令牌答 403，都排在格式与 slug 校验之前——同一族端点曾给出三种顺序，于是"你没这个权限"这件事的答案随载荷变（格式错时答 422，等于给没资格问的人开了一个小 oracle）。`pinChanged` **真算**（2026-10-20）：它答"有效的 PIN 变了没有"（设上 / 撤下 / 换成另一个），不是恒 true |
+| POST | `/api/v1/profiles/rebuild` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{id,title}` | **坏档的唯一出路**：某档案 `profile.json` 读不动时只重写这一个文件，书签、快照、历史已有内容**逐字节不碰**。体 `{profile,title,pin,nopass}`，**没有 `admin`**（2026-10-12 随档案属性一起删除；送来是 422 且点名该字段）。`nopass:true` 重建出一份**不设防**的档案——rebuild 必须能造出这个形状，它是唯一能整份重写 profile.json 的动作。判据全在 store 锁内：**读得动 → 409**（改 PIN 走 `/api/v1/profiles/pin`，这条不是改档用的）；**目录不在 → 404**（它不建目录，建档仍只有 `POST /api/v1/profiles`）；只有"内容错"与"文件不在"才允许覆盖，权限/磁盘那一类读失败原样上报不许盖。`theme`/`layout`/`pageTitle`/`view`/`language`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项；
+`pageTitle`、`view` 与 `language` 从前没列在这里，是文档漏了三格而不是它们不被重置——
+rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都回默认；
+`language` 回到空串 = **跟着站级默认语言**，这一格对坏档无从保留——坏档正是
+"profile.json 读不出来"的那一种，而读不出来的那份里写着什么语言，服务端根本不知道）。200 意味着"进门页那张卡真的回来了"——写完在同一把锁内回读过。历史追一行 `rev:0`、`path:"profile/rebuild"`；审计行写不下去仍报 200（**这条动作不幂等**，重试会拿 409，报 500 等于对已修好的档案说"没修好"），缺口只进 stderr |
+| POST | `/api/v1/profiles/self/pin` | 仅会话 | 200 `{profile,pinChanged}` | 改自己 PIN；令牌一律拒（管理员令牌也是 403——它是一把好钥匙，不是废钥匙）。**旧 PIN 只在这一份现在有 PIN 时才要**（2026-10-12）：没有的东西不需要证明，所以一份不设防的档案可以直接给自己设上第一个 PIN（`old` 可以不给，给了也不校验）。**`new` 留空 = 取消这一份的 PIN，且此时仍要 `old`**——撤的是一道锁着的门。**`new` 缺席 = 422 点名 `new`**（2026-10-20 修，与管理员那条同一件事：漏字段曾等于拆门，而契约写着 `new` 必填）。`pinChanged` 真算（2026-10-20） |
+| POST | `/api/v1/batch` | **档案作用域**令牌/本人会话 | 200 `{profile,rev,applied,warnings}` | 唯一的书签写通路，一批 ops 原子写入；**管理员令牌与管理员 cookie 都 403**。**体先于权限**（与设 PIN 那一族相反，2026-10-20 实测）：**档案 id 就在体里**，而 `require` 要比的就是它——所以体读不出来/不合法（`profile` 不是 ASCII slug、`by` 不在枚举里）时**先答 422**，体合法而凭证不对时答 401/403。`by` 因此**事实上是必填**（缺了或空串都 422 点名 `by`）。**`ops` 键也要给**（2026-10-20 补上）：缺键答 422 且点名 `ops`，而**给一个空数组 = 一次合法的空批**（两件事，契约里 `ops` 是必填项）。`applied` 数的是**应用了几条 op**，不是几条书签（建一个分组也是一条 op）——导入 5 条书签 + 2 个分组会说 `applied=7`。**被停用的档案在令牌这一族一律 403**（`profile-disabled`，见上面「令牌与鉴权」那段） |
 | POST | `/api/v1/revert` | 令牌/会话 | 200 `{profile,rev,restoredFrom}` | 从快照恢复，产生新 rev，不抹历史 |
 | POST | `/api/v1/usage` | 令牌/会话 | 200 `{updated, unknown[]}` | 点击计数，只写当前档案，不参与 rev |
 | GET | `/api/v1/icons` | 无（公开） | 200 `{query, total, returned, icons[]}` | 本地索引搜图标名；`q` 必填，`prefix` ∈ tabler/simple-icons，`limit` ≤200 |
-| GET | `/api/v1/icons/tiles` | 无（公开） | 200 HTML 方格 | `/api/v1/icons` 的**界面那一半**（2026-10-14，图标选择器）：同一个 `q`、同一份内嵌索引，吐的却是一段**已经画好的 HTML**——每格一个 `<button type=button class="fld icpick-tile" data-icon="<名字>">`，里面是 `render.svgMarkup` 画的**页面自己那份内联 SVG**（全案唯一把图标拼成 markup 的出口），于是挑的时候看见的形状与存下去之后卡片上那一枚逐像素相同。**为什么不并成上面那条的一个 `format` 参数**：响应类型根本不是 JSON，而 §4.3 那份契约按形状写形状，两半混在一个端点里没法一句话说清。`q` 必填（缺了 400；**空查询回一张空图而不是全量六千条**），`limit` ∈1..120（默认 24，超了钳到 120——它是给人看的一格，给 AI 的那条是 200）。响应带 `Content-Type: text/html; charset=utf-8` 与 `X-Content-Type-Options: nosniff`（它要被插进页面里，缺 nosniff 时浏览器照样 sniff）；落在 `/api/v1/` 前缀下，`private, no-store` 由前缀中间件给。**`X-LB-Icons-Total` 报命中总数而不是画出来的条数**：界面据此说「共 N 个，先看前 M 个」——截断必须说出来（§4.3 那条"零命中"与"命中很多被截断"要能分开判），否则人会以为库里只有那几十个。零命中是 200 且正文为空，不是 404。脚本要名字数组仍走上面那条 |
+| GET | `/api/v1/icons/tiles` | 无（公开） | 200 HTML 方格 | `/api/v1/icons` 的**界面那一半**（2026-10-14，图标选择器）：同一个 `q`、同一份内嵌索引，吐的却是一段**已经画好的 HTML**——每格一个 `<button type=button class="fld icpick-tile" data-icon="<名字>">`，里面是 `render.svgMarkup` 画的**页面自己那份内联 SVG**（全案唯一把图标拼成 markup 的出口），于是挑的时候看见的形状与存下去之后卡片上那一枚逐像素相同。**为什么不并成上面那条的一个 `format` 参数**：响应类型根本不是 JSON，而 §4.3 那份契约按形状写形状，两半混在一个端点里没法一句话说清。`q` 必填（缺了 400；**空查询回一张空图而不是全量一万多条**），`limit` ∈1..120（默认 24，超了钳到 120——它是给人看的一格，给 AI 的那条是 200）。响应带 `Content-Type: text/html; charset=utf-8` 与 `X-Content-Type-Options: nosniff`（它要被插进页面里，缺 nosniff 时浏览器照样 sniff）；落在 `/api/v1/` 前缀下，`private, no-store` 由前缀中间件给。**`X-LB-Icons-Total` 报命中总数而不是画出来的条数**：界面据此说「共 N 个，先看前 M 个」——截断必须说出来（§4.3 那条"零命中"与"命中很多被截断"要能分开判），否则人会以为库里只有那几十个。零命中是 200 且正文为空，不是 404。脚本要名字数组仍走上面那条 |
+| GET | `/api/v1/icons/starter` | 无（公开） | 200 HTML 方格 | 图标选择器**打开时先给人看的那一批**（2026-10-20）：不搜什么，直接给一份**人工挑的常用图标清单**（`icons.Starter`：品牌层 + 与站点无关的通用层）。**为什么不能只靠上面那条搜索**：它按契约空查询回一张空图（库里一万多个，倒出来是一屏噪声），而面板打开时人要的正是「给我看几个」；而"这一份已经在用的图标"那一格在实测里**几乎永远是空的**（书签默认 `icon=auto` 去抓 favicon，而 `auto` 与"没设"都被那一格排除掉），于是面板打开什么也没有。响应形状与上面那条同族（HTML 方格、`nosniff`、`no-store`），**没有参数也没有截断**——这一批是固定的一整批，画出来的就是全部（因此不带 `X-LB-Icons-Total`：那一格在搜索那条上是为了说"命中很多被截断"） |
+| GET | `/api/v1/icons/browse` | 无（公开） | 200 HTML 方格 | 图标选择器的**浏览**那一档（2026-10-20）：不搜什么，直接翻图库。`offset` 从第几个开始（0 = 从头）、`limit` 这一页多少格（1..120，默认 60，超了钳到 120）。**为什么不能只靠上面那条搜索**：它按契约空查询回一张空图（库里一万个，倒出来是一屏噪声），而"这一台机器里到底有哪些图标、随便挑一个"这条路从前是断的——那些图标是**内嵌在二进制里**的（spec §5），是这台机器自带的，不该够不着。**翻页而不是一次倒出来**：一万个方格的 markup 是十几 MB，一次性吐出来会把面板卡死、家用机器的内存也吃不住。**顺序稳定**：品牌层（simple-icons）在前、通用层（tabler）在后、层内按名字排序——翻页的位置就是顺序里的位置。响应形状与上面那条同族（HTML 方格、`nosniff`、`no-store`），**另带 `X-LB-Icons-Library` 报全库条数**（不是这一页的条数，也不是"命中多少"——浏览没有"命中"这回事） |
 | GET | `/icons/{name}` | 无（公开） | 200 图片原字节 + `Cache-Control: public, max-age=31536000, immutable` | resolve 抓来的 favicon 缓存，名字必须是 `<16 位小写十六进制>.<png/ico/svg/webp/gif>`；形状不对与没这个文件都是 404，同一句话 |
 | POST | `/api/v1/resolve` | 令牌/会话 | 200 `{url,title,desc,suggestedGroup,iconCandidates[],favicon}` | URL → 书签候选；体只有 `{url, profile}`（`by` 是未知字段 → 422），`profile` 空申报 = 403；不写书签/历史/rev，只在 `data/icons/` 落缓存 |
-| POST | `/lang` | 无（判据是磁盘：`profiles/` 下目录数为 0 才有效） | 303 回 `/` | 引导页上那个界面语言下拉的落点（2026-10-12），**浏览器表单通路**。它原本在 `POST /setup` 那张表单里，于是"改语言"的生效时机成了"按另一个按钮"——人拨了下拉、页面纹丝不动，看上去就是坏的，而那是新装机的人看到的第一块屏幕。现在它有自己的表单与按钮，按下去页面用新语言重画。**只在零档案时开放**（判据与 `/setup` 同一份 `CountProfiles`）：语言是站级设置，装完之后只有管理员能改；零档案是装机窗口，那一刻还没有"谁该替所有人选语言"这个问题。`POST /setup` 的 `language?` 字段**继续收**（一次填完的形状，脚本与 curl 仍可一趟发完），两个入口写的是同一个 `store.SetLanguage`。零 JS |
+| POST | `/lang` | 无（判据是磁盘：`profiles/` 下目录数为 0 才有效） | 303 回 `/` | 引导页上那个界面语言下拉的落点（2026-10-12），**浏览器表单通路**。它原本在 `POST /setup` 那张表单里，于是"改语言"的生效时机成了"按另一个按钮"——人拨了下拉、页面纹丝不动，看上去就是坏的，而那是新装机的人看到的第一块屏幕。现在它有自己的表单与按钮，按下去页面用新语言重画。**只在零档案时开放**（判据与 `/setup` 同一份 `CountProfiles`）：它定的是**默认**语言，装完之后默认只有管理员能改（每个人自己那一份在台面面板里改）；零档案是装机窗口，那一刻还没有"谁该替所有人选语言"这个问题。`POST /setup` 的 `language?` 字段**继续收**（一次填完的形状，脚本与 curl 仍可一趟发完），两个入口写的是同一个 `store.SetLanguage`。**带令牌来是权限类拒绝 → 303 回选择页、不带提示**（2026-10-20 修：从前回 `?err=permission`，而那句话是"去把宿主数据目录交给跑它的那个用户"——那是**数据目录不可写**的出路，与"这条路不认令牌"毫无关系。给错出路比不说更坏）。零 JS |
 | POST | `/setup` | 无（判据是磁盘：`profiles/` 下目录数为 0 才有效） | 303 回 `/` | 引导建档，浏览器表单通路：**AI 不走这条，也别拿脚本去打它**。体是 `application/x-www-form-urlencoded` 的 `{title, pin, nopass?, language?}`，不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）；**建出来的是第一个人的书签页，不是管理员**（2026-10-12：管理员是机器级的一把 key，与档案无关，所以"零档案装完没人能加人"那个老问题也不再成立）；成功**不发会话**（进门照样要 PIN——除非这一份是 `nopass=1` 建出来的不设防档案，那时进门不需要 PIN），字段没填对回 `/?err=noname`或`badpin`，**宿主数据目录不可写**回 `/?err=permission`（NAS 上把 `./data` 挂成 root 所属、容器以 uid 65534 跑那个形状，去宿主机 chown 即可），窗口已关（已有档案）回 `/` 且不带 `err`——「这台机器已经建过档了」本身就是枚举线索。AI 要建档仍只有 `POST /api/v1/profiles`（带 `id`，**不带任何起步内容**，模板机制 2026-10-10 整条拆掉了，`fromTemplate` 与 `data/templates/` 都不存在）那一条 |
-| GET | `/prefs` | 仅会话 | 200 HTML（no-store） | 台面面板的独立页（2026-10-13）：把顶栏原先散着的六颗控件收进一屏——改名、排法（三颗）、档案形态（两颗）、主题（三颗）、回退、改动历史；**今天面板上另有三格**：背景图（2026-10-14）、点书签时（2026-10-15）、第二行（2026-10-19）。**它是页面而不是按钮**、**左侧三颗分类 tab 怎么做到零 JS**、**命名列表单里「分开它们的判据是字段名」**、**两档窄屏排法与那 96px 的来历**、**最下面那节「分组」**——逐条见下面「`GET /prefs`：台面面板那一屏」 |
+| GET | `/prefs` | 仅会话 | 200 HTML（no-store） | 台面面板的独立页（2026-10-13）：把顶栏原先散着的六颗控件收进一屏——改名、排法（三颗）、档案形态（两颗）、主题（三颗）、回退、改动历史；**今天面板上另有四格**：背景图（2026-10-14）、点书签时（2026-10-15）、第二行（2026-10-19）、界面语言（2026-10-20）。**它是页面而不是按钮**、**左侧四颗分类 tab 怎么做到零 JS**、**命名列表单里「分开它们的判据是字段名」**、**两档窄屏排法与那 96px 的来历**、**最下面那节「分组」**——逐条见下面「`GET /prefs`：台面面板那一屏」 |
+| POST | `/prefs/pin` | 仅会话（表单） | 303 回 `/prefs?tab=pin` | **本人自助改自己这一份的 PIN**（2026-10-20）：台面面板第四颗 tab「我的 PIN」里的那张零 JS 表单。体是 `{old, new}`——`old` 是**现在**的 PIN（这一份有 PIN 时才要，判据 `auth.HasPin`），`new` **留空 = 取消这道门**（取消的代价写在页面上：这一份对局域网里所有能访问这台机器的人开放）。**与 `POST /api/v1/profiles/self/pin` 共用同一个落点**（`selfPin`）——两个壳不许各写一遍判据（spec §8.8）。带令牌一律 303 回选择页。旧 PIN 不对 → 403 `pin-old-wrong`；新 PIN 格式错 → 面板顶部一句人话 |
 | POST | `/prefs/group` | 仅会话（表单） | 303 回 `/prefs` | 台面面板「分组」那一节的落点：改一个分组的名字/颜色/排法，或建一个新分组，或删掉这一组。**互斥判据、派生 id、大卡三档版式、颜色判据、以及它为什么走书签写通路**——逐条见下面「`/prefs/group`：面板「分组」那一节」 |
-| POST | `/prefs/background` | 仅会话（表单） | 303 回 `/prefs` | 改**这一页自己的背景图**（2026-10-14）：上传/换一张、移除、暂时不显示/恢复显示，**三件事共用这一个端点**（一次按下 = 一个意图，与 `/prefs/group` 同一处置）。**必须 `multipart/form-data`**——文件走不了 urlencoded；而这**就是不并进 `POST /prefs` 的原因**：那一条的字段名单是 auto\|dark\|light\|view\|addrLevel\|title，把一张几 MB 的图塞进去，那句「至少给一个字段」就会开始管到不属于它的东西。字段：`<input type=file name=file>`（**按魔数嗅探类型，不信浏览器给的 Content-Type**；只认 png/jpg/webp/gif，**svg 一律拒**——背景是铺满整屏的位图，而 svg 是一整类执行面；上限 4 MiB）、`remove=1`、`hidden=1\|0`。落点 `data/backgrounds/<档案 id>/<16 位内容哈希>.<后缀>`：**按档案分目录**，于是「删除」只需要删自己那一个文件（单份内容寻址会让 A 删掉之后 B 的背景跟着消失，而「还有谁在用」这个问题的答案会变）；内容寻址那一半让换一张必然换一个 URL（immutable 缓存立刻失效）。写 `profile.json` 的 `background` / `backgroundOff` 两个键：**不动 rev、不做快照、不写审计行**（与那四条台面动作同类），而它**不随书签导出走**（导出只带 bookmarks.json）。换一张会自动把 `backgroundOff` 归位——「暂时不显示」说的是"我不想看**那张**"，而人刚给了新的一张。形状错/不是位图/太大 → 422 点名 `file`；没说要改什么 → 422（不是静默 303） |
+| POST | `/prefs/background` | 仅会话（表单） | 303 回 `/prefs` | 改**这一页自己的背景图**（2026-10-14）：上传/换一张、移除、暂时不显示/恢复显示，**三件事共用这一个端点**（一次按下 = 一个意图，与 `/prefs/group` 同一处置）。**必须 `multipart/form-data`**——文件走不了 urlencoded；而这**就是不并进 `POST /prefs` 的原因**：那一条的字段名单是 `theme`（auto\|dark\|light）、`layout`（sidebar\|topbar）、`view`（groups\|wall\|dense）、`addrLevel`（host\|full\|none）、`language`（zh\|en\|空串）、`title`（页面名，无枚举、≤60 字）——**六格**，把一张几 MB 的图塞进去，那句「至少给一个字段」就会开始管到不属于它的东西。字段：`<input type=file name=file>`（**按魔数嗅探类型，不信浏览器给的 Content-Type**；只认 png/jpg/webp/gif，**svg 一律拒**——背景是铺满整屏的位图，而 svg 是一整类执行面；上限 4 MiB）、`remove=1`、`hidden=1\|0`。落点 `data/backgrounds/<档案 id>/<16 位内容哈希>.<后缀>`：**按档案分目录**，于是「删除」只需要删自己那一个文件（单份内容寻址会让 A 删掉之后 B 的背景跟着消失，而「还有谁在用」这个问题的答案会变）；内容寻址那一半让换一张必然换一个 URL（immutable 缓存立刻失效）。写 `profile.json` 的 `background` / `backgroundOff` 两个键：**不动 rev、不做快照、不写审计行**（与那四条台面动作同类），而它**不随书签导出走**（导出只带 bookmarks.json）。换一张会自动把 `backgroundOff` 归位——「暂时不显示」说的是"我不想看**那张**"，而人刚给了新的一张。形状错/不是位图/太大 → 422 点名 `file`；没说要改什么 → 422（不是静默 303） |
 | POST | `/prefs/tabs` | 仅会话（表单） | 303 回 `/prefs` | 改「点开书签」那一格：`tabs=0`（当前标签页）/ `tabs=1`（新标签页），落 `Bookmarks.OpenInNewTab`。**它走 applyBatch 那条书签写通路**（快照、审计线、rev 一道闸不少，收尾与 `/prefs/group` 同一份 `applyPrefsOps`），而**不是**并进 `POST /prefs` 的字段名单——那一格改的是台面偏好（只写 profile.json、不产生版本），而这一格住在**书签文档**里（跟着导出/导入走），两族落点不同，混在一处会让「五个字段至少给一个」开始管到不属于它的东西。只认 `0`/`1`（把 `true`/`yes` 也收下等于让人以为按了而其实没按）；令牌一律 **303 回选择页**（这一族只认会话，`selfProfileOnly` 的答法就是 redirectPicker）。**它对 `chrome://` 与 `file://` 那一行不生效**：那类地址从 http 页面点链接会被浏览器挡掉（2026-10-14 实测：`Not allowed to load local resource`），所以它们继续是「需手动打开 + 复制键」，见 `model.ExternalScheme` |
 | GET | `/backgrounds/{name}` | 仅会话 | 200 图片原字节 + `Cache-Control: private, max-age=31536000, immutable` | 端出**会话所指那一份**的背景图。**与 `GET /icons/{name}` 那条公开通路相反**，理由是 §11：favicon 是任何站都有的图标，而背景图是家里人自己放的图（很可能是孩子的照片）——「64 位哈希 URL 当秘密」我们没必要顺手造出来，而**按档案分目录**让 A 的会话连 B 的那张都读不到，哪怕他知道那个哈希。形状即边界：`<16 位小写十六进制>\.(png\|jpg\|webp\|gif)`，形状非法与盘上没有是**同一句 404**（这里不是诊断通路）；带令牌 **403**（认出来了，而令牌不带这个门——与 `self/pin` 同一句，不是 401）、无凭证 401。响应带 `X-Content-Type-Options: nosniff` 与 `Content-Security-Policy: sandbox`（裁定 R9 的同一个理由：谁把 URL 直接开进地址栏，响应就是他自己的一个文档）。**它不进 Service Worker 的预缓存清单**（那份只有静态资产），所以离线首屏若没命中浏览器自己的 HTTP 缓存，症状是「背景不见了」而不是页面坏掉 |
-| POST | `/prefs` | 仅会话（表单） | 303 回 `/` | 改自己的台面偏好：**主题、档案形态、整页排法、卡片第二行印什么、这一页叫什么**——五格都落 `profile.json`，**不产生 rev、不写快照、不写审计行**。**字段、值集、面板上那几格怎么连着、各自的代价，逐条见下面「`POST /prefs`：台面偏好那五格」** |
+| POST | `/prefs` | 仅会话（表单） | 303 回 `/` | 改自己的台面偏好：**主题、档案形态、整页排法、卡片第二行印什么、这一页叫什么、这一份自己的界面语言**——六格都落 `profile.json`，**不产生 rev、不写快照、不写审计行**。**字段、值集、面板上那几格怎么连着、各自的代价，逐条见下面「`POST /prefs`：台面偏好那六格」** |
 | POST | `/switch` | 仅会话（表单） | 303 回 `/` | 会话动作，2026-10-10 起只剩 `to=picker`（清两条 cookie 回选择页）。**`to=<档案 id>` 的免 PIN 直达已整条下线**——它是管理员进别人台改书签的唯一入口；`to=home`（原"退出管理"）降级为幂等空操作，因为代管态已经不存在、两条 cookie 不再可能分家。别的 `to`（含 `../` 探针、含曾经合法的档案 id）一律什么都不做地回选择页，与"没这个档案""你不是管理员"同一个回答；不动书签，不写历史行也不产生 rev |
 | GET | `/import` | 仅会话 | 200 HTML（no-store） | 浏览器收藏夹导入**第一步：选文件**。只动**自己的**档案，且档案必须一条书签都没有（与 CLI 的 `import-bookmarks` 同一规矩：真要合并得先有一套对着既有档案做对账的判据，那不是"多一个入口"该顺带发明的）。档案非空时**直接在这一页把话说清**、不 303 带 `?err=`——登录着的会话回到 `/` 渲染的是**档案页**，那把键会被无声吞掉（`Test提示键只发白名单里有的` 正是防这个的） |
 | POST | `/import` | 仅会话（`multipart/form-data`） | 200 HTML（no-store） | **第二步：收文件、解析，然后按 `go` 分两路**（2026-10-12）。体是 multipart 的 `bookmarks` 文件字段，上限 8 MB（`maxBodyBytes` 那 1 MiB 是给 JSON 表单的，浏览器导出动辄上兆）。`go=preview`（缺省）给报告等一次点头；**`go=direct` 收下就写**（同一张表单里两个 `submit` 按钮各带一个 value，零 JS）——它省掉的只是"人读一遍再点头"这个动作，**解析、筛选、快照、历史、rev 一道闸都没少**（走同一份 `planImport`/`applyImport`/`applyBatch`），不是第二条写路径。**读出 0 条必须说清"这不是书签文件"**——`Convert` 不拒绝非 Netscape 输入，喂一段随便的 HTML 它解析出零条并照常返回，不判就会"导入成功 0 条"。**进不来的条目是"跳过 + 逐条点名"，不是整批失败**：判据是 `model.CheckURL` 与 `model.ValidSlug` 各一份（地址要有主机名；id 必须过 slug 的长度与字符闸），报告里"## 没能进来"一节逐条写地址与理由，筛空的文件夹不建但要点名。写路径的"整批拒绝"没有改动——那是给 AI 与 CLI 的纪律（一次改 30 条时"改坏一半"比"全没改"难收拾），导入这条路**先把坏条目挑出去**再生成 ops。整份文件一条都进不来是**另一个形状**（读出了书签但没一条能进来），报 422 并说清原因，不说成"文件里没书签"（那会把人引去换一个同样导不进来的文件）。`go=direct` 成功回的是**结论页**（写进去几条 + 没能进来的逐条清单），不是报告——报告答的是"会导入什么"，这时候人要的是"成了没有"。**解析成功在 preview 那一路不写盘**：写入发生在 `POST /import/apply`，令牌与它绑定、15 分钟过期、总量 64 份、用过即删 |
@@ -186,20 +214,41 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 | GET | `/revert` | 仅会话（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 回退到某一版的**第一步**：把可回退的快照逐个列出来，每格带**条目数与分组名**——只印版本号的列表回答不了"我要退哪一版"。**两步二次确认、零 JavaScript**（与 `/admin/pin`、`/admin/delete` 同款范式）。**目标不接受申报**：档案从会话推导，所以 cred 是 credSession 而不是 credScoped——管理员进得了这一页也只能退自己那一份（2026-10-10 边界：管理员管账号、不碰内容，即使 PIN 是他设的）。`bookmarks.json` 读坏了（坏档）**不挡**这一页：revert 正是那种时候的出路。读不出来的快照不列但**报数**（静默少列会让人以为"只有这几个版本"）；一份都没有时只讲清为什么、**表单整个不画** |
 | POST | `/revert` | 仅会话（表单；带令牌一律 303 拒） | 303 回 `/` | 回退的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{to-rev}`。**不是第二条 API 面**：落点与 `POST /api/v1/revert` 是同一个 `revertLocked`（快照→写盘→审计，判据只有一份），差别只在怎么读入、怎么答出。成功 303 回 `/`（GET `/` 在有会话时渲染的就是档案页）；`to-rev` 没填/非整数/为负 → 303 `/revert?err=badsnap`；那一版的快照已经不在（被别人退掉，或被 50 份的裁剪清掉）→ `?err=gone`；当前这一版存不下所以**本次恢复已取消、书签一个字都没变** → `?err=nosnap`。落盘失败走 500 JSON 外壳，**绝不说成功**。历史里 `by` 记 `web` |
 | GET | `/history` | 仅会话（带令牌一律 303 拒） | 200 HTML（no-store） | 改动历史那一屏（2026-10-13）：这一份的审计线，一天一节、一行一次动作。**AI 不走这条**，要机器可读的同一份数据打 `GET /api/v1/history?profile=<id>`。**目标不接受申报**：档案从会话推导（`selfProfileOnly`，与 `/revert` 同一族准入），所以管理员登着这一页也只能看自己那一份——还是 2026-10-10 那条边界：管账号、不碰内容。页面上只有**动作**没有内容：历史行本来就是 `{op, path}`、没有 value（§4.6）；路径里的 id 换成「那条书签现在叫什么」，被删掉的从 `snapshots/<rev-1>` 里找，两层都认不出就原样印 id（编一个名字是假话）。一页最多 100 次动作、一次最多 6 条短句，**截断在页面上说出来并给出没列出的条数**。`bookmarks.json` 读坏了**不挡**这一页 |
-| GET | `/admin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 HTML（no-store） | 管理页读侧：一行一个档案 + 条目数 + rev + 最近改动（`modified`，RFC3339 UTC，坏档读不出来为空、显示 `—` 不编造），**不含条目内容**；坏档案照占一行、标「数据文件读不了」、不给「进入编辑」；④.5 起这一页带一张建档表单（读侧 + 建档）。动作格只有**账号层面**三枚：**设 PIN**、**停用/启用**、**删档**——**「进入编辑」已下线**（它就是 `POST /switch to=<id>`）；坏档那一格是文字「要在这台机器上修好那个文件」，停用档带「已停用」徽标。**没有管理权时不是 303，而是 200 渲染登录页**（2026-10-12：管理员不再是某个档案，浏览器那条路需要自己的凭证；沿用旧的裸 303 形状会让升级之后没有任何人进得去管理页，账号层面整个锁死）。**只有档案会话不算管理权**——登进 dad 也不等于能管这台机器。**AI 不走这条**，要同一份聚合打 `GET /api/v1/status`（同一个 statusRows、两种壳） |
-| POST | `/admin/login` | 无（这一条就是"证明你有管理权"的那一步） | 303 回 `/admin` | **管理员的进门**（2026-10-12）。浏览器表单通路，体是 `application/x-www-form-urlencoded` 的 `{key}`。判据只有 `LAUNCHBAY_ADMIN_TOKEN` 一把。`POST /prefs`、`POST /switch` 与 `/api/v1/profiles/self/pin` 同族纪律——**浏览器表单一律 303 拒令牌**，机器建档走 `POST /api/v1/profiles`。key 不对 → 303 `/admin?err=badkey`（不说"这把 key 是管理员的那把"，那等于漏出它的身份）；同一个字段出现两次或表单读不出来 → 422 JSON 外壳。对了 → 发一条 `lb_admin` cookie（**装的是 HMAC 派生值**）并 303 回 `/admin`。表单读不出来与 key 不对是两个形状，别合成一个 303——那会让人以为 key 写错了 |
+| GET | `/admin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 HTML（no-store） | 管理页读侧：一行一个档案 + 条目数 + rev + 最近改动（`modified`，RFC3339 UTC，坏档读不出来为空、显示 `—` 不编造），**不含条目内容**；坏档案照占一行、标「数据文件读不了」、不给「进入编辑」；④.5 起这一页带一张建档表单（读侧 + 建档）。动作格只有**账号层面**三枚：**加/改 PIN**、**停用/启用**、**删档**——**「进入编辑」已下线**（它就是 `POST /switch to=<id>`）；坏档那一格是文字「要在这台机器上修好那个文件」，停用档带「已停用」徽标。**加/改 PIN 对每一份档案都在，含当前会话正在用的那一份**（2026-10-20 改判，见 `/admin/pin` 那行）；**删档与停用仍然不给**自己正在用的那一份（会话层面的事）。动作键说的是「加 PIN」还是「改 PIN」由这一份**现在有没有 PIN** 翻（判据 `auth.HasPin`，值由 statusRows 算好传下来），没上锁的那一份另带一枚「没 PIN」告警徽标。**没有管理权时不是 303，而是 200 渲染登录页**（2026-10-12：管理员不再是某个档案，浏览器那条路需要自己的凭证；沿用旧的裸 303 形状会让升级之后没有任何人进得去管理页，账号层面整个锁死）。**只有档案会话不算管理权**——登进 dad 也不等于能管这台机器。**管理员那把 key 打它拿到的是这一张管理页**（2026-10-20 修：从前这一页只问 `hasAdminCookie`——只读 cookie，于是拿管理员 key 的人拿到的是**登录页**，形状上"成功"、内容却是错的，脚本会以为自己没登录；判据改成 `require(credAdmin)` 一处，与端点表、openapi 的 `security`、以及代码注释对齐）。**AI 不走这条**，要同一份聚合打 `GET /api/v1/status`（同一个 statusRows、两种壳）。页面另有一块「管理密钥」：写出**公开的**默认密钥（compose 里那个 `launchbay123`），并在这台机器**还在用默认那把**时给一句提醒；**当前配置的那一把一个字都不进页面** |
+| POST | `/admin/login` | 无（这一条就是"证明你有管理权"的那一步） | 303 回 `/admin` | **管理员的进门**（2026-10-12）。浏览器表单通路，体是 `application/x-www-form-urlencoded` 的 `{key}`。判据只有 `LAUNCHBAY_ADMIN_TOKEN` 一把。`POST /prefs`、`POST /switch` 与 `/api/v1/profiles/self/pin` 同族纪律——**浏览器表单一律 303 拒令牌**，机器建档走 `POST /api/v1/profiles`。key 不对 → 303 `/admin?err=badkey`（不说"这把 key 是管理员的那把"，那等于漏出它的身份）；同一个字段出现两次或表单读不出来 → 422 JSON 外壳。对了 → 发一条 `lb_admin` cookie（**装的是 HMAC 派生值**）并 303 回 `/admin`。表单读不出来与 key 不对是两个形状，别合成一个 303——那会让人以为 key 写错了。**登录页把公开的默认密钥写在卡里**（compose 里那个 `launchbay123`，2026-10-20）：装机器的人第一次站在这一页上要知道的只有"我该输什么"；**当前配置的那一把一个字都不进页面**（它会进 devtools、进导出、进浏览器同步），而"这台机器还在用默认那把"这句话**只在管理页里说**（未登录那一页说它等于给匿名访客递钥匙） |
 | POST | `/admin/logout` | 无 | 303 回 `/` | 丢掉管理员身份（2026-10-12）。**只清 `lb_admin`，不动 `lb_profile`**——管理员完全可能同时登着自己的档案在用书签，"退出管理"不该把他从自己的台子里踢出去，那两件事从此分不开 |
 | POST | `/admin` | 管理员**cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 管理页建档，体是 `application/x-www-form-urlencoded` 的 `{title, pin, nopass?}`：**没有 `admin` 那一格**（2026-10-12，档案不再有管理员属性，勾了也不会有任何后果）；**PIN 选填**——`nopass=1` 建出不设防的一份，不勾而 `pin` 为空照旧 `?err=badpin`；不问 id（由名字派生 slug，中文走 `home`、`home-2` 基名序列）；字段没填对回 `/admin?err=noname`、`badpin` 或 `nametaken`（派生 id 撞并发提交那一种），**数据目录不可写**回 `/admin?err=permission`（与 `/setup` 同一族同一句话），与进门页同一张白名单，不回显原文，无管理权都是 303 回选择页且磁盘不变；**AI 要建档走 `POST /api/v1/profiles`**，别打这条 |
-| GET | `/admin/pin` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 给某个档案设 PIN 的**第一步**：读 `?profile=<id>`，回一张写明后果的确认页。**两步二次确认、零 JavaScript** —— spec §8.8 原写「表单发不出，随 ⑤ 的 JS 落地」，2026-10-09 改判为用两步页面做，于是关掉 JS 时照样成立。字段标签上写着**留空 = 取消这一份的 PIN**（2026-10-12），后果说明那一段重复一遍。目标就是当前会话正在用的那一份 → 303 `/admin?err=selfpin`（改自己的 PIN 要旧 PIN，走 `POST /api/v1/profiles/self/pin`；这条要让开，否则它就是绕过旧 PIN 的后门）；档案不存在 → 303 `/admin?err=notfound` |
-| POST | `/admin/pin` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 设 PIN 的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{profile, new}`（**`new` 留空 = 取消这一份的 PIN**，2026-10-12，与 `POST /api/v1/profiles/pin` 同一个 `adminPin` 落点、同一处 `isNoPass` 判据）。**不是第二条 API 面**：校验→哈希→锁内读写→落审计行与 `POST /api/v1/profiles/pin` 走同一个落点，差别只在怎么读入、怎么答出。成功 303 回 `/admin`；字段没填对 303 回 `?err=badpin`；锁内读失败 404/503/500；落盘或审计失败 303 回 `?err=failed`（**绝不说成功** —— 那时 PIN 已改而审计行没落） |
+| GET | `/admin/pin` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 给某个档案**加/改 PIN** 的**第一步**：读 `?profile=<id>`，回一张写明后果的确认页。**两步二次确认、零 JavaScript** —— spec §8.8 原写「表单发不出，随 ⑤ 的 JS 落地」，2026-10-09 改判为用两步页面做，于是关掉 JS 时照样成立。**加**与**改**分开说（2026-10-20）：这一份现在有没有 PIN（`auth.HasPin`）决定这一页说「加一道门锁」还是「换一把锁」——两者的后果根本不同。**目标就是当前会话正在用的那一份也不再让开**（2026-10-20 改判，`selfpin` 那一格随之删掉）：管理员是**机器级**的一把 key，不属于任何档案，于是"改自己的 PIN 要旧 PIN"在管理页上从来没有依据——本人自己那边走 `POST /api/v1/profiles/self/pin` 照样要旧 PIN，而管理员这一边是"家人忘了 PIN 的出路"，它必须能管**每一份**档案；机器通路 `POST /api/v1/profiles/pin` 本来就不拦，两处对同一件事给出不同答案才是真的坏。改的是自己那一份时，页上另说一句"现在这个页面还在，但下次进门要输新的那个"。档案不存在 → 303 `/admin?err=notfound`；坏档 → 同键（改不了 `profile.json`） |
+| POST | `/admin/pin` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 设 PIN 的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{profile, new}`（**`new` 留空 = 取消这一份的 PIN**，2026-10-12，与 `POST /api/v1/profiles/pin` 同一个 `adminPin` 落点、同一处 `wantsNoPin` 判据）。**不是第二条 API 面**：校验→哈希→锁内读写→落审计行与 `POST /api/v1/profiles/pin` 走同一个落点，差别只在怎么读入、怎么答出。成功 303 回 `/admin`；字段没填对 303 回 `?err=badpin`；锁内读失败 404/503/500；落盘或审计失败 303 回 `?err=failed`（**绝不说成功** —— 那时 PIN 已改而审计行没落）。**`profile` 同名多值要 422**（2026-10-20 补）：它是"改哪一份"的身份字段，与 `/admin/delete`、`/prefs`、`/setup` 同一族纪律——从前只查 `new`，于是 `profile=kid&profile=dad` 取第一个就改了 |
 | GET | `/admin/disable` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 停用/启用的确认页（第一步）。**停用不是删档**：数据与快照一个字节不动，仍占 `profiles/` 的目录数（引导窗口不重开），但输对 PIN 也进不去、选择页上不再出现这一份。目标就是当前会话正在用的那一份 → 303 `/admin?err=self`（防手滑）；不存在 → `?err=notfound`；坏档 → `?err=notfound`（改不了 profile.json 就翻不动这个标志） |
 | POST | `/admin/disable` | 仅管理员**会话**（表单） | 303 回 `/admin` | 停用/启用的第二步，体是 `{profile}`。判据=取反（今天是停用就启用，反之亦然），落点与 `POST /api/v1/profiles/disable` 同一个 `adminDisable`。**幂等**：同状态再设一次不写盘、不记审计，所以重试安全。落盘或审计失败走 500 JSON 外壳，**绝不说成功** |
-| POST | `/admin/language` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 改全机**界面语言**（多语言，2026-10-11）。体是 `{language}`，取值 `zh`\|`en`。**语言是站级设置不是档案字段**：落 `data/settings.json`，不进 `profile.json`、不走 `/prefs`——那两条都只改自己，而语言改了立刻影响这台机器上所有人；把语言放进档案等于把"改全机显示"的权力交给任一份档案的所有者。没给 → 303 `?err=nolang`；给了不认识的值 → 303 `?err=badlang`（**不静默落默认**：静默存下去等于"我选了法语，它没告诉我没生效"）；落盘失败 500 JSON 外壳，**绝不说成功**。渲染缓存**不用手动清**：`cacheKey` 带语言这一维，改完下一次渲染的键就变了。另有一条入口是零档案时的 `POST /setup`（建档那趟顺手定下语言） |
-| POST | `/api/v1/profiles/disable` | 管理员（`LAUNCHBAY_ADMIN_TOKEN`） | 200 `{profile, disabled}` | 停用/启用某档案（机器那一面；JSON 体 `{profile, disabled}`）。**`disabled: true` = 停用**（进不去、数据不动、仍占目录数），`false` = 启用。只管账号，与 `*` 令牌同族；写书签一律要档案作用域令牌 |
-| POST | `/api/v1/import` | **档案作用域**令牌（`credTokenOnly`，**不认会话**） | 200 `{profile,count,skipped,groups,report,token}` | **给浏览器扩展用的第一步**：读得到浏览器的整棵书签树，读不到会话 cookie，所以只能带令牌来。**目标必须一条书签都没有**（2026-10-19 补上，与 `/import`、`import-bookmarks` 同一份规矩；判据收在 `applyImport`——三道壳唯一都经过的写盘落点，于是"申请时是空的、写入时已被别人写了"也被挡住）：非空档案在**写入前**就是 422 `import-target-not-empty`，盘上一个字节都不变。体是**原始 Netscape HTML**（`Content-Type: text/html`），不是 multipart——扩展在浏览器里就把树拼成了那个格式。**目标档案从令牌作用域推导、不接受申报**：一枚 `name:secret:dad` 的令牌只能导进 dad，这不是"懒得校验"而是更强的形状——申报字段根本不存在，"令牌与档案对不上"在协议层就无法表达。`*` 令牌一律 403（它只管账号），**管理员那把 `LAUNCHBAY_ADMIN_TOKEN` 打这里也是 403，但走的是 `credential-admin-token` 而不是 `credential-scope`**（2026-10-19）——那两句出路是相反的：scope 说"换个档案 id"，而管理员 key 的真相是"这把钥匙根本不开书签这一面"，照着前者改档案 id 改到天亮也进不去。**不写盘**，写入在 `/api/v1/import/apply`；读出 0 条当场 422（`Convert` 不拒绝非 Netscape 输入，不判就会出现"导入成功 0 条"）。`skipped` 是**没能进来的条数**（过不了 `model.CheckURL`：空、解析不了、缺主机名——**`file:` 不在其列，本地路径照收**，2026-10-12），逐条明细在 `report` 的"## 没能进来"一节——扩展只显示一行结论，这个数就是它唯一能说的话。`report` 的**句子**按 `Accept-Language` 分读者（2026-10-13）：不发这个头的脚本与 CLI 拿到的仍是逐字不变的中文那一份，带它的浏览器扩展拿到那台浏览器界面语言那一份，因为那份报告是原样贴到扩展设置页下面给人看的；**判定、数字与那一节的结构两种语言里同一份** |
-| POST | `/api/v1/import/apply` | **档案作用域**令牌（`credTokenOnly`，**不认会话**） | 200 `{profile,rev,applied,warnings}` | **第二步：确认写入**。**凭证在前、体在后**（2026-10-19 修）：原先先 `decodeBody` 再 `Authorize`，于是凭证认不出来的那一次，请求体已经被整份读进内存、JSON 也解了一遍才给出 401；体不合法时更是先撞上 422「body-unreadable」，凭证不对这件事根本没机会说。体是 `{token}`，令牌取走即删所以重放写不进第二次；落盘走 `applyBatch`——与 `POST /api/v1/batch` **同一个落点**。令牌过期或已用过是 **410 Gone**（资源确实没了，且正是"别拿同一枚重试"的信号；报成 400 会诱使调用方再发一次）。审计线 `by` 记 `extension` |
+| POST | `/admin/language` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 改**默认**界面语言（多语言，2026-10-11；**2026-10-20 改成"默认"**）。体是 `{language}`，取值 `zh`\|`en`\|**空串**。落 `data/settings.json`——它现在是**默认**：**还没自己选过语言的档案**用它，**已经选过的人不受影响**（每一份自己那一份走 `POST /prefs` 的 `language` 字段，落 `profile.json`；判据见「界面语言」那一节）。**空串 = 取消默认**（回到"没人设过"，各人按浏览器说的那一门显示；2026-10-20 加）——**字段没给**是另一回事（脚本漏了它 → `?err=nolang`），两者从前同形，于是"取消默认"这条路根本走不通。给了不认识的值 → 303 `?err=badlang`（**不静默落默认**：静默存下去等于"我选了法语，它没告诉我没生效"）；落盘失败 500 JSON 外壳，**绝不说成功**。渲染缓存**不用手动清**：`cacheKey` 带语言这一维，改完下一次渲染的键就变了。另有一条入口是零档案时的 `POST /setup`（建档那趟顺手定下**默认**）与引导页上的 `POST /lang` |
+| POST | `/api/v1/profiles/disable` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profile, disabled}` | 停用/启用某档案（机器那一面；JSON 体 `{profile, disabled}`）。**`disabled: true` = 停用**（进不去、数据不动、仍占目录数），`false` = 启用。只管账号，与管理员那把 key 同族；写书签一律要档案作用域令牌。**它写审计行**（`ops:[{op:"set", path:"profile/disabled"}]`，`rev:0`——停用不动书签）——改 PIN 那一族（`profile/pin`）同形。**幂等**：同状态再设一次**不写盘也不记审计**，答案照给 |
+| POST | `/api/v1/import` | **档案作用域**令牌（`credTokenOnly`，**不认会话**） | 200 `{profile,count,skipped,groups,report,reportHtml,token}` | **给浏览器扩展用的第一步**：读得到浏览器的整棵书签树，读不到会话 cookie，所以只能带令牌来。**目标必须一条书签都没有**（2026-10-19 补上，与 `/import`、`import-bookmarks` 同一份规矩；判据收在 `applyImport`——三道壳唯一都经过的写盘落点，于是"申请时是空的、写入时已被别人写了"也被挡住）：非空档案在**写入前**就是 422 `import-target-not-empty`，盘上一个字节都不变。体是**原始 Netscape HTML**（`Content-Type: text/html`），不是 multipart——扩展在浏览器里就把树拼成了那个格式。**目标档案从令牌作用域推导、不接受申报**：一枚 `name:secret:dad` 的令牌只能导进 dad，这不是"懒得校验"而是更强的形状——申报字段根本不存在，"令牌与档案对不上"在协议层就无法表达。管理员那把 key 一律 403（它只管账号），**管理员那把 `LAUNCHBAY_ADMIN_TOKEN` 打这里也是 403，但走的是 `credential-admin-token` 而不是 `credential-scope`**（2026-10-19）——那两句出路是相反的：scope 说"换个档案 id"，而管理员 key 的真相是"这把钥匙根本不开书签这一面"，照着前者改档案 id 改到天亮也进不去。**不写盘**，写入在 `/api/v1/import/apply`；读出 0 条当场 422（`Convert` 不拒绝非 Netscape 输入，不判就会出现"导入成功 0 条"）。`skipped` 是**没能进来的条数**（过不了 `model.CheckURL`：空、解析不了、缺主机名——**`file:` 不在其列，本地路径照收**，2026-10-12），逐条明细在 `report` 的"## 没能进来"一节——扩展只显示一行结论，这个数就是它唯一能说的话。`report` 的**句子**按 `Accept-Language` 分读者（2026-10-13）：不发这个头的脚本与 CLI 拿到的仍是逐字不变的中文那一份，带它的浏览器扩展拿到那台浏览器界面语言那一份，因为那份报告是原样贴到扩展设置页下面给人看的；**判定、数字与那一节的结构两种语言里同一份** |
+| POST | `/api/v1/import/apply` | **档案作用域**令牌（`credTokenOnly`，**不认会话**） | 200 `{profile,rev,applied,warnings}` | **第二步：确认写入**。**凭证在前、体在后**（2026-10-19 修）：原先先 `decodeBody` 再 `Authorize`，于是凭证认不出来的那一次，请求体已经被整份读进内存、JSON 也解了一遍才给出 401；体不合法时更是先撞上 422「body-unreadable」，凭证不对这件事根本没机会说。体是 `{token}`，令牌取走即删所以重放写不进第二次；落盘走 `applyBatch`——与 `POST /api/v1/batch` **同一个落点**。令牌过期或已用过是 **410 Gone**（资源确实没了，且正是"别拿同一枚重试"的信号；报成 400 会诱使调用方再发一次）。**管理员那把 `LAUNCHBAY_ADMIN_TOKEN` 打这一条是 403 `credential-admin-token`**（2026-10-20 修，与第一步同形）：从前这一条只查档案作用域令牌列表，而管理员那把 key 不在列表里，于是它拿到 401「令牌认不出来」——**那是在说一把好钥匙是废的**。同一个两步流程里，第一步说"这把钥匙只管账号"、第二步说"你的令牌我不认识"，两句话的出路正好相反，调用方会去换令牌，而它没有令牌问题。审计线 `by` 记 `extension` |
 | GET | `/admin/delete` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 200 HTML（no-store） | 删档的**第一步**：读 `?profile=<id>`，回一张**把后果写死在页面里**的确认页（条目数与快照数取自 `statusRows`，与 `/admin` 那张表同一趟遍历）。删档不可逆，`revert` 救不了它——快照跟着档案一起没了。两道形状闸判据是"这台机器之后还能不能管"：目标是当前会话在用的那一份 → 303 `?err=self`；**没有"最后一个管理员"那一道**——权限只看 `lb_profile`，能进这页的人本身就是管理员，"唯一的管理员"只可能是他自己在用那一份（已被 `self` 拦） |
 | POST | `/admin/delete` | 管理员 **cookie**（表单；带令牌一律 303 拒） | 303 回 `/admin` | 删档的**第二步**，体是 `application/x-www-form-urlencoded` 的 `{profile}`。**不是第二条删档通路**：ASCII slug / 目录须是 `profiles/` 下的同名直接子目录 / 档案写锁三道闸全在 `store.DeleteProfile` 内部，端点层不再"规范化" id（那等于绕过闸）。`history.jsonl` 的行保留（删档不抹审计线）。成功 303 回 `/admin`；不存在 303 `?err=notfound`；**落盘失败走 500 JSON 外壳** —— 删档失败必须说得清 |
+
+## 契约怎么才不至于骗人
+
+`openapi.json` 与两份语言包都是**静态产物**（go:embed），从不在运行时拼装——
+所以它们**算不出** Go 那边的判据，只能**由测试钉**。这与磁盘上那些 JSON 文件是同
+一条纪律：`profile.json` 的取值由 `model` 判，语言包的 key 由 `catalog_test` 钉，
+契约里的每一条由 `openapi_test` 钉。**判据只有一份**这句在静态文件上没有别的出路，
+只能落成一道会红的闸。
+
+现在有两条闸管这件事：
+
+- **每一条 operation 都必须有 `responses`**（`TestOpenAPICoversEveryRoute`）。从前有
+  十二条只写了「它是什么」、没写「它答什么」，而这一份是 AI 照着写请求的契约——
+  AI 读不到响应形状就会自己编一个（AGENTS.md 开头那句「文档骗 AI 比骗人更贵」）。
+  缺了就红，并指名是哪一条。
+- **语言包与契约里写死的数字由常量出、由测试点名**（`internal/httpapi/pinlen_test.go`
+  与 `internal/render/pinlen_test.go`）。PIN 的长度范围住在 `auth.PinMinLen` /
+  `auth.PinMaxLen` 一处：判据、422 那句理由、CLI 的用法与旗标帮助、模板上的
+  `minlength`/`maxlength` 全都由它算——**派生出来的那几半不会漂**。而语言包与
+  `openapi.json` 里的「4 到 6 位数字」是两份**静态文本**，算不出来，于是由测试
+  逐句点名：改了范围而忘了改文案，那两条会当场红，并指出是哪一句。
 
 ## 错误码（每个 JSON 错误都带 `kind`）
 
@@ -258,8 +307,9 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 | `missing-target` | 422 | 那一组/那一条不在了：刷新之后再看 |
 | `ops-invalid` | 422 | 整批没写入；看 errors[] 逐条的 kind 与 field |
 | `pin-wrong` | 401 | 再输一次；忘了就走管理页那格设新 PIN |
+| `pin-old-wrong` | 403 | 旧 PIN 不对：走管理页那格改新 PIN（管理员是家人忘了 PIN 的出路） |
 | `profile-broken` | 503 | 先修好那个数据文件（管理页会说要重建） |
-| `profile-disabled` | 401 | 这一份被停用了：去管理页点「启用」，或者换一份进 |
+| `profile-disabled` | 403 | 这一份被停用了：去管理页点「启用」，或者换一份进 |
 | `profile-exists` | 409 | 换一个名字或 id |
 | `profile-not-found` | 404 | 确认这个 id 还在，或先建一份 |
 | `profile-not-rebuildable` | 409 | 这份读得动，不需要重建；改 PIN 走 profiles/pin |
@@ -274,28 +324,76 @@ rebuild 写的是一个新的 `model.Profile` 字面量，凡不在里面的都�
 
 所有写请求体里的 `by`，以及 `/api/v1/revert`、`/api/v1/profiles/pin` 的
 `X-LB-By` 头，取值 ∈ `ai | bookmarklet | extension | web | import | cli`
-（共七个）。它是调用方自报的口径，**不参与任何权限判定**；非法值按 `web` 记。
+（共六个）。它是调用方自报的口径，**不参与任何权限判定**；`X-LB-By` 头的非法值按 `web` 记，
+而 `POST /api/v1/batch` 请求体里的 `by` 非法值答 422 并点名 `by`。
 `revert` 与改 PIN 这类动作在历史里记成 `ops:[{op:"revert"|"set", path:"snapshots/<rev>"|"profile/pin"}]`，
 `rev:0` 表示这次动作不产生书签 rev。
 
-## 界面语言（多语言，2026-10-11 起）
+## 界面语言（多语言，2026-10-11 起；**2026-10-20 改成每一份自己一份**）
 
-界面有中文与英文两种，**站级**一个：落 `data/settings.json`（`{"language":"zh|en"}`），
-**缺文件 = 中文**，所以升级不改变任何人的现有界面。读侧是 `store.Language()`，
-它**永不返回错误**——读不出来（文件不存在 / 权限 / 内容坏了）都落中文，一个显示配置
-读不出来不该让整台机器的页面 500。
+界面有中文与英文两种。**整条链只有一处**（`httpapi.machineLang` / `httpapi.langOf`，
+底层是 `i18n.ProfileLang`）：
 
-**为什么不进 profile.json**：语言是一家人共用的阅读偏好。放进档案等于把「改全机
-显示」的权力交给任何一份档案的所有者，那既是权限模型的破口，也让语言从显示设置
-变成需要仲裁的状态。`/prefs` 也管不到它——那条只改自己。
+1. **这一份自己记的**（`model.Profile.Language`，落 `profile.json` 的 `language` 键，
+   空串 = 没选过 = 跟随默认）——它最具体，别人替它选的那一份不算数。
+2. **站级的默认**（`data/settings.json`，**管理员设过**的那一个）——他设过就是他说过了。
+3. **浏览器语言**（`Accept-Language` 里认得的那一门）——**什么都还没设过**时，
+   人**正在读**的那一门语言就是最像他的那一门（第一次用这台机器的人正是靠这一格
+   看到自己看得懂的界面）。**权重（q 值）要看**（2026-10-20 修）：按 q 值从高到低
+   找第一个认得的标签，`q=0` 是不接受、`*` 是"其余都行"（不是"他要哪一门"）。
+   从前只取**第一个**标签且不剥 `;q=`，于是 `zh;q=0.9` 整条认不出——一个**说中文的
+   客户端拿到英文首页**。
+4. **en**——上面都答不出来时给英文（国际通用那一门），而不是中文。
 
-写入口只有两个：零档案时 `POST /setup` 建档顺手选（那一页只在没有任何人时出现，
-所以「谁该替所有人选语言」这个问题还不存在），之后一律 `POST /admin/language`
-（**仅管理员 cookie，带令牌一律 303 拒**）。改完**立刻生效**：渲染缓存的 `cacheKey`
-带语言这一维，所以不需要手工清缓存——「改完遍历清一遍」是要记得做的事，
-进键是不用记得的事。
+**为什么第 3、4 格是"浏览器"与"en"**（2026-10-20）：中文是**这个项目原本的默认**
+（作者一家人的语言），而这两格问的是"读者要哪一门"——**没有读者信息时**，国际通用
+那一门比"作者家的那一门"更接近陌生人。而中文仍然是**管理员设的默认**与**管理员
+在管理页里改的那一个**的落点。
 
-**浏览器扩展那一侧不跟这个站级设置**：`extension/_locales/{zh_CN,en}/messages.json`
+- **每一份档案自己记一份**：**不写 `omitempty`**（空串也要落盘，于是"没选过"与
+  "选了跟随默认"在盘上分得开）。**不在 `Profile.Validate` 里卡**（与 icon 名、背景
+  同一纪律）：写侧严（`POST /prefs` 拒不认识的值 → 422 点名 `language`）、读侧宽
+  （不认识的值**当没选过**，跟着链走）——把档案判成坏档的代价是那个人再也进不去。
+  **"不认识 = 没选过"是 2026-10-20 改判的**：从前非法值（手改或拷贝来的
+  `"language":"zh-CN"` / `"fr"`）被当成"显式选了中文"——既不跟站级默认，也不跟浏览器
+  语言，链的后两格被跳过；而台面面板上三颗键还**全都不亮**（那一格的职责恰恰是
+  显示"现在是哪一档"）。现在它跟着链走，面板亮「跟随默认」。
+  判据落在 `i18n.ProfileLang` 一处（**httpapi 与渲染层都问它**，不是各写一遍）。
+- **站级那一份是默认**：管理员在管理页改它，它只影响**还没自己选过**的人；已经选过
+  的人不受影响。**「没人设过」是一个要说得出、也要显示得出的状态**（2026-10-20 修）：
+  管理页与引导页那两个语言下拉显示的是**盘上写着的那个**值，没写时预选「跟随浏览器」——
+  从前它们显示的是"这一页正在用的那一种"，而"没人设过"时那一页按**浏览器说的**那一门
+  显示，于是管理员看到"English"被选中就以为这台机器已经是英文的了；而他按一下那颗
+  按钮，就把"没人设过"悄悄变成了"显式设成英文"，从此整台机器的默认被冻结在他的
+  浏览器语言上。现在下拉里有第三档「跟随浏览器」，选它 = 取消默认（`POST /admin/language`
+  收一个**空串**；**字段没给**是另一回事，答 `?err=nolang`）。
+- **谁改什么**：每一份**只能改自己那一份**（台面面板「界面语言」那一格 →
+  `POST /prefs` 的 `language` 字段，与 theme/layout 同族：只写 `profile.json`，不产生
+  rev、不做快照）；管理员改的是**默认**（`POST /admin/language`，仅管理员 cookie）。
+  **谁也改不了别人的页面语言**。
+
+**哪些页面说哪种语言**（2026-10-20）：
+
+| 页面 | 语言 |
+|---|---|
+| 档案页 `/`、台面面板 `/prefs`、改动历史 `/history`、回退 `/revert`、导入 `/import` | **这一份自己的**（没选过 = 链的第 2 格） |
+| 选择页 `/`、引导页 `/setup`、管理页 `/admin`、登录页 `/admin/login`、三张确认页 | **链的第 2 格**（管理员设过的默认；没设过就按浏览器） |
+| 404 页、坏档页 | **链的第 2 格**（2026-10-20 补：这两页从前在**渲染层**自己问站级默认，于是全新机器 + 英文浏览器上它们是全站唯一两页中文的，而 404 页那颗按钮又是英文的——中英混排。它们不属于任何档案，只能用机器级那一种） |
+
+渲染层按**递过来的那一种语言**查表（`render` 的页面方法都收一个 `lang` 参数），
+httpapi 侧组装的那些句子（带运行时值的那几句：历史每一行、回退每一版、导入每一步）
+用**同一个判据**翻（`httpapi.trFor(r, id)`）——两半必须是同一种语言，否则一页上会
+中英混排。**判据在 httpapi 那一侧**（它看得见 `Accept-Language`，渲染层看不见），
+渲染层**不自己判**——两处各判一次就会有一处漂。
+
+写入口三个：零档案时 `POST /setup` 建档顺手定**默认**（那一页只在没有任何人时出现，
+所以「谁该替所有人选语言」这个问题还不存在），`POST /admin/language` 改**默认**
+（**仅管理员 cookie，带令牌一律 303 拒**），`POST /prefs` 的 `language` 改**自己那一份**
+（仅会话）。改完**立刻生效**：渲染缓存的 `cacheKey` 带语言这一维（档案页那一份还带
+`profFp`），所以不需要手工清缓存——「改完遍历清一遍」是要记得做的事，进键是不用
+记得的事。
+
+**浏览器扩展那一侧不跟这个设置**：`extension/_locales/{zh_CN,en}/messages.json`
 按**浏览器自己的界面语言**取（`default_locale: "zh_CN"`，manifest 的
 `name`/`description` 走 `__MSG_key__`）。理由是它读不到这台机器的界面语言——那要一次
 带凭证的请求，而"这一页说什么"不该依赖一次网络成功；装扩展的人就坐在那台浏览器前面，
@@ -330,7 +428,10 @@ app.js 的浮层与命令面板）。**不翻**的是给脚本读的那些——
 `/api/v1/import` 那一份按**调用方是不是浏览器**分：不带 `Accept-Language` 的（curl、Go 的
 http.Client、这台机器的 CLI 都不发这个头）拿到的仍是逐字不变的中文锚点，带它的浏览器扩展
 拿到的是那台浏览器界面语言那一份——那份报告是原样贴在扩展设置页下面给人读的（判据
-`internal/httpapi/lang.go` 的 `browserLang`：只看第一个标签，认不出落默认，不 406）。
+`internal/httpapi/lang.go` 的 `browserLangOr`：**按 q 值从高到低**挑第一个认得的标签，
+`q=0` 跳过、`*` 跳过、区域码取主标签（`zh-CN` → `zh`）；认不出落默认，不 406。
+**2026-10-20 修**：从前只取**第一个**标签且不剥 `;q=…`，于是 `Accept-Language: zh;q=0.9`
+整条认不出——一个说中文的客户端拿到英文首页）。
 两路共用同一份结论，翻的是句子不是判定；
 **写路径的判定原话**（"没有分组 x"、校验理由那一类）两路都不翻，它们与 detail 同族，两份就会漂。
 缺 key 时 `T` 返回包着尖括号的 key 自己（不是空串），所以
@@ -342,13 +443,11 @@ http.Client、这台机器的 CLI 都不发这个头）拿到的仍是逐字不�
 它自己 `go build` 出一个二进制、用临时数据目录起一台、再拉一个无头 Chrome，
 然后走**两道横扫**：
 
-- `sweep.mjs`（26 步）：档案页上**每一条会写盘的交互**——添加浮层四种落点、编辑模态七格、
-  拖网址四种落点、站内排序五种落点、多选三个动作、设置面板两格。
-- `sweep-variants.mjs`（21 步）：**别的族**——离线队列（存进去 → 恢复联网 → 队列自己重放）、
-  设置面板其余各格（改名/第二行/主题/视图/导航位置/分组改名/分组颜色/新建组/删组）、
-  搜索两路（整页 `?q=` 与 ⌘K 面板**必须给同一个词同一个答案**）、剪贴板那一格、
-  窄屏 390 + 浅色、减弱动效、以及**零 JS 通路**那几页（`/pin`、`/prefs`、`/prefs/group`、
-  `/revert`、`/import`、`/admin`）。
+- `sweep.mjs`（2026-10-20 那次 26 步；加一步就变，所以这是快照）：档案页上**每一条会写盘的交互**——添加浮层四种落点、编辑模态七格、
+  拖网址五种落点、站内排序五种落点、多选三个动作、设置面板两格。
+- `sweep-variants.mjs`（2026-10-20 那次 22 步；加一步就变，所以这是快照）：**别的族**——离线队列（存进去 → 恢复联网 → 队列自己重放）、
+搜索两路（整页 `?q=` 与 ⌘K 面板**必须给同一个词同一个答案**）、
+窄屏 390 + 浅色、减弱动效、以及**零 JS 通路**那几页（`/`、`/prefs`、`/revert`、`/import`、`/admin`）。
 
 没设 `LB_UI` 就跳过，理由写在 `t.Skip` 里：它要 node 与浏览器、**要三四分钟**（实测 203 秒），
 而其余门禁只要几秒——每次都跑，开发者就会开始绕过去。
@@ -435,8 +534,25 @@ http.Client、这台机器的 CLI 都不发这个头）拿到的仍是逐字不�
 - **「图标」那一格右侧多一颗「图标库…」**（2026-10-14）：点开是一层窄浮层，输入即搜
   `GET /api/v1/icons/tiles`，回车取第一格、点一格即把它写回那颗下拉框
   （`simple-icons` 品牌图标 + `tabler` 概念图标，与 resolve 的「自动抓 favicon」并列）。
-  **图库不进这份脚本**——它是内嵌产物六千多条名字，进脚本等于让只看首屏的每一页
+  **图库不进这份脚本**——它是内嵌产物一万多个名字，进脚本等于让只看首屏的每一页
   都背一份（§7.3）。就地编辑那一层同样有这一格与同一颗键（此前它连图标都没有）。
+  **面板打开是「浏览视图」，三段**（2026-10-20）：① 这一份已经在用的（克隆卡片上
+  那一枚，零请求，与卡片逐像素同源）② 常用的（`GET /api/v1/icons/starter`，一份
+  人工挑的清单）③ **图库里的全部**（`GET /api/v1/icons/browse?offset=…`，一万个
+  图标按稳定顺序翻页，滚到底自动再要一页，网格里也有「再加载一批」那枚键）。
+  **为什么第 ③ 段是必需的**：①② 加起来只有几十个，而那一万个图标是**内嵌在二进制
+  里**的（spec §5）——是这台机器自带的，不该九千多个够不着。③ 段**不去重**（它承诺
+  的是"图库里的全部"，跳掉几条就破了这句话），而 ① 与 ② 之间去重（同一枚图标摆
+  两格像是界面上多了一枚）。**搜索会整张网格换掉**浏览视图（那一屏答的是"你搜到
+  哪几个"），清空搜索词回到浏览视图（已翻出来的那几页还在，不重新拉）。
+- **图标库那一层**打开时**先摆两批**（2026-10-20）：这一份**已经在用的**那些图标
+  （从卡片上克隆现成的那一枚，与卡片逐像素同源）+ 服务端那份**常用清单**
+  （`GET /api/v1/icons/starter`，`icons.Starter` 是一份人工挑的名单，名字由
+  `internal/icons` 的测试钉在真实索引上）。**为什么后一批是必需的**：前一批在实测里
+  **几乎永远是空的**——书签默认 `icon=auto`（去抓 favicon），而 `auto` 与"没设"都被
+  那一格排除掉，于是面板打开就是一张空网格，正是 2026-10-16 那次想治的同一个症状。
+  状态行有**三态**：自己用过的（两批都在）、只有常用那批、连那批都没到（空，仍要说
+  「先搜一个名字」）。清空搜索框回到起始格（两批），不是回到空白。
 - **拖入与书签栏按钮故意不是同一条路**：把书签栏或地址栏上的一个链接拖到这一页，
   会**直接存进落点那一组**（2026-10-16）——拖到哪张卡/哪个组标题上就是哪一组，
   拖到空白处退到第一组；**不问、不弹浮层**（落点已经说了「存进哪一组」，再弹一张表
@@ -569,6 +685,14 @@ CI 才红。
 `go test ./... -update` 会让没定义它的那些包直接失败——理由记在
 `internal/httpapi/agents_test.go` 顶上那段。
 
+**那条校验是常驻的，不只是同步时才跑**（2026-10-20 撞到，写在这里免得下一个人再撞）：
+`Test静态资产指纹三处一致` 在**每一次** `go test ./...` 里都比对——`AGENTS.md` 与
+`openapi.json` 里那 12 位必须等于当前 `app.js` 字节算出来的那一个。于是有一条
+**提交顺序**的纪律：**改了 `app.js` 的那一笔提交，必须同时带上两处指纹的更新**，
+否则中间那笔提交自己是红的（文档指着旧指纹，而字节已经是新的）。所以顺序是：
+先把不碰 `app.js` 的那些提交做完，最后把 `app.js` 的改动与两处指纹放进同一笔。
+只改 `app.css` 时同理（它的指纹在这两处也各有一份）。
+
 ### 它还兼管两件不在浮层里的事
 
 - **并注册 ⑥ 的 Service Worker**（`navigator.serviceWorker.register('/sw.js')`）。所以
@@ -583,7 +707,7 @@ CI 才红。
 事，它已经不再是"涨到两倍时有人看一眼"。
 
 **spec §7.3 那条 2026-10-16 已经改判成 128 KB**（理由与当时决定记在 spec 那一节），所以
-早先那句"规格还欠一次修改"已经不存在——当前 app.js **实测 gzip 70,521 / raw 179,772**，
+早先那句"规格还欠一次修改"已经不存在——当前 app.js **实测 gzip 75,667 / raw 204,980**（2026-10-20 那次；改一次 app.js 就变，所以这是快照），
 两条线是操作线 125,000 与契约 131,072。
 
 ## `/prefs/group`：面板「分组」那一节
@@ -642,7 +766,7 @@ CI 才红。
 `layout`（组） ∈ `tiles`、`list`、`feature`，**它与 `POST /prefs` 那个 `layout`
 （sidebar/topbar）不是一件事**：一个排分组内部的条目，一个放分组导航；两个枚举都叫
 Layout 是历史遗留，判据是 `model.ValidGroupLayout` 与 `model.ValidLayout` 各一份
-（`agents_test.go` 的 `prefsEnumRE` 就是靠「`layout`（组）」这个限定词把两��表分开的）。
+（`agents_test.go` 的 `prefsEnumRE` 就是靠「`layout`（组）」这个限定词把两张表分开的）。
 
 ### `feature`（大卡）那一档换的是整块版式与位置
 
@@ -692,7 +816,7 @@ Layout 是历史遗留，判据是 `model.ValidGroupLayout` 与 `model.ValidLayo
 
 端点表那格只留摘要。这一页把顶栏原先散着的六颗控件收进一屏——改名、排法（三颗）、
 档案形态（两颗）、主题（三颗）、回退、改动历史——**改的全是同一件事**：这一页怎么排、
-叫什么、能退到哪。**后来又加了三格**：背景图（2026-10-14）、点书签时（2026-10-15）、
+叫什么、能退到哪。**后来又加了四格**：背景图（2026-10-14）、点书签时（2026-10-15）、界面语言（2026-10-20）、
 第二行（2026-10-19）——其中「点书签时」那一格改的是**书签文档**（走 batch，有快照、
 能退），与前面那几族不是同一件事。**AI 不走这条**，要机器可读的同一份东西打
 `POST /api/v1/batch` 与 `/api/v1/data`。
@@ -711,21 +835,32 @@ Layout 是历史遗留，判据是 `model.ValidGroupLayout` 与 `model.ValidLayo
 外观，而「回退与历史」是两个出口——「外观」承诺的只有它能给的一半（id 仍是
 `lb-prefs-open`，内部形状不跟着界面词漂）。
 
-### 左侧三颗分类 tab：零 JS 怎么做到"记得停在哪"
+### 左侧四颗分类 tab：零 JS 怎么做到"记得停在哪"
 
-三颗（外观 / 回退与历史 / 分组）——**就三颗，再往下拆到每一行是噪声**（那一屏只有三个真正
-的断层，而"多几个"量出来是每格跳 100px，那不叫 tab）。
+四颗（外观 / 分组 / 回退与历史 / 我的 PIN）——**就这四颗，再往下拆到每一行是噪声**（每一颗是
+一个**断层**——一类内容；而"多几个"量出来是每格跳 100px，那不叫 tab）。
 
-- **零 JS**：三颗 radio + `:checked ~ .prefs-panes` 兄弟选择器，`/prefs` 这张独立页**根本不
+- 第四颗是 2026-10-20 加的「我的 PIN」，**它与另外三颗不是同一类**：外观那几行改的是
+  台面偏好，分组与「我的 PIN」是**表单**（前者改书签文档，后者改 profile.json 的 PIN），
+  而「回退与历史」是两个出口。**它是真断层才加的**：本人从前改不了自己那道门（只有 API
+  与管理页两条路），于是"能设就能撤"那句话对本人是空的。
+- **零 JS**：四颗 radio + `:checked ~ .prefs-panes` 兄弟选择器，`/prefs` 这张独立页**根本不
   引 app.js**，而同一份 define 也渲染进档案页的浮层——JS 切 class 只会在一条路上有 tab。
-- **退化方向是"看得全"**：pane 默认可见、只被 checked 的那颗关掉，CSS 没加载时三节全在。
-- **停在哪是 URL 上的 `?tab=`**（`look`/`out`/`groups`，名单只有 render 侧那一份
-  `render.PrefTabValues`；不认识的值落回 `look` 而不是 400）——它必须活过一次保存：
-  `/prefs/group` 那一族的 action 带 `?tab=`、`applyPrefsOps` 的 303 落回也带着，浮层那条路由
-  `sessionStorage['lb-prefs-tab-<档案>']` 记着（重载后重新 fetch 面板时带上去）。
-  **只有分组那一族带**：外观那几行改的是台面偏好、落点是 profile.json、成功后回 `/`
-  （那里根本没有左侧这一列），而「回退与历史」那一节里没有表单。
-- 可及名走 **fieldset + legend**（"选一节来看"就是 radio 组；那三颗 radio 收进
+- **退化方向是"看得全"**：pane 默认可见、只被 checked 的那颗关掉，CSS 没加载时四节全在。
+- **停在哪是 URL 上的 `?tab=`**（`look`/`groups`/`out`/`pin`，名单只有 render 侧那一份
+  `render.PrefTabValues`；不认识的值落回 `look` 而不是 400）——它必须活过一次保存。
+  **表单带的是「自己那一节」的 `?tab=`，不是「当前那一节」**（2026-10-20 改判）：分组
+  那一族带 `?tab=groups`、「我的 PIN」那一族带 `?tab=pin`。
+  **旧做法是带 `{{.PrefTab}}`（页面上停在哪一节），它不成立**：独立页上那列 radio
+  **不改 URL**（那张页不引 app.js），于是「当前那一节」在人按下去的那一刻已经变了，
+  而表单带的是**页面加载时**那一节。实测：独立页打开在「外观」、点「分组」、按一个
+  颜色 → 落回 `/prefs?tab=look`，**人刚待的那一节没了**；带自己那一节就落在
+  `/prefs?tab=groups`，人还在原地。外观那几行不带（它们成功后回 `/`，那里根本没有
+  左侧这一列），「回退与历史」那一节里没有表单。
+  浮层那条路的 tab 另有一份记忆：`sessionStorage['lb-prefs-tab-<档案>']`（重载后重新
+  fetch 面板时带上去），而浮层里的分组表单被 app.js 拦下走 applyOps（不导航），它
+  带的那个 `?tab=` 压根没人读。
+- 可及名走 **fieldset + legend**（"选一节来看"就是 radio 组；那四颗 radio 收进
   visually-hidden 而不是 `display:none`，否则键盘进不来，焦点环落在 label 上），44px **并进
   导航族那条联合规则**（`.gnav a,summary,…,.prefs-nav label`），不新开一族。
 - 宽度预算量过：nav 150 + gap 22，面板内容 900 → 728，而最宽的一行是色板 512+44+gap 8 = 564。
@@ -745,7 +880,11 @@ Layout 是历史遗留，判据是 `model.ValidGroupLayout` 与 `model.ValidLayo
 
 这里从前改过一版 `auto-fill` grid，实测代价是 grid 容器在这一档拿到确定高度、两行行高各被
 撑成 252，于是每一颗色块变成 44×252 的色带、每个分组 688 高、整块面板 5041px（390 ≈6 屏，
-20 个分组那一份 21.3 屏）；换回 flex-wrap 是 44×44、每组 173–272。
+20 个分组那一份 21.3 屏）；换回 flex-wrap 是 44×44、每组 149px（宽屏）到 341px
+（320px 那一档，2026-10-20 实测：248px 的内容宽里，删掉这一组那颗键占着第二列 88px，
+第一列只剩 120px，而排法三颗键要 141px ——于是它们在 320px 上折成两行，
+那一份的分组从 293px（390px 档）涨到 341px）。**这是形状，不是排法**：
+色板仍是 44px 一颗折行摊开（§7.5 的触摸地板不动），动的是**排法那三颗键自己**。
 
 另一条同族的：`flex-basis` 是**主轴**上的量，行向写的 basis 翻成列向就成了高度（名字行实测
 120 高 → 收回 `auto` 后 21），所以那一档显式收回 basis。**断点跟着内容宽走，不跟着某一台设备
@@ -786,13 +925,14 @@ Layout 是历史遗留，判据是 `model.ValidGroupLayout` 与 `model.ValidLayo
   它**原生提交**（app.js 那份委托在没有 `input[name=group]` 的表单上早退），所以零 JS 与开着
   JS 表现一样，多一次整页跳转换来"两条路行为完全一样"——要在浮层里接管它就得把服务端那段
   id 派生在客户端再抄一份，中文那份抄不出 ASCII 就得再抄一遍退化规则。
-- **书签文件读不出来时只撤掉这一节**，外观那七行照常在（与"坏档不挡"同一条纪律）。
+- **书签文件读不出来时只撤掉这一节**，外观那八行照常在（与"坏档不挡"同一条纪律）。
 
 ### 准入：与 `/revert`、`/history` 同一族
 
 `selfProfileOnly`（档案从会话推导、不接受申报，管理员进得了也只能改自己那一份）；**令牌
 一律 303 回选择页，不是 403**（2026-10-14 实测后改判：`selfProfileOnly` 对 bearer 的第一句就是
-`redirectPicker`，这一族五条 `/prefs`、`/prefs/group`、`/prefs/tabs`、`/prefs/background` 与
+`redirectPicker`，这一族六条 `/prefs`、`/prefs/group`、`/prefs/tabs`、`/prefs/background`、
+`/prefs/pin` 与
 `/history` 都走它；实测管理员令牌/档案令牌/令牌+会话/无凭证四种长相全是 303）。
 
 会话指的档案没了 → 303 回选择页；**坏档不挡**（改台面只写 `profile.json` 的
@@ -800,10 +940,44 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
 
 不进渲染缓存。
 
-## `POST /prefs`：台面偏好那五格
+### 那枚 GitHub 猫头：源码与需求在 GitHub 上（2026-10-20）
 
-改自己的台面偏好：**主题、档案形态、整页排法、卡片第二行印什么、这一页叫什么**。
-五格都落 `profile.json`——**不产生 rev、不写快照、不写审计行**（与改自己 PIN 同类），
+**一处**：档案页**页脚**（正文最下面那一行）的一枚**图标，不带文字**。
+
+- **为什么是页脚**（试了三处才定下来）：网页上「源码/仓库」历来就在页脚，而那是
+  这一页**最不抢眼**的位置。**进门页**（过场页，一枚孤零零的猫浮在卡片中间像
+  「页面没画完」）、**顶栏**（那一排是「这台机器/这一份」的**动作**：档案名、管理、
+  设置——源码链接放那儿是抢主视觉区）、**设置面板最下面**（紧挨着「回我的页面」，
+  挨着的读起来像个**导航项**）——三处都被否了，页脚是最后那一处。
+  **页脚在正文列里**（`<main>` 之内）：它原来在 `.shell` 之后，于是落在**侧栏那一列**
+  ——单看像游离的元素。挪进 `<main>` 之后与上面那些分组左缘对齐，读得出是「这一页的
+  页脚」。（正文列的左缘是能算出来的：16 内衬 + 206 侧栏 + 24 缝 = 246px；
+  写结构而不是写某次实测的像素——后者会随视口与断点漂。）
+- **为什么是图标**：猫头是「代码/仓库」最通用的记号，而**落点正好就是 GitHub**——
+  图标与去处是同一个名字，不需要解释。图形从**图标索引**取（`simple-icons:github`，
+  内嵌在二进制里，不联网、不外链），**不是手画的**：项目里所有图形都出自那一份
+  索引，内联 SVG 的 markup 由 `svgMarkup` 拼（全案唯一拼 markup 的出口）。
+  **查不到就画空**（空盒子）——真出现那个形状说明索引缺了那份图标。
+- **图标不等于丢名字**：悬停出名字（`title`），读屏有可及名（`aria-label`）——
+  与顶栏那颗搜索键同一处置。**可及名与语言包同源**（`common.repoTitle`），
+  `repofile_test.go` 钉着它与语言包里那把键逐字相同。
+- **不带框**：徽标是「点了会做一件事」的形状，而这一枚是页脚里的一个**引用**。
+  悬停才亮起来（与正文里的链接同一处置）。44×44 的盒子（命中区是硬线），
+  22px 的猫头在它里面居中。
+- **地址只有一处**：`internal/render/render.go` 的 `RepoURL`，模板上用
+  `{{repoURL}}` 拿。**不是视图上的一个字段**：字段要每一页都记得填，忘了填的那一处
+  症状是"链接点得开、却什么也不做"（href 空）——一种平时完全看不出来的错。
+- **`repofile_test.go` 拿 go.mod 的 module 路径钉住它**：仓库改名或搬家之后页面照旧
+  画、链接照旧点得开，只是去到了**别的仓库**——那种错平时完全看不出来。
+- **新标签打开 + `rel="noopener noreferrer"`**：它是站外的链接，而这一页开着面板，
+  离开就丢状态了；**外链**不认 rel 的话，新开的标签能反过来操纵这一页
+  （`window.opener`）。
+- 零 JS：普通 `<a>`，照旧成立。
+
+## `POST /prefs`：台面偏好那六格
+
+改自己的台面偏好：**主题、档案形态、整页排法、卡片第二行印什么、这一页叫什么、这一份自己的界面语言**。
+六格都落 `profile.json`——**不产生 rev、不写快照、不写审计行**（与改自己 PIN 同类），
 所以它们与书签数据是两族。
 
 - `theme` ∈ `auto`、`dark`、`light` — 亮色/暗色/跟着系统
@@ -811,9 +985,22 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
 - `view` ∈ `groups`、`wall`、`dense` — 整页怎么排
 - `addrLevel` ∈ `host`、`full`、`none` — 卡片第二行印什么（2026-10-19 加）
 - `title` — 最多 60 个字，**空串 = 清除**：这一页叫什么（没有枚举，只有上限）
+- `language` ∈ ``、`zh`、`en` — **这一份自己的界面语言**（2026-10-20 加；**空串 = 跟随默认**）
 
-**五个字段都不给 = 422**；令牌一律拒（浏览器通路的权限类拒绝答 303 回选择页，见 spec §6.1）。
+**六个字段都不给 = 422**；令牌一律拒（浏览器通路的权限类拒绝答 303 回选择页，见 spec §6.1）。
 **同名多值**（?theme=dark&theme=light）不是"取第一个"，是没说清要改什么 → 422 点名是哪个字段。
+
+### `language`：这一份自己的语言
+
+`language` 落 `profile.json` 的 `language` 键：**空串 = 跟随默认**（管理员在管理页设的那一个），
+非空是 `zh` 或 `en`。判据只有一处：**`i18n.ProfileLang(profileLang, fallback)`**。
+
+**它只改这一份**——别人的档案语言谁也动不了（管理员改的是**默认**，不是别人的那一份）。
+写侧严（不认识的值 → 422 点名 `language`，不把垃圾写进盘上）、读侧宽（盘上写坏的值落
+默认，**不把档案判成坏档**——那会让人再也进不去）。
+
+面板上那一格是**「跟随默认 / 中文 / English」三颗键**（语言名用它自己的语言写，于是
+看不懂当前界面的人也认得出自己要那一档）。按下去**这一页立刻用新语言重画**。
 
 ### `addrLevel`：第二行印什么
 
@@ -835,6 +1022,13 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
 `dense` **密集视图**——磁贴去壳、每条一行「图标 + 名字」，参考 Flare 那一屏（**去壳只对精确指针
 生效**，触摸设备仍由 44px 那一族接着）。**`view` 不吃空串**，清回默认要送 `groups`，而盘上没有
 这个键（升级前的形状）在读侧合法。
+
+**那一档的悬停只点亮、不抬起**（2026-10-20 实拍后补上）：行高 40px、行间 gap 0，而抬 3px
+会让被指到的那一行往上顶、**与上一行叠住 3px**（实测 gap = −3）——实拍三行可见那一行的框与
+上一行贴得更近、它下方的空白比上方多，纵向节奏被断在这一行上。于是 dense 的
+`.card:hover` 把 transform 收成 none，只留描边（`--line`，不是亮蓝）与底色——那一档的
+悬停本来就单独收过，唯独 transform 漏了。**磁贴/单列那一档的抬 3px 不动**：那里行间有
+8px 的缝，抬起来不压着谁。
 
 **`view` 为 `wall`/`dense` 时 `layout=sidebar` 的意思变成"那一列不画"**（2026-10-14）：这两档所有
 分组本来就摆在同一屏，导航的职责「跳到你看不见的那一节」不成立，而那一列 206px + 24px 的缝在
@@ -860,7 +1054,7 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
 同族不同形是最难维护的一种排法。主题从循环键改成三颗显式键之后，`auto`（跟随系统）不再是一个
 只能按顺序绕回去才能回来的东西。
 
-面板上发这些字段的是**五张独立的表单**（改名/排法/第二行/档案形态/主题），一次按一下只改一件事，
+面板上发这些字段的是**六张独立的表单**（改名/排法/第二行/档案形态/主题/界面语言），一次按一下只改一件事，
 所以没有"提交"这一步，也就没有"忘了提交"。每颗自带 `name`/`value`，落点与扩展、CLI 收的字段
 一个字没变。`layout` 在 2026-10-13 之前**没有任何 UI 入口**：CSS 与模板属性一直齐备，但表单没有键、
 扩展与 CLI 也不收，改它只剩手改 profile.json（禁止事项）。
@@ -898,11 +1092,13 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
    一个人全部书签的权力，这条已经拿掉（`internal/model/check.go` 里写着理由）。
    也**别把它们从 model 里删**：解码开了 `DisallowUnknownFields`，而每份档案磁盘上
    都带着这几个键（旧版 `EmptyBookmarks` 一直在写），删字段等于让所有老文件在升级后
-   变坏档。要改书签行为，改的是有渲染消费者的那些字段（`groups`/`items`/`footer`/
-   `openInNewTab`）——**其中 `footer` 与 `openInNewTab` 虽有渲染消费者却没有任何写
-   通路**（batch 的路径一律以 `groups` 开头，`/prefs` 只管 `profile.json` 的
-   theme/layout）。要动它们得手工改 `bookmarks.json`，那是被禁止的；这一格目前
-   就是死的，知道比撞 422 强。
+   要改书签行为，改的是有渲染消费者的那些字段（`groups`/`items`/`footer`/
+   `openInNewTab`）——**而 `footer` 与 `openInNewTab` 都写得进去**：
+   `set path=footer` 与 `set path=openInNewTab` 走 batch（`ops.docFields` 那个
+   白名单），`openInNewTab` 另有面板那一条（`POST /prefs/tabs`）。
+   （这一段从前写的是"这两格没有任何写通路"——那是 2026-10-14 改判**之前**的形状，
+   改判之后 batch 就认根级标量字段了，而这段没跟着改。照它走的人会以为
+   `footer` 是死的，于是手工改 `bookmarks.json`，那是被禁止的。）
 
    ```json
    "search": { "enabled": false, "default": "", "engines": [] }
@@ -975,6 +1171,19 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
    tiles/list/feature」；`accent` 可选（颜色），`items` 是条目数组。这三格都对着
    `internal/model` 的 `Group` 结构（`internal/model/model.go`）。
 
+   **`layout` 不带就是 `tiles`**（2026-10-20 补上）：面板上「＋ 新分组」不带 layout
+   也是磁贴，而这句话之前只是文档写着、实现没兑现——写侧默认磁贴，于是文档为真。
+
+   **`accent` 写侧现在有闸**（2026-10-20 补上）：从前 ops 通路**完全不校验**它，
+   坏值一路写进盘上，读侧再悄悄丢掉——症状是「按下去什么都没变」，而那一发 op
+   是绿的。现在写侧拒（`accent 只能是 #rgb 或 #rrggbb`，422），判据是
+   `model.ValidAccent`（写侧拒、读侧丢，同一份）。
+
+   **`add path=groups` 的 `index` 兑现落位**（2026-10-20 补上）：从前 `index` 在这一条
+   上被**静默忽略**，新组一律落在末尾——而文档写着「`index` 可选（add 的落位）」，
+   于是人写 `index=0` 以为它排第一，它却在最后。现在它与组内条目那条同形：
+   `index` 是落位下标，越界答 422 且点名 `index`（`0..<现有组数>`，等于末尾合法）。
+
    ```json
    { "op": "add", "path": "groups", "index": 0,
      "value": { "id": "nas", "title": "自建服务", "layout": "tiles",
@@ -994,6 +1203,12 @@ theme/view/layout/addrLevel/pageTitle，坏档正是最需要改排法的时候�
 `POST /api/v1/batch` 落库；resolve 不写书签，`by` 字段它不接受。它给的
 `iconCandidates[]` 就是索引里的全键，可以原样写进 `icon`；它的 `favicon`
 （`/icons/<hash>.<ext>`）是图片路径，**不是**图标名。
+
+**要一批现成的图标**（不必自己搜）用 `GET /api/v1/icons/starter`（公开、无凭证）：
+它给的是一份**人工挑的常用清单**（`icons.Starter`：品牌层 + 与站点无关的通用层），
+吐的是与卡片图标同源的内联 SVG 方格。**没有参数、也不截断**——画出来的就是全部。
+它是图标选择器打开时先摆的那一批（见上面「`app.js`：档案页那套交互」一节），
+也是脚本想要"一屏常用图标"时该走的那一条。
 
 图标名不许靠猜：`icon` 必须是索引里有的名字，名字不在索引里会被
 `POST /api/v1/batch` 直接 422 拒掉整批，`errors[].field` 点名 `icon`。
