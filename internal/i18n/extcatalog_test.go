@@ -627,6 +627,7 @@ func TestExtension_每种错误码都有交代(t *testing.T) {
 // 理由要能被下一个人复核——"界面上没有那条通路"与"我懒得映射"得区分得开。
 var extUnreachable = map[string]string{
 	"pin-wrong":               "扩展不带 PIN：进门是浏览器那条路（Cookie/PIN 表单）",
+	"pin-old-wrong":           "同上：改自己 PIN 那一族也是浏览器那条路（self/pin 的 403）",
 	"profile-exists":          "建档只有管理页表单与 POST /api/v1/profiles 两条通路，扩展都不走",
 	"profile-not-rebuildable": "rebuild 是管理员与 CLI 的动作，扩展没有这条通路",
 	"body-unreadable":         "请求体由这份脚本自己组装成 JSON；导入那一路发原始 HTML，读不出东西归 import-no-bookmarks",

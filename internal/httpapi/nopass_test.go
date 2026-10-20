@@ -255,7 +255,7 @@ func Test改PIN_旧PIN只在这一份有PIN时才要(t *testing.T) {
 	})
 
 	t.Run("管理员能把 PIN 撤掉", func(t *testing.T) {
-		// 与本人那条同一个 `isNoPass` 判据、同一个落点（adminPin）。管理员是唯一
+		// 与本人那条同一个 `wantsNoPin` 判据、同一个落点（adminPin）。管理员是唯一
 		// 能给别人去/留这道门的人：一个都不锁的家族里，他得能把门重新锁上。
 		rec := post(h, "/api/v1/profiles/pin", `{"profile":"kid","new":""}`, "", testAdminKey)
 		if rec.Code != http.StatusOK {

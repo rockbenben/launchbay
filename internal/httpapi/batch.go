@@ -56,6 +56,14 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "profile", Reason: "必须是 ASCII slug"}})
 		return
 	}
+	// **缺 ops 键不是空批**（2026-10-20 补上）：空批给一个空数组（那是一次合法的
+	// "什么都没写"），而**整个键都没有**是请求没写对——契约里 ops 是必填的，
+	// 于是这里答 422 并点名它。
+	if in.Ops == nil {
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "ops",
+			Reason: "不能省掉 ops（要空批就给一个空数组）"}})
+		return
+	}
 	if !store.ValidBy(in.By) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "by",
 			Reason: "只能是 " + strings.Join(store.ByValues, "/")}})
@@ -64,6 +72,9 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 	actor, _, ok := s.require(r, credScoped, in.Profile)
 	if !ok {
 		s.writeAuthFailure(w, r)
+		return
+	}
+	if s.profileDisabledRefuse(w, in.Profile) {
 		return
 	}
 
@@ -240,6 +251,27 @@ func (s *Server) writeAuthFailure(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialScope, Detail: "凭证作用域不含该档案"})
+}
+
+// profileDisabledRefuse 判"这一份被停用了"，并把那条拒绝写出去。
+//
+// **为什么令牌通路也要它**（2026-10-20 补上）：浏览器那条 PIN 门早就在拒停用的档案
+// （handlers.go 的 disabled 分支），而档案作用域令牌却照读照写——于是"停用"对拿着
+// 令牌的人（浏览器扩展、脚本）是**空的**：扩展里那句「这一份被停用了，写不进去」
+// 一次都不会出现。
+//
+// **管理员不受这条约束**（它走 credAdmin）：停用要能被启回来，而管理员管的正是
+// 账号层面这一族。
+//
+// 读不出来的那一份**不在这里分诊**（各有各的 503/坏档理由）——这里只管"读得动、
+// 而它被停用了"这一种。
+func (s *Server) profileDisabledRefuse(w http.ResponseWriter, id string) bool {
+	p, err := s.deps.Store.LoadProfile(id)
+	if err != nil || !p.Disabled {
+		return false
+	}
+	writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.ProfileDisabled, Detail: "这一份被停用了"})
+	return true
 }
 
 // errorResponse 是全 API 错误响应的唯一外壳：struct 字段序 = 输出键序

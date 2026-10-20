@@ -13,7 +13,7 @@
 // 三条规矩：
 //   - kind **只增不改不删**。改一个已发布的 kind 等于让旧版扩展与脚本静默落进
 //     兜底句子，那比多一个码糟得多；要换说法就改中文原话，别动码。
-//   - 取值必须是本表里的一个（`TestKind表与文档一致` 钉代码 == openapi == AGENTS.md）。
+//   - 取值必须是本表里的一个（`Test错误码三处说的是同一份` 钉代码 == openapi == AGENTS.md）。
 //   - 拿不到分类时落 `invalid-request` 或 `ops-invalid`，**不许留空**：
 //     空 kind 会让客户端退回状态码那一档，症状是"某几条错的说法永远不对"。
 package apierr
@@ -38,7 +38,18 @@ const (
 	// **而真相是"你拿错了钥匙"**。用户照着这句话去改档案 id，改到天亮也进不去。
 	// 密钥是层级不对，不是作用域不对。
 	CredentialAdminToken = "credential-admin-token"
-	PinWrong             = "pin-wrong" // PIN 不对 / 旧 PIN 不对
+	PinWrong             = "pin-wrong" // 进门时 PIN 不对
+	// PinOldWrong 是**改自己 PIN 时旧 PIN 不对**（2026-10-20 加）。
+	//
+	// 它与 PinWrong 分开，是因为那两件事的**出路相反**：
+	//   - pin-wrong（401）：进门时输错了 → 再输一次；
+	//   - pin-old-wrong（403）：要改自己的 PIN 而旧的那把不对 → 走**管理页**那格
+	//     （管理员是"家人忘了 PIN 的出路"）。
+	//
+	// 从前它们共用一个 kind，而那一个在登记表里是 401、在改 PIN 那条端点上答的是
+	// 403——同一个码在两个端点上答不同状态，读者就该怀疑其中一处写错了
+	// （apierr 的注释自己写着这条）。按"kind 只增不改不删"的规矩新增一个。
+	PinOldWrong = "pin-old-wrong"
 )
 
 // 档案本身。
@@ -108,7 +119,7 @@ type Info struct {
 }
 
 // Registry 是本包所有 kind 的登记表。加常量必须同时加这里，
-// 否则 TestKind表与文档一致 会当场红（漏登记的码在文档里不存在，
+// 否则 Test错误码三处说的是同一份 会当场红（漏登记的码在文档里不存在，
 // 而 AI 读者照文档生成请求时永远学不到它）。
 var Registry = map[string]Info{
 	CredentialMissing:     {401, "把凭证带上：浏览器那条路是登录，扩展与脚本那条路是 Bearer 令牌"},
@@ -117,10 +128,16 @@ var Registry = map[string]Info{
 	CredentialAdminOnly:   {403, "这一条要管理员身份，档案令牌不行"},
 	CredentialAdminToken:  {403, "这是管理密钥，扩展要配的是那份档案自己的令牌"},
 	PinWrong:              {401, "再输一次；忘了就走管理页那格设新 PIN"},
+	PinOldWrong:           {403, "旧 PIN 不对：走管理页那格改新 PIN（管理员是家人忘了 PIN 的出路）"},
 	ProfileNotFound:       {404, "确认这个 id 还在，或先建一份"},
 	ProfileBroken:         {503, "先修好那个数据文件（管理页会说要重建）"},
 	ProfileExists:         {409, "换一个名字或 id"},
-	ProfileDisabled:       {401, "这一份被停用了：去管理页点「启用」，或者换一份进"},
+	// ProfileDisabled 是**403 而不是 401**（2026-10-20 改判）：停用不是凭证问题。
+	// 401 在这张表里是「凭证没带 / 认不出」，而停用这一份的凭证是**好的**（令牌
+	// 作用域正对，PIN 也还没轮到输）——被拒的理由是这一份的状态，不是身份。
+	// 答 401 会把出路指反：脚本作者会以为自己的令牌坏了去换一把，而它没坏。
+	// 于是浏览器那条 PIN 门与令牌那条（profileDisabledRefuse）**同码同状态**。
+	ProfileDisabled: {403, "这一份被停用了：去管理页点「启用」，或者换一份进"},
 	ProfileNotRebuildable: {409, "这份读得动，不需要重建；改 PIN 走 profiles/pin"},
 	RevConflict:           {409, "重读一次再写（别人刚动过）"},
 	SnapshotFailed:        {507, "什么都没改；腾出空间或稍后再试"},

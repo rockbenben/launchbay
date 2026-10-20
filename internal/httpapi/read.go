@@ -29,6 +29,11 @@ func (s *Server) targetProfile(w http.ResponseWriter, r *http.Request, want cred
 		s.writeAuthFailure(w, r)
 		return "", false
 	}
+	// 停用的档案连**读**都不给（浏览器那条 PIN 门早就不给了）——只对档案自己的
+	// 凭证（credScoped）；管理员那一族要能看、要能启回来。
+	if want == credScoped && s.profileDisabledRefuse(w, id) {
+		return "", false
+	}
 	return id, true
 }
 

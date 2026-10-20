@@ -204,6 +204,9 @@ func (s *Server) handleRevert(w http.ResponseWriter, r *http.Request) {
 		s.writeAuthFailure(w, r)
 		return
 	}
+	if s.profileDisabledRefuse(w, id) {
+		return
+	}
 	out, err := s.revertLocked(id, actor, rev, byOfRequest(r))
 	if err != nil {
 		writeInternalError(w, err)

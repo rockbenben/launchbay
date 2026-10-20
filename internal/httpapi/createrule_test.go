@@ -55,7 +55,11 @@ func Test建档判据只有一处(t *testing.T) {
 	// 判据搬进了 adminPin，handleAdminPin 退化成纯壳。
 	// 名单跟着**搬**而不是放宽成"两个都算"：放宽之后，将来 handleAdminPin 与
 	// adminPin 各持一份判据时这条闸仍然通过——而那正是它存在的理由。
-	pinHolders := []string{pinOwner, "handleSelfPin", "adminPin"}
+	// 2026-10-20：本人自助改 PIN 的面板表单（/prefs/pin）要长出来，而 spec §8.8
+	// 要求两个壳**共用同一个落点**——于是把 handleSelfPin 里的判据搬进了 selfPin，
+	// handleSelfPin 退化成纯壳。名单跟着**搬**（与 2026-10-09 那次一样）：判据在
+	// 落点上，壳只管读入与答出。
+	pinHolders := []string{pinOwner, "selfPin", "adminPin"}
 	// 建档族：每条壳都必须回来调 hashFormPIN。
 	// 2026-10-10：handleRebuildProfile 落进这一族（Task 4 定的名单，那天只写下
 	// 了名字——端点本身没写，所以这条路一直是"闸认着一个不存在的函数"，直到

@@ -52,7 +52,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		// 管这台机器是另一把 key 的事——LAUNCHBAY_ADMIN_TOKEN，写在 compose 里。
 		// 所以这一趟不需要"必须有个管理员"的照顾：零档案装完后，想加第二个人
 		// 就在管理页拿那把 key 进，而想改自己的书签照旧输 PIN。
-		NoPass:    r.FormValue("nopass") == "1",
+		NoPass:    nopassFlag(r.FormValue("nopass")),
 		DeriveID:  true,
 		FirstOnly: true,
 	})
@@ -133,6 +133,14 @@ func setupFieldKey(errs []fieldError) string {
 	for _, e := range errs {
 		if e.Field == "title" {
 			return "noname"
+		}
+	}
+	// 「PIN 与『不设 PIN』同给」这一格先于格式错：两者的出路不同——一个是
+	// "两个只能给一个"，另一个是"PIN 要 4 到 6 位数字"。字段名把它们分开
+	// （hashFormPIN 里那一条记在 "nopass" 上，格式错记在 "pin" 上）。
+	for _, e := range errs {
+		if e.Field == "nopass" {
+			return "pinboth"
 		}
 	}
 	for _, e := range errs {

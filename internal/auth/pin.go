@@ -14,12 +14,25 @@ import (
 
 const pinAlgo = "sha256"
 
-var ErrBadPin = errors.New("PIN 要 4-6 位数字")
+// PinMinLen / PinMaxLen 是 PIN 的长度范围，**判据只有这一处**。
+//
+// 同一个数要出现在两处——服务端那条通路判它、模板上那个 minlength/maxlength
+// 印它。两处各写一个字面量的话，改一处要记得改另外两处，而漏掉的那一处症状是
+// "界面上限与实际判的对不上"（浏览器拦住了、curl 拦不住）。
+//
+// 为什么住在 auth 而不是某一层：它判的是**这个 PIN 本身合不合法**，而 auth
+// 正是唯一判这件事的地方（ValidPinFormat、HashPIN、VerifyPIN 都在这儿）。
+const (
+	PinMinLen = 4
+	PinMaxLen = 6
+)
+
+var ErrBadPin = fmt.Errorf("PIN 要 %d-%d 位数字", PinMinLen, PinMaxLen)
 
 // ValidPinFormat 只接受 ASCII 数字。全角数字不算合法：有人用输入法打成
 // 全角时要的是"这条被拒"，而不是"PIN 悄悄变成另一个值"。
 func ValidPinFormat(pin string) bool {
-	if len(pin) < 4 || len(pin) > 6 {
+	if len(pin) < PinMinLen || len(pin) > PinMaxLen {
 		return false
 	}
 	for _, r := range pin {
