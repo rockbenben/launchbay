@@ -6,7 +6,8 @@
 // 这个项目里反复出现的 bug 是同一句——**屏上说的与盘上存的分家**——而 2026-10-15 之前
 // **没有任何东西会跑界面**：go test 只判服务端契约与若干条源码级断言。于是每一个界面
 // 缺陷都要等人手动碰到才浮出来，一次一个，「修完发现还有下一个」。这道闸把「每次写盘
-// 之后屏上必须与盘上一致」变成机械核对，26 步一次跑完。
+// 之后屏上必须与盘上一致」变成机械核对，**43 步一次跑完**（两道横扫：档案页那 26 步
+// + 另外那些族 17 步）。
 //
 // 跑法：`LB_UI=1 go test ./tools/uicheck/`
 //
@@ -30,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -46,12 +48,38 @@ const (
 	writeToken = "uicheck-write"
 )
 
+// stopBrowser 关掉那个浏览器，**连它的子进程一起收走**（2026-10-20 修）。
+//
+// 只 Kill 父进程的话，Chrome 的子进程（渲染器、网络服务、那个 optimization
+// guide 的模型下载）还活着，于是 Go 的 t.TempDir 清理撞上它们：
+// "The process cannot access the file because it is being used by another
+// process" ——**整支测试判 FAIL**，而那 43 步其实全绿。
+//
+// 这是一条"红了但什么也不代表"的失败：它会训练人忽略红色，于是**真的**红的那
+// 次也被一起忽略。横扫本身是这台机器上唯一能看出"屏上与盘上是不是一致"的
+// 东西，它的红必须只由那些步骤说话。
+//
+// Windows 上没有"进程组"那套，用 taskkill /T 连树一起收；别处用 Kill + Wait
+// （Wait 会等进程被收走，错误是 "signal: killed"，那一类正常的死法）。
+func stopBrowser(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
+	} else {
+		_ = cmd.Process.Kill()
+	}
+	_ = cmd.Wait()
+}
+
 func Test档案页交互横扫(t *testing.T) {
 	if !enabled() {
 		t.Skip("跳过界面横扫：设 LB_UI=1 才跑（要 node 与一个无头浏览器；" +
 			"浏览器找不到时可以用 LB_CDP 指向一个已经开着的调试口）")
 	}
 	repo := repoRoot(t)
+	readTestedAssets(t, repo)
 	node, err := exec.LookPath("node")
 	if err != nil {
 		t.Fatalf("找不到 node：这道闸靠它驱动浏览器（%v）", err)
@@ -83,6 +111,68 @@ func Test档案页交互横扫(t *testing.T) {
 	for _, script := range []string{"sweep.mjs", "sweep-variants.mjs"} {
 		runSweep(t, node, repo, script, port, data, cdp)
 	}
+}
+
+// readTestedAssets 把**这道闸真正要测的那些东西**读一遍：前端那三份资产
+// （base.css / app.css / app.js）与**九张模板**。
+//
+// **为什么读它们**（2026-10-20 补）：这道闸在测试进程里 `go build` 出一份二进制
+// 去跑，而 **cmd/go 的测试缓存只认测试进程自己读过的文件**——于是改了
+// `app.js` / `base.css` / 某张模板之后，`go test ./tools/uicheck/` 照样报
+// `(cached)`，而它跑的是**改动之前那一版**。2026-10-20 实测：改完 base.css
+// 再跑这条闸，输出是 `(cached)`、0.06 秒——那 224 秒的真跑**根本没发生**，
+// 而屏上那一版早就变了。
+//
+// 这正是这个项目反复在打的那一类 bug：**一道闸报了绿，而它绿的那一版不是现在
+// 这一版**。一条会骗人的闸比没有这条闸更糟——它让人以为"界面验过了"。
+//
+// **怎么修**：读一遍那些文件。cmd/go 的测试缓存会记下测试进程读过的文件，
+// 文件内容一变，缓存作废，这道闸重跑。（机制在仓库外验过：读了 asset.txt 的
+// 测试，改 asset.txt 之后缓存确实作废、改之前确实命中。）
+//
+// **模板也要读**：页面是模板画出来的，而模板的改动不改变那三份 css/js 的
+// 一个字节——只读三份 css/js 的话，改了模板照样命中缓存，那道闸验的还是
+// 改模板之前那一版页面。模板用 glob 收：**新增一张模板时它自动进这份名单**
+// （写死九个名字的话，加一张就漏一张，漏的那一张改完不会让闸重跑）。
+//
+// 读进来还打个日志：这一趟跑的是哪些、多大——绿色的历史里能看见它。
+func readTestedAssets(t *testing.T, repo string) {
+	t.Helper()
+	web := filepath.Join(repo, "internal", "render", "web")
+	files := []string{"base.css", "app.css", "app.js"}
+	tmpls, err := filepath.Glob(filepath.Join(web, "*.tmpl"))
+	if err != nil {
+		t.Fatalf("列模板：%v", err)
+	}
+	if len(tmpls) == 0 {
+		t.Fatal("一张模板都没有：这道闸跑的就是它们")
+	}
+	for _, p := range tmpls {
+		files = append(files, filepath.Base(p))
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(filepath.Join(web, f))
+		if err != nil {
+			t.Fatalf("读不到 internal/render/web/%s：这道闸跑的就是它（%v）", f, err)
+		}
+		t.Logf("被测资产 web/%s：%d 字节", f, len(b))
+	}
+}
+
+// Test被测的资产在位 是上面那件事的**便宜证人**：它只读那三份资产（几毫秒），
+// 于是「改了资产之后缓存会不会作废」这件事**不必花 224 秒去验**。
+//
+// 单跑它就能看出来：
+//
+//	go test ./tools/uicheck/ -run Test被测的资产在位 -v   # 第一次：跑
+//	# 改一下 internal/render/web/base.css
+//	go test ./tools/uicheck/ -run Test被测的资产在位 -v   # 第二次：必须再跑一次
+//	                                                     # （(cached) = 没生效）
+//
+// 为什么单开一条而不是只挂在横扫里：横扫那条要 224 秒，而这条要几毫秒——
+// 一道"闸会不会骗人"的闸自己也得有一个便宜的证人。
+func Test被测的资产在位(t *testing.T) {
+	readTestedAssets(t, repoRoot(t))
 }
 
 func runSweep(t *testing.T, node, repo, script string, port int, data, cdp string) {
@@ -213,9 +303,7 @@ func browser(t *testing.T, tmp string) (cdp string, stop func()) {
 	for time.Now().Before(deadline) {
 		if ok, _ := ping(base); ok {
 			return base, func() {
-				if cmd.Process != nil {
-					_ = cmd.Process.Kill()
-				}
+				stopBrowser(cmd)
 			}
 		}
 		time.Sleep(200 * time.Millisecond)

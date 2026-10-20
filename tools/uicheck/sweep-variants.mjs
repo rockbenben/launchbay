@@ -259,6 +259,58 @@ await step('设置面板 → 删掉一个分组（盘上与屏上一起走）', 
   return problems;
 } });
 
+// **「我的 PIN」那一格**（2026-10-20）：浮层里改自己那道门**不许整页跳走**。
+//
+// 这一格是面板里最后加的一族，而 app.js 那几份提交委托里**没有它**——于是它在浮层
+// 里走原生提交、303 回 `/prefs?tab=pin`，症状是「设置变成单独页面了」（实拍复现）。
+// 与 2026-10-14 给「点开书签」那一格修过的是同一件事。
+//
+// 这一步走三趟：**设上 → 用错的旧 PIN → 取消**。三趟都是「填一格、按一下」，而
+// **夹具最后回到原样**（dad 仍然不设防）——后面那些步骤要免 PIN 进门，把门锁上
+// 就把它们全带崩了。
+await step('设置面板 → 改自己那道门（不跳走）', async () => {
+  const r = await prefs();
+  if (r !== 'opened') return r;
+  // 浮层里那列 radio 只切本地（不改 URL），所以要自己点过去。
+  await ev(`const x=document.querySelector('#lb-prefs #prefs-tab-pin'); if(!x) return 'NO-RADIO';
+    x.checked=true; x.dispatchEvent(new Event('change',{bubbles:true})); return 'ok'`);
+  await sleep(300);
+  const url0 = await run(`location.pathname+location.search`);
+  // ① 设上：这一份本来不设防，所以没有「现在的」那一格，只填「新的」。
+  await ev(`const f=document.querySelector('#lb-prefs form[action^="/prefs/pin"]'); if(!f) return 'NO-FORM';
+    const n=f.querySelector('input[name=new]'); n.value='4321'; n.dispatchEvent(new Event('input',{bubbles:true}));
+    f.requestSubmit(); return 'set'`);
+  await sleep(2000);
+  const after1 = await run(`JSON.stringify({url:location.pathname+location.search, sheet:!!document.querySelector('#lb-prefs:not([hidden])'), hasOld:!!document.querySelector('#lb-prefs input[name=old]')})`);
+  // ② 用错的旧 PIN：错话要留在浮层里，而且**门没被改**。
+  await ev(`const f=document.querySelector('#lb-prefs form[action^="/prefs/pin"]'); if(!f) return 'NO-FORM';
+    const o=f.querySelector('input[name=old]'); const n=f.querySelector('input[name=new]');
+    if(o) o.value='9999'; n.value='5678'; f.requestSubmit(); return 'wrong'`);
+  await sleep(2000);
+  const after2 = await run(`JSON.stringify({url:location.pathname+location.search, sheet:!!document.querySelector('#lb-prefs:not([hidden])'), msg:(document.querySelector('#lb-prefs .notice')||{}).textContent||''})`);
+  // ③ 取消：把夹具还原成不设防。
+  await ev(`const f=document.querySelector('#lb-prefs form[action^="/prefs/pin"]'); if(!f) return 'NO-FORM';
+    const o=f.querySelector('input[name=old]'); const n=f.querySelector('input[name=new]');
+    if(o) o.value='4321'; n.value=''; f.requestSubmit(); return 'cancel'`);
+  await sleep(2000);
+  const after3 = await run(`JSON.stringify({url:location.pathname+location.search, sheet:!!document.querySelector('#lb-prefs:not([hidden])'), hasOld:!!document.querySelector('#lb-prefs input[name=old]')})`);
+  return `url0=${url0} ①${after1} ②${after2} ③${after3}`;
+}, { wait: 1500, outcome: (inv, d, res) => {
+  const problems = [];
+  const s = String(res);
+  const url0 = (/url0=(\S+)/.exec(s) || [])[1] || '';
+  const states = [...s.matchAll(/[①②③](\{.*?\})/g)].map((m) => JSON.parse(m[1]));
+  if (states.length !== 3) return [`那一步没走通：${s}`];
+  for (const [i, st] of states.entries()) {
+    if (st.url !== url0) problems.push(`第 ${i + 1} 趟之后 URL 从 ${url0} 变成了 ${st.url}——整页跳走了（症状是「设置变成单独页面了」）`);
+    if (!st.sheet) problems.push(`第 ${i + 1} 趟之后浮层不见了`);
+  }
+  if (!states[0].hasOld) problems.push('设上之后「现在的 PIN」那一格没长出来——形状没跟着变');
+  if (!/现在的 PIN 不对/.test(states[1].msg || '')) problems.push(`旧 PIN 填错时浮层里没有那句话：${JSON.stringify(states[1].msg)}`);
+  if (states[2].hasOld) problems.push('取消之后「现在的 PIN」那一格还在——形状没跟着变');
+  return problems;
+} });
+
 // ── 搜索两路 ────────────────────────────────────────────────────────────────
 await step('搜索 → 整页与面板对同一个词给同一个答案', async () => {
   const word = '甲';
