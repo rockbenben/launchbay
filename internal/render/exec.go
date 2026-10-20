@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/model"
@@ -45,12 +46,52 @@ type LangOption struct {
 	Selected bool
 }
 
-// langOptions 由渲染器算，不让调用方传：它同时知道"机器现在是什么语言"与
-// "有哪些语言可选"，这两件事只有它两边都有。**新增一种语言只有 i18n.All 一处要动**。
-func langOptions(current i18n.Lang) []LangOption {
-	out := make([]LangOption, 0, len(i18n.All))
+// langOptions 算那一个下拉框的几档。**第一档永远是「跟随浏览器」**，后面才是各门语言。
+//
+// current 是**盘上写着的那个**值（"" = 没人设过），**不是**这一页正在用的那一种
+// 语言——这两件事在"没人设过"时不一样：那一页按**浏览器说的**那一门显示，而盘上
+// 什么都没写。从前下拉里预选的是后者，于是管理员看到"English"被选中，就以为
+// 这台机器已经是英文的了；而他只要按一下那颗按钮，就把"没人设过"悄悄变成了
+// "显式设成英文"——从此整台机器的默认被冻结在他的浏览器语言上。
+//
+// 判据只有一处（i18n.All）：**新增一种语言只有 i18n.All 一处要动**。
+func langOptions(current string, cat *i18n.Catalog) []LangOption {
+	out := make([]LangOption, 0, len(i18n.All)+1)
+	out = append(out, LangOption{Value: "", Name: cat.T("lang.follow"), Selected: current == ""})
 	for _, l := range i18n.All {
-		out = append(out, LangOption{Value: string(l), Name: l.DisplayName(), Selected: l == current})
+		out = append(out, LangOption{Value: string(l), Name: l.DisplayName(), Selected: current == string(l)})
+	}
+	return out
+}
+
+// PrefLangOption 是台面面板「界面语言」那一行的一档（2026-10-20）。
+//
+// Value 为空串 = **跟随默认**（这一份没自己选语言，跟管理员在管理页设的那一个）。
+// Name 是按钮上印的字：语言名用它自己的语言写（"中文" / "English"），于是
+// 看不懂当前界面的人也认得出自己要那一档。
+type PrefLangOption struct {
+	Value   string
+	Name    string
+	Current bool
+}
+
+// prefLangOptions 算那一行的几档。**第一档永远是"跟随默认"**，后面才是各门语言。
+//
+// Current 判的是"这一份现在是这一档"：这一份自己记了语言 → 那一档；没记 →
+// 跟随默认。与 i18n.ProfileLang 同一件事（一个说"用哪种"，一个说"屏上按亮哪颗"）。
+//
+// **不认识的语言按"没选过"算**（2026-10-20 修）：盘上写坏了这一格（手改、
+// 拷贝来的 `"language":"zh-CN"`）时，从前三颗键**全都不亮**——而这一格的职责
+// 恰恰是显示"现在是哪一档"，一颗都不亮等于这一格坏了。而读侧的口径
+// （i18n.ProfileLang）已经是"不认识的 = 没选过"，于是这里跟着它：亮
+// 「跟随默认」。判据只有一处（i18n.ProfileLang 的口径），不在这儿另判一次。
+func prefLangOptions(current string, cat *i18n.Catalog) []PrefLangOption {
+	if current != "" && !i18n.Lang(current).Valid() {
+		current = "" // 不认识 = 没选过 = 跟随默认
+	}
+	out := []PrefLangOption{{Value: "", Name: cat.T("prefs.lang.follow"), Current: current == ""}}
+	for _, l := range i18n.All {
+		out = append(out, PrefLangOption{Value: string(l), Name: l.DisplayName(), Current: current == string(l)})
 	}
 	return out
 }
@@ -79,7 +120,10 @@ func newI18nView(cat *i18n.Catalog) i18nView {
 	if cat == nil {
 		cat = i18n.Load(i18n.Default)
 	}
-	return i18nView{cat: cat, Lang: cat.HTMLLang(), Langs: langOptions(cat.Lang())}
+	// Langs 只是**占位**：真正用它的两页（管理页与建档页）要显示的是
+	// **盘上写着的那个**值，而不是这一页正在用的那一种语言——那两页在
+	// 各自的执行器里覆盖掉这一份（见 langOptions 的注释）。
+	return i18nView{cat: cat, Lang: cat.HTMLLang(), Langs: langOptions("", cat)}
 }
 
 type executor struct {
@@ -281,6 +325,16 @@ type profileData struct {
 type profileView struct {
 	i18nView
 	Profile *model.Profile
+	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标，不带文字**：
+	// 猫头是「代码/仓库」最通用的记号，而落点正好就是 GitHub——图标与去处同一个
+	// 名字，不需要解释。悬停出名字（title），读屏有可及名（aria-label）：
+	// 图标换成图标不等于丢掉本地化的名字（同顶栏那颗搜索键）。
+	//
+	// **它画在档案页的页脚**（正文列末尾那一行，`<main>` 之内）：网页上「源码/
+	// 仓库」历来就在页脚，而那是这一页最不抢眼的位置——顶栏那一排是「这台机器/
+	// 这一份」的动作，源码链接放那儿是抢主视觉区；设置面板最下面那一处紧挨着
+	// 「回我的页面」，挨着的读起来像个导航项。
+	RepoIcon iconPiece
 	// PageTitle 是**顶栏那行大字与浏览器标签页的前半**：这一页叫什么。
 	// 它取自 Profile.PageTitle（台面偏好，与 theme/layout 同族），空则按界面语言
 	// 给一个通用默认（`profile.title.default`）——默认值**只在渲染时算，不落盘**：
@@ -351,6 +405,12 @@ type profileView struct {
 	// 要靠手滑把 snapshots/ 全写坏才会出现，比"新建之后一条没改"窄得多，不值得
 	// 为它在每次渲染里多读一遍全部快照。
 	HasSnapshots bool
+	// HasPin 是"这一份现在有 PIN 吗"（2026-10-20）。
+	//
+	// 判据是 auth.HasPin（空哈希 = 没设防），**不在模板里问 Profile.PIN**——
+	// 那是同一件事的第二份说法。台面面板里那张「我的 PIN」表单要靠它决定
+	// "现在的 PIN"那一格要不要画。
+	HasPin bool
 	// HasAdmin 与上面那格同一形状：它是**判据**，所以是位置参数而不是视图字段。
 	// 含义 2026-10-12 变了——从"这个档案是不是管理员"变成"这次请求有没有带着
 	// 一把真的管理权"，于是同一个人可以一边用自己那份书签、一边仍带着管理权。
@@ -371,10 +431,19 @@ type profileView struct {
 	// （model 里的 init 会 panic 兜住它们不同数的情形）。
 	PrefPalette      []string
 	PrefPaletteNames []string
-	// PrefTab 是**左侧那一列当前选中哪一节**（`?tab=`）：三个值里的一个，判据
+	// PrefTab 是**左侧那一列当前选中哪一节**（`?tab=`）：四个值里的一个，判据
 	// 是 `prefsTab` 那张名单（httpapi 侧收，渲染侧兜空串，见 prefsPage）。
 	// 它要活过一次保存——而**只有它自己知道怎么把这一格留在原地**。
 	PrefTab string
+	// PrefLangs 是台面面板「界面语言」那一行的几档（2026-10-20）。
+	//
+	// 第一档是**跟随默认**（Value 为空串），后面几档是各门语言——语言名用它
+	// 自己的语言写（"中文" / "English"），让看不懂当前界面的人也认得出自己要
+	// 那一档（i18n.DisplayName 的理由，与语言选择器的通用做法同一句）。
+	//
+	// Current 说的是"**这一份现在是这一档**"：这一份自己记了语言就是那一档，
+	// 没记就是"跟随默认"——判据与 i18n.ProfileLang 同一件事的两个说法。
+	PrefLangs []PrefLangOption
 	// MaxGroupTitleRunes 是「分组名」那一格的长度上限，**原样带上 model 那个数**
 	// （不为模板抄一份，也不为它加一个 setter）。模板把它印成那个 maxlength：
 	// 服务端那条通路判的是同一个数，两处不同数时症状是"浏览器拦住了、curl 拦不住"。
@@ -476,6 +545,10 @@ type pickerView struct {
 	i18nView
 	Entries []pickerEntry
 	CSS     template.CSS
+	// DefaultLang 是**盘上写着的那个**默认语言（"" = 没人设过）——引导页那个
+	// 语言下拉要显示它，而不是这一页正在用的那一种语言（那一句在"没人设过"时
+	// 是浏览器说的那一门）。理由与 AdminOptions.DefaultLang 一样。
+	DefaultLang string
 	// Heading 与 Setup 是进门页三形状的两格（设计 §2）：h1 的全部文字，以及
 	// "这一页画引导建档表单还是档案卡列表"。判据由 httpapi 算，这里只带着走。
 	Preselect string
@@ -530,6 +603,9 @@ type adminLoginView struct {
 	i18nView
 	Notice string
 	CSS    template.CSS
+	// Key 那两格是"这台机器的管理密钥"：公开的默认值，与"现在用的还是不是它"。
+	// **当前配置的那一把不进页面**（见 AdminOptions）。
+	Key AdminOptions
 }
 
 // notFoundView 是"这条路径不存在"那一页。Back 是**已经翻好**的那句出路
@@ -557,6 +633,8 @@ type adminView struct {
 	Notice string
 	CSS    template.CSS
 	Count  int
+	// Key 是"这台机器的管理密钥"那两格（见 AdminOptions）。
+	Key AdminOptions
 }
 
 // adminActionView 是 AdminAction 加 CSS 之后的样子。**单独一个类型而不是给
@@ -579,7 +657,20 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	// shortTime 给管理页那一格「最近改动」、clockTime 给改动历史的每一行。
 	// 模板的函数名单只有这一份，别在 httpapi 那头再格式化一次——
 	// 同一件事两处做，两处就会漂移。
-	funcs := template.FuncMap{"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf}
+	//
+	// pinMin / pinMax 是**PIN 长度的下限与上限**，直接取 auth 那两个常量
+	// （auth 是唯一判"PIN 合不合法"的地方）。模板上那几个 minlength/maxlength
+	// 印的就是它们：两处各写一个字面量的话，改一处要记得改另一处，而漏掉的那一处
+	// 症状是"界面上限与实际判的对不上"（浏览器拦住了、curl 拦不住）。
+	funcs := template.FuncMap{
+		"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
+		"pinMin": func() int { return auth.PinMinLen }, "pinMax": func() int { return auth.PinMaxLen },
+		// repoURL 是**源码仓库的地址**（render.RepoURL）。做成模板函数而不是
+		// 视图上的一个字段：字段要**每一页都记得填**，而忘了填的那一处症状是
+		// "链接点得开、却什么也不做"（href 空）——一种平时完全看不出来的错。
+		// 函数则只有一份，两个模板各写 `{{repoURL}}` 就是同一处。
+		"repoURL": func() string { return RepoURL },
+	}
 	parse := func(name string) *template.Template {
 		data, err := webFS.ReadFile("web/" + name)
 		if err != nil {
@@ -896,6 +987,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
+		RepoIcon:  repoIcon(e.ix),
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
 	// 这一页的名字：起了就用，没起就按语言给通用默认（见 profileView.PageTitle）。
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
@@ -970,6 +1062,9 @@ func (e *executor) picker(v pickerView, cat *i18n.Catalog) ([]byte, error) {
 	// 那等于让调用方负责注入样式（profile/broken/admin 三页同一形状）。
 	v.CSS = e.cssT
 	v.i18nView = newI18nView(cat)
+	// 那个下拉显示的是**盘上写着的那个**值（没写 = 跟随浏览器），不是这一页
+	// 正在用的那一种语言。
+	v.Langs = langOptions(v.DefaultLang, cat)
 	if err := e.pickerT.ExecuteTemplate(&buf, "picker", v); err != nil {
 		return nil, fmt.Errorf("渲染进门页: %w", err)
 	}
@@ -986,11 +1081,15 @@ func (e *executor) broken(id, reason string, cat *i18n.Catalog) ([]byte, error) 
 	return buf.Bytes(), nil
 }
 
-func (e *executor) admin(rows []AdminRow, notice string, cat *i18n.Catalog) ([]byte, error) {
+func (e *executor) admin(rows []AdminRow, notice string, opts AdminOptions, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.adminT.ExecuteTemplate(&buf, "admin", adminView{
+	v := adminView{
 		i18nView: newI18nView(cat),
-		Rows:     rows, Notice: notice, CSS: e.cssT, Count: len(rows)}); err != nil {
+		Rows:     rows, Notice: notice, CSS: e.cssT, Count: len(rows), Key: opts}
+	// 那个下拉显示的是**盘上写着的那个**值（没写 = 跟随浏览器），不是这一页
+	// 正在用的那一种语言（那一句在"没人设过"时是浏览器说的那一门）。
+	v.Langs = langOptions(opts.DefaultLang, cat)
+	if err := e.adminT.ExecuteTemplate(&buf, "admin", v); err != nil {
 		return nil, fmt.Errorf("渲染管理页: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -998,10 +1097,10 @@ func (e *executor) admin(rows []AdminRow, notice string, cat *i18n.Catalog) ([]b
 
 // adminLogin 渲染"输管理 key"那一页。判据只有 Notice 一格（httpapi 白名单给的），
 // 模板不自己判断该不该说失败。
-func (e *executor) adminLogin(notice string, cat *i18n.Catalog) ([]byte, error) {
+func (e *executor) adminLogin(notice string, opts AdminOptions, cat *i18n.Catalog) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := e.adminLoginT.ExecuteTemplate(&buf, "adminLogin", adminLoginView{
-		i18nView: newI18nView(cat), Notice: notice, CSS: e.cssT}); err != nil {
+		i18nView: newI18nView(cat), Notice: notice, CSS: e.cssT, Key: opts}); err != nil {
 		return nil, fmt.Errorf("渲染管理页登录: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -1041,34 +1140,36 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 // openInNewTab 走 `v.Bookmarks`（**不是**新增一个字段）：面板上凡是书签文档里的
 // 格子都该从同一处读——`.Bookmarks` 已经是那个容器，而档案页上它装的是 Title/
 // Footer/OpenInNewTab。为它另开一个字段，模板上就会有两种写法指同一份数据。
-// 台面面板左侧那一列的三个值（2026-10-15）。**它们是寻址键**：`?tab=` 就是这一列
+// 台面面板左侧那一列的值（2026-10-15；2026-10-20 加了「我的 PIN」那一颗）。
+// **它们是寻址键**：`?tab=` 就是这一列
 // 当前停在哪，而分组那一节里的每一次按色块都是一次提交——停在哪必须活过一次
 // 保存，否则"改完第二十组跳回第一组"。
 //
-// 为什么是三个而不是每行一个：tab 的价值是跳得远，而那一屏只有三处断层
-// （三个分节头）；再往下拆量到的是每格跳 100px，那是噪声不是导航。
+// 为什么是这几颗而不是每行一个：tab 的价值是跳得远，而那一屏只有这几处断层
+// （每颗一个分节头）；再往下拆量到的是每格跳 100px，那是噪声不是导航。
 const (
 	PrefTabLook   = "look"   // 外观
 	PrefTabGroups = "groups" // 分组
 	PrefTabOut    = "out"    // 回退与历史
+	PrefTabPin    = "pin"    // 我的 PIN（本人自助改自己那道门，2026-10-20 加）
 )
 
 // PrefTabValues 是那张名单的**可查形状**（httpapi 侧按它收 `?tab=`）。三处
 // 各写一遍 `switch` 就会有一处忘了改，所以名单在这里、判据由它出去。
-var PrefTabValues = []string{PrefTabLook, PrefTabGroups, PrefTabOut}
+var PrefTabValues = []string{PrefTabLook, PrefTabGroups, PrefTabOut, PrefTabPin}
 
 func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
-		i18nView: newI18nView(cat), HasSnapshots: hasSnaps,
+		i18nView: newI18nView(cat), HasSnapshots: hasSnaps, HasPin: auth.HasPin(p.PIN),
 		PrefGroups: gs, PrefGroupsBroken: broken,
 		Bookmarks:  profileData{OpenInNewTab: openNewTab},
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
 		PrefPalette: model.GroupAccentPalette, MaxGroupTitleRunes: model.MaxGroupTitleRunes}
-	// 当前停在哪一节。**空值落回第一颗**，不落回"三颗都没按"——后者是空屏。
+	// 当前停在哪一节。**空值落回第一颗**，不落回"一颗都没按"——后者是空屏。
 	// 传进来的值由 httpapi 那一侧按名单收过（prefsTab），所以这里只兜住空串：
 	// 面板也从档案页的浮层渲染一次，那条路不带 ?tab=。
 	switch tab {
-	case PrefTabOut, PrefTabGroups:
+	case PrefTabOut, PrefTabGroups, PrefTabPin:
 		v.PrefTab = tab
 	default:
 		v.PrefTab = PrefTabLook
@@ -1084,6 +1185,9 @@ func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, br
 	// 迟早分家（判据只有一份）。不带 AppJS——这一页没有浮层之外的交互，
 	// 脚本是档案页才需要的。
 	v.AppCSS = AppCSSPath
+	// 「界面语言」那一行的几档（2026-10-20）：这一份自己记了语言就是那一档，
+	// 没记就是"跟随默认"。
+	v.PrefLangs = prefLangOptions(p.Language, cat)
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
 	if v.PageTitle == "" {
 		v.PageTitle = v.T("profile.title.default")

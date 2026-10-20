@@ -16,7 +16,10 @@
      模板只印。出路只给一条真的：回能用的一页。 */}}
 <main role="main" class="chooser">
   <h1>{{.T "notfound.title"}}</h1>
-  <p class="notice">{{.T "notfound.explain"}}</p>
+  {{/* 这一句带 role="alert"**（2026-10-20）**：`.notice` 这一族在选择页、导入页、
+       管理页、历史页都带 role="alert"（那是"刚才没进去"那一类），只有这一页没有。
+       它是"这条地址不存在"——同样是一条要立刻被念出来的消息。 */}}
+  <p class="notice" role="alert">{{.T "notfound.explain"}}</p>
   <p class="login-back"><a class="badge" href="/">{{.Back}}</a></p>
 </main>
 </body>

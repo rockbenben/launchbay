@@ -158,7 +158,7 @@
 {{if .Featured}}
 <section class="feat" aria-label="{{.T "profile.featured"}}">
 {{range .Featured}}
-  <h2 class="feat-g" id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n">{{len .Items}}</span></h2>
+  <h2 class="feat-g" id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n" aria-label="{{$.T "profile.featured.count" (len .Items)}}">{{len .Items}}</span></h2>
   <ul class="feat-row" data-gid="{{.ID}}">
   {{range .Items}}
     <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
@@ -312,9 +312,22 @@
   <p class="hint grp-empty"{{if .Items}} hidden{{end}}>{{$.T "profile.group.empty"}}</p>
 </section>
 {{end}}
+{{/* 页脚**在正文列里**（2026-10-20 改）：它原来在 .shell 之后，于是落在
+     侧栏那一列（实测 x=20，而正文从 x=415 开始）——单看像游离的元素。
+     挪进 <main> 之后，它与上面那些分组左缘对齐，读得出是"这一页的页脚"。 */}}
+<footer>
+  {{with .Bookmarks.Footer}}<p>{{.}}</p>{{end}}
+  <a class="repo-link" href="{{repoURL}}" target="_blank" rel="noopener noreferrer"
+    title="{{.T "common.repoTitle"}}" aria-label="{{.T "common.repoTitle"}}">{{template "icon" .RepoIcon}}</a>
+</footer>
 </main>
 </div>
-{{with .Bookmarks.Footer}}<footer><p>{{.}}</p></footer>{{end}}
+{{/* 页脚（2026-10-20 改）。**它现在总是画着**，不为别的——为了那枚 GitHub 猫头。
+     网页上「源码/仓库」历来就在页脚，而这里是这一页**最不抢眼**的位置：
+     不在顶栏那一排动作里（那儿是「这台机器/这一份」的动作），也不挨着
+     任何别的键（挨着的读起来像个导航项）。
+
+     用户自己那段页脚文字还在（.Bookmarks.Footer，空就不画），猫头在它旁边。 */}}
 {{/* ⑤ 的第一个真字节。**只有这一页引它**——选择页/引导页/坏档页/管理页继续零脚本，
      它们的形态里没有"加书签"这回事，引入 JS 只会让 §7.2 的判据更难守。
      type=module + defer：模块天然 defer，且不污染全局（§7.2 那个 CSP 下 'self'
@@ -426,28 +439,29 @@
        外观 / 分组 / 回退与历史——却没有一处能跳。手机上滚到第三屏才看得见
        「分组」，而「删掉这一组」「＋ 新分组」都在那一节里。
 
-       **三颗，不是更多**：tab 的价值是"跳得远"，而这一屏只有三处真正的断层
-       （三个分节头）。再往下一级拆到每一行，跳的是 100px——那不是 tab，
+       **四颗，不是更多**：tab 的价值是"跳得远"，而这一屏只有四处真正的断层
+       （四个分节头）。再往下一级拆到每一行，跳的是 100px——那不是 tab，
        是噪声，于是「多几个」只会得到一列点下去几乎不动的地方。
 
        **零 JS 的形状是 radio + 兄弟选择器**，不是 JS 换 class：
        `/prefs` 那张独立页**不引 app.js**（面板由服务端画、交互全是普通
        form POST），而同一份 define 也渲染进档案页的浮层——所以任何"JS 切
        class"的写法只会在一条路上有 tab、另一条路上没有。`:checked ~ .pane`
-       两边一样成立。CSS 不在时**三节全部可见**（退化方向是"看得全"而不是
+       两边一样成立。CSS 不在时**四节全部可见**（退化方向是"看得全"而不是
        "看不见"）。
 
-       **停在哪是 URL 上的 `?tab=`**（`look` / `out` / `groups`，名单只有
+       **停在哪是 URL 上的 `?tab=`**（`look` / `out` / `groups` / `pin`，名单只有
        render 侧那一份）：分组那一节里每一次按色块、按排法、改名、建组、删组
        都是一次提交，而这一屏有二十个分组时"改完跳回第一类"等于那一节没法用。
        所以那一族的表单 action 带 `?tab=`，而 303 落回时也带着（httpapi 的
-       `prefsTab` + `applyPrefsOps`）。**只有分组那一族带**：外观那几行的落点是
+       `prefsTab` + `applyPrefsOps`）。**带的是哪一族**：外观那几行的落点是
        profile.json、成功后回 `/`（那里根本没有左侧这一列），而「回退与历史」
-       那一节里没有表单。
+       那一节里没有表单；「我的 PIN」那一族也带（它带的是自己那一节 `pin`——
+       服务端答错时把面板连同那句话一起重画，读的就是请求上的 `?tab=`）。
 
        可及名走 **fieldset + legend**：这是"选一节来看"而不是 tablist——用
        radio 就别假装它是 tab，读屏会念出组名与选项，那是真的。焦点环落在
-       label 上（`input:focus-visible + label`），所以那三颗 radio 自己
+       label 上（`input:focus-visible + label`），所以那四颗 radio 自己
        收进 visually-hidden 而不是 `display:none`（后者不可聚焦）。
 
        **点一节不是导航**：它不产生 hash、不改 URL——那一列是"这一屏停在哪"的
@@ -461,6 +475,11 @@
       <label for="prefs-tab-groups">{{.T "prefs.groups"}}</label>
       <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-out"{{if eq .PrefTab "out"}} checked{{end}}>
       <label for="prefs-tab-out">{{.T "prefs.sec.out"}}</label>
+      {{/* 第四颗 tab：我的 PIN（2026-10-20）。**本人自助改自己那道门**从前只有
+           API 与管理页两条路——"能设就能撤"那句话对本人是空的：他能改自己那份的
+           界面、名字、背景，唯独改不了自己那道门（除非去求管理员）。 */}}
+      <input class="prefs-tab" type="radio" name="prefs-tab" id="prefs-tab-pin"{{if eq .PrefTab "pin"}} checked{{end}}>
+      <label for="prefs-tab-pin">{{.T "prefs.sec.pin"}}</label>
     </fieldset>
     <div class="prefs-panes">
     <div class="prefs-pane" id="prefs-pane-look">
@@ -484,6 +503,29 @@
        「保存修改」在这里赢不了——改错了要撤销就得先存一版错的，而
        「按一下只改一件事」是本面板从一开始就有的那条。 */}}
   <h3 class="prefs-sec">{{.T "prefs.sec.look"}}</h3>
+
+  {{/* ── 界面语言（2026-10-20）：这一份自己的语言 ───────────────────────────
+       第一档「跟随默认」= 这一份没自己选语言，跟管理员在管理页设的那一个；
+       后面几档是各门语言，**语言名用它自己的语言写**（"中文" / "English"），
+       于是看不懂当前界面的人也认得出自己要那一档。
+
+       落点是 `POST /prefs` 的 `language` 一格——与 theme / view / layout 同一族：
+       **只写 profile.json**，不产生 rev、不做快照（它是台面偏好，不是书签数据），
+       也不会碰到别人的那一份（这一格只改自己）。
+
+       按下去之后**这一页立刻用新语言重画**：档案自己记了语言，渲染层就按它
+       查表（i18n.ProfileLang）。所以这一格是"看得见生效"的那一种。 */}}
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label">{{.T "prefs.lang"}}</span>
+      <p class="prefs-hint">{{.T "prefs.lang.hint"}}</p>
+      <div class="prefs-keys">
+        {{range .PrefLangs}}
+        <button type="submit" name="language" value="{{.Value}}" aria-pressed="{{if .Current}}true{{else}}false{{end}}">{{.Name}}</button>
+        {{end}}
+      </div>
+    </div>
+  </form>
 
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
@@ -598,7 +640,7 @@
            判据是 BackgroundFile（盘上有没有）而不是 Background（画不画）——
            后者在「暂时不显示」时是空的，于是这一节会连同「恢复显示」一起消失，
            屏上读作"我的背景没了"。 */}}
-      <img class="prefs-bg-preview" src="{{.BackgroundFile}}" alt="" width="160" height="90" loading="lazy">
+      <img class="prefs-bg-preview" src="{{.BackgroundFile}}" alt="{{.T "prefs.bg.previewAlt"}}" width="160" height="90" loading="lazy">
       <p class="hint">{{if .Profile.BackgroundOff}}{{.T "prefs.bg.hidden"}}{{else}}{{.T "prefs.bg.on"}}{{end}}</p>
       {{else}}
       <p class="hint">{{.T "prefs.bg.none"}}</p>
@@ -721,7 +763,7 @@
 
          排法三颗键默认按着「磁贴」：不按任何一颗时服务端也建 tiles，所以"按下去
          的那颗就是会生效的那颗"这句话在初始态就成立。 */}}
-    <form method="post" action="/prefs/group?tab={{$.PrefTab}}" class="prefs-group prefs-group-new">
+    <form method="post" action="/prefs/group?tab=groups" class="prefs-group prefs-group-new">
       <div class="prefs-group-name">
         <input type="text" name="add" class="prefs-group-add" value=""
           maxlength="{{$.MaxGroupTitleRunes}}" autocomplete="off" spellcheck="false"
@@ -759,7 +801,7 @@
     {{$gname := .Title}}
     {{$onPalette := false}}
     {{range $.PrefPalette}}{{if eq . $cur}}{{$onPalette = true}}{{end}}{{end}}
-    <form method="post" action="/prefs/group?tab={{$.PrefTab}}" class="prefs-group">
+    <form method="post" action="/prefs/group?tab=groups" class="prefs-group">
       <input type="hidden" name="group" value="{{.ID}}">
       {{/* 名字与**这一组自己的排法**同一行，色板另起一行。这么分是因为
            "这一组叫什么、用哪种排法"是一句话，而九颗色块与它们放在同一行
@@ -876,13 +918,65 @@
     <div class="prefs-field">
       <span class="prefs-label">{{.T "prefs.elsewhere"}}</span>
       <div class="prefs-keys">
-      {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{else}}<span class="badge disabled" title="{{.T "prefs.revert.noneTitle"}}">{{.T "profile.revert"}}</span>{{end}}
+      {{if .HasSnapshots}}<a class="badge" href="/revert" title="{{.T "profile.revert.title"}}">{{.T "profile.revert"}}</a>{{else}}<span class="badge disabled" role="link" aria-disabled="true" title="{{.T "prefs.revert.noneTitle"}}">{{.T "profile.revert"}}</span>{{end}}
         <a class="badge" href="/history" title="{{.T "history.link.title"}}">{{.T "history.link"}}</a>
       </div>
     </div>
   </div>
   </div>{{/* /prefs-pane 回退与历史 */}}
+
+  {{/* tab 四：我的 PIN（2026-10-20）。落点是 POST /prefs/pin，与 API 那条
+       （/api/v1/profiles/self/pin）**共用同一个落点**（selfPin）——两个壳不许
+       各写一遍判据。
+
+       表单是**零 JS** 的：「现在的 PIN」（这一份有 PIN 时才要——判据是
+       auth.HasPin，由渲染层算好传下来）与「新的 PIN」。**新的那格留空 = 取消
+       这道门**，而取消的代价写在下面（这一份对局域网里所有能访问这台机器的人
+       开放）。
+
+       **这一屏有两种形状，文案也跟着分两种**（2026-10-20）：这一份本来**没设
+       防**时，「现在」那一格根本不存在（没有什么可证明的），于是「改这道门」
+       「取消这道门」那两句话都是对着不存在的门说的——按钮该说「锁上」，代价
+       该说「不锁上会怎样」。管理页那一族早就分「加上这个 PIN」/「换成这个
+       PIN」两个键了（admin.pin.submit.add / .change），这里是同一件事的另一半。 */}}
+  <div class="prefs-pane" id="prefs-pane-pin">
+  <h3 class="prefs-sec">{{.T "prefs.sec.pin"}}</h3>
+  <p class="prefs-hint">{{if .HasPin}}{{.T "prefs.pin.hint"}}{{else}}{{.T "prefs.pin.hint.none"}}{{end}}</p>
+  {{/* **action 带着 `?tab=pin`**（2026-10-20）：这一格只出现在「我的 PIN」那一节，
+       所以它带的是**自己那一节**而不是当前那一节。带它的理由是**落点**：
+       服务端答错时会把面板连同顶部那句提示一起重画（`renderPrefsNotice`），
+       而那一重画读的是请求上的 `?tab=`——不带它，错话就落回第一颗 tab
+       （屏上是「外观」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
+       与 `/prefs/group` 那一族同一个道理：停在哪要活过一次保存。 */}}
+  <form method="post" action="/prefs/pin?tab=pin" class="prefs-row">
+    <div class="prefs-field">
+      <div class="prefs-ctl">
+        {{if .HasPin}}<div class="prefs-pinfield"><label class="prefs-label" for="lb-pin-old">{{.T "prefs.pin.old"}}</label>
+          <input class="fld" id="lb-pin-old" name="old" type="password" inputmode="numeric" autocomplete="off"
+            minlength="{{pinMin}}" maxlength="{{pinMax}}"></div>{{end}}
+        <div class="prefs-pinfield"><label class="prefs-label" for="lb-pin-new">{{.T "prefs.pin.new"}}</label>
+          <input class="fld" id="lb-pin-new" name="new" type="password" inputmode="numeric" autocomplete="off"
+            minlength="{{pinMin}}" maxlength="{{pinMax}}"></div>
+        <button type="submit" class="primary">{{if .HasPin}}{{.T "prefs.pin.save"}}{{else}}{{.T "prefs.pin.set"}}{{end}}</button>
+      </div>
+      <p class="prefs-hint">{{if .HasPin}}{{.T "prefs.pin.cost"}}{{else}}{{.T "prefs.pin.cost.none"}}{{end}}</p>
+    </div>
+  </form>
+  </div>{{/* /prefs-pane 我的 PIN */}}
   </div>{{/* /.prefs-panes */}}
+  </div>{{/* /.prefs-tabs —— 补上这一层：它从前是**靠浏览器隐式闭合**的（`</section>`
+                之前那个 div 没人关），而新加的「提需求」那一行必须落在**这一层
+                之外**——放在里面的话，它是 .prefs-tabs 那个 flex 行的第三个孩子，
+                于是跑到**右上角**去（实测 x=897、y=62：它与左侧导航并排）。
+                显式补上，DOM 与从前一模一样（那一层后面本来就没有别的孩子），
+                而那一行回到面板的最下面。 */}}
+
+  {{/* 源码与需求在 GitHub 上（2026-10-20 加，2026-10-20 当天撤）：这一枚曾先后
+       落在**顶栏**与**这里**（面板最下面），两处都被否了——顶栏那一排是
+       「这台机器/这一份」的动作，源码链接放那儿是抢主视觉区；而这一处紧挨着
+       「回我的页面」，挨着的读起来像个导航项。它现在住在**档案页的页脚**
+       （正文最下面那一行）——网页上「源码/仓库」历来所在的位置，也是那一页
+       最不抢眼的一处。 */}}
 </section>
 {{end}}
 
@@ -905,6 +999,10 @@
      顺带第二个后果：base.css 里"说明句一行不许超过 42 字"那条判据写的是
      `main .hint`，没有 main 的这张页正好躲过它（实测那句 75 字）。 */}}
 <main role="main">
+{{/* 这一页原先**没有 h1**：整页唯一的标题是面板里的 h2。读屏按标题跳时这一页
+     没有一级标题，层级从 h2 起步（其余五张一级页都有 h1）。补一个只给读屏的
+     h1（.prefs-visually-hidden），屏上不占地方。 */}}
+<h1 class="prefs-visually-hidden">{{.T "prefs.heading"}}</h1>
 {{template "prefs-panel" .}}
 <nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
 </main>

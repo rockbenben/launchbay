@@ -112,8 +112,11 @@ func TestPrefsPanel_紧凑档下说清那一列为什么不画(t *testing.T) {
 		if !strings.Contains(body, "左边那列用不上") {
 			t.Errorf("%s 档下没有解释「那一列为什么不画」：人按了侧栏而屏上什么都没有", view)
 		}
-		if !strings.Contains(body, "想留着目录就选「顶栏」") {
-			t.Errorf("%s 档下没有给出路：把目录整个拿掉而不说怎么留回来，人只会以为它没了", view)
+		// 「目录」在这产品里已经有了一个确定含义（数据目录），而这一列是**分组列表**
+		// ——英文一直写的是 Group list position。所以中文也照着说「分组列表」
+		// （2026-10-20 改：原来写「想留着目录」，读的人会当成文件目录）。
+		if !strings.Contains(body, "想留着分组列表就选「顶栏」") {
+			t.Errorf("%s 档下没有给出路：把分组列表整个拿掉而不说怎么留回来，人只会以为它没了", view)
 		}
 		if !strings.Contains(body, `name="layout" value="topbar"`) {
 			t.Errorf("%s 档下「顶栏」那颗不见了", view)

@@ -32,13 +32,13 @@
            谁都能进的书签页，而这个产品最核心的那句承诺正是"各人一份，别人看不见"。
            多了这一格勾选，换来的是"不设防"永远是一个**被说出来**的决定。
            `required` 因此摘掉，minlength/maxlength 留着（对空值不生效，只管手滑打短的）。
-           判据只有 httpapi 的 `isNoPass` 一处。 */}}
+           判据只有 httpapi 的 `wantsNoPin` 一处。 */}}
       {{/* 格式写在标签上，不等人说错了才告诉他（2026-10-16）。管理页那一格
            （admin.pin.field）一直带着"4 到 6 位数字"，而**第一次给人定 PIN 的
            是这一屏**——原先这里只有一个「PIN」，规则只在撞了 `?err=badpin` 之后
            才出现。一张谁都没见过的表单，不该靠失败来教格式。 */}}
       <label>{{.T "picker.setup.pinField"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
-                            minlength="4" maxlength="6"></label>
+                            minlength="{{pinMin}}" maxlength="{{pinMax}}"></label>
       <label class="chk"><input type="checkbox" name="nopass" value="1"> {{.T "picker.setup.nopass"}}</label>
       <p class="hint">{{.T "picker.setup.nopassHint"}}</p>
       <button type="submit" class="primary">{{.T "picker.setup.submit"}}</button>
@@ -78,7 +78,6 @@
          圆角、底色、flex），套在段落上会让这一行变成一个空盒子——实拍 390 宽下，
          「管理这台机器」上方多出一整块空白的圆角面板，比它本来的角标还抢眼。
          段落只留自己的 class。 */}}
-    <p class="pick-admin"><a class="badge" href="/admin">{{.T "picker.adminLink"}}</a></p>
     {{if .Blocked}}
       {{/* 死路①的对策：有档案但一份都进不去时，这一页不许只剩一个空的列表。
            主句按单复数中性写（坏一份时说"这几份"就是说谎），坏的是哪几份写在下面那行——
@@ -126,8 +125,15 @@
              建档那一步（勾选框下面那句）与这一页的管理员那里——**建档时说一句，
              进门时不必再说第二遍**。 */}}
         {{if .NeedsPIN}}
+          {{/* 卡上那一格也要说清格式（2026-10-20）。**建档那屏**早就有「4 到 6 位数字」
+               （picker.setup.pinField），而**第一次给这一份定 PIN 的其实正是这一屏**——
+               从前这里只有一个「PIN」，规则只在撞了 `?err=badpin` 之后才出现。
+               卡只有 150–190px 宽（.profiles 那一档），格式塞不进标签里，于是放在
+               输入框的 placeholder 上：它是**一直看得见**的那一格（输入框里一敲就没了，
+               但那时人已经知道格式了）。minlength/maxlength 仍由浏览器兜着。 */}}
           <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
-                            minlength="4" maxlength="6" required{{if eq .ID $.Preselect}} autofocus{{end}}></label>
+                            minlength="{{pinMin}}" maxlength="{{pinMax}}" required{{if eq .ID $.Preselect}} autofocus{{end}}
+                            placeholder="{{$.T "picker.pin.hint"}}"></label>
         {{end}}
         {{/* 两个动作**同一套词汇**（2026-10-17）：「进入」是 card 主键（fld primary，
              满宽是卡片该有的样子），「管理这台机器」从前是一枚 badge 角标——于是
@@ -138,7 +144,23 @@
     </li>
   {{end}}
   </ul>
+  {{- /* 「管理这台机器」挪到**卡片之后**（2026-10-20）：它原本排在 h1 底下、
+       卡片之前——一台机器级的动作压在「这一份是谁」上面，读起来像这一页的正事。
+       现在它在下面一行、居中，与登录页那个回链同一张脸（.pick-admin 与
+       .login-back 同一档），而**它必须一直画着**（刚装完机器的人手里只有
+       compose 里那把 key，界面上没有第二处通向 /admin 的路）。
+
+       注释用 `{{-` 收掉前面的空白：注释本身不渲染，可它两边的换行与缩进
+       会漏进输出——那一页的接缝是被逐字钉着的（views_test 的「三形状」）。 */}}
+  <p class="pick-admin"><a class="badge" href="/admin">{{.T "picker.adminLink"}}</a></p>
   {{- end}}
+  {{/* 源码与需求在 GitHub 上（2026-10-20 加，同日撤了）：这一枚曾先后落在
+       **顶栏**、**设置面板最下面**与**这里**（进门页），三处都被否了——
+       顶栏那一排是「这台机器/这一份」的动作，源码链接放那儿是抢主视觉区；
+       面板最下面紧挨着「回我的页面」，挨着的读起来像个导航项；这一页是
+       「选你是谁」的过场页，一枚孤零零的猫浮在卡片中间像「页面没画完」。
+       它现在住在**档案页的页脚**（正文最下面那一行）——网页上「源码/仓库」
+       历来所在的位置，也是那一页最不抢眼的一处。 */}}
 </main>
 </body>
 </html>{{end}}

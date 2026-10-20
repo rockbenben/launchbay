@@ -65,14 +65,57 @@ func readExtensionJS(t *testing.T) string {
 // `duplicate-id`，而扩展把这句话翻成「这一条已经在这份里了」，把人支去改另一条。
 //
 // 判据是**地址不同就该是不同的一条**，所以 query 与 hash 都要进 id；超长还要
-// 加哈希后缀（光截断的话，两个 query 很长但前 40 字相同的地址仍然撞）。
+// 加哈希后缀（光截断的话，两个 query 很长但前 32 字相同的地址仍然撞）。
+//
+// **上限是 32**（2026-10-20 修）：服务端收的是 model.ValidSlug 的 32
+// （`^[a-z0-9][a-z0-9-]{0,31}$`），而扩展从前截到 40——于是凡是派生 id 超过
+// 32 的地址，**扩展一条书签都存不进去**（整批 422），而地址本身一点问题都没有。
+// app.js 那边 2026-10-16 就改好了（它的 `ascii()` 用 SLUG_MAX=32）。
 func Test扩展的条目id分得开只差query的地址(t *testing.T) {
 	ext := readExtensionJS(t)
 	if !strings.Contains(ext, "(u.search || '') + (u.hash || '')") {
 		t.Error("extension/bg.js 的 idFor 没把 query 与 hash 算进去：只差 query 的两个地址派生出同一个 id，第二个存不进去却被说成「已经存过」")
 	}
-	if !strings.Contains(ext, "base.slice(0, 40 - h.length - 1) + '-' + h") {
-		t.Error("extension/bg.js 的 idFor 超长时没加哈希后缀：两个 query 很长但前 40 字相同的地址仍然撞 id")
+	if !strings.Contains(ext, "base.slice(0, 32 - h.length - 1) + '-' + h") {
+		t.Error("extension/bg.js 的 idFor 超长时没加哈希后缀（或上限不是 32）：两个 query 很长但前 32 字相同的地址仍然撞 id")
+	}
+	if strings.Contains(ext, "base.length > 40") || strings.Contains(ext, "slice(0, 40") {
+		t.Error("extension/bg.js 的 id 上限还是 40，而服务端只收 32：凡是派生 id 超 32 的地址整批 422，一条都存不进去")
+	}
+}
+
+// **两份 id 派生的基座也必须同形**（2026-10-20 补上）。这一族出过的两次事都是
+// "两边各派一份"造成的：
+//   - 第一次是 query 漏掉（duplicate-id 说了假话）；
+//   - 这一次是扩展的基座与页面**分家**了（扩展多算了 query 与 hash，页面没算），
+//     于是同一个地址在两边得到两个 id——同一条书签被**存成两条**（地址完全相同）。
+//
+// 判据钉**形状**：两边都要用「整条路径 + query + hash」，而上限都取服务端那 32。
+// 只取末段时，`github.com/userA/project` 与 `github.com/userB/project` 会派生出
+// 同一个 id，撞 id 时那句「这一条已经在这份里了」是**假话**。
+func Test两份id派生的基座同形(t *testing.T) {
+	for _, src := range []struct {
+		what string
+		js   string
+	}{
+		{"app.js", readAppJS(t)},
+		{"extension/bg.js", readExtensionJS(t)},
+	} {
+		if !strings.Contains(src.js, `(u.pathname.split('/').filter(Boolean).join('-') || '')`) {
+			t.Errorf("%s 的 id 基座只取路径末段：两个不同的页面会派生出同一个 id，"+
+				"撞 id 时那句「这一条已经在这份里了」是假话", src.what)
+		}
+		if !strings.Contains(src.js, `(u.search || '') + (u.hash || '')`) {
+			t.Errorf("%s 的 id 基座没算 query 与 hash：只差 query 的两个地址会撞 id", src.what)
+		}
+	}
+	// 上限：两边都得是 32（服务端 model.ValidSlug 的上限）——扩展从前是 40，于是
+	// 凡是派生 id 超 32 的地址，扩展整批 422，一条都存不进去。
+	if !strings.Contains(readAppJS(t), "SLUG_MAX = 32") {
+		t.Error("app.js 的 ascii() 不再是 SLUG_MAX = 32：与服务端 model.ValidSlug 的上限对不上了")
+	}
+	if strings.Contains(readExtensionJS(t), "base.length > 40") {
+		t.Error("extension/bg.js 的 id 上限还是 40，而服务端只收 32：凡是派生 id 超 32 的地址整批 422")
 	}
 }
 

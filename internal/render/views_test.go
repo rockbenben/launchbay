@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -276,7 +277,7 @@ func TestCSS_建档表单的勾选不吃文本框的框(t *testing.T) {
 	css := string(raw)
 	ix, fc, s := assets(t)
 	r := New(s, ix, fc)
-	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "")
+	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,10 +464,10 @@ func TestAdminEntryOnlyForAdmin(t *testing.T) {
 	r := renderer(t, s)
 	dadPage, _ := r.ProfilePage(PageRequest{ID: "dad", HasAdmin: true})
 	momPage, _ := r.ProfilePage(PageRequest{ID: "mom"})
-	if !strings.Contains(string(dadPage.Body), ">管理<") {
+	if !strings.Contains(string(dadPage.Body), ">管理这台机器<") {
 		t.Fatal("带着管理权的那次请求要能看到管理标记")
 	}
-	if strings.Contains(string(momPage.Body), ">管理<") {
+	if strings.Contains(string(momPage.Body), ">管理这台机器<") {
 		t.Fatal("没带管理权就不该有管理标记")
 	}
 	// 同一份档案、同一批书签，HasAdmin 一翻就该翻面——钉的是"判据在这一格"，
@@ -1284,8 +1285,10 @@ func TestPickerPage_三形状(t *testing.T) {
 	}
 	// 「≥2 的形状逐字不动」要有字节级的证人：{{if}}/{{else}} 包一层时，if 的 end
 	// 前那段缩进会漏进输出（评审 F6 实测多 3 个字节），而卡片数、h1 全都照旧。
-	// `</ul>\n</main>` 这条接缝就是包 wrapper 之前 HEAD 的输出形状，{{- end}} 收的就是它。
-	if !strings.Contains(string(two.Body), "</ul>\n</main>") {
+	// `</ul>\n  <p class="pick-admin">` 这条接缝就是包 wrapper 之后 HEAD 的输出
+	// 形状，{{- end}} 收的就是它。**2026-10-20**：「管理这台机器」那颗徽标从卡片
+	// **之前**挪到了**之后**（它原本压在「这一份是谁」上面），于是接缝多了那一行。
+	if !strings.Contains(string(two.Body), "</ul>\n  <p class=\"pick-admin\"") {
 		t.Errorf("≥2 形状的输出接缝变了（wrapper 的缩进漏进页面），尾部是:\n%s",
 			tail(string(two.Body), 60))
 	}
@@ -1451,11 +1454,11 @@ func Test无档案的三页都不发data_theme(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broken, err := r.BrokenPage("ghost", "bookmarks.json 读不了")
+	broken, err := r.BrokenPage("ghost", "bookmarks.json 读不了", i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
-	admin, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸的台", Rev: 5, Items: 1}}, "")
+	admin, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸的台", Rev: 5, Items: 1}}, "", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1501,7 +1504,7 @@ func TestPrefsPage_主题三颗键各交自己那一档(t *testing.T) {
 		if err := s.SaveProfile(p); err != nil {
 			t.Fatal(err)
 		}
-		page, err := renderer(t, s).PrefsPage("dad", "")
+		page, err := renderer(t, s).PrefsPage("dad", "", i18n.Zh)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1910,7 +1913,7 @@ func mustRender(t *testing.T, s *store.Store, id string) []byte {
 // "画得出来"的测试都要走它。
 func mustPrefs(t *testing.T, s *store.Store, id string) []byte {
 	t.Helper()
-	p, err := renderer(t, s).PrefsPage(id, "")
+	p, err := renderer(t, s).PrefsPage(id, "", i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2227,7 +2230,7 @@ func TestBrokenPage_主句是人话原文在details里(t *testing.T) {
 	if !ok || reason == "" {
 		t.Fatalf("坏档登记表里没有原因: %v", ok)
 	}
-	page, err := r.BrokenPage("dad", reason)
+	page, err := r.BrokenPage("dad", reason, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2287,7 +2290,7 @@ func TestBrokenPage_主句是人话原文在details里(t *testing.T) {
 	if got := string(template.HTMLEscapeString(rawQuote)); got == rawQuote {
 		t.Fatal("夹具原文不含需要转义的字符，下面这两条证人是空的")
 	}
-	qp, err := r.BrokenPage("dad", rawQuote)
+	qp, err := r.BrokenPage("dad", rawQuote, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2310,7 +2313,7 @@ func TestBrokenPage_没有磁盘路径(t *testing.T) {
 	r := renderer(t, s)
 	_, _ = r.ProfilePage(PageRequest{ID: "dad"})
 	reason, _ := s.BrokenReason("dad")
-	page, perr := r.BrokenPage("dad", reason)
+	page, perr := r.BrokenPage("dad", reason, i18n.Zh)
 	if perr != nil {
 		t.Fatal(perr)
 	}
@@ -2329,7 +2332,7 @@ func TestBrokenPage_没有磁盘路径(t *testing.T) {
 func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	ix, fc, s := assets(t)
 	r := New(s, ix, fc)
-	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "PIN 要 4-6 位数字。")
+	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "PIN 要 4-6 位数字。", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2382,19 +2385,57 @@ func TestAdminPage_建档表单与提示在场(t *testing.T) {
 	if n := strings.Count(assertPINsNoSave(t, body), "password"); n != 1 {
 		t.Errorf("管理页建档该恰好一格 PIN，得到 %d 格", n)
 	}
-	plain, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "")
+	plain, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(plain.Body), `class="notice"`) {
 		t.Errorf("没有提示时不该渲染提示元素:\n%.200s", plain.Body)
 	}
-	emptyPage, err := r.AdminPage([]AdminRow{}, "")
+	emptyPage, err := r.AdminPage([]AdminRow{}, "", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(emptyPage.Body), "当前还没有档案") {
+	if !strings.Contains(string(emptyPage.Body), "还没有档案") {
 		t.Errorf("管理页零档案时应在表格中显示空状态提示:\n%.400s", emptyPage.Body)
+	}
+}
+
+// 名字那一格里印了两个名字：**显示名**与**id**。而 id 是从名字派生的
+// （store 的 DeriveID），所以 ASCII 名字那一份（rockben、NAS、dad…）两个词
+// 是同一个——两个都印就成了「rockben rockben」，读起来像重影。
+//
+// 判据：**两个一样时只印一个**；不一样时两个都在（"爸爸 dad"——id 是 API
+// 寻址用的 handle，家里人拿它去找人）。标题读不出来（坏档）时那一格只剩
+// id，定位信息不许丢。
+func TestAdminPage_名字与id相同时只印一个(t *testing.T) {
+	ix, fc, s := assets(t)
+	r := New(s, ix, fc)
+
+	same, err := r.AdminPage([]AdminRow{{ID: "rockben", Title: "rockben"}}, "", AdminOptions{}, i18n.Zh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(same.Body), "rockben"); n != 1 {
+		t.Errorf("标题与 id 相同时那一格只该出现一次「rockben」，实际 %d 次:\n%.400s", n, same.Body)
+	}
+
+	diff, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "", AdminOptions{}, i18n.Zh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(diff.Body)
+	if !strings.Contains(body, "爸爸") || !strings.Contains(body, "<code>dad</code>") {
+		t.Errorf("标题与 id 不同时两个都要在:\n%.400s", body)
+	}
+
+	// 标题读不出来（坏档）：那一格只剩 id，定位信息不许丢。
+	noTitle, err := r.AdminPage([]AdminRow{{ID: "broken-one", Title: ""}}, "", AdminOptions{}, i18n.Zh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(noTitle.Body), "broken-one") {
+		t.Errorf("没有标题时那一格该只剩 id:\n%.400s", noTitle.Body)
 	}
 }
 
@@ -2472,9 +2513,10 @@ func TestPickerPage_进不去的档案要点名(t *testing.T) {
 		t.Errorf("没说出为什么进不去:\n%.700s", body)
 	}
 	// 出路那句必须说"在这台机器上修"：产品里没有页面内的修法，给个按钮就是假出口。
-	// 钉的是**那半句**（"要在这台机器上修好"），不是整句：坏档可能有好几个，
-	// 2026-10-19 起那句从"那个文件"改成"那些档案文件"（英文那边本来就是复数）。
-	if !strings.Contains(body, "要在这台机器上修好") {
+	// 钉的是**那半句**（"在这台机器上" + "修好"），不是整句：坏档可能有好几个，
+	// 2026-10-19 起那句从"那个文件"改成"那些档案文件"（英文那边本来就是复数），
+	// 2026-10-20 改判后整句又重写过（不再说"暂时进不去"——它不会自己好）。
+	if !strings.Contains(body, "在这台机器上") || !strings.Contains(body, "修好") {
 		t.Errorf("出路没说实话:\n%.700s", body)
 	}
 	// 形状：一行小字，不是卡片。卡片这张脸在说"可以进来"，而它进不去——实拍里画成

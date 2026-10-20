@@ -26,6 +26,19 @@ type Page struct {
 	NoStore bool // 选择页与坏档案页：跨档案命中就是隐私事故
 }
 
+// RepoURL 是这台机器的**源码仓库**——提需求与报 issue 都去那儿。
+//
+// **为什么写死一处而不是两个模板各写一份**（2026-10-20）：设置面板与进门页
+// 各要画一个指向它的链接，而两处各写一份字面量就会有一处忘了改——
+// 那正是"链接指向别人的仓库"这种错的形状，而它平时完全看不出来
+// （点得开、页面正常，只是去错了地方）。
+//
+// **它是这台机器的作者那一份仓库**，不是每个部署各自的：launchbay 是
+// 一家人自己装在 NAS 上的同一个软件，需求与问题都汇总到上游那一处
+// （`internal/render/repofile_test.go` 拿 go.mod 的 module 路径钉住它：
+// 改了模块名而忘了改这一行，那道闸会红）。
+const RepoURL = "https://github.com/rockbenben/launchbay"
+
 type cacheKey struct {
 	profile  string
 	rev      int64
@@ -64,6 +77,11 @@ type PageRequest struct {
 	// HasAdmin 只决定顶栏那枚「管理」徽标画不画。判据由调用方（httpapi）算——
 	// 本次请求带的是不是一把真的 lb_admin。进缓存键的理由见 cacheKey 那条。
 	HasAdmin bool
+	// Lang 是**这一页用什么语言**（2026-10-20）。判据在 httpapi 那一侧算好了
+	// 递过来：这一份自己记了语言就用它，没记就用站级的默认、再用浏览器说的那一门
+	// （判据只有一处，见 httpapi 的 machineLang）。渲染器**不自己判**——它判不了
+	// 浏览器说的是哪一门，而两处各判一次就会有一处漂。
+	Lang i18n.Lang
 	// 这里曾经还有两个字段，都随 2026-10-10 的管理员边界改判一起作废了：
 	// Home（"是不是代管态"，曾是缓存键的一维与横幅的判据）与 Others
 	// （徽标下拉里"别人"那几行）。代管态整条下线之后，`sessionLegal` 只认
@@ -104,6 +122,11 @@ func (r *Renderer) Invalidate(id string) {
 	}
 }
 
+// 语言的判据**在 httpapi 那一侧**（2026-10-20）：它看得见浏览器的
+// Accept-Language（"什么都还没设过时用浏览器说的那一门"），而渲染层看不见。
+// 于是渲染层只**用**递过来的那一种语言，不自己判——两处各判一次就会有一处漂。
+// 判据的形状见 httpapi 的 machineLang / langOf。
+
 func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	snap, err := r.s.Current(req.ID)
 	if err != nil {
@@ -120,7 +143,10 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	// 带 ?q= 或 ?add= 的请求**不进这个缓存**（§7.1 对 ?q= 的原话，?add= 同理）：
 	// 键空间会随每次按键/每条书签膨胀，而为一个局域网页面养无界缓存不值。旁路
 	// 不等于不发 ETag——下面算的就是内容哈希，浏览器 304 那一路一分不损失。
-	lang := r.s.Language()
+	// 这一页说哪种语言：由调用方（httpapi）算好递过来——这一份自己记了语言
+	// 就用它，没记就用默认、再用浏览器说的那一门。它同时是缓存键的一维（下面
+	// key.lang）：换语言要换掉这一份的页面，而这一格正是"换了语言"的那件事。
+	lang := req.Lang
 	key := cacheKey{profile: req.ID, rev: snap.Rev,
 		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation(), lang: lang,
 		hasAdmin: req.HasAdmin}
@@ -191,6 +217,13 @@ type PickerOptions struct {
 	// HasAdmin 为真时页面顶端给一个进管理页的口子（2026-10-12）。判据在 httpapi
 	// （本次请求带的是不是一把真的管理权），渲染器不判断。
 	HasAdmin bool
+	// Lang 是**这一页用什么语言**（2026-10-20）：选择页是机器层面的页面，所以它
+	// 用默认语言（管理员设过的那个，没设过就用浏览器说的那一门）。判据在 httpapi。
+	Lang i18n.Lang
+	// DefaultLang 是**盘上写着的那个**默认语言（"" = 没人设过）——引导页那个
+	// 语言下拉要显示它，而不是这一页正在用的那一种语言（那一句在"没人设过"时
+	// 是浏览器说的那一门）。理由与 AdminOptions.DefaultLang 一样。
+	DefaultLang string
 }
 
 func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
@@ -261,8 +294,8 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
 		NoWayIn:   len(views) == 0 && len(blocked) == 0,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
-		Notice: opts.Notice, HasAdmin: opts.HasAdmin}
-	body, err := r.tmpl.picker(v, i18n.Load(r.s.Language()))
+		Notice: opts.Notice, HasAdmin: opts.HasAdmin, DefaultLang: opts.DefaultLang}
+	body, err := r.tmpl.picker(v, i18n.Load(opts.Lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -272,8 +305,15 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 // BrokenPage 渲染坏档案的解释页：只有档案 id 与 store 给的人话原因
 // （文件名+行号），不含书签内容、PIN 哈希或任何令牌。
 // 档案列表页可能随时变，且给缓存起来就是留着看旧解释，所以不缓存。
-func (r *Renderer) BrokenPage(id, reason string) (Page, error) {
-	body, err := r.tmpl.broken(id, reason, i18n.Load(r.s.Language()))
+//
+// **lang 由调用方给**（2026-10-20 修）：这一页从前在渲染层自己问
+// `store.Language()`——而那是"站级默认"的塌掉版，它丢掉"有没有人设过"那
+// 一半，也**从不看 Accept-Language**。于是全新机器 + 英文浏览器上，
+// 选择页与档案页是英文，这一页却是中文（而坏档页的按钮又来自机器级那一半，
+// 于是中英混排）。渲染层不自己判"用哪种语言"是它自己的纪律（判据在
+// httpapi，它看得见请求头），这两页从前破了这个纪律。
+func (r *Renderer) BrokenPage(id, reason string, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.broken(id, reason, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -296,22 +336,33 @@ type AdminRow struct {
 	Items     int
 	Snapshots int
 	Broken    bool
-	// CanSetPin / CanDelete 决定这一行的两个写入口渲不渲染。**判据在 httpapi
+	// PinSet = 这一份**现在有 PIN 吗**（判据是 auth.HasPin，值由 httpapi 算好）。
+	//
+	// 它管两件事：那一行的动作键说的是「加 PIN」还是「改 PIN」，以及要不要
+	// 标出"这一份没锁上"（不设防的档案在局域网里谁都能进——那是管理员最该
+	// 先看见的一件事）。**坏档没有这一格**：profile.json 读不动，就不知道它
+	// 有没有 PIN，页面因此不标。
+	PinSet bool
+	// CanSetPin / CanDelete 决定这一行的写入口渲不渲染。**判据在 httpapi
 	// 那一侧算好传进来，模板不判断**——同 validatedAccent 那条纪律。
 	//
 	// 它们的作用是**不给做不到的承诺**：管理页里一个点了必被 403/303 的按钮，
 	// 就是一条死按钮，而死按钮比没有更费人（它让人以为自己能删自己）。
-	// 判据是"这一行是不是当前会话正在用的那一份"——**不是"它是不是管理员"**：
-	// 管理员身份是**请求级**的（这一次有没有那把 key），而这一行是**档案级**的，
-	// 两者不在一个维度上，所以登录在 kid 那份的管理员给自己家（dad）设 PIN 是
-	// 合法且该出链接的。
+	//
+	// CanSetPin 判据是"这一行不是坏档"：**不再看是不是当前会话正在用的那一份**
+	// （2026-10-20 改判）。管理员是**机器级**的一把 key，不属于任何档案，于是
+	// "改自己的 PIN 要旧 PIN"那条保护在管理页上从来没有依据：本人自己那边
+	// （`POST /api/v1/profiles/self/pin`）照样要旧 PIN，而管理员这一边是
+	// "家人忘了 PIN 的出路"——它必须能给**每一份**档案加/改 PIN，包括他自己
+	// 正在用的那一份。API 那条（`POST /api/v1/profiles/pin`）本来就这样，
+	// 管理页却比它更严，于是两处对同一件事给出不同答案。
 	CanSetPin bool
 	// CanToggleDisabled 决定停用/启用那一枚链接渲不渲染（2026-10-10）。
 	// 判据同样在 httpapi 那一侧算：不是当前会话正在用的那一份，且不是坏档。
 	// 模板用 Disabled 翻措辞（今天停、明天启），不自己判状态。
 	CanToggleDisabled bool
 	CanDelete         bool
-	// IsActive = 这一行就是当前会话正在用的那一份。**它只为了把那个空格填上**：
+	// IsActive = 这一行就是当前会话正在用的那一份。**它只为了把那个格子填上**：
 	// 三个 Can* 全为假的时候这一格会渲染成一个空的 `<span class="acts">`，而
 	// 1440 实拍里那一行读起来像"这一份没有动作"——可它不是没有，是**按下去必然
 	// 被拒**（`/admin/delete` 对自己会 303 `?err=self`）。空格子与"没有这回事"在
@@ -320,6 +371,26 @@ type AdminRow struct {
 	// 单独一个字段而不是让模板拿三个 Can* 反推：反推要把"三个都假"这个组合
 	// 当成一条判据，而组合判据迟早会跟新的动作列分家。
 	IsActive bool
+}
+
+// AdminOptions 是管理那一族页面里"这台机器"层面的两格。
+//
+// **当前配置的那把管理密钥一个字都不进这里**：它会进 devtools、进导出、进
+// 浏览器同步。这里带的是**公开的默认值**（compose 里写着的那个）与"这台
+// 机器现在用的还是不是它"——前者是公开知识，印出来不泄露任何东西；后者
+// 只在**已经进了管理页**的人眼前才有意义。
+type AdminOptions struct {
+	// DefaultAdminKey 是那个公开的默认密钥的字面值。
+	DefaultAdminKey string
+	// UsingDefaultAdminKey 为真 = 这台机器现在用的就是它（该换掉了）。
+	UsingDefaultAdminKey bool
+	// DefaultLang 是**盘上写着的那个**默认语言（"" = 没人设过）。
+	//
+	// **它不是这一页正在用的那一种语言**：没人设过时，页面按**浏览器说的**那一门
+	// 显示（链的第 3 格），而盘上什么都没写。从前那个下拉预选的是后者，于是
+	// 管理员看到"English"被选中就以为这台机器已经是英文的了——而他按一下那颗
+	// 按钮，就把"没人设过"悄悄变成了"显式设成英文"。
+	DefaultLang string
 }
 
 // AdminSentinel 是管理页在 X-LB-Profile 与 ETag 前缀里的名字。它刻意长成
@@ -336,8 +407,11 @@ const AdminSentinel = "-admin"
 // notice 是由 `?err=` 查白名单查出的一句人话（空串就不画）：建档表单失败后必须
 // 能说出"刚才没建上"，否则那条通路是静默失败的。判据不在渲染器里——它只印递进来的
 // 那句，白名单与键的取法都在 httpapi（同 PickerOptions 的 Heading/Setup）。
-func (r *Renderer) AdminPage(rows []AdminRow, notice string) (Page, error) {
-	body, err := r.tmpl.admin(rows, notice, i18n.Load(r.s.Language()))
+//
+// opts 带着"这台机器的管理密钥"那两格（见 AdminOptions）：页面要告诉管理员
+// 默认那把是什么，以及这台机器是不是还在用着它。
+func (r *Renderer) AdminPage(rows []AdminRow, notice string, opts AdminOptions, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.admin(rows, notice, opts, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -351,6 +425,13 @@ type AdminField struct {
 	Type      string // text / password
 	Hint      string // 字段说明，空串就不印（印了要挂 aria-describedby）
 	Autofocus bool
+	// MinLen / MaxLen 是**这一格的长度范围**，0 = 不印那个属性。
+	//
+	// 只有 PIN 那一格有范围，而它的范围取自 auth 那两个常量（见 adminaction.go）：
+	// 模板上**不抄一份**——抄一份就会与服务端的判据漂开，症状是"界面上限与
+	// 实际判的对不上"（浏览器拦住了、curl 拦不住）。
+	MinLen int
+	MaxLen int
 }
 
 // AdminChoice 是"从几个里选一个"的一格。
@@ -381,11 +462,18 @@ type AdminAction struct {
 	// Explain 是**后果**，印在提交按钮之前。删档那一页存在的全部意义就是让
 	// "会发生什么"先被读到，所以它不是可选项。
 	Explain string
-	Notice  string // 由 ?err= 查白名单查出的一句人话，空串不画
-	Action  string // 表单 action
-	Submit  string // 按钮文字
-	Danger  bool   // 删档：按钮走危险样式
-	Fields  []AdminField
+	// Note 是后果之外的**一句补充**，空串不画。
+	//
+	// 它与 Explain 分开，是因为两者重量不同：Explain 说的是"这一步会改变什么"，
+	// 而 Note 说的是"对**你**这一步有什么后续"（改自己那一份的 PIN 时，当前
+	// 这个页面还在，但下次进门要输新的那个）。合成一段的话，两件事会挤成一句
+	// 读不完的长句。
+	Note   string
+	Notice string // 由 ?err= 查白名单查出的一句人话，空串不画
+	Action string // 表单 action
+	Submit string // 按钮文字
+	Danger bool   // 删档：按钮走危险样式
+	Fields []AdminField
 	// Choices 与 Fields 是互斥的两种形状。空 Choices 一格也不画——设 PIN、
 	// 删档、停用那三页走的一直是 Fields，它们不会因为这一族存在而多出一个
 	// 空 fieldset。
@@ -441,13 +529,17 @@ type ImportView struct {
 	Explain string
 	Notice  string
 	// 下面这些只在 report 形状下有值。
-	Count    int    // 会写进去几条
+	//
+	// **Count 在 done 形状下也有值**（2026-10-20 补上）：完成那一页要说的是
+	// "写进了几条**书签**"，而 op 条数（建一个分组也是一条 op）会被说成书签的
+	// 数目——所以那一页取的是 plan.Count，不是 Applied。
+	Count    int    // 会写进去几条（**书签条数**，不是 op 条数）
 	Skipped  int    // 没能进来的几条（过不了写路径的校验；报告里有逐条明细）
 	Groups   int    // 会建几个分组
 	Report   string // bookimport 那份人话报告，原文照贴
 	Token    string // 一次性令牌，确认页带着它
 	FileName string // 上传时的文件名，只为让人确认"选对了文件"
-	// 下面两个只在 done 形状下有值（2026-10-12 的"直接导入"）。
+	// 下面这个只在 done 形状下有值（2026-10-12 的"直接导入"）。
 	Applied int
 	// SkippedItems 逐条点名。**不许拿 Skipped 那个数字代替它**：导入唯一会让人
 	// 后悔的信息就是"少的是哪几条"，只给个数的话那几条就没人知道了。
@@ -460,16 +552,18 @@ type SkippedEntry struct{ Name, URL, Reason string }
 
 // ImportPage 渲染导入页。no-store：报告与令牌都在这一次响应的上下文里，
 // 缓存住它等于把"这个人打算导什么"留给下一个共用这台电脑的人。
-func (r *Renderer) ImportPage(v ImportView) (Page, error) {
-	body, err := r.tmpl.importPage(v, i18n.Load(r.s.Language()))
+func (r *Renderer) ImportPage(v ImportView, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.importPage(v, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
 	return Page{Body: body, NoStore: true, Profile: v.Profile}, nil
 }
 
-func (r *Renderer) AdminActionPage(v AdminAction) (Page, error) {
-	body, err := r.tmpl.adminAction(v, i18n.Load(r.s.Language()))
+func (r *Renderer) AdminActionPage(v AdminAction, lang i18n.Lang) (Page, error) {
+	// 这一页念给谁听，由调用方算好递过来（v.Lang）：管理页那三张确认页是**管理员**
+	// 在用 → 站级默认；回退页是**本人**在用 → 那一份自己的语言。
+	body, err := r.tmpl.adminAction(v, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -486,8 +580,11 @@ func (r *Renderer) AdminActionPage(v AdminAction) (Page, error) {
 // 它与 AdminPage 共用 AdminSentinel：这一页与管理页同属"管理那一族"，而 ⑥ 的 SW
 // 对 `-admin` 一律不存（见那个常量的注释）——登录页里没有敏感内容，但让同一族
 // 共用一个哨兵名，少一处将来要记住的例外。
-func (r *Renderer) AdminLoginPage(notice string) (Page, error) {
-	body, err := r.tmpl.adminLogin(notice, i18n.Load(r.s.Language()))
+//
+// opts 带着那个**公开的**默认密钥：装好机器的人第一次站在这一页上，最需要的
+// 就是"我该输什么"。**当前配置的那一把不进这里**（见 AdminOptions）。
+func (r *Renderer) AdminLoginPage(notice string, opts AdminOptions, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.adminLogin(notice, opts, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -503,8 +600,12 @@ func (r *Renderer) AdminLoginPage(notice string) (Page, error) {
 // **Profile 留空**：这一页不属于任何档案，而 SW 是按响应头 X-LB-Profile 分桶的，
 // 空头不存（见 sw.js 那条）。给它任何一个哨兵名都是让离线缓存里多出一份
 // "谁都能看到"的页面。
-func (r *Renderer) NotFoundPage(back string) (Page, error) {
-	body, err := r.tmpl.notFound(back, i18n.Load(r.s.Language()))
+//
+// **lang 由调用方给**（2026-10-20 修）：这一页从前在渲染层自己问
+// `store.Language()`，于是全新机器 + 英文浏览器上它是中文——而那颗"回我的页面"
+// 的按钮来自机器级那一半（英文），于是中英混排。与 BrokenPage 同一处修法。
+func (r *Renderer) NotFoundPage(back string, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.notFound(back, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -543,8 +644,8 @@ type HistoryView struct {
 // HistoryPage 渲染改动历史。no-store 与不给 ETag 同 ImportPage：这一页写的是
 // "谁在什么时候动过这个人的书签"，把它留在共用这台电脑的下一个人的缓存里，
 // 就是这一整个产品要防的那件事。
-func (r *Renderer) HistoryPage(v HistoryView) (Page, error) {
-	body, err := r.tmpl.history(v, i18n.Load(r.s.Language()))
+func (r *Renderer) HistoryPage(v HistoryView, lang i18n.Lang) (Page, error) {
+	body, err := r.tmpl.history(v, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
@@ -575,7 +676,7 @@ func firstChar(s string) string {
 //
 // 不进渲染缓存：这一页每个字段都是台面偏好（改一个就换一个 profile 指纹），
 // 而它是"出了事去找设置"的落点，不该是浏览器缓存里的旧值。
-func (r *Renderer) PrefsPage(id, tab string) (Page, error) {
+func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang) (Page, error) {
 	prof, _, err := r.s.LoadProfileWithFingerprint(id)
 	if err != nil {
 		return Page{}, err
@@ -585,7 +686,7 @@ func (r *Renderer) PrefsPage(id, tab string) (Page, error) {
 	// 一次目录读失败把撤销入口藏起来，比多画一枚可能点不动的按钮更糟。
 	snaps, err := r.s.ListSnapshots(id)
 	hasSnaps := err != nil || len(snaps) > 0
-	cat := i18n.Load(r.s.Language())
+	cat := i18n.Load(lang)
 	// 面板上凡是**书签文档里**的格子都从这一次读里来（分组清单与「点开书签」的
 	// openInNewTab）：两次读之间文件被人换掉的话，屏上那两个格子会来自同一份
 	// 读数——而它们都只是显示，写入侧仍在锁内重读（applyBatch）。

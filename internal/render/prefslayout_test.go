@@ -60,13 +60,18 @@ func Test面板每行是说明在上控件在下(t *testing.T) {
 		strings.Contains(tmpl, `name="prefs-all"`) {
 		t.Error("面板加了一个整页保存：那会让改错了一项也存进去")
 	}
-	// 改台面偏好的**五行**必须各自独立（改名 / 怎么看 / 第二行 / 分组导航 / 主题）。
+	// 改台面偏好的**六行**必须各自独立（改名 / 怎么看 / 第二行 / 分组导航 / 主题 /
+	// 界面语言）。
 	// 「点开书签」不在这一数里——它改的是书签文档，走 `/prefs/tabs`。
 	//
 	// 2026-10-19 从 4 变 5：多了「第二行印什么」那一格（`addrLevel`）。它与
 	// view 一样是 `POST /prefs` 的一个字段、同样按下即改，所以**是这一族的一员**。
-	if n := strings.Count(tmpl, `action="/prefs" class="prefs-row"`); n != 5 {
-		t.Errorf("改台面偏好的独立表单是 %d 个，要恰好 5（改名/怎么看/第二行/导航/主题）", n)
+	//
+	// 2026-10-20 从 5 变 6：多了「界面语言」那一格（`language`）——每一份档案
+	// 自己记一份语言，管理员在管理页设的那一个只是**默认**。它同样是
+	// `POST /prefs` 的一个字段、同样按下即改。
+	if n := strings.Count(tmpl, `action="/prefs" class="prefs-row"`); n != 6 {
+		t.Errorf("改台面偏好的独立表单是 %d 个，要恰好 6（改名/怎么看/第二行/导航/主题/语言）", n)
 	}
 	if n := strings.Count(tmpl, `action="/prefs/tabs" class="prefs-row"`); n != 1 {
 		t.Errorf("「点开书签」那一行是 %d 个，要恰好 1", n)

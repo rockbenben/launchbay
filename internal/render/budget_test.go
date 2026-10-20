@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -16,23 +17,23 @@ import (
 // Content-Encoding 与 ETag 怎么相处。这里量的是渲染产物的 gzip 尺寸，
 // 与浏览器实际收到的字节同源。
 //
-// 下面这组读数是 **2026-10-19** 在同一台机器上重量的（命令：
+// 下面这组读数是 **2026-10-20** 在同一台机器上重量的（命令：
 // `go test ./internal/render -run TestBudget -v`）。前一组写在 2026-10-16，
 // 它自己写着"一天里已经失准"——2026-10-19 重量的结果：那一天的改动把
 // app.js 从 gzip 61,389 顶到 **71,617**（⌘K 外部条目改复制、拖入与动效、
 // 面板那五格从表单自己读字段名等），**余量从 51 字节变成 53,383**。
 // 读数只能整组一起换，这条纪律不变：
 //
-//	 25 条  raw  59,128 B / gzip 12,326（线 16,000，1.30 倍）
-//	200 条  raw 196,708 B / gzip 31,074（线 48,000，1.54 倍）
-//	内联 CSS raw 35,768 / gzip  7,707（线 12,000，1.56 倍）
-//	管理页 25 档    raw  54,898 / gzip 10,255（同 16 KB 那条，1.56 倍）
-//	回退页 50 份    raw  48,203 / gzip  9,075（同上，1.76 倍）
-//	引导进门页      raw  37,758 / gzip  8,909（同上，1.80 倍）
-//	单人进门页      raw  37,205 / gzip  8,410（同上，1.90 倍）
-//	进门页带一档坏档 raw 38,128 / gzip  8,636（同上，1.85 倍）
-//	改动历史 100×6   raw  99,046 / gzip  9,264（见下面那条自己的线）
-//	app.js raw 182,246 / gzip 71,617（操作线 125,000，1.75 倍；契约 131,072）
+//	 25 条  raw  63,664 B / gzip 13,498（线 16,000，1.19 倍）
+//	200 条  raw 201,244 B / gzip 32,231（线 48,000，1.49 倍）
+//	内联 CSS raw 39,203 / gzip  8,286（线 12,000，1.45 倍）
+//	管理页 25 档    raw  61,471 / gzip 11,271（同 16 KB 那条，1.42 倍）
+//	回退页 50 份    raw  51,650 / gzip  9,653（同上，1.66 倍）
+//	引导进门页      raw  41,319 / gzip  9,548（同上，1.67 倍）
+//	单人进门页      raw  40,700 / gzip  9,007（同上，1.76 倍）
+//	进门页带一档坏档 raw 41,673 / gzip  9,213（同上，1.74 倍）
+//	改动历史 100×6   raw 102,481 / gzip  9,827（见下面那条自己的线）
+//	app.js raw 204,980 / gzip 79,250（操作线 125,000，1.58 倍；契约 131,072）
 //
 // **上一组这里写着「契约 61,440」——那是 2026-10-16 之前的旧契约，与同文件
 // 下面那条 131,072 自相矛盾**（spec §7.3 已于 2026-10-16 改判成 128KB）。
@@ -343,12 +344,12 @@ func TestBudget_除档案页外都零脚本(t *testing.T) {
 		t.Fatal(err)
 	}
 	pages["pickerBlocked"] = bd.Body
-	br, err := r.BrokenPage("dad", "bookmarks.json 第 3 行附近: 测试夹具")
+	br, err := r.BrokenPage("dad", "bookmarks.json 第 3 行附近: 测试夹具", i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pages["broken"] = br.Body
-	ad, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸", Items: 25, Rev: 3}}, "")
+	ad, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸", Items: 25, Rev: 3}}, "", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +371,7 @@ func TestBudget_除档案页外都零脚本(t *testing.T) {
 			}
 			return cs
 		}(),
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +389,7 @@ func TestBudget_除档案页外都零脚本(t *testing.T) {
 		}
 		hv.Rows = append(hv.Rows, row)
 	}
-	hp, err := r.HistoryPage(hv)
+	hp, err := r.HistoryPage(hv, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +416,7 @@ func TestBudget_管理页25档也在同一线内(t *testing.T) {
 			Modified: "2026-10-08T00:00:00Z", Items: 25, Snapshots: 3,
 		})
 	}
-	p, err := r.AdminPage(rows, "PIN 要 4-6 位数字。")
+	p, err := r.AdminPage(rows, "PIN 要 4-6 位数字。", AdminOptions{}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +452,7 @@ func TestBudget_回退页满额快照也在同一线内(t *testing.T) {
 		Explain: "现在：第 3 版，41 条书签。", Action: "/revert",
 		Submit: "回到这一版", NavHref: "/", NavLabel: "回我的页面",
 		ChoiceName: "to-rev", ChoiceLegend: "选一版", Choices: choices,
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +472,7 @@ func TestBudget_回退页满额快照也在同一线内(t *testing.T) {
 		Explain: "现在：第 0 版，0 条书签。\n\n这个档案还没有可回退的版本。",
 		Action:  "/revert", Submit: "回到这一版", NavHref: "/", NavLabel: "回我的页面",
 		NoForm: true,
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +503,7 @@ func TestBudget_改动历史满页也在同一线内(t *testing.T) {
 		}
 		v.Rows = append(v.Rows, row)
 	}
-	p, err := r.HistoryPage(v)
+	p, err := r.HistoryPage(v, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}

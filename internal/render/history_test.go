@@ -27,7 +27,7 @@ func Test历史页的类都在内联CSS里有规则(t *testing.T) {
 			Ops:  []string{"改名 · NAS › 群晖", "删掉 · NAS › 旧的一条"},
 			More: "…另外还有 7 处没列出来",
 		}},
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func Test历史页按天切节(t *testing.T) {
 			{At: far.Format(time.RFC3339), Channel: "浏览器扩展", Count: 1, Rev: 6},
 			{At: "不是时间", Channel: "网页上", Count: 1, Rev: 7},
 		},
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func Test历史页不抄内容(t *testing.T) {
 			At: "2026-10-13T06:00:00Z", Channel: "AI 助手", Count: 1, Rev: 2,
 			Ops: []string{"改地址 · NAS › 群晖"},
 		}},
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func Test历史页零行说清为什么(t *testing.T) {
 	ix, fc, s := assets(t)
 	page, err := New(s, ix, fc).HistoryPage(HistoryView{
 		Profile: "dad", Heading: "dad 的改动历史", Explain: "这一页记的是动作。",
-	})
+	}, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}

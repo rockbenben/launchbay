@@ -1,6 +1,7 @@
 package render
 
 import (
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"strings"
 	"testing"
 )
@@ -19,13 +20,13 @@ import (
 // 第四件不在这里钉而在那里：44px 归导航族那条联合规则管（族数闸数的是规则条数）。
 func TestPrefsTabs_三颗radio与三块pane一一对应且默认选中第一颗(t *testing.T) {
 	html := prefsPanelHTML(t, "look")
-	if n := strings.Count(html, `class="prefs-tab" type="radio"`); n != 3 {
-		t.Fatalf("面板里 %d 颗 tab radio，要 3 颗", n)
+	if n := strings.Count(html, `class="prefs-tab" type="radio"`); n != 4 {
+		t.Fatalf("面板里 %d 颗 tab radio，要 4 颗（第四颗是 2026-10-20 加的「我的 PIN」）", n)
 	}
 	if !strings.Contains(html, `id="prefs-tab-look" checked`) {
 		t.Error("第一颗（外观）没有 checked：不 checked 就谁都不显示，整块面板是空的")
 	}
-	for _, id := range []string{"prefs-tab-look", "prefs-tab-out", "prefs-tab-groups"} {
+	for _, id := range []string{"prefs-tab-look", "prefs-tab-out", "prefs-tab-groups", "prefs-tab-pin"} {
 		if !strings.Contains(html, `id="`+id+`"`) {
 			t.Errorf("少了一颗 tab radio：%s", id)
 		}
@@ -38,7 +39,7 @@ func TestPrefsTabs_三颗radio与三块pane一一对应且默认选中第一颗(
 	// `:has()` 从共同祖先上选，落到 pane 上只能按 id）。少了第一块那个 id，
 	// 于是"按第二、三颗时关掉外观"那两条**匹配不到任何东西**——而默认态看起来
 	// 一切正常（默认那颗恰好就是外观），症状是"切到分组还是显示外观"。
-	for _, id := range []string{"prefs-pane-look", "prefs-pane-out", "prefs-pane-groups"} {
+	for _, id := range []string{"prefs-pane-look", "prefs-pane-out", "prefs-pane-groups", "prefs-pane-pin"} {
 		if !strings.Contains(html, `id="`+id+`"`) {
 			t.Errorf("少了一块 pane 的 id：%s（显隐规则按 id 指，少一个就有一处切不干净）", id)
 		}
@@ -88,7 +89,7 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 	r := New(s, ix, fc)
 
 	for _, tab := range []string{"look", "out", "groups"} {
-		page, err := r.PrefsPage("dad", tab)
+		page, err := r.PrefsPage("dad", tab, i18n.Zh)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,15 +111,31 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 		if !strings.Contains(html, `id="prefs-tab-`+tab+`" checked>`) {
 			t.Errorf("tab=%s 时按下的不是它自己", tab)
 		}
-		// 分组那一族的表单**必须**带着它，否则原生提交（建组那张）与 303 落回
-		// 都会把这一节丢掉。
-		if !strings.Contains(html, `action="/prefs/group?tab=`+tab+`"`) {
-			t.Errorf("tab=%s 时分组表单的 action 没带着它：改完会跳回第一类", tab)
+		// 分组那一族的表单**必须**带着 `?tab=groups`——**它带的是自己那一节，
+		// 不是「当前那一节」**（2026-10-20 改判）。
+		//
+		// **旧理由是什么**：从前它带的是 `{{$.PrefTab}}`（页面上停在哪一节），
+		// 理由是「停在哪要活过一次保存」。
+		//
+		// **为什么现在不成立**：**独立页上那列 radio 根本不改 URL**（那张页不引
+		// app.js，radio 只切本地）——于是「当前那一节」在人按下去的那一刻**已经
+		// 变了**，而表单上带的是**页面加载时**的那一节。实测（2026-10-20）：独立页
+		// 打开在「外观」，点「分组」，按一个颜色 → 落回 `/prefs?tab=look`，**人
+		// 刚待的那一节没了**。带自己那一节就落在 `/prefs?tab=groups`，人还在原地。
+		//
+		// 浮层那条路不受影响：那里的分组表单被 app.js 拦下走 applyOps（不导航），
+		// 带的那个 `?tab=` 压根没人读。
+		if !strings.Contains(html, `action="/prefs/group?tab=groups"`) {
+			t.Errorf("tab=%s 时分组表单的 action 没带自己那一节：改完会跳回别的节", tab)
+		}
+		// 而它**不许**带「当前那一节」——那正是上面那条实测里的错法。
+		if tab != "groups" && strings.Contains(html, `action="/prefs/group?tab=`+tab+`"`) {
+			t.Errorf("tab=%s 时分组表单带了当前那一节：独立页上 radio 不改 URL，带它是带了个错的", tab)
 		}
 	}
 	// 不认识的值与空串都落回第一颗——那是"三颗都没按"的反面（空屏）。
 	for _, bad := range []string{"", "nope", "look&x"} {
-		page, err := r.PrefsPage("dad", bad)
+		page, err := r.PrefsPage("dad", bad, i18n.Zh)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -134,7 +151,7 @@ func prefsPanelHTML(t *testing.T, tab string) string {
 	t.Helper()
 	ix, fc, s := assets(t)
 	saveBookmarks(t, s, "dad", withIcons(2))
-	page, err := New(s, ix, fc).PrefsPage("dad", tab)
+	page, err := New(s, ix, fc).PrefsPage("dad", tab, i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}

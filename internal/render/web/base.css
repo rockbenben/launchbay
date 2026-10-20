@@ -570,8 +570,13 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .tiles .plain{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px}
 .tiles .plain>.addr{grid-row:2;grid-column:1/-1}
 .tiles .plain>.tags-row{grid-column:1/-1}
-.tiles .tags-row{flex:1 1 100%;order:8;margin-left:32px}
-.tiles .card i{flex:1 1 100%;order:9;margin-left:32px;max-width:none;text-align:left}
+/* 磁贴里两行的先后（2026-10-20 实拍后改）：**第二行是地址/说明，标签在它下面**。
+   从前是反的（标签 order:8、地址 order:9），于是带标签的磁贴读成
+   「名字 / 常用 / www.netflix.com」——标签插在名字与第二行中间，而"第二行印什么"
+   （`addrLevel`）说的就是**第二行**该是地址还是说明。标签是第三行，它该排在
+   下面，不该插在中间。 */
+.tiles .tags-row{flex:1 1 100%;order:9;margin-left:32px}
+.tiles .card i{flex:1 1 100%;order:8;margin-left:32px;max-width:none;text-align:left}
 /* list 形态：描述**不再被推到最右**（2026-10-11 实拍后改）。
    `.card i` 那条 `margin-left:auto` 的本意是"把描述送到卡片另一头"，可它连同
    后面的标签与把手一起被送了过去——单列宽行于是读成
@@ -704,7 +709,17 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
   [data-profile-view=dense] .plain:not(.feat-card){
     min-height:0;padding:3px 6px;gap:7px;border-radius:6px;
     border:1px solid transparent;background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
-  [data-profile-view=dense] .card:hover{border-color:var(--line);background:var(--card-hi)}
+  /* 悬停**不抬升**（2026-10-20 实拍后补上）：这一档行高 40px、行间 gap 0，
+     而抬 3px 会让被指到的那一行往上顶、**与上一行叠住 3px**（实测 gap = −3）。
+     实拍三行可见：那一行的框与上一行贴得更近，而它下方留出的空白比上方多——
+     纵向节奏被断在这一行上，读作"这一行错位了"而不是"这一行被点亮"。
+
+     这一档的悬停本来就**单独收过**（描边是 --line 而不是亮蓝、底色 card-hi），
+     唯独 transform 漏了；现在补齐：**这一档只点亮，不抬起**——去壳的紧凑档里
+     没有行间的缝可让，而这一档的立身之本就是"一屏塞更多条"。
+
+     （磁贴/单列那一档的抬 3px 不动：那里行间有 8px 的缝，抬起来不压着谁。） */
+  [data-profile-view=dense] .card:hover{transform:none;border-color:var(--line);background:var(--card-hi)}
   /* 说明与标签在这一档收起来：Flare 的条目就是一行「图标 + 名字」。 */
   [data-profile-view=dense] .card i,[data-profile-view=dense] .tags-row{display:none}
   /* 把手**回流到行尾**，不再是右上角那一枚：行只有 26px 高，32px 的键挂在角上
@@ -753,6 +768,11 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    就是让人把"会发生什么"读清楚。pre-line 让空行真的断成段（单换行仍折行，
    不用 pre-wrap，免得一堆空行把版撑开）。 */
 .explain{white-space:pre-line;max-width:760px}
+/* .note 是确认页的**补充说明**（AdminAction.Note）：它紧跟着 .explain，
+   但比它轻一档——.explain 说"这一步会改变什么"，.note 说"对你有什么后续"。
+   左边那道竖线是它与 .explain 的分界：两句是同一件事的两半，不是两段。 */
+.note{margin:10px 0 0;padding-left:12px;border-left:2px solid var(--line);
+  font-size:13px;color:var(--ink2);max-width:760px}
 .pick{font:inherit;color:inherit;flex-direction:column;align-items:stretch;gap:10px;min-height:0}
 /* 选择页那张卡的头：**服务图标 + 名字**，横排（2026-10-12）。
 
@@ -788,16 +808,10 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 .pick{height:100%}
 /* 名字折了两行的那张卡会把「进入」往下推，于是同一排里几颗按钮不在一条线上
    （实拍：1440 档「爷爷奶奶的外婆家备用台」两行，它那颗比邻居低 22px）。
-   卡已经等高，缺的只是把按钮钉到那一格的底边。 */
+   卡已经等高，缺的只是把按钮钉到那一格的底边。
+   （这一段从前在下面**又抄了一遍**——同一条规则、同一段注释写两遍，将来改一处
+   忘了另一处不会有人发现。2026-10-20 删掉第二份。） */
 .pick button{margin-top:auto}
-/* 撑满之后还差一步：**把空隙挪到动作键上方**。从前多出来的高度落在「进入」下面，
-   于是同一排里带 PIN 框的卡动作键在底边、不设 PIN 的那张动作键悬在中间——
-   实拍里第三张卡的按钮看着像"还没排完"。动作键是一排里该对齐的那条线。 */
-.pick button{margin-top:auto}
-/* 悬停时跟着卡片一起"活"一下。档案页磁贴上那条是 .card:hover …，
-   这张卡的 class 是 form.pick，所以要单独点名——写 `.pick:hover …ic-svg` 会
-   顺手把 PIN 输入框边上的任何 .ic-svg 也带上（今天没有，但那是运气）。 */
-.pick:hover .pick-face .ic-svg,.pick:hover .pick-face .ic-img,.pick:hover .pick-face .ic{transform:scale(1.08)}
 .pick label,.newprofile label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
 /* 引导建档表单（设计 §3）只改 label 的**排布**，两格竖排：必须显式
    align-items:stretch——`.pick label` 给的是 center，列向 flex 里 center 管的是水平轴，
@@ -813,7 +827,17 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
    勾选框的标签本来就不在输入框下面。 */
 .setup label.chk{flex-direction:row;align-items:center;gap:8px}
 .hint{margin:2px 0 0;font-size:12px;color:var(--ink2)}
-.pick input,.search input,.newprofile input[type=text],.newprofile input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+/* 输入族。**`.act` 那两条 2026-10-20 才补上**：确认页（设 PIN / 删档 / 停用 /
+   回退）的输入框此前不在名单里，于是吃的是浏览器默认那张脸——深色主题上一个
+   **白底黑字的方块**，在整页深色里像个补丁。域里统一收口（判据是**类型**，
+   不是容器）：名单每加一个容器就要漏一次，所以这里点名的是 input[type=…]。 */
+.pick input,.search input,.newprofile input[type=text],.newprofile input[type=password],
+.act input[type=text],.act input[type=password]{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:9px;padding:6px 8px;min-width:0;flex:1 1 auto}
+/* 文件选择框（导入第一步）。原生 file input **不吃 width:100%**（Chrome 那边有个
+   UA 定的宽度），但它**吃 max-width**：320px 下正文栏 248px 而那个框量出来
+   253px，右缘越过栏边 5px（被切掉的是 UA 自己那截留白，不是文件名）。
+   它不在上面那条族规则里（那是**文本类**输入框的名单，而 file 有自己那张脸）。 */
+input[type=file]{max-width:100%}
 /* 「不设 PIN」那一格勾选框（2026-10-12）。上面那条 `.pick input` 是**通配到所有
    input** 的族规则，而引导表单正好带 pick 这个类——于是这一格勾选框会吃到文本框的
    边框、圆角、内衬和 flex:1，被拉成一条又宽又扁的横杠。`.newprofile` 那边当初就是
@@ -934,7 +958,7 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs{display:flex;flex-direction:column;gap:14px;width:min(900px,100%);margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
 /* 左侧分类 tab（2026-10-15）。这一屏原本是一条 1900px 的长列，而它自己已经
-   分成三节却没一处能跳——手机上要滚到第三屏才看得见「分组」。
+   分成四节却没一处能跳——手机上要滚到第三屏才看得见「分组」。
 
    **它左边是 nav、右边是内容**：nav 固定 150px，内容吃掉余量。宽度预算量过：
    面板内容宽 900 → 减去 150 + gap 22 = 728，而那一族最宽的一行是色板
@@ -945,16 +969,16 @@ select option{background:var(--bg);color:var(--ink)}
    **切换是 radio + `:has()`，零 JS**：`/prefs` 那张独立页根本不引 app.js，
    而同一份 define 也渲染进档案页的浮层——JS 切 class 的写法只会在一条路上有
    tab。`:has()` 从共同祖先上选，与本文件下面 `.act .choice:has(input:checked)
-   label` 同一处置：**状态由原生 radio 持有、样式打在别处**（那三颗 radio 在
+   label` 同一处置：**状态由原生 radio 持有、样式打在别处**（那四颗 radio 在
    `<fieldset>` 里，而 pane 在 fieldset 的**兄弟**里，兄弟选择器够不到）。
-   **CSS 不在（或不认 `:has()`）时三节全部可见**：退化方向是"看得全"，不是
+   **CSS 不在（或不认 `:has()`）时四节全部可见**：退化方向是"看得全"，不是
    "看不见"。
 
    可及名走 fieldset + legend（"选一节来看"就是 radio 组，读屏念组名与选项，
-   是真的）；焦点环落在 label 上，所以那三颗 radio 收进 visually-hidden 而不是
+   是真的）；焦点环落在 label 上，所以那四颗 radio 收进 visually-hidden 而不是
    `display:none`（后者不可聚焦，键盘就进不来这一组）。
    **44px 并进导航族那条联合规则**（`.gnav a,summary,a.badge,…`），不新开一族：
-   这三颗就是导航目标，而那条名单里已经有两颗 **label**（`.choice label`、`.chk`）
+   这四颗就是导航目标，而那条名单里已经有两颗 **label**（`.choice label`、`.chk`）
    ——同族同处置，见 TestCSS_搜索控件的44px由哪条规则保证 的族数闸。 */
 .prefs-tabs{display:flex;align-items:flex-start;gap:22px}
 .prefs-nav{flex:0 0 150px;display:flex;flex-direction:column;gap:3px;margin:0;
@@ -976,19 +1000,25 @@ select option{background:var(--bg);color:var(--ink)}
 /* pane 的显隐**默认全开**：只有被 checked 的那颗才把它关掉。于是两条退化路线
    都是"看得全"——CSS 没加载时（面板仍是一整列）与不认 `:has()` 的浏览器时。
 
-   **用 `:has()` 而不是兄弟选择器**：那三颗 radio 在 `<fieldset>` 里（它们得在，
+   **用 `:has()` 而不是兄弟选择器**：那四颗 radio 在 `<fieldset>` 里（它们得在，
    读屏要念出组名与选项），而 pane 在 fieldset 的**兄弟** `.prefs-panes` 里——
    兄弟选择器从 fieldset 内部够不到外面那一层。`:has()` 从共同祖先上选是本文件
    已经有的做法（`.act .choice:has(input:checked) label`，见下面），判据也是
    同一条：**状态由原生 radio 持有，样式打在别处**。 */
 .prefs-tabs:has(#prefs-tab-look:checked) #prefs-pane-out,
 .prefs-tabs:has(#prefs-tab-look:checked) #prefs-pane-groups,
+.prefs-tabs:has(#prefs-tab-look:checked) #prefs-pane-pin,
 .prefs-tabs:has(#prefs-tab-out:checked) #prefs-pane-look,
 .prefs-tabs:has(#prefs-tab-out:checked) #prefs-pane-groups,
+.prefs-tabs:has(#prefs-tab-out:checked) #prefs-pane-pin,
 .prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-look,
-.prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-out{display:none}
+.prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-out,
+.prefs-tabs:has(#prefs-tab-groups:checked) #prefs-pane-pin,
+.prefs-tabs:has(#prefs-tab-pin:checked) #prefs-pane-look,
+.prefs-tabs:has(#prefs-tab-pin:checked) #prefs-pane-groups,
+.prefs-tabs:has(#prefs-tab-pin:checked) #prefs-pane-out{display:none}
 /* 分节小标题的**分隔线在这一版里全部没了**：`:first-of-type` 是**相对父元素**的，
-   而三个分节头现在各自是所在 pane 的第一个 h3，于是三条都命中那条
+   而四个分节头现在各自是所在 pane 的第一个 h3，于是四条都命中那条
    `border-top:0;padding-top:0`。这是顺带发生的一次视觉变化，不是顺手改的：
    左端那一列已经说清"你在这一节"，屏上再画一道"这里开始了"是同一件事说两遍。 */
 @media (forced-colors:active){
@@ -1024,6 +1054,12 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs .prefs-hint{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.5}
 /* 改名那一行的控件（输入框 + 保存键）并排，其余各行只有一组键。 */
 .prefs .prefs-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+/* 「我的 PIN」那两格：**标签在上、框在下**（面板其余各行都是这个方向）。
+   两个并排的密码框光看形状分不出谁是谁——实拍那一屏就是两个空框，谁是"现在"
+   谁是"新的"全靠猜（2026-10-20 实拍后改）。 */
+.prefs .prefs-ctl .prefs-pinfield{display:flex;flex-direction:column;gap:4px;flex:1 1 0;min-width:0}
+.prefs .prefs-ctl .prefs-pinfield .fld{width:100%}
+.prefs .prefs-ctl .prefs-pinfield .prefs-label{text-align:left}
 .prefs .prefs-ctl>.fld{flex:1 1 200px;min-width:0;margin-top:0}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
 /* 分段控制器风格：将并排互斥按钮收拢进具有底轨的胶囊槽内 */
@@ -1112,7 +1148,10 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-bg form{margin:0}
 
 /* 出口导航卡片组件：回退与改动历史的快捷跳转出口 */
-#prefs-pane-out .prefs-keys{display:flex;flex-wrap:wrap;gap:10px}
+/* 「回退与改动历史」那一节的两个出口。**底轨只包住它们**（width:fit-content）：
+   从前它是 flex 的一项，于是被拉满整行（实测 694px 的灰槽，里面两颗键只占
+   192px）——看着像一段没画完的分段控件。 */
+#prefs-pane-out .prefs-keys{display:flex;flex-wrap:wrap;gap:10px;width:fit-content}
 #prefs-pane-out .prefs-keys a.badge{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;
   background:var(--card-hi);border:1px solid var(--line);border-radius:10px;color:var(--ink);
   font-size:13px;font-weight:500;text-decoration:none;transition:all .15s ease}
@@ -1128,7 +1167,7 @@ select option{background:var(--bg);color:var(--ink)}
    说了算；而一个分组要装下十颗键，塞进 92px 标签后面只剩一列竖着的碎片。
    所以这一节自己排：名字固定一块、键组吃剩下的。
    **分节头不再由这一节自己画**（2026-10-14）：原来这三条给 `prefs-groups-head`
-   画了一条分隔线 + 一个并排的小标签，于是同一屏里三个分节头长得像三种东西。
+   画了一条分隔线 + 一个并排的小标签，于是同一屏里四个分节头长得像三种东西。
    现在它与另两节共用 `h3.prefs-sec`，分隔线也归那一条管——**分节线只有一份**。 */
 .prefs-groups{display:flex;flex-direction:column;gap:12px}
 .prefs-group{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
@@ -1357,7 +1396,12 @@ select option{background:var(--bg);color:var(--ink)}
   .prefs-nav{flex:1 1 auto;flex-direction:row;flex-wrap:wrap;gap:4px;padding:4px;
     background:rgba(0,0,0,.16);border:1px solid var(--line);border-radius:12px}
   [data-theme=light] .prefs-nav{background:rgba(0,0,0,.04)}
-  .prefs-nav label{padding:0 12px;flex:1 1 auto;justify-content:center;text-align:center}
+  /* 四颗 tab **按内容宽排**（2026-10-20 改）：从前是 flex:1 1 auto，于是第四颗
+     「我的 PIN」在 320px 上独占一整行、被拉成 238px 的整行大按钮——前三颗只有
+     63/63/104px，一眼看过去是"三颗小的 + 一颗横着的"，读不出它们是同一族。
+     flex:0 1 auto 让四颗各按内容宽排、该换行就换行，每颗仍是一颗 tab 的样子
+     （44px 命中区由 base.css 那条联合规则兜着，不受影响）。 */
+  .prefs-nav label{padding:0 12px;flex:0 1 auto;justify-content:center;text-align:center}
   .prefs-nav label::before{display:none}
   /* 那一排 tab 的**容器要铺满整行**（batch11 P7）。`.prefs-tabs` 的
      `align-items:flex-start` 在翻成 column 之后成了"横着的那一排按内容收缩"，
@@ -1463,9 +1507,32 @@ a.badge,button.badge{display:inline-flex;align-items:center}
    text/password 两格加进输入族的名单（勾选框不收——给它 min-height 与边框是把复选框
    画成文本框），.adm button 本来就在按钮族里。这里只补排布。勾选那一格不新开第四个
    min-height:44px 位点（一个数字一族只写一遍）：点击面由 label 的内衬凑，整行文字都是
-   靶子——真实高度归 Task 7 的浏览器实拍量。 */
-.newprofile{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 0 0}
-.newprofile .chk{padding:12px 2px}
+   靶子——真实高度归 Task 7 的浏览器实拍量。
+
+   2026-10-20 重排：两格从"标签在左、框在右"改成**标签在上、框在下**（.fld），
+   下面一行是勾选与按钮。此前那一行是「这个人的名字 [框] | PIN（4 到 6 位数字）[框] |
+   [勾] 创建档案」，两个标签把框挤到右边，而"PIN（4 到 6 位数字）"这个标签自己就有
+   130px——读起来像在一堆字里找输入框。竖排之后每一格自带"名字 + 框"，
+   两格并排，下面一行收勾选与按钮（按钮靠右：它是这一节的动作）。 */
+.newprofile{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px 16px;margin:18px 0 0;align-items:end;max-width:620px}
+.newprofile-fields{display:contents}
+/* 竖排那一格：标签在上、输入框在下。列向 flex 里 align-items 要 stretch，
+   否则输入框会按内容宽收成一小块（`.pick label` 给的是 center，行向才成立）。 */
+.newprofile .fld{display:flex;flex-direction:column;align-items:stretch;gap:6px;
+  font-size:13px;color:var(--ink2)}
+/* 输入族那条给的是 flex:1 1 auto——那是**行向**的算法（横向伸展）。竖排里它会
+   变成"纵向伸展"，于是两格输入框一样高、整体被拉高一截。改成 0 0 auto + 满宽。 */
+.newprofile .fld input{width:100%;flex:0 0 auto}
+.newprofile-foot{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;
+  justify-content:space-between;gap:12px}
+/* 「不设 PIN」那一格仍是勾选框与文字并排：竖排会让人先看见一颗孤零零的方块、
+   隔一行才读到它管的是什么（1440 实拍：方块在 y=418，文字在 y=457）。 */
+.newprofile .chk{display:flex;flex-direction:row;align-items:center;gap:8px;
+  font-size:13px;color:var(--ink2);padding:0}
+/* 窄屏：两格并排放不下了，折成一列。折的是**栅格**（.fld 自己那一列），
+   勾选与按钮仍在一行——它们各占半行，谁也不挤谁。 */
+@media (max-width:560px){.newprofile{grid-template-columns:minmax(0,1fr)}}
 /* 确认页的"从几版里选一版"（radio 族）。**44px 不由 input[type=radio] 扛**——
    给一个圆形控件写 min-height 会把圆画大，而它旁边的文字才是靶子：点击面由
    label 那一行的内衬凑，与上面建档表单的勾选格同一处置（一个数字一族只写一遍）。
@@ -1473,6 +1540,16 @@ a.badge,button.badge{display:inline-flex;align-items:center}
 fieldset.choices{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:16px 0 0}
 fieldset.choices legend{padding:0;font-size:13px;color:var(--ink2)}
 .act .choice{margin:6px 0}
+/* 确认页上那一格输入（2026-10-20）：标签在上、框在中、提示在下。
+   从前是「标签 [框] 提示」挤在同一行——提示句（"留空提交 = 取消这一份的 PIN"）
+   横在框右边，读起来像框的说明文字的一部分，而它其实是**后果**：不填会怎样。
+   竖排之后它落在框下面，与标签同一份视觉重量（小字、弱色）。 */
+.act .fld{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin:0 0 16px}
+.act .fld label{font-size:13px;color:var(--ink2)}
+/* 输入框**不占满**：这一族今天唯一的一格是 PIN（4 到 6 位数字），630px 宽的
+   框配四个数字，读起来像要往里面写一整句话。收到 320px。 */
+.act .fld input{width:100%;max-width:320px;flex:0 0 auto}
+.act .fld small{font-size:12px;color:var(--ink2)}
 /* 回退那一屏最多列 50 版（约 2500px 高），而提交键排在整张列表**后面**：
    挑一版要滚到底，按下去还得再看一眼有没有选错。把它粘在视口下沿，
    选完就地按。只给带 choices 的那一张——设 PIN、删档、停用那三张总共
@@ -1493,6 +1570,18 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
 .adm th{text-align:left;font-weight:600;color:var(--ink2);padding:6px 8px;
   border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .adm td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+/* 动作格：三颗键排成一行，下面（如果有）是一句说明。
+   2026-10-20：这一格原先用 `.plain` 装那句说明——那是**书签卡那一族**的脸
+   （带边框、底色、min-height），于是在表格里撑成一个大白框，1440 实拍里读起来
+   像一颗按不动的按钮。现在说明有自己的类（.adm-note）：安静的一行小字，
+   不带框、不带底色。 */
+.adm-acts{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.adm td .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.adm-note{font-size:12px;color:var(--ink2);line-height:1.5}
+/* 名字那一格里的徽标与 id 之间留一点气：紧贴时读起来像 id 的一部分
+   （"小满kid 没 PIN"）。窄屏上这一格是 flex，名字与徽标包在 .name 里，
+   才不会被 space-between 摊到两头去。 */
+.adm .name .badge{margin-left:6px}
 /* 窄屏上这张六列表不是"缩一点"，是**换一种读法**：实测 390 档行高 149px（坏档那行
    333px），「最近改动」98px 宽里一个时间戳折成 7 行，三枚动作按钮在 61px 里竖排。
    所以 ≤700 改成一行一张卡、每格前面挂列名（列名来自 td 的 data-k，与表头同一份
@@ -1510,6 +1599,8 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
   .adm td.col-metric{order:2;display:inline-flex;width:auto;gap:6px;margin:0 12px 0 0;border:0}
   .adm td.col-time{order:3}
   .adm td:last-child{order:4}
+  /* 窄屏上动作格整块靠右（键与说明都贴着右边），与上面几行同一右边缘。 */
+  .adm-acts{align-items:flex-end}
 }
 @media (forced-colors:active){.adm th,.adm td{border:1px solid CanvasText}
   fieldset.choices,.act .choice label{border:1px solid CanvasText}}
@@ -1535,7 +1626,7 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    代价如实说：dense 那一档的行高会从 26px 涨上去（第二行回来了），
    ≤700px 磁贴一格要装下名字 + 完整地址。两处都是那个人自己选的。 */
 [data-addr-level=full] .card i.addr,
-[data-addr-level=full] .tiles .card i.addr{display:block;order:9;max-width:none;text-align:left}
+[data-addr-level=full] .tiles .card i.addr{display:block;order:8;max-width:none;text-align:left}
 /* **full 那一档不缩进**（2026-10-19 实拍后改）：上面那条 `margin-left:32px` 是
    给**说明**留的——说明短，缩进一个图标位仍读得成一行。而完整地址本身就有三四十
    个字符，在 150px 的窄磁贴里那 32px 占了内容区的 **21%**：
@@ -1602,8 +1693,18 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    管理页是零 JS 页面（不引 app.css），而这段说明恰恰要出现在那一页上——
    样式放错文件的后果是"管理员打开管理页看到一堆没排版的字"。
    它也解释了为什么 §8.1 那一串顶栏入口里没有 bookmarklet：那是每人每天按的，
-   而这个是配一次的。 */
-.adm.bm{margin:18px 0 0;padding:12px 14px;background:var(--card);
+   而这个是配一次的。
+
+   **那条 `margin:18px 0 0` 是 2026-10-20 删掉的**（2026-10-16 重排前它自己
+   独占一块，18px 是它与上一块之间的距离）。它进 `.adm-two` 栅格之后，那行
+   margin 仍在——于是**右边那张卡比左边低 18px**，两边的上边沿对不齐
+   （实测量到：左列 y=690，右卡 y=708）。间距归栅格的 gap 管，卡自己不再带
+   顶边距。
+
+   **还有一条全局的 `section{margin:13px 0}`**（base.css 333，原本是档案页
+   分组用的）——管理页这两张卡是 `<section>`，各自带了 13px 顶边距，于是右卡
+   仍比左卡低 13px、也撑不满那一格。卡自己归零，间距归 gap 管。 */
+.adm.bm{margin:0;padding:12px 14px;background:var(--card);
   border:1px solid var(--line);border-radius:10px}
 /* 这一段的标题 2026-10-16 从 h2 降成 h3（它是「这台机器」那一节**里面**的一块，
    与上面三个分节头不同一层）。原先那条 `.adm.bm h2` 随之删掉：它写下的
@@ -1625,6 +1726,26 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
 .rep{margin:14px 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .rep-h{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;color:var(--ink2);text-transform:none}
 .rep p{margin:6px 0;font-size:13px}
+/* 报告里那些列表要**带回符号**：全局把 list-style 复位了，不显式要回来，
+   1. 2. 3. 会全变成无编号的缩进块。
+
+   **这几条原来住在 app.css，而报告页只内联 base.css**（2026-10-20 移过来）：
+   导入那一页是**零 JS** 的（§7.2），它不引 app.css ——于是这几条规则在真正
+   画报告的那一页**一条都没生效**：ul 变成没有符号的缩进块（`ul{list-style:none}`
+   是全局复位），`code` 没有 word-break（长地址能把整页撑破）。规则写在用不到它
+   的文件里，等于没写。
+
+   **顺带把行长收进 42em**：同屏的段落本来就按 42em 折行（`main p` 那条），而清单项
+   铺满整页（实测 1294px 对段落的 546px）——同一份报告里两种行长，一行长到要
+   "找回上一行末尾"才读得下去。 */
+.rep-list{margin:6px 0;padding-left:22px;list-style:revert;max-width:42em}
+ul.rep-list{list-style:disc}
+ol.rep-list{list-style:decimal}
+.rep-list li{display:list-item}
+.rep-list li{margin:3px 0;font-size:13px}
+.rep code{font-size:12px;word-break:break-all;direction:ltr}
+.rep b{font-weight:600}
+@media (forced-colors:active){.rep{border:1px solid CanvasText}}
 /* 「直接导入」之后那屏的**没能进来的清单**（2026-10-12）。它是导入唯一会让人
    后悔的信息，所以逐条点名而不是给一个数字。
 
@@ -1689,6 +1810,10 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    1120 是量出来的：这一页最宽的一段是那张六列表，1120 下六个列头与它们的内容
    都还在一行里（条目/版本号/快照三个短数字并排不折），而再宽也不会多出信息。 */
 .adm-page{max-width:1120px}
+/* 管理页那一句「一共 N 份档案」**自己的类**（2026-10-20）：它从前借用了
+   `.hits`——那是档案页的**搜索命中读数**（同一个类名在两页说两件事）。
+   字号与颜色照旧（12px 的弱色），只把类名分开。 */
+.adm-count{margin:0 0 10px;font-size:13px;color:var(--ink2)}
 /* 顶栏跟着收。`header` 那条 1600 有两条测试逐字钉着（topbarwidth_test），
    改不得；而正文一收窄，1440 上标题就孤零零留在屏幕最左（x=36）、正文从 176
    才开始——两栏各站一边。给这一页的顶栏挂同一个上限，不动全局那条。 */
@@ -1706,12 +1831,39 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
 .adm-sec>.hint{margin:0 0 10px}
 /* 语言与书签栏并排。断点取 900：900 以下左边那一栏（语言）只有 330px 内容，
    再挤就没法与右边那一长段并排了，而它们本来就是两种长度的东西——同栏上下排
-   时书签栏那段会把上面那块拉出一大片空。 */
-.adm-two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:start}
+   时书签栏那段会把上面那块拉出一大片空。
+   2026-10-20：左栏变成**一列**（.adm-col），因为它现在有两块——界面语言与
+   管理密钥；两块都是短内容，竖着排在左栏里，右边那一长段（书签栏）仍是
+   自己的高度。
+   **两条边都要平**（2026-10-20 实拍后改）：`align-items` 从 start 改成
+   stretch —— 左边那一列与右边那张卡**上沿齐、下沿也齐**。从前是 start：
+   上面那条 18px 的顶边距还留在右卡身上（右卡比左列低 18px），下沿也差着
+   几十像素（"两个 card 不平"）。栅格里每条边都该落在同一条线上——多出来
+   的那点空间留在**卡里面**（一张带框的卡下面留白，比两张卡下沿参差要齐）。 */
+.adm-two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:stretch}
+/* 左栏（界面语言 + 管理密钥那一列）。**给它一列明确的宽度**：从前是隐式列，
+   按内容算——那一段最长的说明文字不换行时有多宽，那一列就多宽（实测 730px）。
+   而 390px 的手机上一次是 318px，于是那两块（语言下拉、管理密钥）**整块超出屏幕
+   340px**，而页面不横向滚——右半截直接看不见。显式给一列，它就拿自己那份宽度，
+   里面的文字自己换行。 */
+.adm-col{display:grid;gap:16px;align-content:stretch;grid-template-columns:minmax(0,1fr)}
 @media (max-width:900px){.adm-two{grid-template-columns:minmax(0,1fr)}}
 /* 语言那一块现在是个**框**：它与右边书签栏那张卡并排，两张都得有边才读成一对
-   同层的块。此前它是裸表单（无边框），旁边一张带框的卡——两种脸并排。 */
-.adm-two .langform{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+   同层的块。此前它是裸表单（无边框），旁边一张带框的卡——两种脸并排。
+   2026-10-20：管理密钥那一块用同一张脸（.keycard），于是左栏两块是一对。 */
+.adm-two .langform,.adm-two .keycard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+/* 这两张卡是 `<section>`，全局那条 `section{margin:13px 0}` 会落到它们身上
+   （13px 是档案页分组的间距，与管理页无关）。归零：卡与卡之间的距离归
+   栅格的 gap 管，卡自己不再带边距。 */
+.adm-two .keycard{margin:0}
+.adm-two .keycard h3{margin:0 0 6px;font-size:15px}
+/* 「这台机器用的还是默认那把」那一枚徽标：它是这一页**唯一**一条安全提醒，
+   所以用告警色；它跟在标题后面，与标题同一行。 */
+.adm-two .keycard .badge{display:inline-block;margin:0 0 8px}
+.adm-two .keycard p{margin:0 0 6px;font-size:13px;color:var(--ink2);line-height:1.6}
+.adm-two .keycard p:last-child{margin-bottom:0}
+.adm-two .keycard code{font-size:12px;padding:1px 5px;border:1px solid var(--line);
+  border-radius:6px;background:var(--card-hi);color:var(--ink)}
 
 /* 登录页。**标题进卡**（2026-10-16）：此前 h1 在卡外面，于是 1440 实拍量到
    h1 728 宽、卡 460 宽、回链那个 .plain 又 630 宽——三块三种右边缘。标题与卡
@@ -1733,10 +1885,48 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    后者 12px 且压在一条细线下面——两句话的重量不同，压在一起读才是两层。 */
 .login-lede{margin:0;font-size:15px;color:var(--ink2)}
 /* 细线是"这一屏"与"这一句"的界。它是这条注释里唯一一个**没有别的理由**的
-   像素——没有它，脚注会被读成又一个要填的字段。 */
+   像素——没有它，脚注会被读成又一个要填的字段。
+   2026-10-20：脚注从一句变成**三句**（默认那把是什么 / 它从哪来、为什么该换 /
+   它不属于任何档案），于是它从一个段落变成一个块：每句一行，句间留一点气。 */
 .login-where{margin:2px 0 0;padding-top:12px;border-top:1px solid var(--line);
   font-size:12px;color:var(--ink2)}
+.login-where p{margin:0 0 8px}
+.login-where p:last-child{margin-bottom:0}
+/* 「默认那把是 launchbay123」：这是这一页**最该被读到**的一句（装机器的人
+   第一次站在这里，要知道自己该输什么），所以它比脚注其余两句重一档。 */
+.login-default{font-size:13px;color:var(--ink)}
+.login-default code{font-size:12px;padding:1px 6px;border:1px solid var(--line);
+  border-radius:6px;background:var(--card-hi);color:var(--ink);margin-left:2px}
+/* 确认页的补充说明（Note）：它是**后果之外**的一句，重量比 .explain 轻一档，
+   但仍然要说清"对你有什么后续"。 */
 /* 回选择页：`.plain` 那个框去掉了（它是书签卡那一族的类），只留徽标。
    宽度与上面那张卡**同一个 460 并居中**——按 `.chooser` 那一档（760）居中的话，
    一个人孤零零挂在卡片旁边而不是底下，而它是这一页唯一的退路。 */
 .login-back{max-width:460px;margin:14px auto 0;display:flex;justify-content:center}
+/* 选择页那颗「管理这台机器」：**与登录页那个回链同一张脸**（2026-10-20）。
+   它从前是一行裸的左对齐段落，挂在 h1 底下、卡片之前——一台机器级的动作压在
+   「这一份是谁」上面，读起来像这一页的正事。现在它挪到卡片**之后**、居中一行。
+   宽度同 `.login-back`（460 并居中）：它是这一页的退路，不该跟档案卡抢宽度。 */
+.pick-admin{max-width:460px;margin:16px auto 0;display:flex;justify-content:center}
+/* 选择页那一句「提需求」（2026-10-20）。**是一句小字，不是一枚徽标**：徽标是
+   「点一下会做一件事」的形状（进这一页、提需求、回我的页面），而这一句说的是
+   「这个软件是开源的」——它不是这台机器上的一个动作。徽标那版实拍下来是两块
+   浮在页面中间的按钮（卡片在左边、按钮在中间，挨不着），像多出来的两个动作。
+   **小字就对了**：它是这一页的一句题外话，不该跟卡片抢同一层的注意力。
+   宽度与居中照抄 `.pick-admin` 那一档（460 并居中）——两处各写一遍数字就会
+   有一处忘了改。 */
+/* 档案页**页脚**那一枚 GitHub 猫头（源码与需求在 GitHub 上，2026-10-20）。
+   **页脚，不在主视觉区**：网页上「源码/仓库」历来就在页脚，而这里是这一页
+   **最不抢眼**的位置——不在顶栏那一排动作里（那儿是「这台机器/这一份」的动作，
+   源码链接放那儿是抢戏），也不挨着任何别的键（挨着的读起来像个导航项）。
+
+   **不带框**：徽标是「点了会做一件事」的形状，而这一枚是页脚里的一个**引用**。
+   悬停才亮起来（与正文里的链接同一处置）。
+
+   44×44 的盒子：命中区是硬线（§7.5），22px 的猫头在它里面居中。 */
+footer{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+footer p{margin:0}
+footer .repo-link{display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:9px;color:var(--ink2);text-decoration:none;
+  transition:color .16s ease,background .16s ease}
+footer .repo-link:hover{color:var(--accent);background:var(--card-hi)}

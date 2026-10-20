@@ -61,9 +61,16 @@ func Test点层外能关掉最上面那一层(t *testing.T) {
 		t.Error("多选那支不是 return false：点外面会把整条多选带撤掉")
 	}
 
-	// 六：摘掉 DOM 的小层（挑组/挑标签/确认）**必须同步 syncTrap**——
-	// 不调的话页面会整片留在 inert 里（面板没了，一个字都点不动）。
-	if !strings.Contains(js, "if (dlg) { dlg.remove(); syncTrap(); return true; }") {
-		t.Error("摘掉小层之后没有 syncTrap：页面会留在 inert 里")
+	// 六：摘掉 DOM 的小层（挑组/挑标签/确认）**必须同步 syncTrap**——不调的话
+	// 页面会整片留在 inert 里（面板没了，一个字都点不动）。
+	//
+	// 2026-10-20 起这一支还是三件事：摘掉、同步 inert、**把焦点还给打开它的那
+	// 一位**（焦点原本停在被摘掉的节点上，键盘用户会被扔回页面顶端）。判据按
+	// **三件事各在不在**来钉，不按整行字面量——那一行每次改个缩进就红一次，
+	// 而这条闸要守的是行为。
+	if !strings.Contains(js, "dlg.remove();") ||
+		!strings.Contains(js, "syncTrap();") ||
+		!strings.Contains(js, "opener.focus()") {
+		t.Error("摘掉小层那一支少了动作：摘掉 / 同步 inert / 焦点归还，三件都要在")
 	}
 }

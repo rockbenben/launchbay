@@ -20,13 +20,13 @@ func Test分组那节的分节头与另两节同形(t *testing.T) {
 	if strings.Contains(body, "prefs-groups-head") {
 		t.Error("分组那一节还在自己画分节头：它与另两节长得不一样，而分节线也因此有两份")
 	}
-	// 三个分节头都是 h3.prefs-sec——数出来正好三个（顺序也该是 设置 → 出口 → 分组）。
+	// 四个分节头都是 h3.prefs-sec——数出来正好四个（第四颗是 2026-10-20 加的「我的 PIN」）。
 	var heads []string
 	for _, chunk := range strings.Split(body, `<h3 class="prefs-sec">`)[1:] {
 		heads = append(heads, chunk[:strings.Index(chunk, "</h3>")])
 	}
-	if len(heads) != 3 {
-		t.Fatalf("面板里有 %d 个分节头，期望 3 个：%q", len(heads), heads)
+	if len(heads) != 4 {
+		t.Fatalf("面板里有 %d 个分节头，期望 4 个：%q", len(heads), heads)
 	}
 	if !strings.Contains(body, `<h3 class="prefs-sec">分组</h3>`) {
 		t.Error("分组那一节没有用 h3.prefs-sec 当分节头")

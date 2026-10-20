@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
@@ -71,7 +72,10 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 	if !strings.Contains(sectionOf(t, html, "nas"), `grp-empty" hidden`) {
 		t.Errorf("有内容的那一组没有把那句藏起来：页面上会同时出现「这一组还没有书签」与卡片\n%.600s", sectionOf(t, html, "nas"))
 	}
-	if !strings.Contains(html, `<span class="feat-n">0</span>`) {
+	// 那枚徽标现在**带一句可及名**（aria-label：读屏念"这组有 0 条书签"，
+	// 而不是把「0」和组名连在一起念成"常用0"）——所以判据按"数字还在、
+	// 且有 aria-label"两件事来钉，不再逐字比整段标记。
+	if !strings.Contains(html, `class="feat-n"`) || !strings.Contains(html, `>0</span>`) {
 		t.Error("大卡那个空组没有条目数徽标：带子里没有正文 hint，它靠那枚「0」说自己是空的")
 	}
 	// 有内容的组不许被牵连。
@@ -121,7 +125,7 @@ func TestPrefsPage_空组照画并带着那颗删键(t *testing.T) {
 	saveBookmarks(t, s, "dad", emptyGroupFixture())
 	r := New(s, ix, fc)
 
-	page, err := r.PrefsPage("dad", "")
+	page, err := r.PrefsPage("dad", "", i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}

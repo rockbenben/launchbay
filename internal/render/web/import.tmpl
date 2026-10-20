@@ -43,7 +43,7 @@
          逐条点名是这一页存在的全部理由——只印一个"跳过了 N 条"的话，
          那 N 条就再也没人知道了（来源文件里它们看着好好的）。报告全文在这一步
          已经不值得了：它答的是"会导入什么"，而人这时候要的是"成了没有"。 */}}
-    <p>{{.T "import.done" .Applied}}</p>
+    <p>{{.T "import.done" .Count}}</p>
     {{with .SkippedItems}}
       <p class="explain">{{$.T "import.done.skipped"}}</p>
       <ul class="skipped">
@@ -79,7 +79,9 @@
 
            零 JS：两个 submit 按钮各带 name/value，服务端读 `go` 就分得开。
            用 JS 换按钮会在关掉脚本时把这条路整个关掉。 */}}
-      <button type="submit" name="go" value="direct">{{.T "import.direct"}}</button>
+      {{/* 「直接导入」是这一屏的主操作（另一颗是"先看一遍"）——它必须 primary，
+           否则同一页里报告屏那颗「确认导入」是 primary、而这里没有：主次翻了。 */}}
+      <button type="submit" name="go" value="direct" class="primary">{{.T "import.direct"}}</button>
       <button type="submit" name="go" value="preview">{{.T "import.preview"}}</button>
       <a class="badge" href="/">{{.T "import.cancelFirst"}}</a>
     </form>
