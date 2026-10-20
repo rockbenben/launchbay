@@ -12,7 +12,7 @@
 //	  "prefix": "tabler",
 //	  "layer": "stroke",                  // stroke | fill，决定 CSS 呈现
 //	  "viewBox": "0 0 24 24",
-//	  "count": 6268,                      // 实际收录条数：自证的锚
+//	  "count": 6265,                      // 实际收录条数：自证的锚
 //	  "upstreamTotal": 6220,              // 上游声明的 total；口径差如实留着
 //	  "upstream": "@iconify-json/tabler@1.2.41",
 //	  "generatedAt": "2026-10-06T12:00:00Z",

@@ -240,6 +240,33 @@ func (x *Index) Names(prefix string) []string {
 	return cp
 }
 
+// AllNames 按**固定的顺序**给出整个索引的全部名字：品牌层在前，然后通用层，
+// 每层内部按名字排序。
+//
+// **为什么要有它**（2026-10-20）：图标选择器从前只有"搜一个词"与"这一份已经在用的"
+// 两批，于是"我想看看库里有什么、随便挑一个"这条路是断的——而库里一万个图标
+// 是**内嵌在二进制里**的（spec §5），它不是"别人的东西"，是这台机器自带的东西。
+// 浏览这一档要一个**稳定**的全序：翻页的 offset 是位置，顺序变了就等于翻乱了。
+//
+// 顺序取 loadOrder（品牌层在前）——那是解析顺序，也是"品牌层是本案主力"那件事的
+// 同一个判断。每层内部用 byPrefix 里那份排好的（Decode 出来就排过）。
+func (x *Index) AllNames() []string {
+	out := make([]string, 0, x.total())
+	for _, p := range loadOrder {
+		out = append(out, x.byPrefix[p]...)
+	}
+	return out
+}
+
+// total 是整个索引的条数。
+func (x *Index) total() int {
+	n := 0
+	for _, c := range x.counts {
+		n += c
+	}
+	return n
+}
+
 // ErrNoIndex 让 Load 的失败可分诊：索引读不出来是装配错误，
 // 不是运行时数据问题，装配点应当直接退出而不是降级成"没有图标"。
 var ErrNoIndex = errors.New("图标索引读不出来")

@@ -11,6 +11,29 @@ import (
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
+// repoIcon 是那枚**GitHub 猫头**——源码与需求在 GitHub 上那个链接的图形。
+//
+// **从图标索引取，不另画一个**（2026-10-20）：这个项目里所有图形都出自 icons
+// 索引，内联 SVG 的 markup 由 svgMarkup 拼（那是全案唯一拼 markup 的出口），
+// 这里手写一个猫头就等于第二处出处。
+//
+// 名字写死 `simple-icons:github`：simple-icons 那一层是**品牌标志**，内嵌在
+// 二进制里（不联网、不外链、离线可用），而这一枚链接的落点正好就是 GitHub——
+// 图标与去处是同一个名字，不需要解释。
+//
+// **查不到就画空**（图标Piece 三个字段全空 → 模板那条 `icon` define 会落到首字母
+// 色块，而 Letter 也是空的 → 一个空盒子）。真出现这个形状说明索引里少了那份图标，
+// 那时候一个空盒子比一个画错的猫头好。
+func repoIcon(ix *icons.Index) iconPiece {
+	if ix == nil {
+		return iconPiece{}
+	}
+	if ic, ok := ix.Get("simple-icons:github"); ok {
+		return iconPiece{SVG: svgMarkup(ic)}
+	}
+	return iconPiece{}
+}
+
 // iconPiece 是一条书签的图标决定结果。**呈现时**三取一：模板按
 // SVG > Img > Letter 的优先级选一个来画。Letter/ChipHue 恒填（pieceFor
 // 每条路径都填），是为了让退化不需要第二段判断——SVG 为空退首字母色块时，
@@ -23,7 +46,7 @@ type iconPiece struct {
 	ChipHue int           // 首字母色块的色相（0-359）
 }
 
-// accent 的判据**只有一份**，在 model.ValidAccent：写侧（表单端点）用它拒掉
+// accent 的判据**以 model.ValidAccent 为准**（客户端另有一份镜像，见 model 那边）：写侧（表单端点）用它拒掉
 // 什么都不是的值，读侧（下面 validatedAccent）用它把盘上写坏的值丢掉。
 // 它不是装饰：accent 会进 style 属性，而一份正则换来"模板不需要 template.HTML、
 // 也不需要'这条是不是颜色'的第二套逻辑"。
@@ -204,7 +227,7 @@ func svgMarkup(ic icons.Icon) template.HTML {
 // 字节，永远不内联），而库里的图标是**描边 + currentColor** 的——进 <img> 之后
 // currentColor 拿不到页面的字色，于是暗色页上是深色图标压在深色卡片上。
 //
-// 为什么不把索引搬进 app.js 让前端画：索引是内嵌产物（六千多个名字），让**只看
+// 为什么不把索引搬进 app.js 让前端画：索引是内嵌产物（一万多个名字，品牌层与通用层两层加起来），让**只看
 // 首屏的每一页**都背一份图库，正是 §7.3 那条操作线要挡的事。按搜索词要一小格，
 // 就只要一小格。
 //
@@ -219,11 +242,30 @@ func svgMarkup(ic icons.Icon) template.HTML {
 // 不是给人挑的那一维），全键留在 `title` 里——脚本作者与 devtools 要对照的仍是它。
 func IconTiles(ix *icons.Index, q string, limit int) (template.HTML, int) {
 	res := ix.Search(q, "", limit)
+	return iconTiles(ix, res.Icons), res.Total
+}
+
+// IconTilesFor 把**给定的**一批图标名画成方格（图标选择器默认那一批用）。
+//
+// 名字不在索引里的跳过（不画一格空白）：那一格是给人挑的，画一格空的白框
+// 等于骗人——"这里有一枚图标"与"这里什么都没有"在屏上长得一模一样。
+//
+// 与 IconTiles 走**同一个画格子的出口**（iconTiles），于是搜索命中与默认
+// 那一批画出来的形状逐像素相同，也不用维护第二套 markup。
+func IconTilesFor(ix *icons.Index, names []string) template.HTML {
+	return iconTiles(ix, names)
+}
+
+// iconTiles 是**画一格**这件事的唯一出口：IconTiles（搜索命中）与
+// IconTilesFor（默认那一批）共用它。两处各写一份 markup 就会各画各的，
+// 于是"挑的时候看见的"与"存下去之后卡片上那一枚"慢慢分家——而那正是
+// IconTiles 上面那段注释要保住的事。
+func iconTiles(ix *icons.Index, names []string) template.HTML {
 	var b strings.Builder
-	for _, name := range res.Icons {
+	for _, name := range names {
 		ic, ok := ix.Get(name)
 		if !ok {
-			continue // 索引与搜索结果同一个快照，这一条走不到；不发一个空格子
+			continue // 索引与这一批同一个快照，这一条走不到；不发一个空格子
 		}
 		esc := html.EscapeString(name)
 		short := name
@@ -243,5 +285,5 @@ func IconTiles(ix *icons.Index, q string, limit int) (template.HTML, int) {
 		b.WriteString(escShort)
 		b.WriteString(`</span></button>`)
 	}
-	return template.HTML(b.String()), res.Total //lint:ignore 名字来自内嵌索引、其余走 svgMarkup 的白名单
+	return template.HTML(b.String()) //lint:ignore 名字来自内嵌索引、其余走 svgMarkup 的白名单
 }

@@ -12,7 +12,7 @@ import (
 //
 // 这几条钉的是**它与 JSON 那条的关系**：同一个 q、同一份索引、同一套裁定，而吐的是
 // 画好的 HTML。少任何一条的症状都不响——脚本那条照常能用，而界面那一格空白、
-// 或悄悄吐出六千格。
+// 或悄悄吐出一万格。
 
 func getTiles(t *testing.T, h http.Handler, url string) *httptest.ResponseRecorder {
 	t.Helper()
