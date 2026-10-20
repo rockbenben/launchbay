@@ -82,7 +82,12 @@ func (s *Server) statusRowOf(id string) (statusProfile, bool) {
 	return statusProfile{}, false
 }
 
-// handleAdminPinPage 是设 PIN 的第一步：显示目标档案与后果，让人输入新 PIN。
+// handleAdminPinPage 是加/改 PIN 的第一步：显示目标档案与后果，让人输入 PIN。
+//
+// **加**与**改**说的是两件事，页面要分开说：这一份现在有没有 PIN
+// （auth.HasPin，与 statusRows 同一份判据），决定了这一页是"给一份没上锁的
+// 书签页加一道锁"还是"换一把锁"。同一句模板套两种情况，读的人得自己猜
+// 哪一个是哪一个——而"加锁"与"换锁"的代价根本不同。
 func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 	if !s.adminPageGuard(w, r) {
 		return
@@ -99,32 +104,64 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 		//（④.6 的 rebuild 那条路）。
 		redirectAdminErr(w, "notfound")
 		return
-	case row.ID != "" && row.ID == sessionProfileID(r):
-		// 改自己的 PIN 要**旧 PIN**（家人共用设备，改自己的那一份属于身份变更）。
-		// 管理页这条路不要旧 PIN，所以它必须让开——否则这里就成了绕过旧 PIN 的后门。
-		//
-		// 判据 2026-10-12 变了：管理员不再是某个档案，于是"这是不是我自己"变成
-		// "我此刻是不是正登在某一份里"。没登任何档案的管理员（sessionProfileID
-		// 为空）不受这条限制——他不是在改自己的密码，是在改别人的。
-		redirectAdminErr(w, "selfpin")
-		return
+	}
+	// **目标是不是当前会话正在用的那一份，这里不再拦**（2026-10-20 改判）。
+	//
+	// 从前这道闸的理由是"改自己的 PIN 要旧 PIN（家人共用设备，改自己的那一份
+	// 属于身份变更）"。可管理员是**机器级**的一把 key，不属于任何档案——
+	// 它不在任何一个"自己"里，于是那条理由在管理页上从来没有依据：本人自己
+	// 那边（`POST /api/v1/profiles/self/pin`）照样要旧 PIN，而管理员这一边
+	// 是"家人忘了 PIN 的出路"，它必须能管**每一份**档案。
+	//
+	// 同一件事的**机器通路**（`POST /api/v1/profiles/pin`）本来就只要求管理员
+	// 身份、从来不拦"正在用的那一份"；管理页比它更严，于是两处对同一件事
+	// 给出不同答案——那是真的坏（管理员在 API 上能改、在页面上不能）。
+	//
+	// 仍然拦着的是**删档与停用**：那两件是会话层面的事（删掉自己正在用的那
+	// 一份会把会话悬空），与权限无关，见 deleteBlocked。
+	title, heading, explain := s.t(r, "admin.pin.title.add"), s.t(r, "admin.pin.heading.add", rowLabel(row)), s.t(r, "admin.pin.explain.add", rowLabel(row))
+	submit, field, hint := s.t(r, "admin.pin.submit.add"), s.t(r, "admin.pin.field.add"), s.t(r, "admin.pin.field.hint.add")
+	if row.PinSet {
+		title, heading, explain = s.t(r, "admin.pin.title.change"), s.t(r, "admin.pin.heading.change", rowLabel(row)), s.t(r, "admin.pin.explain.change", rowLabel(row))
+		submit, field, hint = s.t(r, "admin.pin.submit.change"), s.t(r, "admin.pin.field.change"), s.t(r, "admin.pin.field.hint.change")
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: s.t("admin.pin.title"), Heading: s.t("admin.pin.heading", rowLabel(row)),
+		ID: id, Title: title, Heading: heading,
 		// 档案名两侧要有引号：从前写成"进 妈妈的台 这一份"，名字裸粘在句中读起来
 		// 像漏了字。人称也换掉——"他本人""你得"假定了对方的性别与身份，
 		// 而管理员未必是家长。
-		Explain: s.t("admin.pin.explain", rowLabel(row)),
-		Notice:  s.notice(r.URL.Query().Get("err")),
-		Action:  "/admin/pin",
-		Submit:  s.t("admin.pin.submit"),
-		Fields:  []render.AdminField{{Name: "new", Label: s.t("admin.pin.field"), Type: "password", Autofocus: true}},
-	})
+		Explain: explain,
+		// 改的是**自己正在用的那一份**时有一句额外的话要说：现在这个页面
+		// 还在（会话不受影响），但下次进门要输新的那个 PIN。
+		Note:   s.pinNoteFor(r, row),
+		Notice: s.notice(r, r.URL.Query().Get("err")),
+		Action: "/admin/pin",
+		Submit: submit,
+		// 长度范围**取自 auth 那两个常量**（2026-10-20）：这一格是这一族页面
+		// 上唯一有长度范围的一格，而那一格原先连 minlength/maxlength 都没有——
+		// 浏览器于是不拦超长，拦人的只有服务端，于是"页面上打进去能过"与
+		// "这一格只收 4 到 6 位"在界面上是两句矛盾的话。数字不在这里写死：
+		// 写死就是与服务端的判据两处各一份。
+		Fields: []render.AdminField{{Name: "new", Label: field, Type: "password", Autofocus: true, Hint: hint,
+			MinLen: auth.PinMinLen, MaxLen: auth.PinMaxLen}},
+	}, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return
 	}
 	s.writePage(w, r, page)
+}
+
+// pinNoteFor 是"目标就是当前会话正在用的那一份"时那句额外说明（别的情形空串）。
+//
+// 它是**后果**：改 PIN 不会把当前会话踢掉（会话挂在档案 id 上，不挂在 PIN
+// 上），但下一次进门要输新的那个——不说的话，人会以为"改完就进不来了"，
+// 于是不敢改自己那一份，于是永远用旧 PIN。
+func (s *Server) pinNoteFor(r *http.Request, row statusProfile) string {
+	if row.ID == "" || row.ID != sessionProfileID(r) {
+		return ""
+	}
+	return s.t(r, "admin.pin.note.self")
 }
 
 // handleAdminPinForm 是第二步：走 API 同一个落点（adminPin），**不自写判据**。
@@ -143,8 +180,22 @@ func (s *Server) handleAdminPinForm(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "new", Reason: "同一个字段只能出现一次"}})
 		return
 	}
+	// **profile 同名多值也要拒**（2026-10-20 补）。`profile` 是"改哪一份"的身份
+	// 字段，而同族的 /admin/delete 早就查了它（那边是 adminpage.go 抄的同一条
+	// 纪律）。从前这一条只查 new，于是
+	// `POST /admin/pin profile=kid&profile=dad&new=1357` 取第一个就改了 kid——
+	// 与 /prefs、/setup 那条"同名多值不是取第一个，是没说清"同一族纪律。
+	if n := len(r.Form["profile"]); n > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "profile", Reason: "同一个字段只能出现一次"}})
+		return
+	}
 	id := strings.TrimSpace(r.FormValue("profile"))
-	res := s.adminPin(r, id, r.FormValue("new"))
+	// 表单这一路的 new **总是给的**（表单里那一格就在那儿），空串 = 明确取消。
+	// 所以这里传指针、不是传值：指针的 nil（"没给"）与空串（"取消"）在落点
+	// 里分得开，而 API 那条要能说"你没给 new"。
+	newPin := r.FormValue("new")
+	res := s.adminPin(r, id, &newPin)
 	if len(res.FieldErrs) > 0 && res.FieldErrs[0].Field == "cred" {
 		redirectPicker(w)
 		return
@@ -195,15 +246,15 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: s.t("admin.delete.title"), Heading: s.t("admin.delete.heading", rowLabel(row)),
+		ID: id, Title: s.t(r, "admin.delete.title"), Heading: s.t(r, "admin.delete.heading", rowLabel(row)),
 		// 页面上不该出现 markdown 的反引号与磁盘文件名：`revert` 与 history.jsonl
 		// 是给读代码的人看的词，家里人在浏览器里看到只会愣一下。
-		Explain: s.t("admin.delete.explain", row.Items, row.Snapshots),
-		Notice:  s.notice(r.URL.Query().Get("err")),
+		Explain: s.t(r, "admin.delete.explain", row.Items, row.Snapshots),
+		Notice:  s.notice(r, r.URL.Query().Get("err")),
 		Action:  "/admin/delete",
-		Submit:  s.t("admin.delete.submit"),
+		Submit:  s.t(r, "admin.delete.submit"),
 		Danger:  true,
-	})
+	}, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return

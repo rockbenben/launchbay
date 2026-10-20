@@ -164,21 +164,21 @@ func (s *Server) handleAdminDisablePage(w http.ResponseWriter, r *http.Request) 
 	var heading, explain, submit string
 	disabled := !row.Disabled
 	if disabled {
-		heading = s.t("admin.disable.heading.on", label)
-		explain = s.t("admin.disable.explain.on", label)
-		submit = s.t("admin.disable.submit.on")
+		heading = s.t(r, "admin.disable.heading.on", label)
+		explain = s.t(r, "admin.disable.explain.on", label)
+		submit = s.t(r, "admin.disable.submit.on")
 	} else {
-		heading = s.t("admin.disable.heading.off", label)
-		explain = s.t("admin.disable.explain.off", label)
-		submit = s.t("admin.disable.submit.off")
+		heading = s.t(r, "admin.disable.heading.off", label)
+		explain = s.t(r, "admin.disable.explain.off", label)
+		submit = s.t(r, "admin.disable.submit.off")
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: s.t(map[bool]string{true: "admin.disable.title.on", false: "admin.disable.title.off"}[disabled]),
+		ID: id, Title: s.t(r, map[bool]string{true: "admin.disable.title.on", false: "admin.disable.title.off"}[disabled]),
 		Heading: heading, Explain: explain,
-		Notice: s.notice(r.URL.Query().Get("err")),
+		Notice: s.notice(r, r.URL.Query().Get("err")),
 		Action: "/admin/disable",
 		Submit: submit,
-	})
+	}, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return

@@ -16,7 +16,11 @@
      这把钥匙开的是哪一面，脚注说它从哪来、回链退成一枚 chip 且不再自带框。
 
      为什么不是给每块各收一档：那是把错位抹平，形状仍然是"一个标题带三块东西"。
-     这一页只有一个动作，把它装进一张卡里，页面就只有**一件**要做的事。 */}}
+     这一页只有一个动作，把它装进一张卡里，页面就只有**一件**要做的事。
+
+     2026-10-20：卡里多一段"默认那把是 launchbay123"。装机器的人第一次站在
+     这一页上，要的就是这句话——**当前配置的那一把一个字都不进页面**，进页面的
+     只有 compose 里那个**公开的**默认值（认得它的人本来就管得了这台机器）。 */}}
 <main role="main" class="chooser">
   <form method="post" action="/admin/login" class="pick login">
     <h1>{{.T "admin.login.title"}}</h1>
@@ -32,7 +36,11 @@
          而"输 PIN 进自己的台"与"管这台机器"是两件不同的事。不说清的话，人会去
          档案页找那个设置，而那里没有。它是卡里的脚注——按钮与它之间那条细线就是
          "上面那些是这一屏，下面这句是另一回事"的分界。 */}}
-    <p class="login-where">{{.T "admin.login.hint"}}</p>
+    <div class="login-where">
+      <p class="login-default">{{.T "admin.login.default"}}<code>{{.Key.DefaultAdminKey}}</code></p>
+      <p>{{.T "admin.login.defaultNote"}}</p>
+      <p>{{.T "admin.login.scope"}}</p>
+    </div>
   </form>
   {{/* 「回选择页」不再装进 .plain 那个框：`.plain` 是**书签卡那一族**里的一个类，
        它意味着"一张和别的卡片同款的卡，只是不能点"。一个回链拿这张脸，

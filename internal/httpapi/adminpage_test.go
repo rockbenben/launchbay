@@ -632,7 +632,12 @@ func TestAdmin_坏档那一格不给做不到的承诺(t *testing.T) {
 	if strings.Contains(body, "先进那个档案") {
 		t.Errorf("坏档那一格承诺了一个做不到的动作（读不动的档案进不去）:\n%.500s", body)
 	}
-	if !strings.Contains(body, "要在这台机器上修好那个文件") {
+	// 这一格**不是按钮**：坏档改不了（profile.json 读不动），所以它给的是一句
+	// 实话——"那个文件要在这台机器上修好"，而不是一个点了就能修的假出口。
+	// （2026-10-20 改措辞：原来写「得自己动手修那个文件」，那把活派给了读这句话的
+	//  人，而同一产品的 broken.p2 说的是「复制给帮你装这台机器的人」——两处对同一
+	//  件事指了两个不同的人。新的说法与 picker.blocked.main 那一族对齐。）
+	if !strings.Contains(body, "那个文件要在这台机器上修好") {
 		t.Errorf("坏档那一格没给出诚实出路:\n%.500s", body)
 	}
 	if !strings.Contains(body, "数据文件读不了") {

@@ -178,16 +178,24 @@ func TestAdmin_删光档案也不影响这台机器还能管(t *testing.T) {
 //
 // 判据钉的是"链接在不在"，且要覆盖**管理员自己登在别人那一份**：那时他不是
 // 任何人正在用的那一份，给自己家设 PIN 是合法的，链接必须回来——正反两面都写死。
+//
+// 2026-10-20 改判：**加/改 PIN 这一枚对每一份档案都在**（含自己正在用的那一
+// 份）——管理员是机器级的一把 key，不属于任何档案，那道"别动你正在用的那一
+// 份"的闸在 PIN 这一族上没有依据（本人自己那边 self/pin 照样要旧 PIN）。
+// 仍然不给的是**删档与停用**：那两件是会话层面的事，点了必然被 self 拦。
 func TestAdmin_管理页不给死按钮(t *testing.T) {
 	_, h, dad := adminScene(t)
 
-	t.Run("自己那一行两个入口都不给", func(t *testing.T) {
+	t.Run("自己那一行：改 PIN 给得出，删档与停用不给", func(t *testing.T) {
 		body := adminPageGet(t, h, "/admin", dad)
-		if strings.Contains(*body, "admin/pin?profile=dad") {
-			t.Error("自己那行给了「设 PIN」——点下去会被 selfpin 拦，是一个死按钮")
+		if !strings.Contains(*body, "admin/pin?profile=dad") {
+			t.Error("自己那行没有「改 PIN」——管理员是机器级的一把 key，改自己那一份的 PIN 是合法的")
 		}
 		if strings.Contains(*body, "admin/delete?profile=dad") {
 			t.Error("自己那行给了「删档」——点下去会被 self 拦，是一个死按钮")
+		}
+		if strings.Contains(*body, "admin/disable?profile=dad") {
+			t.Error("自己那行给了「停用」——点下去会被 selfdisable 拦，是一个死按钮")
 		}
 	})
 
@@ -213,14 +221,15 @@ func TestAdmin_管理页不给死按钮(t *testing.T) {
 		asKid := auth.CookieProfile + "=kid; " + authOnly(t)
 		body := adminPageGet(t, h, "/admin", asKid)
 		if !strings.Contains(*body, "admin/pin?profile=dad") {
-			t.Error("管理员登在 kid 那一份时，自己家 dad 那行该给得出「设 PIN」")
+			t.Error("管理员登在 kid 那一份时，自己家 dad 那行该给得出「改 PIN」")
 		}
 		if !strings.Contains(*body, "admin/delete?profile=dad") {
 			t.Error("同样该给得出「删档」——他此刻没在用 dad")
 		}
-		// 而他正在用的 kid 那一行，两个入口都必须不给（selfpin / self）。
-		if strings.Contains(*body, "admin/pin?profile=kid") {
-			t.Error("kid 那行给了「设 PIN」——点下去会被 selfpin 拦，是死按钮")
+		// 而他正在用的 kid 那一行：改 PIN 仍然给得出（2026-10-20 改判），
+		// 但删档与停用必须不给（self / selfdisable 会拦）。
+		if !strings.Contains(*body, "admin/pin?profile=kid") {
+			t.Error("kid 那行该给得出「改 PIN」——管理员是机器级的 key，与档不挂钩")
 		}
 		if strings.Contains(*body, "admin/delete?profile=kid") {
 			t.Error("kid 那行给了「删档」——点下去会被 self 拦，是死按钮")
@@ -228,16 +237,69 @@ func TestAdmin_管理页不给死按钮(t *testing.T) {
 	})
 }
 
-// 设 PIN 的两条形状闸：目标是自己（要走旧 PIN 那条路）、目标不存在。
-func TestAdmin_设PIN的形状闸(t *testing.T) {
+// 加 PIN 与改 PIN 是**两件事**，页面要分开说。
+//
+// 判据是这一份现在有没有 PIN（auth.HasPin，与 statusRows 同一份）：没锁上的
+// 那一份，"加"的后果是"从谁都能进变成要输数字"；锁着的那一份，"改"的后果是
+// "旧 PIN 当场作废、留空 = 取消"。同一句模板套两种情形，读的人得自己猜。
+func TestAdmin_设PIN页分清加与改(t *testing.T) {
 	_, h, dad := adminScene(t)
 
-	t.Run("目标是自己要让开", func(t *testing.T) {
-		rec := get(h, "/admin/pin?profile=dad", dad)
-		if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "err=selfpin") {
-			t.Fatalf("改自己的 PIN 该 303 ?err=selfpin，实际 %d %q", rec.Code, rec.Header().Get("Location"))
+	t.Run("没设过 PIN 的那一份：说「加」", func(t *testing.T) {
+		// 先用管理员那条路把 kid 的 PIN 撤掉（留空 = 取消），于是它变成
+		// "没锁上"的那一种——夹具里 dad 与 kid 一开始都有 PIN。
+		if rec := postForm(h, "/admin/pin", "profile=kid&new=", dad); rec.Code != http.StatusSeeOther {
+			t.Fatalf("撤掉 kid 的 PIN 该 303，实际 %d %s", rec.Code, rec.Body)
+		}
+		body := adminPageGet(t, h, "/admin/pin?profile=kid", dad)
+		for _, want := range []string{"加 PIN", "加一道 PIN"} {
+			if !strings.Contains(*body, want) {
+				t.Errorf("加 PIN 的确认页里缺少「%s」", want)
+			}
+		}
+		if strings.Contains(*body, "改 PIN") {
+			t.Error("kid 已经没设 PIN 了，页面上却说的是「改」")
 		}
 	})
+
+	t.Run("设过 PIN 的那一份：说「改」，并说清旧 PIN 当场作废", func(t *testing.T) {
+		body := adminPageGet(t, h, "/admin/pin?profile=dad", dad)
+		for _, want := range []string{"改 PIN", "当场作废"} {
+			if !strings.Contains(*body, want) {
+				t.Errorf("改 PIN 的确认页里缺少「%s」", want)
+			}
+		}
+		if strings.Contains(*body, "加一道 PIN") {
+			t.Error("dad 已经设过 PIN，页面上却说的是「加」")
+		}
+	})
+}
+
+// 改自己正在用的那一份的 PIN，**不再让开**（2026-10-20 改判）。
+//
+// 从前这一支 303 回 `?err=selfpin`，理由是"改自己的 PIN 要旧 PIN"。可管理员是
+// 机器级的一把 key，不属于任何档案——它不在任何一个"自己"里，于是那条理由
+// 在管理页上从来没有依据：本人自己那边（self/pin）照样要旧 PIN，而管理员这
+// 一边是"家人忘了 PIN 的出路"，它必须能管**每一份**档案。
+//
+// 同一件事的机器通路（POST /api/v1/profiles/pin）本来就只要求管理员身份、
+// 从来不拦"正在用的那一份"；管理页比它更严，两处对同一件事给出不同答案。
+func TestAdmin_改当前在用的那一份的PIN不再被拦(t *testing.T) {
+	_, h, dad := adminScene(t)
+	rec := get(h, "/admin/pin?profile=dad", dad)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("改自己那一份的 PIN 该 200（页面出来了），实际 %d %q",
+			rec.Code, rec.Header().Get("Location"))
+	}
+	if !strings.Contains(rec.Body.String(), "admin/pin") {
+		t.Error("这一页该有提交到 /admin/pin 的表单")
+	}
+}
+
+// 设 PIN 的形状闸：目标不存在。（"目标是自己"那一支 2026-10-20 改判成
+// **不再拦**，单独一支用例钉着，见 TestAdmin_改当前在用的那一份的PIN不再被拦。）
+func TestAdmin_设PIN的形状闸(t *testing.T) {
+	_, h, dad := adminScene(t)
 
 	t.Run("目标不存在", func(t *testing.T) {
 		rec := get(h, "/admin/pin?profile=根本没有这个档案", dad)

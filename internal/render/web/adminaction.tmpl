@@ -32,6 +32,11 @@
        让"会发生什么"先被读到。 */}}
   <p class="explain">{{.Explain}}</p>
 
+  {{/* Note 是后果之外的**一句补充**（改自己那一份的 PIN 时："现在这个页面还在，
+       但下次进门要输新的那个"）。空串不画——它与 Explain 分开是因为两者重量
+       不同：Explain 说"这一步会改变什么"，Note 说"对你有什么后续"。 */}}
+  {{with .Note}}<p class="note">{{.}}</p>{{end}}
+
   {{/* NoForm 是显式的而不是从"Fields 与 Choices 都空"推出来的——删档页正是
        两者皆空而仍要按钮的那一张（它提交的就是 hidden profile）。 */}}
   {{if not .NoForm}}
@@ -40,11 +45,21 @@
          是当前会话自己，表单里留一个由客户端说了算的 profile 字段，等于把
          "回退哪一份"从服务端判据降成客户端声明。 */}}
     {{with .ID}}<input type="hidden" name="profile" value="{{.}}">{{end}}
-    {{range .Fields}}
-    <p><label for="f-{{.Name}}">{{.Label}}</label>
-      <input id="f-{{.Name}}" name="{{.Name}}" type="{{.Type}}"{{if .Autofocus}} autofocus{{end}}
-             {{with .Hint}}aria-describedby="h-{{.Name}}"{{end}} autocomplete="off" inputmode="numeric">
-      {{with .Hint}}<small id="h-{{.Name}}">{{.}}</small>{{end}}</p>
+    {{/* 每一格用 $f 拿着：**{{with .Hint}} 会把点换成那句提示本身**，
+         于是 with 里面的 {{.Name}} 是在一个字符串上取字段——HTML 模板会当场
+         报错（"can't evaluate field Name in type string"）。这句一直没炸，
+         是因为**从来没有哪一页给这一格写过 Hint**；2026-10-20 设 PIN 那一页
+         第一次给了提示（"留空提交 = 取消这一份的 PIN"），于是它炸了出来。 */}}
+    {{range $f := .Fields}}
+    <p class="fld"><label for="f-{{$f.Name}}">{{$f.Label}}</label>
+      <input id="f-{{$f.Name}}" name="{{$f.Name}}" type="{{$f.Type}}"{{if $f.Autofocus}} autofocus{{end}}
+             {{with $f.Hint}}aria-describedby="h-{{$f.Name}}"{{end}} autocomplete="off" inputmode="numeric"
+             {{/* 长度的上下限由**字段自己**带着（0 = 不印）：这一族页面上的输入格
+                 形状不止一种，而只有 PIN 那一格有长度范围。数字取自 auth 那两个
+                 常量（adminaction.go 里给的），不是模板里抄一份——抄一份就会
+                 与服务端的判据漂开，症状是"浏览器拦住了、curl 拦不住"。 */}}
+             {{if $f.MinLen}}minlength="{{$f.MinLen}}" {{end}}{{if $f.MaxLen}}maxlength="{{$f.MaxLen}}"{{end}}>
+      {{with $f.Hint}}<small id="h-{{$f.Name}}">{{.}}</small>{{end}}</p>
     {{end}}
     {{/* "从几个里选一个"：radio 是原生控件，零 JS 可用、可 Tab 可选。
          Checked 由服务端给——确认页要预选哪一格只有服务端知道。 */}}

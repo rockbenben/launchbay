@@ -149,6 +149,25 @@ func (l Scopes) Authorize(secret string) (Scope, bool) {
 // 真要轮换时旧 cookie 会整体失效，而不是两种派生值互相认。
 const adminCookieDomain = "lb-admin-v1"
 
+// DefaultAdminToken 是 docker-compose.yml 里 LAUNCHBAY_ADMIN_TOKEN 的**默认值**。
+//
+// 它是**公开的**（仓库里写着，README 里也写着），所以它只当两件事用：
+//   - 登录页与管理页把这句话写出来，好让装好机器的人**知道自己该输什么**、
+//     也知道**这把钥匙人人都猜得到**（那正是要换掉它的理由）；
+//   - IsDefault 判"这台机器现在用的还是不是它"——还在的话，管理页给一句
+//     "建议换掉"的提醒。
+//
+// **当前配置的那一把一个字都不进页面**：那把 key 会进 devtools、进导出、
+// 进浏览器同步，而"默认那把"是公开知识，印出来不泄露任何东西。
+const DefaultAdminToken = "launchbay123"
+
+// IsDefault 答"这台机器现在用的还是不是那个公开的默认值"。
+//
+// 它只用来给管理页一句提醒，**不参与任何鉴权**：鉴权只有 Matches 一份。
+func (t AdminToken) IsDefault() bool {
+	return t.secret != "" && t.secret == DefaultAdminToken
+}
+
 // AdminToken 是**机器级**管理员凭证：一把裸 key，来自 LAUNCHBAY_ADMIN_TOKEN。
 //
 // 它是这台机器唯一的"能建档、删档、给别人设 PIN、停用、看跨档案状态"的身份，

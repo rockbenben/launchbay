@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
 
+	"github.com/rockbenben/launchbay/internal/apierr"
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/render"
 )
 
@@ -26,7 +27,16 @@ import (
 // 是某个档案，于是"进管理页"需要那把 key，而升级完还没有人输过它——沿用旧的
 // 303 形状会让整个账号层面锁死在一个没有人能开的页面上。
 func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
-	if !s.hasAdminCookie(r) {
+	// **判据是 require(credAdmin) 一处**（2026-10-20 修）：从前这里问的是
+	// `hasAdminCookie(r)`——**只读 cookie**，于是管理员那把 key 打过来拿到的是
+	// 登录页（200 + 一个表单）。而契约（AGENTS.md 端点表、openapi 的 security、
+	// 以及这一段注释自己写的"管理员令牌打它会拿到同一张 HTML 页面"）都说它认。
+	// 形状上"成功"、内容却是错的，脚本会以为自己没登录——这是最容易误判的一种
+	// 不一致。
+	//
+	// require(credAdmin) 认**管理员那把 key 或 `lb_admin` cookie**（两条管理员
+	// 通路），而**档案会话不算管理权**（登进 dad 也不等于能管这台机器）。
+	if _, _, ok := s.require(r, credAdmin, ""); !ok {
 		s.handleAdminLoginPage(w, r)
 		return
 	}
@@ -38,9 +48,14 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	// statusProfile → AdminRow 的映射只在这一个地方做：模板不吃 API 的
 	// JSON 标签，契约与页面因此不会被迫同一天一起改。
 	views := make([]render.AdminRow, 0, len(rows))
-	// "这一行能不能设 PIN / 能不能删"只取决于**它是不是当前会话正在用的那一份**
-	// （active）。判据与 adminaction.go 的 deleteBlocked / selfpin 同一句，
-	// 在这里算一次传下去——模板不判断，页面因此不会给出点了必被拒的入口。
+	// "这一行能不能设 PIN / 能不能删"分两族判据，各有各的理由：
+	//   - **设 PIN**（加/改）：只要求"这一行不是坏档"。管理员是**机器级**的
+	//     一把 key，不属于任何档案，所以"改自己的 PIN 要旧 PIN"那条保护在
+	//     这里让开——本人自己那边（self/pin）照样要旧 PIN，而管理员这一边
+	//     是"家人忘了 PIN 的出路"，它必须能管**每一份**档案。
+	//   - **删档 / 停用**：要"不是当前会话正在用的那一份"。删掉自己正在用
+	//     的那一份会把会话悬空，而停用自己正在用的那一份等于自己把自己
+	//     关在门外——那是**会话**层面的问题，与权限无关。
 	active := sessionProfileID(r)
 	for _, row := range rows {
 		isActive := row.ID == active
@@ -49,7 +64,8 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 			Rev:      row.Rev,
 			Modified: row.Modified, Items: row.Items, Snapshots: row.Snapshots,
 			Broken:    row.Broken,
-			CanSetPin: !isActive && !row.Broken,
+			PinSet:    row.PinSet,
+			CanSetPin: !row.Broken,
 			CanDelete: !isActive,
 			// 停用/启用是**同一个动作的两头**：能不能点取决于"不是自己正在用的
 			// 那一份"，而这一枚按钮今天是停还是启由 Disabled 翻（模板里翻）。
@@ -60,8 +76,8 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 	// ?err= 只当键用：不在白名单里的值一个字都不进页面（与进门页同一套，
 	// 判据由 httpapi 算，渲染器只印）。
-	notice := s.notice(r.URL.Query().Get("err"))
-	page, err := s.deps.Render.AdminPage(views, notice)
+	notice := s.notice(r, r.URL.Query().Get("err"))
+	page, err := s.deps.Render.AdminPage(views, notice, s.adminOptions(), s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -110,7 +126,7 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 		// **没有 admin 那一格**（2026-10-12）：建出来的就是一个人的书签页。
 		// 管理页也不再有那个勾选框——勾它现在已经没有任何后果，留着会让人
 		// 以为"建成管理员"是一件事，而它已经不存在了。
-		NoPass:   r.FormValue("nopass") == "1",
+		NoPass:   nopassFlag(r.FormValue("nopass")),
 		DeriveID: true,
 	})
 	switch {
@@ -140,4 +156,33 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 func redirectAdminFail(w http.ResponseWriter, code string) {
 	w.Header().Set("Location", "/admin?err="+code)
 	w.WriteHeader(http.StatusSeeOther)
+}
+
+// adminOptions 是"这台机器的管理密钥"那两格：公开的默认值，与"现在用的还是不是它"。
+//
+// **当前配置的那一把不进这里**（它会进 devtools、进导出、进浏览器同步）；
+// 进页面的只有 compose 里那个**公开的**默认值——装好机器的人要知道自己该输
+// 什么，而"默认那把人人都猜得到"正是要提醒他换掉它的理由。
+//
+// 判据在 httpapi（deps.AdminToken 在这儿），渲染器不判断。
+func (s *Server) adminOptions() render.AdminOptions {
+	return render.AdminOptions{
+		DefaultAdminKey:      auth.DefaultAdminToken,
+		UsingDefaultAdminKey: s.deps.AdminToken.IsDefault(),
+		DefaultLang:          s.rawDefaultLang(),
+	}
+}
+
+// rawDefaultLang 是**盘上写着的那个**默认语言（"" = 没人设过）。
+//
+// 它与 machineLang（这一页正在用的那一种）**在"没人设过"时不一样**：那时页面按
+// **浏览器说的**那一门显示，而盘上什么都没写。管理页与引导页那两个下拉要显示
+// 的正是这个——从前它们显示的是"这一页正在用的那一种"，于是管理员看到"English"
+// 被选中就以为这台机器已经是英文的了（而他按一下那颗按钮，就把"没人设过"
+// 悄悄变成了"显式设成英文"）。
+func (s *Server) rawDefaultLang() string {
+	if l, ok := s.deps.Store.DefaultLanguage(); ok {
+		return string(l)
+	}
+	return ""
 }

@@ -63,7 +63,7 @@ func (s *Server) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
 //
 // 这不是一条枚举线索：管理页存不存在，README 与 compose 里都写着。
 func (s *Server) handleAdminLoginPage(w http.ResponseWriter, r *http.Request) {
-	page, err := s.deps.Render.AdminLoginPage(s.notice(r.URL.Query().Get("err")))
+	page, err := s.deps.Render.AdminLoginPage(s.notice(r, r.URL.Query().Get("err")), s.adminOptions(), s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return

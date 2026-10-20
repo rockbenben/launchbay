@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/icons"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
@@ -28,6 +29,13 @@ type statusProfile struct {
 	IconUnmatched int    `json:"iconUnmatched"`
 	Snapshots     int    `json:"snapshots"`
 	Broken        bool   `json:"broken"`
+	// PinSet = 这一份**现在有 PIN 吗**（判据只有 auth.HasPin 一处）。
+	//
+	// **它不进 JSON**（`json:"-"`）：/api/v1/status 是机器那一面的契约，
+	// 里面没有这一格也不影响谁；管理页要它，是为了说清"这一份还没锁上"
+	//（不设防的档案在局域网里谁都能进）。两个壳读同一份聚合，但各自的
+	// 视图形状不同——这一格只属于页面那一面。
+	PinSet bool `json:"-"`
 }
 
 type statusTotals struct {
@@ -114,6 +122,10 @@ func (s *Server) statusRows() ([]statusProfile, []string, statusTotals, error) {
 		p, listed := byID[id]
 		row := statusProfile{ID: id, Title: p.Title, Disabled: p.Disabled}
 		if listed {
+			// 这一份有没有门锁：判据只有 auth.HasPin 一处（空哈希 = 没设 PIN）。
+			// 坏档读不出 profile.json，这一格自然是 false——页面那一侧知道
+			// 那一行是坏档，所以不会拿它说"没设防"。
+			row.PinSet = auth.HasPin(p.PIN)
 			snap, err := s.deps.Store.Current(id)
 			switch {
 			case err == nil:
