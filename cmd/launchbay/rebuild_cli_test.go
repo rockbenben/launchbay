@@ -189,7 +189,10 @@ func TestCLIProfileRebuildSurfacesNotFound(t *testing.T) {
 // 这两条是**用法错误**（没给子命令 / 打错了子命令名），所以用法文本走 stderr、
 // stdout 空着（2026-10-19）；求帮助是另一条路——`profile create -h` 进 stdout 退 0，
 // 由 cli_stream_test.go 钉。
-func TestCLIProfileUsageListsBothSubcommands(t *testing.T) {
+// **三个子命令**（2026-10-20 改判：从前叫 "BothSubcommands"，而 `fix-names`
+// 是后加的——那个名字与它只断言两条这件事一起，把第三个子命令漏在了外面：
+// 用法文本里少了它，没有任何一条测试会红）。
+func TestCLIProfileUsageListsAllThreeSubcommands(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	if code := runCLI([]string{"profile"}, config{Port: "7600"}, &out, &errBuf); code != 2 {
 		t.Fatalf("没给子命令该是用法错误 2，实际 %d", code)
@@ -197,7 +200,7 @@ func TestCLIProfileUsageListsBothSubcommands(t *testing.T) {
 	if out.Len() != 0 {
 		t.Fatalf("用法错误不该往 stdout 印东西: %q", out.String())
 	}
-	for _, want := range []string{"profile create", "profile rebuild"} {
+	for _, want := range []string{"profile create", "profile rebuild", "profile fix-names"} {
 		if !strings.Contains(errBuf.String(), want) {
 			t.Errorf("用法里该有 %q，实际 %q", want, errBuf.String())
 		}

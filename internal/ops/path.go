@@ -6,6 +6,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/model"
@@ -117,7 +118,7 @@ func ParsePath(path string) (target, error) {
 			return target{kind: kindItems, groupID: parts[1]}, nil
 		}
 		if !groupFields[parts[2]] {
-			return target{}, fmt.Errorf("分组没有 %q 字段，能改的是 title/layout/accent", parts[2])
+			return target{}, fmt.Errorf("分组没有 %q 字段，能改的是 %s", parts[2], fieldList(groupFields))
 		}
 		return target{kind: kindGroupField, groupID: parts[1], field: parts[2]}, nil
 	case 4:
@@ -142,7 +143,7 @@ func ParsePath(path string) (target, error) {
 			return target{}, err
 		}
 		if !itemFields[parts[4]] {
-			return target{}, fmt.Errorf("条目没有 %q 字段，能改的是 name/url/icon/desc/alias/tags/aiNote", parts[4])
+			return target{}, fmt.Errorf("条目没有 %q 字段，能改的是 %s", parts[4], fieldList(itemFields))
 		}
 		return target{kind: kindItemField, groupID: parts[1], itemID: parts[3], field: parts[4]}, nil
 	}
@@ -213,6 +214,47 @@ func idErr(s string) error {
 
 // docFieldList 把根级白名单按**固定顺序**列成一句（给 422/解析失败时的那句话）。
 // 手写列表会与 docFields 漂，而这句话是给人读的——它必须说的是同一份表。
-func docFieldList() string {
-	return strings.Join([]string{"title", "footer", "openInNewTab", "clock"}, " | ")
+func docFieldList() string { return fieldList(docFields) }
+
+// GroupFields / ItemFields / DocFields 是那三张白名单的**只读副本**（字典序）。
+//
+// **给谁用**：文档闸。AGENTS.md 与机器契约（openapi.json）都逐字列出了这三张表，
+// 而它们是**手抄的**——加一档字段而文档没改，于是人照着文档写出一个被 422 拒掉的
+// 字段。三张表导出成可排序的副本，那道闸就能拿**代码里那份**去对照文档，
+// 而不是拿文档里那份去对照文档。
+//
+// 为什么是副本而不是直接导出那张 map：map 可写，导出它等于让任何人都能往写侧的
+// 白名单里塞字段——判据只有一份，且那份不该由调用方改。
+func GroupFields() []string { return sortedKeys(groupFields) }
+
+// ItemFields 是**条目**那一格的白名单副本。
+func ItemFields() []string { return sortedKeys(itemFields) }
+
+// DocFields 是**文档自己那几格**（根级标量）的白名单副本。
+func DocFields() []string { return sortedKeys(docFields) }
+
+// sortedKeys 把一张白名单的键按字典序取出来（副本，调用方改了它也不影响白名单）。
+func sortedKeys(m map[string]bool) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
+}
+
+// fieldList 把一张白名单按**字典序**列成一句。
+//
+// **为什么生成而不是手抄**（2026-10-20）：这三张表与这三句话是**同一个东西的
+// 两种写法**，而它们会分家——2026-10-20 实测到过：组 layout 的枚举加了一档
+// （feature），手抄的拒绝语没跟上，于是服务端报出一句不含新档的话，而人照着
+// 它去猜"那到底能用哪几档"。字典序是为了**每次都一样的顺序**（map 的遍历顺序
+// 是随机的，说出去的话不能每次换位置）。
+func fieldList(m map[string]bool) string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return strings.Join(ks, " | ")
 }

@@ -168,7 +168,7 @@ func ValidGroupLayout(s string) bool { return allowedGroupLayout[s] }
 
 func ValidSlug(s string) bool { return slugRE.MatchString(s) }
 
-// accentHexRE 是 accent 的**唯一**判据，两个方向各用一次：写侧
+// accentHexRE 是 accent 的**权威**判据，两个方向各用一次：写侧
 // `ValidAccent` 拒掉什么都不是的值（accent 是用户可写的字符串，而写进去
 // 一个坏值只会得到"按下去什么都没变"——渲染侧会把它悄悄丢掉）；读侧
 // `render.validatedAccent` 把盘上已经写坏的值也丢掉。
@@ -338,7 +338,8 @@ func (b *Bookmarks) Validate() error {
 			return fmt.Errorf("%w: group %q: title 为空", ErrValidation, g.ID)
 		}
 		if !ValidGroupLayout(g.Layout) {
-			return fmt.Errorf("%w: group %q: layout %q 只能是 tiles/list", ErrValidation, g.ID, g.Layout)
+			return fmt.Errorf("%w: group %q: layout %q 只能是 %s", ErrValidation, g.ID, g.Layout,
+				strings.Join(GroupLayoutValues, "/"))
 		}
 		for ii := range g.Items {
 			it := &g.Items[ii]

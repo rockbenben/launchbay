@@ -689,7 +689,7 @@ func TestImport_写入失败时点名是哪一条(t *testing.T) {
 	}}}
 	// ops 的顺序：先全部建组（1 条），再按组加条目。所以 index 2 是第二个条目。
 	out := batchOutcome{verrs: []ops.Error{{OpsIndex: 2, Field: "url", Reason: "id 不是 ASCII slug"}}}
-	got := srv.importOutcomeText(out, b)
+	got := srv.importOutcomeText(srv.trFor(nil, "dad"), out, b)
 	for _, want := range []string{"出问题的那个", "http://10.0.0.6/", "id 不是 ASCII slug"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("点名那句话里缺 %q：%s", want, got)
@@ -698,7 +698,7 @@ func TestImport_写入失败时点名是哪一条(t *testing.T) {
 	// 没有文档可对照时退回旧句式——宁可少一句点名，也不要指错一条。
 	// 查的字串跟着 T7 那句改口（"过不了校验"→"写不进去"）：这一条判的是**有没有
 	// 点名那一句**，不是那五个字；改口的同时把新的计数句钉上，否则这句会空转。
-	if got := srv.importOutcomeText(out, nil); !strings.Contains(got, "写不进去") ||
+	if got := srv.importOutcomeText(srv.trFor(nil, "dad"), out, nil); !strings.Contains(got, "写不进去") ||
 		strings.Contains(got, "出问题的那个") {
 		t.Errorf("拿不到文档就该退回计数那句，实际：%s", got)
 	}

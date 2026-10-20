@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/model"
 )
 
@@ -24,11 +25,17 @@ const notCLICommand = -1
 //
 // 分发在 loadConfig 之后（healthcheck 已经在那儿），且直接吃那份 cfg：
 // CLI 与服务读同一份 env，端口与令牌只有一份来源（runCLI 自己不碰 env）。
-// cliCommands 是子命令名单**唯一的那一份**：分发按它，"这一串是不是打错了的
+// cliCommands 是子命令名单**唯一的那一份**：分发（runCLI）按它，"这一串是不是打错了的
 // 子命令"按它，`--help` 印的也是它。从前只有 runCLI 里那个 switch，于是 main
 // 无从区分"没给子命令"（该起服务）与"给了一个不存在的子命令"（该报错），
 // 后者静默落进 serve 分支——实测 `launchbay revrt --profile dad --to 3` 的回答
 // 是一句"listening on :17999"，而 17999 已经被上一行自己占着，人能白查很久。
+//
+// **分发也在这张表里**（2026-10-20 修）：从前 `runCLI` 另写了一个 switch，于是
+// 子命令名单在这个文件里有**两份**——加一条命令它会出现在 `--help` 里、也被认成
+// "不是错别字"，而 runCLI 认不出 → 静默落进 serve 分支（就是上面那个症状）。
+// 同一个毛病在 `profile` 底下一族早就修过（那边是一张 map，见 profileSub），
+// 这一族漏了。
 //
 // **两个 writer，不是一个**（2026-10-19）：`out` 是正常输出（成功的结论、导入
 // 报告、dry-run 计划、`-h` 帮助），`errOut` 是失败诊断（用法错误、请求发不出去、
@@ -43,10 +50,12 @@ const notCLICommand = -1
 var cliCommands = []struct {
 	name    string
 	summary string
+	// run 是这一条子命令的实现。**分发查的是这张表**，所以名单只有一份。
+	run func(args []string, cfg config, out, errOut io.Writer) int
 }{
-	{"revert", "把某一份书签恢复到它的某个历史版本"},
-	{"profile", "建档，或重建一份读不动的 profile.json"},
-	{"import-bookmarks", "把浏览器导出的书签文件导进一份还没有书签的档案"},
+	{"revert", "把某一份书签恢复到它的某个历史版本", cmdRevert},
+	{"profile", "建档，或重建一份读不动的 profile.json", cmdProfile},
+	{"import-bookmarks", "把浏览器导出的书签文件导进一份还没有书签的档案", cmdImportBookmarks},
 }
 
 func isCLICommand(name string) bool {
@@ -77,13 +86,12 @@ func runCLI(args []string, cfg config, out, errOut io.Writer) int {
 	if len(args) == 0 {
 		return notCLICommand
 	}
-	switch args[0] {
-	case "revert":
-		return cmdRevert(args[1:], cfg, out, errOut)
-	case "profile":
-		return cmdProfile(args[1:], cfg, out, errOut)
-	case "import-bookmarks":
-		return cmdImportBookmarks(args[1:], cfg, out, errOut)
+	// **分发查的是 cliCommands 那张表**（不是另写一个 switch）——子命令名单在
+	// 这个文件里只有一份，加一条命令不用记得改两处。
+	for _, c := range cliCommands {
+		if c.name == args[0] {
+			return c.run(args[1:], cfg, out, errOut)
+		}
 	}
 	return notCLICommand
 }
@@ -199,15 +207,22 @@ func revertPath(profile string, to int64) string {
 	return "/api/v1/revert?profile=" + url.QueryEscape(profile) + "&to-rev=" + fmt.Sprint(to)
 }
 
-// profileUsage 是 `launchbay profile` 的唯一用法文本。两个子命令各有各的必填参数，
-// 共用一行 printf 会逼着其中一个把自己的旗标解释成别人的——所以这里给两份。
+// pinRange 是 PIN 的长度范围（"4-6"），**取自 auth 那两个常量**。
+//
+// CLI 自己**不判格式**（判的是服务端那一份），但它**告诉人**范围是多少——
+// 而"告诉人的那个数"与服务端收的那个数一旦不是同一个，敲命令行的人就会在
+// 422 之前先敲错一遍。
+var pinRange = fmt.Sprintf("%d-%d", auth.PinMinLen, auth.PinMaxLen)
+
+// profileUsage 是 `launchbay profile` 的唯一用法文本。三个子命令各有各的旗标，
+// 共用一行 printf 会逼着其中一个把自己的旗标解释成别人的——所以这里给三份。
 //
 // **没有 --admin**（2026-10-12）：管理员不再是档案的一个属性，而是那把机器级
 // LAUNCHBAY_ADMIN_TOKEN。留着这个旗标只会让人以为"建成管理员"是一件事，
 // 而它现在根本不存在。
-const profileUsage = "用法:\n" +
-	"  launchbay profile create     --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
-	"  launchbay profile rebuild    --id <slug> --title <名字> (--pin <4-6 位> | --nopass)\n" +
+var profileUsage = "用法:\n" +
+	fmt.Sprintf("  launchbay profile create     --id <slug> --title <名字> (--pin <%s 位> | --nopass)\n", pinRange) +
+	fmt.Sprintf("  launchbay profile rebuild    --id <slug> --title <名字> (--pin <%s 位> | --nopass)\n", pinRange) +
 	"  launchbay profile fix-names  --profile <id> [--dry-run]"
 
 // pinFlags 定义两个建档子命令共用的 PIN 旗标（2026-10-12：PIN **选填**）。
@@ -219,7 +234,7 @@ const profileUsage = "用法:\n" +
 // ——求帮助的代价是一次不该发生的写请求。判据留在两处是因为它们本来就不是
 // 一件事，但"要不要 PIN"这个判断**只有** checkPin 一处，两个子命令共用。
 func pinFlags(fs *flag.FlagSet) (pin *string, nopass *bool) {
-	p := fs.String("pin", "", "4-6 位数字")
+	p := fs.String("pin", "", pinRange+" 位数字")
 	n := fs.Bool("nopass", false, "明确不设 PIN：局域网里能访问这台机器的人都能进这一份")
 	return p, n
 }
@@ -239,7 +254,7 @@ func checkPin(pin string, nopass bool, errOut io.Writer) int {
 		fmt.Fprintf(errOut, "--pin 与 --nopass 只能给一个：前者给这一份锁门，后者明确不锁。\n")
 		return 2
 	case pin == "" && !nopass:
-		fmt.Fprintf(errOut, "要么给 --pin <4-6 位>，要么给 --nopass（明确不设 PIN）。\n")
+		fmt.Fprintf(errOut, "要么给 --pin <%s 位>，要么给 --nopass（明确不设 PIN）。\n", pinRange)
 		return 2
 	}
 	return 0

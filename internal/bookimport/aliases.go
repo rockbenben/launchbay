@@ -29,7 +29,9 @@ var embeddedOverrides []byte
 // 指向浏览器缓存的 URL），而 launchbay 的 icon 字段认的是内嵌索引里的名字。
 // 所以导入时的图标只有一条来路：**拿网址去索引里猜**。
 //
-// 猜的判据是 icons.Candidates（主机段 → 路径段 → 标题词，品牌层优先）——
+// 猜的**token 顺序**是 icons.URLTokens（主机段 → 路径段 → 标题词），与 resolve
+// 共用同一份；但**不用 icons.Candidates**（见下面那段注释：导入要精确命中，
+// 不要模糊候选的前 N 条）——
 // 它本来是 resolve 的 iconCandidates，两处各写一份顺序逻辑迟早分家。
 //
 // 猜不准的时候不硬凑一个形似的图标：置空走首字母色块，并列进"想补图标"的清单。

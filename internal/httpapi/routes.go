@@ -97,6 +97,8 @@ func (s *Server) routes() []route {
 		// profile.json。
 		// 建组与删组（都是 2026-10-15）也在这条上而不是新开端点：落点与判据与改
 		// 颜色完全同一份，而新开一条只会让「这一族面板表单走哪」多一个答案。
+		{Method: "POST", Pattern: "/prefs/pin", Cred: credSession,
+			Summary: "改自己这一份的 PIN（面板里那张表单；与 self/pin 同一个落点）", H: s.handlePrefsPin},
 		{Method: "POST", Pattern: "/prefs/group", Cred: credSession,
 			Summary: "建一个新分组、改一个分组的颜色/名字/排法，或删掉这一组（仅会话，表单通路；书签写通路）", H: s.handlePrefsGroup},
 		// 背景那一节（2026-10-14）。**必须 multipart**，所以不并进上面那条
@@ -186,6 +188,17 @@ func (s *Server) routes() []route {
 		// 会让"这条端点返回什么"在 openapi 里没法一句话说清。
 		{Method: "GET", Pattern: "/api/v1/icons/tiles", Cred: credNone,
 			Summary: "图标选择器那一格：同一条搜索，画好的 HTML 方格（公开）", H: s.handleIconTiles},
+		// 图标选择器的**浏览**那一档：翻图库，不搜什么。
+		// 公开（credNone）：它是一份公共名单，说不出任何人有什么书签。
+		{Method: "GET", Pattern: "/api/v1/icons/browse", Cred: credNone,
+			Summary: "图标选择器翻图库：按 offset 翻页，画好的 HTML 方格（公开）", H: s.handleIconBrowse},
+		// 图标选择器的**默认那一批**：不搜什么，直接给一份常用清单。
+		// 为什么不能只靠上面那条搜索：空查询按契约回一张空图（库里一万多条，
+		// 倒出来是一屏噪声），而"这一份已经在用的图标"那一格在实测里几乎永远是
+		// 空的（书签默认 auto，auto 与"没设"都被排除），于是面板打开什么也没有。
+		// 公开（credNone）：它是一份公共名单，说不出任何人有什么书签。
+		{Method: "GET", Pattern: "/api/v1/icons/starter", Cred: credNone,
+			Summary: "图标选择器的默认那一批：常用图标清单，画好的 HTML 方格（公开）", H: s.handleIconStarter},
 		{Method: "GET", Pattern: "/icons/{name}", Cred: credNone,
 			Summary: "resolve 抓来的 favicon 缓存（内容哈希命名，immutable）", H: s.handleIconFile},
 		// 这一页自己的背景图。**与上面那条 favicon 通路相反**：那条是公开的
@@ -310,6 +323,20 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 			return sess.Active, auth.Scope{}, true
 		}
 		return adminActor, auth.Scope{}, true
+	}
+	if want == credTokenOnly {
+		// **只认令牌的那一档不认会话**（2026-10-20 修）。credTokenOnly 是
+		// 「档案作用域令牌，且不认会话」——与 credSession（只认会话）正好相反。
+		//
+		// 从前 require 里**没有这一支**，于是带会话的请求会一路落到最后一行
+		// `return sess.Active, …, true`：那一档的"不认会话"只由两个 import
+		// handler 自己在调用 require **之前**多写了一遍 Authorize 撑着。
+		// 端点层那一遍是纵深防御，不是判据——下一个人加一条 credTokenOnly
+		// 端点而没重复那个前置检查，会话就静默通过，而这一族的全部意义是
+		// 「档案从令牌作用域推导、不接受申报」这条更强的性质。
+		//
+		// 实测（改之前）：require(带 lb_profile=dad, credTokenOnly, "dad") → ok=true。
+		return "", auth.Scope{}, false
 	}
 	if !sess.Valid() {
 		// 只有管理员 cookie、没有档案会话：剩下唯一可能落到的 cred 是

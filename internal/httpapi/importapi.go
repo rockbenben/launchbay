@@ -117,9 +117,11 @@ func (s *Server) importGuard(w http.ResponseWriter, r *http.Request) (string, bo
 		// 渲染的是**档案页**，提示会被无声吞掉——正是
 		// Test提示键只发白名单里有的 那道 AST 闸在防的事（"表单失败了而
 		// 人不说话"）。所以直接在这一页把话说清楚。
+		tr := s.trFor(r, id)
 		s.renderImport(w, r, render.ImportView{
-			Mode: "blocked", Heading: s.t("import.blockedHeading"),
-			Notice: s.t("import.notice.blocked", n),
+			Mode: "blocked", Heading: tr.t("import.blockedHeading"),
+			Notice:  tr.t("import.notice.blocked", n),
+			Profile: id,
 		})
 		return "", false
 	}
@@ -131,12 +133,15 @@ func (s *Server) importGuard(w http.ResponseWriter, r *http.Request) (string, bo
 // 零 JavaScript、multipart/form-data。**没有"记住我导过"这种状态**：
 // 档案空就提示、有书签就不提示，判据只有"这个档案现在有几条书签"这一份。
 func (s *Server) handleImportPage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.importGuard(w, r); !ok {
+	id, ok := s.importGuard(w, r)
+	if !ok {
 		return
 	}
+	tr := s.trFor(r, id)
 	s.renderImport(w, r, render.ImportView{
-		Mode: "pick", Heading: s.t("import.heading"),
-		Explain: s.t("import.explain"),
+		Mode: "pick", Heading: tr.t("import.heading"),
+		Explain: tr.t("import.explain"),
+		Profile: id,
 	})
 }
 
@@ -158,20 +163,23 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	// 会先被整份解析并落成临时文件，等我们 LimitReader 到手时磁盘已经写过了。
 	// 一台家用机器被一个 2 GB 的 POST 拖爆，正是这个洞。
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes)
+	tr := s.trFor(r, profile)
 	if err := r.ParseMultipartForm(maxImportBytes); err != nil {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.unreadable"),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.unreadable"),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
 	file, hdr, err := r.FormFile("bookmarks")
 	if err != nil {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.nofile"),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.nofile"),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
@@ -179,30 +187,32 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(io.LimitReader(file, maxImportBytes+1))
 	if err != nil || len(raw) > maxImportBytes {
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.toolarge"),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.toolarge"),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
 	// 浏览器那一屏：报告里的句子跟着站点语言（人读的）。
-	plan, err := s.planImport(profile, raw, s.t)
+	plan, err := s.planImport(profile, raw, tr.t)
 	if err != nil {
-		notice := s.t("import.notice.parseFail", err.Error())
+		notice := tr.t("import.notice.parseFail", err.Error())
 		switch {
 		case errors.Is(err, errNothingToImport):
 			// **Convert 不拒绝非 Netscape 文件**：喂一段普通 HTML，它解析出零条书签
 			// 并照常返回。不判这一条，用户会看到"导入成功 0 条"，像真的一样。
-			notice = s.t("import.notice.notABookmarkFile")
+			notice = tr.t("import.notice.notABookmarkFile")
 		case errors.Is(err, errAllSkipped):
-			notice = s.t("import.notice.allSkipped")
+			notice = tr.t("import.notice.allSkipped")
 		case errors.Is(err, errNoStash):
-			notice = s.t("import.notice.noStash")
+			notice = tr.t("import.notice.noStash")
 		}
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
+			Mode: "pick", Heading: tr.t("import.heading"),
 			Notice:  notice,
-			Explain: s.t("import.explainStep"),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
@@ -211,10 +221,11 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.renderImport(w, r, render.ImportView{
-		Mode: "report", Heading: s.t("import.reportHeading"),
+		Mode: "report", Heading: tr.t("import.reportHeading"),
 		Count: plan.Count, Skipped: plan.Skipped, Groups: plan.Groups,
 		Report: plan.Report, Token: plan.Token,
 		FileName: hdr.Filename,
+		Profile:  profile,
 	})
 }
 
@@ -229,14 +240,16 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 // 导完的人必须先读一屏报告才知道导入根本没坏。而报告答的是"会导入什么"，
 // 写完之后人真正要的是"成了没有、少了哪几条"——那正是这一屏印的东西。
 func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, fileName string, plan importPlan) {
+	tr := s.trFor(r, profile)
 	out, err := s.applyImport(plan.Token, profile, profile, "import")
 	if err != nil {
 		// 令牌取不到（过期/被用过）或解析这一趟出了意外：回第一步重来，
 		// 形状与 /import/apply 那条完全一致（importOutcomeText 说得出的话它说得出）。
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.notSaved", s.importPlainOutcome(err)),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.notSaved", s.importPlainOutcome(tr, err)),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
@@ -244,15 +257,20 @@ func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, f
 	case out.missing, out.broken != "", len(out.verrs) > 0, out.snapErr != nil:
 		// 写入没成：把结论说清楚，绝不跳回一个"什么都没变"的首页。
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out, plan.Bookmarks)),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.notSaved", s.importOutcomeText(tr, out, plan.Bookmarks)),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 	default:
 		s.renderImport(w, r, render.ImportView{
-			Mode: "done", Heading: s.t("import.done.heading"),
-			Applied: out.resp.Applied, SkippedItems: skipEntries(plan.SkippedItems),
+			Mode: "done", Heading: tr.t("import.done.heading"),
+			// **条数给的是书签条数**（plan.Count），不是 op 条数（out.resp.Applied）：
+			// 建一个分组也是一条 op，说成「写进了 N 条书签」会把分组的数目算成
+			// 书签的数目（openapi.json 与 AGENTS.md 都写明了这一点）。
+			Count: plan.Count, SkippedItems: skipEntries(plan.SkippedItems),
 			FileName: fileName,
+			Profile:  profile,
 		})
 	}
 }
@@ -263,11 +281,11 @@ func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, f
 //
 // 别的 error 一律归到"原因不明"那一档，不把内部错误原文印到页面上：那是给
 // stderr 与容器日志看的，而这一屏是给人看的。
-func (s *Server) importPlainOutcome(err error) string {
+func (s *Server) importPlainOutcome(tr tr, err error) string {
 	if errors.Is(err, errStashGone) {
-		return s.t("import.outcome.gone")
+		return tr.t("import.outcome.gone")
 	}
-	return s.t("import.outcome.unknown")
+	return tr.t("import.outcome.unknown")
 }
 
 // handleImportApply 是第三步：确认写入。ops 由 bookimport.Ops 生成，落盘走
@@ -289,15 +307,17 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/import", http.StatusSeeOther)
 		return
 	}
+	tr := s.trFor(r, profile)
 	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
 		// 第二格传 nil：这条路手上只有令牌，解析结果在暂存里已经被用掉了。
 		// 拿不到 Bookmarks 就退回"有 N 条过不了校验"那句话（宁可少一句点名，
 		// 也不要指错一条）；走「直接导入」那条路拿得到，点名照常。
 		s.renderImport(w, r, render.ImportView{
-			Mode: "pick", Heading: s.t("import.heading"),
-			Notice:  s.t("import.notice.notSaved", s.importOutcomeText(out, nil)),
-			Explain: s.t("import.explainStep"),
+			Mode: "pick", Heading: tr.t("import.heading"),
+			Notice:  tr.t("import.notice.notSaved", s.importOutcomeText(tr, out, nil)),
+			Explain: tr.t("import.explainStep"),
+			Profile: profile,
 		})
 		return
 	}
@@ -307,14 +327,14 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 // importOutcomeText 把 applyBatch 的失败结论翻成一句人话。
 // 它是 **Server 的**方法而不是包级函数：它拼的是给人看的结论，而语言是机器级的
 // 设置，只有 Server 读得到 store。理由与 revert 的 choiceLabel 同一处。
-func (s *Server) importOutcomeText(out batchOutcome, b *model.Bookmarks) string {
+func (s *Server) importOutcomeText(tr tr, out batchOutcome, b *model.Bookmarks) string {
 	switch {
 	case out.missing:
-		return s.t("import.outcome.missing")
+		return tr.t("import.outcome.missing")
 	case out.broken != "":
-		return s.t("import.outcome.broken", out.broken)
+		return tr.t("import.outcome.broken", out.broken)
 	case out.conflict != nil:
-		return s.t("import.outcome.conflict")
+		return tr.t("import.outcome.conflict")
 	case len(out.verrs) > 0:
 		// **点名是哪一条**（2026-10-12）。只给"N 条过不了校验"的话，用户手上
 		// 只有一份他改不动的 html 导出文件，而这个数字告诉他"文件有问题"却没
@@ -328,16 +348,16 @@ func (s *Server) importOutcomeText(out batchOutcome, b *model.Bookmarks) string 
 			name, url, ok := bookimport.EntryOfOpIndex(b, out.verrs[0].OpsIndex)
 			switch {
 			case ok && url != "":
-				return s.t("import.outcome.invalidNamed", name, url, out.verrs[0].Reason)
+				return tr.t("import.outcome.invalidNamed", name, url, out.verrs[0].Reason)
 			case name != "":
-				return s.t("import.outcome.invalidGroup", name, out.verrs[0].Reason)
+				return tr.t("import.outcome.invalidGroup", name, out.verrs[0].Reason)
 			}
 		}
-		return s.t("import.outcome.invalid", len(out.verrs))
+		return tr.t("import.outcome.invalid", len(out.verrs))
 	case out.snapErr != nil:
-		return s.t("import.outcome.snapErr")
+		return tr.t("import.outcome.snapErr")
 	}
-	return s.t("import.outcome.unknown")
+	return tr.t("import.outcome.unknown")
 }
 
 // decodeImportOps 把 bookimport 产出的 map 形状 ops 解成 []ops.Op，
@@ -400,6 +420,36 @@ type importApplyResponse struct {
 // 意义——扩展读不到会话 cookie，而浏览器自己那条 `/import` 走的是零 JS 表单。
 // 写进契约前，这一档与 `credScoped` 共用，于是文档报成"令牌或会话都行"，
 // 照文档写脚本的扩展会拿会话 cookie 换来一句「令牌认不出来」。
+// adminTokenGuard 答"这把 bearer 是不是管理员那把 key"，并且答掉。
+//
+// 它是**返回 true 就已经答出去了**（403），所以调用方的形状是
+// `if s.adminTokenGuard(w, r) { return }`。
+//
+// 管理员那把 key **不在档案作用域令牌列表里**（它是机器级的一把裸 key），
+// 所以只查 Tokens 的话，一把**完全有效**的管理员 key 会拿到 401
+// 「令牌认不出来」——那是在说一把好钥匙是废的（batch.go 2026-10-12 那段
+// 警告说的正是这个形状）。
+//
+// **kind 用 `credential-admin-token` 而不是 `credential-scope`**（2026-10-19）：
+// 那两句出路是相反的——`credential-scope` 说"你管的是别的档案，换个 id"，
+// 而这里的事实是"你拿的是一把根本不开书签这一面的钥匙"。从前扩展把管理员
+// key 的 403 翻成"它管的是别的档案，或者那个 id 打错了"，用户照着改档案 id
+// 改到天亮也进不去。
+//
+// **两处共用这一份**（2026-10-20）：导入那两步（handleImportAPI 与
+// handleImportApplyAPI）从前各写一遍，于是第一步答 403、第二步答 401——
+// 出路正好相反，调用方会去换令牌，而它没有令牌问题。
+func (s *Server) adminTokenGuard(w http.ResponseWriter, r *http.Request) bool {
+	if !s.deps.AdminToken.Matches(bearer(r)) {
+		return false
+	}
+	writeJSON(w, http.StatusForbidden, errorResponse{
+		Code: 403, Kind: apierr.CredentialAdminToken,
+		Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌",
+	})
+	return true
+}
+
 func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	// 管理员令牌（LAUNCHBAY_ADMIN_TOKEN）根本不在档案作用域令牌列表里，所以
 	// 它落到下面那次 Authorize 上只会得到"认不出来"的 401——那是错的答案：
@@ -410,8 +460,7 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	// 而这里的事实是"你拿的是一把根本不开书签这一面的钥匙"。从前扩展把管理员
 	// key 的 403 翻成"它管的是别的档案，或者那个 id 打错了"，用户照着改档案 id
 	// 改到天亮也进不去。
-	if s.deps.AdminToken.Matches(bearer(r)) {
-		writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.CredentialAdminToken, Detail: "管理员令牌只管账号；导进某个档案要用作用域正好是它的令牌"})
+	if s.adminTokenGuard(w, r) {
 		return
 	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
@@ -421,6 +470,9 @@ func (s *Server) handleImportAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, _, ok := s.require(r, credTokenOnly, sc.Profile); !ok {
 		s.writeAuthFailure(w, r)
+		return
+	}
+	if s.profileDisabledRefuse(w, sc.Profile) {
 		return
 	}
 	raw, err := io.ReadAll(io.LimitReader(r.Body, maxImportBytes+1))
@@ -462,6 +514,15 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 	// 无从知道这个请求想动谁，鉴权只能是空的。本条的 body 只有 `{token}`，
 	// 档案**从令牌作用域推导**（见函数头那段），`Authorize` 不需要体就能答，
 	// 所以这里先问凭证是有底的。**判据是"作用域从哪来"，不是"哪个顺序好看"。**
+	// **管理员那把 key 也要单独拦一句**（2026-10-20 修）：它不在档案作用域令牌
+	// 列表里，于是只查 Tokens 的话，一把**完全有效**的管理员 key 会拿到 401
+	// 「令牌认不出来」——那是在说一把好钥匙是废的（batch.go 2026-10-12 那段
+	// 警告说的正是这个形状）。同一个两步流程里，第一步（handleImportAPI）答的是
+	// 403「这把钥匙只管账号」，第二步却答 401「你的令牌我不认识」——出路正好
+	// 相反，调用方会去换令牌，而它没有令牌问题。
+	if s.adminTokenGuard(w, r) {
+		return
+	}
 	sc, ok := s.deps.Tokens.Authorize(bearer(r))
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Code: 401, Kind: apierr.CredentialUnknown, Detail: "令牌认不出来"})
@@ -470,6 +531,9 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 	actor, _, ok := s.require(r, credTokenOnly, sc.Profile)
 	if !ok {
 		s.writeAuthFailure(w, r)
+		return
+	}
+	if s.profileDisabledRefuse(w, sc.Profile) {
 		return
 	}
 	var in struct {
@@ -671,7 +735,11 @@ var (
 
 func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, v render.ImportView) {
 	v.Profile = auth.ReadSession(r).Active
-	page, err := s.deps.Render.ImportPage(v)
+	// 这一页用什么语言：这一份自己记了语言就用它，没记就用默认、再用浏览器说的
+	// 那一门。**在渲染之前定**（而不是每个调用点各写一遍）——这一族有十来个
+	// 调用点，判据只有一处。
+	lang := s.langOf(r, v.Profile)
+	page, err := s.deps.Render.ImportPage(v, lang)
 	if err != nil {
 		writeInternalError(w, err)
 		return

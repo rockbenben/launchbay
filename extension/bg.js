@@ -216,20 +216,34 @@ function idFor(url, name) {
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
       return 'ip-' + (hash36(host + (u.port || '')) || 'item');
     }
+    // **整条路径，不只末段**（2026-10-20 修）：从前只取末段，于是
+    // `github.com/userA/project` 与 `github.com/userB/project` 派生出同一个 id
+    // （github-project）——撞 id 是硬错误（duplicate-id），而扩展把它翻成
+    // 「这一条已经在这份里了」，那是**假话**（两个页面完全不同）。
+    //
+    // query 与 hash 同样算进去：路径末段相同的两个页面（两个视频、两篇文章）
+    // 靠这段分开（2026-10-19 修）。
+    //
+    // **这一段与 app.js 的 `slug(url, true)` 是同一条判据**（2026-10-20 两边对
+    // 上）：同一个地址在页面与扩展上必须得到**同一个 id**，否则同一条书签会被
+    // 存成两条。
     base = host.split('.')[0] + '-' +
-           (u.pathname.split('/').filter(Boolean).pop() || '') +
-           // query 与 hash：路径末段相同的两个页面（两个视频、两篇文章）靠这段分开
+           (u.pathname.split('/').filter(Boolean).join('-') || '') +
            (u.search || '') + (u.hash || '');
   } catch { base = ''; }
   base = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  // **超长要加哈希后缀**（2026-10-19）：光 slice 的话，两个 query 很长但前 40 字
-  // 相同的地址仍然撞 id。app.js 的 `ascii()` 早就是这么做的（超长时截断并接上
-  // 一个哈希），这里跟上——**两边是同一族判据，改的时候记得两处都要看**。
-  if (base.length > 40) {
+  // **超长要加哈希后缀，上限是 32**（2026-10-20 修）：从前这里是 40，而服务端
+  // 收的是 32（model.ValidSlug：`^[a-z0-9][a-z0-9-]{0,31}$`）——于是凡是派生 id
+  // 超过 32 的地址，**扩展一条书签都存不进去**（整批 422），而地址本身一点问题
+  // 都没有。app.js 那边 2026-10-16 就修好了（它的 `ascii()` 用 SLUG_MAX=32），
+  // 这里跟上——**两边是同一族判据，改的时候记得两处都要看**。
+  if (base.length > 32) {
     const h = hash36(base);
-    base = base.slice(0, 40 - h.length - 1) + '-' + h;
+    base = base.slice(0, 32 - h.length - 1) + '-' + h;
   }
-  return base || String(name || url).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'item';
+  // 兜底那一条也要去掉首尾的连字符：slug 的首字符必须落在 [a-z0-9]。
+  return base || String(name || url).toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '').slice(0, 32) || 'item';
 }
 
 // hash36 是 app.js 那份的同款（FNV-1a 的 32 位变体，转 36 进制）。

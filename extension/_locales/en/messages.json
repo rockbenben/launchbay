@@ -134,10 +134,10 @@
     "message": "This machine doesn't know that icon name. To change it, use the edit button on that bookmark in the page."
   },
   "errNoBookmarks": {
-    "message": "No bookmarks could be read from that file — make sure it is the .html your browser exported."
+    "message": "No bookmarks could be read from this browser — make sure the bookmarks you meant are in this browser (another browser's or another machine's bookmarks are not in this one)."
   },
   "errNothingAccepted": {
-    "message": "None of the addresses in that file can go in (usually they have no host name, like javascript: links). Keep using those in the browser, or try another file."
+    "message": "None of the addresses in this browser's bookmarks can go in (usually they have no host name, like javascript: links). Keep using those in the browser; they cannot go into any profile (local file:// links are the exception — those do come in)."
   },
   "errOpsBatch": {
     "message": "That batch wasn't written — your bookmarks are untouched. Clicking again won't change it; this one has to be changed in the page."

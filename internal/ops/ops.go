@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rockbenben/launchbay/internal/apierr"
+	"strings"
 
 	"github.com/rockbenben/launchbay/internal/model"
 )
@@ -208,8 +209,18 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		if err := decode(op.Value, &g); err != nil {
 			return nil, err
 		}
+		// **不给 layout 就用磁贴**（2026-10-20 补上）：面板上「＋ 新分组」不带
+		// layout 也是磁贴，而 AGENTS.md 写的就是「不带就用 tiles」——从前这条
+		// 通路却把空串当非法值拒掉，于是文档与实现说的是两件事。
+		if g.Layout == "" {
+			g.Layout = model.LayoutTiles
+		}
 		if !model.ValidGroupLayout(g.Layout) {
-			return nil, fmt.Errorf("新分组的 layout 只能是 tiles/list，得到 %q", g.Layout)
+			return nil, fmt.Errorf("新分组的 layout 只能是 %s，得到 %q",
+				strings.Join(model.GroupLayoutValues, "/"), g.Layout)
+		}
+		if g.Accent != "" && !model.ValidAccent(g.Accent) {
+			return nil, fmt.Errorf("accent 只能是 #rgb 或 #rrggbb，得到 %q", g.Accent)
 		}
 		for _, ex := range b.Groups {
 			if ex.ID == g.ID {
@@ -223,7 +234,20 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 				return nil, err
 			}
 		}
-		b.Groups = append(b.Groups, g)
+		// **落位与组内条目那条同形**（2026-10-20 补上）：从前 op.Index 在这里被
+		// **静默忽略**，新组一律落在末尾——而文档写着「index 可选（add 的落位）」，
+		// 于是人写 index=0 以为它排第一，它却在最后。现在兑现它（越界照旧答，
+		// 判据与组内条目那条是同一句）。
+		at := len(b.Groups)
+		if op.Index != nil {
+			if *op.Index < 0 || *op.Index > len(b.Groups) {
+				return nil, fieldErr{"index", fmt.Errorf("index %d 越界（0..%d）", *op.Index, len(b.Groups))}
+			}
+			at = *op.Index
+		}
+		b.Groups = append(b.Groups, model.Group{})
+		copy(b.Groups[at+1:], b.Groups[at:])
+		b.Groups[at] = g
 		return warnsForItems(g.Items), nil
 	case kindItems:
 		g, err := findGroup(b, t.groupID)
@@ -307,11 +331,17 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 			g.Title = s
 		case "layout":
 			if !model.ValidGroupLayout(s) {
-				return nil, fmt.Errorf("layout 只能是 tiles/list，得到 %q", s)
+				return nil, fmt.Errorf("layout 只能是 %s，得到 %q", strings.Join(model.GroupLayoutValues, "/"), s)
 			}
 			warn = changed(g.Layout == s)
 			g.Layout = s
 		case "accent":
+			// **写侧也要卡**（2026-10-20 补上）：读侧 render.validatedAccent 会把坏值
+			// 悄悄丢掉，于是写进去一个坏色等于"按下去什么都没变"——而这条 op 是绿的。
+			// 判据只有一份：model.ValidAccent（写侧拒、读侧丢）。
+			if !model.ValidAccent(s) {
+				return nil, fmt.Errorf("accent 只能是 #rgb 或 #rrggbb，得到 %q", s)
+			}
 			warn = changed(g.Accent == s)
 			g.Accent = s
 		}
@@ -345,6 +375,12 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 // 按 bool 解码，解不出来就说人话。
 func setDocField(b *model.Bookmarks, field string, raw json.RawMessage) ([]string, error) {
 	if docBoolFields[field] {
+		// **null 也要拒**（2026-10-20 补上）：json 的 null 对非指针类型是**空操作**，
+		// 于是 decode 收下它、值被当成 false/空串——而"按下去什么都没变"正是
+		// 这一格要防的。
+		if strings.TrimSpace(string(raw)) == "null" {
+			return nil, fmt.Errorf("%s 不能是 null（要么 true 要么 false）", field)
+		}
 		var v bool
 		if err := decode(raw, &v); err != nil {
 			return nil, fmt.Errorf("%s 只能是 true 或 false（写成字符串 %q 时页面会静默当假）", field, string(raw))

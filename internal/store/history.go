@@ -16,7 +16,7 @@ import (
 //
 // "cli" 是本案补的缺口：§4.6 原枚举没覆盖"人在终端跑 CLI"这一渠道，
 // revert 的自报头 X-LB-By 就要用它（Task 13 把它写回 spec；openapi.json
-// 的 by 枚举照七个值写）。
+// 的 by 枚举照六个值写）。
 var ByValues = []string{"ai", "bookmarklet", "extension", "web", "import", "cli"}
 
 func ValidBy(by string) bool {

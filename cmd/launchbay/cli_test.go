@@ -531,6 +531,31 @@ func TestPreConfigDispatch(t *testing.T) {
 	}
 }
 
+// 子命令名单**只有一份**（cliCommands 那张表），而分发也按它走。
+//
+// **这条钉的是 2026-10-20 修的那个坑**：从前那张表只给 `--help` 用，分发是
+// 另写的一个 switch——于是加一条命令，它会出现在帮助里、也被认成"不是错别字"，
+// 而分发认不出 → 静默落进 serve 分支，用户看到的是"端口被占用"。
+//
+// 判据两条：表里每一条**都得有 runner**（没有的那条就是会掉进 serve 的那条），
+// 而**每一个 runner 都得在表里**（表外的那个是第二份名单的开始）。
+func Test子命令名单只有一份且每一条都接得上(t *testing.T) {
+	for _, c := range cliCommands {
+		if c.run == nil {
+			t.Errorf("子命令 %q 在表里却没有 runner——分发按表走，它会掉进 serve 分支（用户看到的是「端口被占用」）", c.name)
+		}
+	}
+	// 表里每一条都要真的能被分发接住（而不是落进 notCLICommand = 起服务）。
+	for _, c := range cliCommands {
+		// 用一个必然是"用法错误"的参数去调：每个子命令缺自己的必填旗标都会退 2，
+		// 而"落进 serve"会退 notCLICommand（-1）——两者的差别就是这条要看的。
+		code := runCLI([]string{c.name}, config{Port: "7600"}, io.Discard, io.Discard)
+		if code == notCLICommand {
+			t.Errorf("子命令 %q 在表里，可分发接不住它——它会静默落进 serve 分支", c.name)
+		}
+	}
+}
+
 // 端点回了 200 但**响应读不出来**时，CLI 不许替它报数（2026-10-16）。
 // 从前这两条路都是 `_ = json.Unmarshal(...)` 然后照常打印，于是形状不对的
 // 200 会印成"已恢复到 rev 0 的内容，新的 rev 是 0"——一个编出来的成功，

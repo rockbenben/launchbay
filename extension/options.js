@@ -199,7 +199,10 @@ async function applyBookmarks() {
     const r = await applyPlan(c, bmPlan);
     const warn = (r.warnings || []).length ? t('warnClause', r.warnings.join(t('warnSep'))) : '';
     bmReset();
-    say(t('applied', r.applied, r.rev, warn), 'ok');
+    // **条数用计划里的 count（书签条数），不用 r.applied**：applied 数的是**应用了
+    // 几条 op**（建一个分组也是一条 op），说成「导入 N 条」会把分组的数目算成
+    // 书签的数目（openapi.json 与 AGENTS.md 都写明了这一点）。
+    say(t('applied', bmPlan.count, r.rev, warn), 'ok');
   } catch (e) {
     bmApply.disabled = false;
     say(t('applyFail', e.message), 'bad');
