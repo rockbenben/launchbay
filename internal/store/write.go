@@ -71,7 +71,10 @@ func (s *Store) WriteFileJSON(path string, v any) error {
 }
 
 // WriteFileAtomic 用同目录临时文件 + rename。Windows 上 os.Rename 能
-// 覆盖已存在的目标（Go 内部走 MoveFileEx + REPLACE_EXISTING），跨平台一致。
+// 覆盖已存在的目标（Go 内部走 MoveFileEx + REPLACE_EXISTING），跨平台一致——
+// **但目标正被别的进程打开着时它会答 Access is denied**（杀软/索引器扫到
+// 刚写的文件就会占一下），而那把锁是瞬时的。所以这一步走 renameWithRetry
+// （2026-10-20）：只对"被占着"这一种错重试，别的错原样报出。
 func (s *Store) WriteFileAtomic(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -98,7 +101,7 @@ func (s *Store) WriteFileAtomic(path string, data []byte) error {
 		_ = os.Remove(name)
 		return fmt.Errorf("close: %w", err)
 	}
-	if err := os.Rename(name, path); err != nil {
+	if err := renameWithRetry(name, path); err != nil {
 		_ = os.Remove(name)
 		return fmt.Errorf("rename 到 %s: %w", path, err)
 	}
