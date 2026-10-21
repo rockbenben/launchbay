@@ -65,7 +65,7 @@
         "content": "$2"
       }
     },
-    "message": "This window had $1 saveable pages, so $2 weren't saved."
+    "message": "This window had $1 pages to save, so $2 weren't saved."
   },
   "skippedDup": {
     "placeholders": {
@@ -103,7 +103,7 @@
     "message": "This machine has no profile called “$1” — it was probably deleted."
   },
   "errAdminOnly": {
-    "message": "That is the admin key — it doesn't open the bookmarks side. The extension settings page wants that profile's own token."
+    "message": "That's the admin key — it doesn't open the bookmarks side. The extension settings page wants that profile's own token."
   },
   "errBadUrl": {
     "message": "That address isn't complete yet — it needs a scheme and a host name (for example http://10.0.0.5:5000/)."
@@ -128,7 +128,7 @@
     "message": "That bookmark is already in this profile — it wasn't stored a second time. To change it, use the edit button on it in the page."
   },
   "errGoneTarget": {
-    "message": "That group or bookmark is gone — someone else may have changed it. Reload the page and look again."
+    "message": "That group or bookmark is gone — someone else may have changed it. Refresh the page and look again."
   },
   "errIconName": {
     "message": "This machine doesn't know that icon name. To change it, use the edit button on that bookmark in the page."
