@@ -325,15 +325,18 @@ type profileData struct {
 type profileView struct {
 	i18nView
 	Profile *model.Profile
-	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标，不带文字**：
+	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标 + 一行字**：
 	// 猫头是「代码/仓库」最通用的记号，而落点正好就是 GitHub——图标与去处同一个
-	// 名字，不需要解释。悬停出名字（title），读屏有可及名（aria-label）：
-	// 图标换成图标不等于丢掉本地化的名字（同顶栏那颗搜索键）。
+	// 名字，不需要解释。
 	//
-	// **它画在档案页的页脚**（正文列末尾那一行，`<main>` 之内）：网页上「源码/
-	// 仓库」历来就在页脚，而那是这一页最不抢眼的位置——顶栏那一排是「这台机器/
-	// 这一份」的动作，源码链接放那儿是抢主视觉区；设置面板最下面那一处紧挨着
-	// 「回我的页面」，挨着的读起来像个导航项。
+	// **它住在设置面板的最下面那一行**（2026-10-21 从档案页的页脚搬进来，用户定的）：
+	// 档案页是**天天看**的那一页，而「源码/需求」是低频事——放在那一页，它就成了
+	// 别人不点也要看见的东西（多栏那一档它还被当成"一条没有名字的书签"，见
+	// base.css 那一段）。设置面板是"出了事去找设置"的落点，源码入口放那儿各得其所。
+	//
+	// **它带一个字**：从前那枚是纯图标，而一枚孤零零的猫读作"某个没有名字的
+	// 东西"——这正是它在多栏那一档被当成"一条没有名字的书签"的那件事。带一个字
+	// 之后它读作**一句引用**（图标 + 文字），可及名也就是那句可见文字。
 	RepoIcon iconPiece
 	// PageTitle 是**顶栏那行大字与浏览器标签页的前半**：这一页叫什么。
 	// 它取自 Profile.PageTitle（台面偏好，与 theme/layout 同族），空则按界面语言
@@ -424,7 +427,7 @@ type profileView struct {
 	PrefGroups []groupView
 	// PrefGroupsBroken 是"分组清单画不出来"的原因（非空 = 那一节不画，并说清为什么）。
 	// **坏档不挡面板**：改台面偏好只写 profile.json，而书签文件读坏了正是最需要
-	// 改排版看看的时候——所以那一节单独退化，外观那几行照常在。
+	// 改排版看看的时候——所以那一节单独退化，「这一页」那几行照常在。
 	PrefGroupsBroken string
 	// PrefPalette / PrefPaletteNames 把 model 那张色板原样带上来。**不在这里
 	// 再抄一份**：色块渲成什么、读屏念什么，两边必须与 model 同数同序
@@ -499,6 +502,7 @@ func paintedBackground(p *model.Profile) string {
 // {{with .Theme}} 对非空串取真 → 页面发出 data-theme="auto"；CSS 的亮色通路是
 // [data-theme=light] 与 :root:not([data-theme])，属性在则媒体查询那条不匹配，
 // 值不是 light/dark 则显式那条也不匹配——系统偏好亮色的默认档案被钉死在暗色上。
+
 // compactView 回答"这一页是不是**全在一屏**的那一档"。
 //
 // 两档的共同点是**所有分组同时在场**：wall 把它们排成多栏、dense 把每条压成一行，
@@ -663,7 +667,7 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	// 印的就是它们：两处各写一个字面量的话，改一处要记得改另一处，而漏掉的那一处
 	// 症状是"界面上限与实际判的对不上"（浏览器拦住了、curl 拦不住）。
 	funcs := template.FuncMap{
-		"shortTime": shortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
+		"shortTime": ShortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
 		"pinMin": func() int { return auth.PinMinLen }, "pinMax": func() int { return auth.PinMaxLen },
 		// repoURL 是**源码仓库的地址**（render.RepoURL）。做成模板函数而不是
 		// 视图上的一个字段：字段要**每一页都记得填**，而忘了填的那一处症状是
@@ -841,7 +845,7 @@ func hostOf(raw string) string {
 	return u.Host
 }
 
-// shortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
+// ShortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
 // 也不能编一个时间出来。
 //
 // **按语言走形状**：同一个 `01-02 15:04` 在中文读者那里读成"10 月 11 日"，
@@ -851,7 +855,13 @@ func hostOf(raw string) string {
 //
 // lang 显式传进来而不是自己去读 store：这一层没有 Server，而"用哪种语言排版"
 // 是渲染侧判据的一部分，调用点看得见比藏起来好（与 Server.t 同一理由）。
-func shortTime(lang, s string) string {
+//
+// **它被导出是因为回退页那一格也要用它**（2026-10-21）：那一格从前在 httpapi
+// 侧自己格式化，于是同一个时刻在管理页是「10月11日 15:04」、在回退页是
+// 「10-11 15:04」——而英文页上也是那串分不清月日在前的数字。**时间的写法只有
+// 这一份**（render.go 的 HistoryRow.At 注释同一句），所以这里导出它，而不是在
+// httpapi 那头再写一遍格式。
+func ShortTime(lang, s string) string {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return s
@@ -987,7 +997,6 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
-		RepoIcon:  repoIcon(e.ix),
 		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
 	// 这一页的名字：起了就用，没起就按语言给通用默认（见 profileView.PageTitle）。
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
@@ -1148,9 +1157,9 @@ func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error)
 // 为什么是这几颗而不是每行一个：tab 的价值是跳得远，而那一屏只有这几处断层
 // （每颗一个分节头）；再往下拆量到的是每格跳 100px，那是噪声不是导航。
 const (
-	PrefTabLook   = "look"   // 外观
+	PrefTabLook   = "look"   // 这一页（2026-10-21 从「外观」改过来：那一节里装着界面语言与「点书签时」，都与外观无关）
 	PrefTabGroups = "groups" // 分组
-	PrefTabOut    = "out"    // 回退与历史
+	PrefTabOut    = "out"    // 备份与历史（2026-10-21 从「回退与历史」改过来）
 	PrefTabPin    = "pin"    // 我的 PIN（本人自助改自己那道门，2026-10-20 加）
 )
 
@@ -1162,6 +1171,10 @@ func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, br
 	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps, HasPin: auth.HasPin(p.PIN),
 		PrefGroups: gs, PrefGroupsBroken: broken,
+		// 那一枚 GitHub 猫头**住在这张页**上（面板最下面那一行，2026-10-21 从档案页
+		// 的页脚搬过来）。档案页不再带它——所以这一格**只在这里填**，
+		// 档案页那一侧留着空值（视图结构体是两边共用的，字段却是各有各的用法）。
+		RepoIcon:   repoIcon(e.ix),
 		Bookmarks:  profileData{OpenInNewTab: openNewTab},
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
 		PrefPalette: model.GroupAccentPalette, MaxGroupTitleRunes: model.MaxGroupTitleRunes}

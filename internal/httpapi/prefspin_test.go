@@ -25,7 +25,7 @@ func Test面板里那张我的PIN表单(t *testing.T) {
 	page := get(h, "/prefs?tab=pin", cookie).Body.String()
 	// **action 带着 `?tab=pin`**：这一格只出现在「我的 PIN」那一节，而服务端答错时
 	// 把面板连同那句提示一起重画、读的是请求上的 `?tab=`——不带它，错话就落回第一
-	// 颗 tab（屏上是「外观」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
+	// 颗 tab（屏上是「这一页」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
 	for _, must := range []string{`action="/prefs/pin?tab=pin"`, `name="new"`, `name="old"`} {
 		if !strings.Contains(page, must) {
 			t.Errorf("面板上少了 %q", must)
@@ -55,7 +55,7 @@ func Test面板里那张我的PIN表单(t *testing.T) {
 	}
 	// **而且要落回「我的 PIN」那一节**：服务端答错时把面板连同那句提示一起重画，
 	// 而那一重画读的是请求上的 `?tab=`。不带它的话，错话会落回第一颗 tab——屏上
-	// 是「外观」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了。
+	// 是「这一页」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了。
 	if !strings.Contains(rec.Body.String(), `id="prefs-tab-pin" checked`) {
 		t.Errorf("旧 PIN 不对时页面没有落回「我的 PIN」那一节：%.300s", rec.Body)
 	}

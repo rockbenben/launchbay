@@ -12,7 +12,7 @@ import (
 // **判据只有一份：那张表单自己。** app.js 从前抄了一份名单
 // （theme/view/layout/title），于是两格在浮层里按了等于没按：
 //   - 第二行（addrLevel，2026-10-19 加的）没进那份名单；
-//   - 「改名」那一行的保存键**没有 name**（它说的是「保存」，不是"改成哪一档"），
+//   - 「页面名字」那一行的保存键**没有 name**（它说的是「保存」，不是"改成哪一档"），
 //     于是名单里那个 title 永远匹配不上。
 //
 // 症状是**按了没反应**：preventDefault 已经把原生提交取消了，而 payload 是空的，
@@ -32,9 +32,9 @@ func Test面板里每一张prefs表单恰好一个字段名(t *testing.T) {
 	html := string(mustPrefs(t, s, "dad"))
 
 	forms := prefsFormRE.FindAllStringSubmatch(html, -1)
-	// 六张：改名/排法/第二行/档案形态/主题/界面语言。少一张就是有一格在面板上画不出来。
+	// 六张：页面名字/排列方式/第二行/分组列表的位置/主题/界面语言。少一张就是有一格在面板上画不出来。
 	if len(forms) != 6 {
-		t.Fatalf("面板里有 %d 张 POST /prefs 的表单，要 6 张（改名/排法/第二行/档案形态/主题/界面语言）", len(forms))
+		t.Fatalf("面板里有 %d 张 POST /prefs 的表单，要 6 张（页面名字/排列方式/第二行/分组列表的位置/主题/界面语言）", len(forms))
 	}
 	for i, f := range forms {
 		set := map[string]bool{}

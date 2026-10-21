@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/rockbenben/launchbay/internal/bookimport"
 	"github.com/rockbenben/launchbay/internal/model"
@@ -69,6 +70,10 @@ func redirectProfile(w http.ResponseWriter) {
 // 后果，同一条纪律）。
 type snapshotChoice struct {
 	// When 是那份快照落盘的时间（"上周三那版"里的那个"上周三"）。
+	//
+	// **存的是 RFC3339 原文**：排版交给 render.ShortTime（那一页的语言决定
+	// 形状），而这一格从前在 httpapi 侧自己格式化，于是它与管理页、
+	// 改动历史长得不一样（2026-10-21 修）。
 	When  string
 	Rev   int64
 	Items int
@@ -143,7 +148,12 @@ func (s *Server) snapshotChoices(id string) (choices []snapshotChoice, unreadabl
 		}
 		prevSig = sig
 		if when, ok := s.deps.Store.SnapshotMTime(id, rev); ok {
-			c.When = when.Local().Format("01-02 15:04")
+			// **原文存着，排版交给渲染层那一份**（render.ShortTime）：这一格从前在
+			// httpapi 侧自己格式化（`01-02 15:04`），于是同一个时刻在管理页是
+			// 「10月11日 15:04」、在回退页是「10-11 15:04」——而英文页上也是那串
+			// 分不清月日在前的数字。**时间的写法只有一份**（render.go 的
+			// HistoryRow.At 那句注释同一句），所以这里不排版。
+			c.When = when.UTC().Format(time.RFC3339)
 		}
 		for _, g := range b.Groups {
 			if len(c.Groups) == maxChoiceGroupNames {
@@ -174,7 +184,9 @@ func groupSig(b *model.Bookmarks) string {
 func (s *Server) choiceLabel(t tr, c snapshotChoice) string {
 	label := t.t("revert.choice.label", c.Rev, c.Items)
 	if c.When != "" {
-		label = c.When + " · " + label
+		// **时间按这一页的语言排版**（render.ShortTime）：中文是「10月21日 16:33」、
+		// 英文是「21 Oct, 16:33」——与管理页、改动历史同一份写法。
+		label = render.ShortTime(string(t.cat.Lang()), c.When) + " · " + label
 	}
 	// 分组集合与现在**一模一样**时，这一格到此为止：13 份快照的实拍里，
 	// 12 行的组名一字不差地重复，每行四成宽度花在从不变化的信息上。

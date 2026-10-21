@@ -399,9 +399,39 @@ func TestRevertPage_组名截断不许把总组数一起截掉(t *testing.T) {
 		t.Errorf("长分组名没截成 %q:\n%s", clipped, page)
 	}
 	// 版本号前面要有落盘时间：这一页回答的是"上周三那版"，裸版本号答不了时间。
+	// **形状按这一页的语言走**（render.ShortTime，与管理页、改动历史同一份
+	// 写法）：中文是「10月21日 16:33」。这一格从前在 httpapi 侧自己格式化
+	// （`01-02 15:04`），于是同一个时刻在两页长得不一样，而英文那串数字
+	// 分不清月在前还是在后（2026-10-21 修，证人见下面那条）。
 	// 只验形状不比表，因为快照就是这一刻写的，比秒表会输在跨分钟的运气上。
-	if !regexp.MustCompile(`\d{2}-\d{2} \d{2}:\d{2} · 第 2 版`).MatchString(page) {
+	if !regexp.MustCompile(`\d{1,2}月\d{1,2}日 \d{2}:\d{2} · 第 2 版`).MatchString(page) {
 		t.Errorf("那一格没有时间前缀:\n%s", page)
+	}
+}
+
+// 同一格在英文页上必须是**英文的形状**（2026-10-21）。
+//
+// 这条是上一条的另一半：那一格从前自己格式化，于是英文页上也是
+// 「10-21 16:33」——英语读者分不清那是 10 月 21 日还是 21 号之前那个月
+// （而中文那串「10-21」又读成 10 月 21 日，同一份文件两种读法）。
+func TestRevertPage_时间前缀按这一页的语言排版(t *testing.T) {
+	s, h := setupBatch(t)
+	// 这一份自己记下英文：回退页说的就是它那一种语言。
+	p, err := s.LoadProfile("dad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Language = "en"
+	if err := s.SaveProfile(p); err != nil {
+		t.Fatal(err)
+	}
+	twoRevisions(t, h)
+	page := get(h, "/revert", revertDadCookie).Body.String()
+	if !regexp.MustCompile(`\d{1,2} [A-Z][a-z]{2}, \d{2}:\d{2} · `).MatchString(page) {
+		t.Errorf("英文页上那一格的时间不是英文形状:\n%s", page)
+	}
+	if regexp.MustCompile(`\d{2}-\d{2} \d{2}:\d{2}`).MatchString(page) {
+		t.Errorf("英文页上那一格还是那串分不清月日的数字:\n%s", page)
 	}
 }
 

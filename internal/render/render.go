@@ -197,9 +197,10 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 // PickerOptions 控制进门页的形状。Setup、单人那两支的标题由调用方（httpapi）算好
 // 递进来：**档案数怎么翻成"该问谁 / 该问口令 / 该让他建第一个"是产品判据，
 // 不在渲染器里数第二遍**（与 themeAttr、validatedAccent 同一条纪律）。
-// 唯一的例外是 ≥2 那一支：它什么都不递，用下面那句兜底问句——问句是文案而不是判据，
-// 两个包各写一遍就是两份，而那份重复渲染结果一字不差，行为证人永远看不见，
-// 所以它由 httpapi 的一条源码闸钉着。
+// 唯一的例外是 ≥2 那一支：**它也显式递标题**（httpapi 的 `s.t(r,
+// "picker.heading.many")`，2026-10-13 改判——原先靠"不递 → 渲染器退回硬编码的
+// 「谁来用？」"，代价是英文机器上这一页的大标题是中文）。渲染器里那份降级成**兜底**：
+// 标题不许因为漏传而渲染成空白。
 type PickerOptions struct {
 	Preselect string
 	// KeepAdd 是 bookmarklet 带进来的 ?add=，必须穿过 PIN 步骤活着回来。
@@ -705,8 +706,8 @@ func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang) (Page, error) {
 // 那一页要为整页渲染标题、条目与导航树，而搜索时只渲染命中的分组——于是"面板里
 // 少了几行"会取决于当时有没有在搜东西，而面板与搜索词毫无关系。
 //
-// 读不出来**不算失败**：把这一节撤掉并说清为什么，外观那几行照常在（今天七行：
-// 改名/排法/第二行/档案形态/主题/背景图/点书签时）。这与 `/prefs` 的"坏档不挡"是
+// 读不出来**不算失败**：把这一节撤掉并说清为什么，「这一页」那几行照常在（今天八行：
+// 界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景图/点书签时）。这与 `/prefs` 的"坏档不挡"是
 // 同一条纪律——改台面只写 profile.json，而书签文件读坏了正是最需要改排版看看的时候。
 func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string, bool) {
 	b, err := r.s.LoadBookmarks(id)

@@ -20,7 +20,8 @@ import (
 )
 
 // handlePrefs 是浏览器表单通路：改的是"这个人对自己台面的偏好"（主题 +
-// 档案形态 + 整页排法 + 这一页叫什么）。它**不是** API 端点，也不建 JSON 版——表单发不出 JSON，而 AI
+// 分组列表的位置 + 排列方式 + 卡片第二行印什么 + 这一页叫什么 + 这一份自己的
+// 界面语言）。它**不是** API 端点，也不建 JSON 版——表单发不出 JSON，而 AI
 // 替你换主题没有真实需求；每多一条 API 面就要 openapi 与 AGENTS.md 各同步一次
 // （spec §6.1）。
 //
@@ -33,6 +34,7 @@ import (
 //
 // 为什么不写历史行：它不动书签、不产生 rev，与"改自己 PIN"同类。五条不写
 // 审计行的动作一起记在 spec §15，防止下一个人在这里"顺手补一行"。
+
 // maxPageTitleRunes 是"这一页叫什么"那一格的长度上限。按**字**（rune）数而不是
 // 按字节：这一格写中文是常态，按字节算会让中文比英文少 3 倍额度而没人说得清为什么。
 const maxPageTitleRunes = 60
@@ -195,8 +197,8 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 档案整个没了（会话指着一个已删的档案）→ 回选择页，那里会重新列一遍。
-	// **坏档不挡**：改台面偏好只写 profile.json 的 theme/view/layout/pageTitle，
-	// 而坏档正是最需要改排版看看的时候。
+	// **坏档不挡**：改台面偏好只写 profile.json 的 theme/view/layout/addrLevel/
+	// pageTitle/language，而坏档正是最需要改排版看看的时候。
 	if _, err := s.deps.Store.LoadProfile(id); errors.Is(err, store.ErrNotFound) {
 		redirectPicker(w)
 		return
@@ -212,13 +214,14 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 	s.writePage(w, r, page)
 }
 
-// handlePrefsGroup 是台面面板「分组」那一节的表单通路：改一个分组的**颜色**与
-// **这一组自己的排法**（磁贴 / 单列）。
+// handlePrefsGroup 是台面面板「分组」那一节的表单通路：改一个分组的**名字、
+// 颜色**与**这一组自己的排法**（磁贴 / 单列 / 大卡），或**建一个新分组**，
+// 或**删掉这一组**。
 //
-// **为什么不在 /prefs 里一起办**：那两个字段落在 bookmarks.json 的分组上，
+// **为什么不在 /prefs 里一起办**：那几个字段落在 bookmarks.json 的分组上，
 // 属于书签数据——快照、审计线、rev 三道闸一道都不能少，所以它走
 // `applyBatch`（与 POST /api/v1/batch 同一个落点，`/import/apply` 也是这么走的）。
-// `/prefs` 只写 profile.json 的台面偏好，混进来的话它那句"四个字段至少给一个"
+// `/prefs` 只写 profile.json 的台面偏好，混进来的话它那句"六格至少给一个"
 // 就会开始管到不属于它的东西，而 422 的字段名也就再也不能当"这一格写错"读。
 //
 // **档案不接受申报**：与 /revert、/history、/prefs 同一族，档案从会话推导。
@@ -226,6 +229,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 //
 // 成功回 `/prefs` 而不是 `/`：改颜色本来就是一件要连着改好几组的事，
 // 回到面板才能接着按下一颗；而面板上有「回我的页面」，出去的路是现成的。
+
 // createGroupFromForm 是台面面板「＋ 新分组」那一格的落点（2026-10-15）。
 //
 // 落点与改颜色/改名/排法**完全同一份**（applyPrefsOps → applyBatch：快照、审计
@@ -444,9 +448,6 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	// 改名那一格的值上限在这里判，理由与 maxPageTitleRunes 同源：表单上的
 	// maxlength 只有浏览器认，curl 与扩展不认。
 	//
-	// 改名那一格的值上限在这里判，理由与 maxPageTitleRunes 同源：表单上的
-	// maxlength 只有浏览器认，curl 与扩展不认。
-	//
 	// **校验只在「它就是那一次的全部意图」时生效**（onlyRename）：输入框里留着
 	// 一次敲完没提交的内容时，按一颗色块会把那半句一起带上——那是"顺手被另一格
 	// 拦下"，说清是哪一格该比说清它超了几十个字有用，而颜色那一格必须照改。
@@ -527,7 +528,7 @@ func prefsTab(r *http.Request) string {
 // **为什么不并进 `POST /prefs` 的字段名单**：那一条是 urlencoded 的台面偏好表单，
 // 落点是 profile.json（改完不产生 rev、不做快照）；而 `openInNewTab` 住在**书签文档**
 // 里——它跟着导出走，改它要过 rev 与快照，能在「回退」里退回来。两族落点不同，
-// 混在一处会让那句「四个字段至少给一个」开始管到不属于它的东西。
+// 混在一处会让那句「六格至少给一个」开始管到不属于它的东西。
 func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string, opList []ops.Op) {
 	out, err := s.applyBatch(id, id, "web", nil, opList)
 	if err != nil {
@@ -552,7 +553,7 @@ func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string
 		// **落回时把 `?tab=` 带上**（2026-10-15）：这一族（/prefs/group 与
 		// /prefs/tabs）每一次按色块/排法都是一次提交，而分组那一节有二十行时
 		// 「改完跳回第一类」等于那一节没法用。带的是**请求里那个** tab
-		// （prefsTab 收过一遍），所以外观那一节照旧落在第一颗上。
+		// （prefsTab 收过一遍），所以「这一页」那一节照旧落在第一颗上。
 		http.Redirect(w, r, "/prefs?tab="+prefsTab(r), http.StatusSeeOther)
 	}
 }

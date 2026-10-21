@@ -614,7 +614,7 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// 42×42 与 42×37（CSS 给 ±6，第 6 个像素是开区间边界所以扫到 5；把手贴
 		// 行尾，向右那圈落在行外量不到）——差的那一两像素是边界，不是没扩。
 		// **只在粗指针上扩**是这条规则的形状之一：dense 那一档（精确指针专属）
-		// 行高 26px，无条件扩就会盖住相邻那行的把手。
+		// 行高 40px（实测），无条件扩就会盖住相邻那行的把手。
 		"幽灵键命中区撑出边界（粗指针）": `@media (hover:none),(pointer:coarse){`,
 		"幽灵键命中区那一圈":       `.pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}`,
 		// 两枚键的缝给到 12px，否则后画的把手把 4px 那片整段拿走，复制键向右 0px。
@@ -1488,7 +1488,7 @@ func Test无档案的三页都不发data_theme(t *testing.T) {
 // 这条测的是模板，端点那侧的证人在 httpapi/prefs_test.go；两侧都钉住才叫配对。
 func TestPrefsPage_主题三颗键各交自己那一档(t *testing.T) {
 	themeKeyRE := regexp.MustCompile(`name="theme" value="(\w+)" aria-pressed="(\w+)" title="([^"]*)">([^<]*)</button>`)
-	// 改名那一行也要在：面板是**所有**台面偏好的唯一入口，少一行就少一条路。
+	// 页面名字那一行也要在：面板是**所有**台面偏好的唯一入口，少一行就少一条路。
 	wantTitle := `name="title" type="text"`
 	if len(wantLabel) != len(model.ThemeValues) {
 		t.Fatalf("wantLabel 有 %d 格，model.ThemeValues 有 %d 档：值集变了，这张表也要跟着变",
@@ -1542,7 +1542,7 @@ func TestPrefsPage_主题三颗键各交自己那一档(t *testing.T) {
 			t.Errorf("theme=%s：按下的键是 %v，要恰好是当前这一档一颗", theme, pressed)
 		}
 		if !strings.Contains(body, wantTitle) {
-			t.Errorf("theme=%s：面板里没有改名那一格（它是台面偏好的另一半）:\n%.300s", theme, body)
+			t.Errorf("theme=%s：面板里没有页面名字那一格（它是台面偏好的另一半）:\n%.300s", theme, body)
 		}
 	}
 }
@@ -1908,7 +1908,8 @@ func mustRender(t *testing.T, s *store.Store, id string) []byte {
 }
 
 // mustPrefs 渲染台面面板的独立页（GET /prefs）。2026-10-13 起，「回退」「改动
-// 历史」「改名」「视图」「档案形态」「主题」「背景图」「点书签时」「第二行」这九件事
+// 历史」「界面语言」「页面名字」「排列方式」「第二行」「分组列表的位置」「主题」「背景图」
+// 「点书签时」这十件事
 // 全部只住在这一页/这一浮层里（档案页只剩一颗「台面」入口），所以凡是断言那几件事
 // "画得出来"的测试都要走它。
 func mustPrefs(t *testing.T, s *store.Store, id string) []byte {

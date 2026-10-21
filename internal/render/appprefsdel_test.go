@@ -104,7 +104,7 @@ func TestCSS_删掉这一组在名字那行右端且展开后独占一行(t *tes
 		}
 	}
 	// 44px 不许在这里另开一族：summary 已经在导航族那条联合规则里
-	// （`.gnav a,summary,…{min-height:44px}`），再写一条就是第七族。
+	// （`.gnav a,summary,…{min-height:44px}`），再写一条就是第八族。
 	for _, sel := range []string{
 		".prefs-group-del{flex", ".prefs-group-del[open]{flex",
 		".prefs-group-del>summary{", ".prefs-group-del[open]>summary{",

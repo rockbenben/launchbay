@@ -149,7 +149,7 @@ const APP_I18N = {
     "app.delete.confirmMany": "删掉这 %d 条",
     "app.delete.more": "…另外还有 %d 条没列出来",
     "app.delete.aria": "批量删除",
-    "app.delete.undoHint": "删掉之后还能用「设置 → 回退与历史」找回这一版",
+    "app.delete.undoHint": "删掉之后还能用「设置 → 备份与历史」找回这一版",
     "app.applyOps.fail": "%s没存上：%s",
     "app.opsConflict": "这一份已经被改过了。刷新之后再试一次。",
     "app.opsWrongProfile": "这一页改的不是你正在用的那一份。点右上角的档案名，重新进一次。",
@@ -197,7 +197,7 @@ const APP_I18N = {
     "app.icon.libCommon": "Common ones",
     "app.icon.libAll": "All of them in the library (%s)",
     "app.icon.libLoad": "Load more (%s shown so far)",
-    "app.icon.libNone": "Nothing in the library is called %s",
+    "app.icon.libNone": "Nothing in the library is called “%s”.",
     "app.icon.libMore": "%s in all, showing the first %s",
     "app.icon.libFail": "The icon library could not be reached (try again in a moment)",
     "app.save": "Save",
@@ -254,7 +254,7 @@ const APP_I18N = {
     "app.multi.delete": "Delete (%d)",
     "app.multi.none": "Clear selection",
     "app.multi.exit": "Exit",
-    "app.multi.hint": "In multi-select: click cards to pick or unpick them. The row below holds the bulk actions; press Esc to exit.",
+    "app.multi.hint": "In multi-select: click cards to select or deselect them. The row below holds the bulk actions; press Esc to exit.",
     "app.move.aria": "Which group to move to",
     "app.move.title": "Move these %d bookmarks to",
     "app.move.cancel": "Cancel",
@@ -296,16 +296,16 @@ const APP_I18N = {
     "app.delete.confirmMany": "Delete %d bookmarks",
     "app.delete.more": "…and %d more not listed",
     "app.delete.aria": "Bulk delete",
-    "app.delete.undoHint": "You can bring this version back from Settings → Revert and history",
+    "app.delete.undoHint": "You can bring this version back from Settings → Backup & history",
     "app.applyOps.fail": "%s didn't go through: %s",
     "app.opsConflict": "This profile changed underneath you. Refresh and try again.",
-    "app.opsWrongProfile": "This page isn't the profile you're using. Tap the name at the top right and come back in.",
-    "app.opsStale": "That group or bookmark is gone — someone else may have changed it. Reload and look again.",
+    "app.opsWrongProfile": "This page isn't the profile you're using. Click the profile name at the top right and come back in.",
+    "app.opsStale": "That group or bookmark is gone — someone else may have changed it. Refresh and look again.",
     "app.opsDuplicate": "That one is already in this profile — a bookmark can't be stored twice. To change it, press ✎ on it.",
     "app.opsIcon": "This machine doesn't know that icon name. Pick another, or leave it empty and the first character of the title is used.",
     "app.resolveBadUrl": "That address isn't complete yet — it needs a scheme and a host name (e.g. http://10.0.0.5:5000/).",
     "app.resolveDown": "That page didn't answer (the machine may be off). You can still save it and fill the title in later.",
-    "app.opsNoProfile": "This machine no longer has that profile — it was probably just deleted. Pick another one from the name at the top right.",
+    "app.opsNoProfile": "This machine no longer has that profile — it was probably just deleted. Pick another from the profile name at the top right.",
     "app.opsBroken": "That profile's data file can't be read, so the change wasn't written. Retrying won't help — the file has to be fixed on this machine.",
     "app.opsRejected": "That batch wasn't written — this machine didn't accept what was in it. (The reason is in the browser console.)",
     "app.opsNoSnap": "This version couldn't be stored, so the change was cancelled — your bookmarks are untouched.",
@@ -566,6 +566,9 @@ const APP_I18N = {
   const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
   const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: T('app.ph.group'), autocomplete: 'off' });
+  // 「新分组名」这一格的**标签**要能跟着输入框一起藏（2026-10-21 修）——
+  // 见 syncGroupFields 那段：只藏输入框的话，屏上会留下一行没有框的标签。
+  const fNewGroupLabel = el('label', { text: T('app.field.newGroup') }, [fNewGroup]);
   // 「这一组用磁贴还是单列」——**只在建新分组时出现**。往已有分组里加一条时它
   // 没有作用，而"点了没反应的东西不进界面"（§8.1）。
   //
@@ -598,9 +601,17 @@ const APP_I18N = {
   }
   // 建新分组的那几格跟着下拉的当前值显隐：选了「＋ 新分组…」才问名字，
   // 没选就不占那一屏——一个永远在、永远不动的输入框是界面上最吵的一种东西。
+  //
+  // **标签与输入框一起藏**（2026-10-21 修）：从前只藏了输入框，标签那一行留在
+  // 屏上——于是「＋ 添加」浮层里浮着一行没有框的「新分组名」，而它下面是一个
+  // 图标下拉框。看上去像忘了删的半截表单。
+  // 藏标签这一件事 CSS 也要配合：`.sheet label:has(…)` 是作者规则，权重压过
+  // 浏览器默认的 `[hidden]{display:none}`，于是光写 `hidden` 是空话——
+  // 那条规则改成 `:not([hidden])` 才让 hidden 说了算。
   function syncGroupFields() {
     const creating = fGroup.value === NEW_GROUP;
     fNewGroup.hidden = !creating;
+    fNewGroupLabel.hidden = !creating;
     fGroupShapeWrap.hidden = !creating;
   }
   fGroup.addEventListener('change', syncGroupFields);
@@ -626,7 +637,16 @@ const APP_I18N = {
   const saveBtn = el('button', { type: 'submit', class: 'fld primary', text: T('app.save') });
   const moreBtn = el('button', { type: 'button', class: 'fld more', text: T('app.saveMore'), on: { click: () => submit(true) } });
 
+  // **`class: 'sheet-form'` 不是装饰**（2026-10-21 修）：这一层要按**列**排，
+  // 字段与字段之间留 10px 缝（见 app.css 那条 `.sheet-form`）。
+  // 从前那条规则写的是 `.sheet form`——**它把台面面板里的每一行也算进去了**：
+  // 面板每一行也是 `<form class="prefs-row">`，于是它们全被改成列向 flex，
+  // 而 `.prefs-field` 的 `flex:1 1 320px` 本来是**宽度**基准（横排时一格至少那么宽），
+  // 一翻成竖排就成了**高度**基准——面板每一行于是最少 320px 高，内容只有 ~110px，
+  // 一屏里大半是空的（实测：八行 2787px，每行 350px）。
+  // **只给这一层自己的表单一个类**，别的 form（面板那些行、上传那一枚）都不碰。
   const form = el('form', {
+    class: 'sheet-form',
     on: { submit: (e) => { e.preventDefault(); submit(false); } },
   }, [
     el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [fUrl]), urlErr]),
@@ -645,7 +665,7 @@ const APP_I18N = {
     // <label>，于是「新分组名」输入框的可及名也是「分组」——两个控件同名，
     // 读屏分不出哪个是哪个。
     el('label', { text: T('app.field.group') }, [fGroup]),
-    el('label', { text: T('app.field.newGroup') }, [fNewGroup]),
+    fNewGroupLabel,
     fGroupShapeWrap,
     el('div', { class: 'icrow' }, [
       el('label', { text: T('app.field.icon') }, [fIcon]),
@@ -687,24 +707,32 @@ const APP_I18N = {
   const prefsSheet = $('#lb-prefs');
   let prefsLoaded = false;
 
-  // 背景那一格的文件名回显（2026-10-14）。原生 `<input type=file>` 被 CSS 收起来
-  // 之后（见 base.css .prefs-bg-file：它是浏览器自己画的按钮，color-scheme 管不到，
-  // 暗色页上一块浅灰像别的产品），"选中了哪个文件"就没有别的地方能显示了。
+  // 面板里**选文件那一族**的文件名回显（2026-10-14 起是背景那一格，
+  // 2026-10-21 提成这一族：导入一份备份也是选文件）。
+  // 原生 `<input type=file>` 被 CSS 收起来之后（见 base.css .prefs-file：它是浏览器
+  // 自己画的按钮，color-scheme 管不到，暗色页上一块浅灰像别的产品），
+  // "选中了哪个文件"就没有别的地方能显示了。
   //
   // **只在这一条路上做**：档案页的面板是 JS 注入的，所以能绑；`GET /prefs` 那张
   // 零 JS 的独立页没人绑，于是它看不见文件名（表单照样能提交，提交后台面重画）。
   // 绑定用 `on: {change: …}` 与这一份脚本里其余事件同一处置，且**只绑一次**——
   // 面板是注入一次就长期在 DOM 里（prefsLoaded 那一闩），重复绑会挂出多个监听。
-  function wireBgFileName(root) {
-    const input = root.querySelector('.prefs-bg-file input[type=file]');
-    const out = root.querySelector('.prefs-bg-picked');
-    if (!input || !out || input.dataset.lbWired) return;
-    input.dataset.lbWired = '1';
-    input.addEventListener('change', () => {
-      // **只取最后一段**：完整路径在这台机器上可能是 C:\Users\…\某张图.png，
-      // 一行放不下而被省略号吃掉，露出来的恰好是用户最不需要看的那部分。
-      out.textContent = input.files && input.files[0] ? input.files[0].name : '';
-    });
+  //
+  // **绑的是这一族里每一个文件选择器**，不是背景那一颗：两个出口各写一遍
+  // 就是两处会各自漂的判据（背景那一颗改了形状，导入那一颗还按老样子找）。
+  function wireFileNames(root) {
+    for (const input of root.querySelectorAll('.prefs-file input[type=file]')) {
+      // 文件名那一行是**同一张表单里的兄弟**（不在 label 里面）——label 里只有
+      // 那颗 chip 与真正被盖住的 input。
+      const out = input.closest('form')?.querySelector('.prefs-file-picked');
+      if (!out || input.dataset.lbWired) continue;
+      input.dataset.lbWired = '1';
+      input.addEventListener('change', () => {
+        // **只取最后一段**：完整路径在这台机器上可能是 C:\Users\…\某张图.png，
+        // 一行放不下而被省略号吃掉，露出来的恰好是用户最不需要看的那部分。
+        out.textContent = input.files && input.files[0] ? input.files[0].name : '';
+      });
+    }
   }
 
   async function prefsOpen() {
@@ -719,6 +747,12 @@ const APP_I18N = {
         const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
         const panel = doc.querySelector('section.prefs');
         if (!panel) throw new Error('no panel in that page');
+        // **摘掉「回我的页面」那枚出口**（2026-10-21）：面板的最后一行里，左边是
+        // 出口、右边是源码入口，两者**同一行**（用户要的"平行"）。而浮层这一面
+        // 就浮在**你自己的书签页**上——出口是 ×，再来一枚「回我的页面」是
+        // 「点了没反应的东西不进界面」那一族里最不该留的一颗。
+        // 摘掉之后那一行只剩源码入口，它靠右（`margin-left:auto`），落点不变。
+        panel.querySelector('.prefs-back')?.remove();
         prefsSheet.append(panel, el('button', {
           type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
           on: { click: prefsClose },
@@ -739,13 +773,13 @@ const APP_I18N = {
     prefsSheet.focus();
   }
 
-  // wirePrefsPanel 重连那几根**按内容找元素**的线：背景文件名回显、分组名字的
-  // 回车提交、tab 那颗的 change 监听。
+  // wirePrefsPanel 重连那几根**按内容找元素**的线：选文件那一族的文件名回显、
+  // 分组名字的回车提交、tab 那颗的 change 监听。
   //
   // 最后一根记着"停在哪一节"——**不是为了这次**（DOM 自己就保持着），是为了下一次
   // 重载/重开。`change` 只在真的换了那颗时响（点已选中的那颗不响）。
   function wirePrefsPanel(root) {
-    wireBgFileName(root);
+    wireFileNames(root);
     wireGroupRename(root);
     for (const r of root.querySelectorAll('.prefs-tab')) {
       r.addEventListener('change', () => rememberPrefsTab(r.id));
@@ -850,7 +884,7 @@ const APP_I18N = {
     // 背景那一族（POST /prefs/background，2026-10-20 补上）。
     //
     // **它从前是原生提交的**，于是浮层里按一下「暂时不显示」，整页导航到独立
-    // 那一页（实拍复现）：浮层没了、滚动位置没了、还落回"外观"而不是你刚才
+    // 那一页（实拍复现）：浮层没了、滚动位置没了、还落回"这一页"而不是你刚才
     // 所在的那一节。同一屏里其余每一行都是就地更新——这一族是唯一的例外。
     //
     // 文件那一格是 multipart，所以不能像别的族那样交 URLSearchParams：直接
@@ -902,7 +936,7 @@ const APP_I18N = {
       try {
         // **地址取表单自己的 action**：它带着 `?tab=pin`（这一格只出现在「我的
         // PIN」那一节），而服务端答错时把面板连同那句话一起重画、读的就是它。
-        // 写死成 `/prefs/pin` 的话，错话会落回第一颗 tab（屏上是「外观」那一节
+        // 写死成 `/prefs/pin` 的话，错话会落回第一颗 tab（屏上是「这一页」那一节
         // 顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
         //
         // **Accept: text/html 是必须的**：答对了是 303，跟过去的那次 GET 若带
@@ -930,10 +964,54 @@ const APP_I18N = {
       const notice = doc.querySelector('main > .notice');
       replacePrefsPanel(panel, notice);
     });
-    // 改名 / 排法 / 第二行 / 档案形态 / 主题那五张（POST /prefs；2026-10-14 补上
-    // 前四张，2026-10-19 加上第二行）。
+    // 导入一份备份那一格（POST /import/backup，2026-10-21 补上）。
     //
-    // **它们不能走 applyOps**：那五格改的是 `profile.json`（台面偏好），不产生
+    // **它从前是原生提交的**，而服务端答 303 回 `/prefs?tab=look`——于是在浮层里
+    // 按一下「导入」，整页导航到独立页（症状读作「设置变成单独页面了」）。
+    // 与 2026-10-14 给「点开书签」、2026-10-20 给「我的 PIN」修过的是同一件事，
+    // 这一族是漏了同一份委托。
+    //
+    // **体是 multipart**：服务端那条落点收 multipart（文件字段），所以 FormData
+    // 原样交出去就行（与背景那一族同一处置）。
+    //
+    // **答有两种，形状一样**：成功时 303 跟到 `/prefs?tab=look`，失败时 200 且
+    // 面板顶上带着那句提示（renderPrefsNotice 重画的就是它）——所以不必分成功与
+    // 失败，从答里取 `section.prefs` 换进去就行（同「我的 PIN」那一族）。
+    prefsSheet.addEventListener('submit', async (e) => {
+      // `^=` 而不是 `=`：这张表单的 action 带着 `?tab=out`（它只出现在「导出、
+      // 导入与历史」那一节），写死成 `=` 匹配不到它。
+      const form = e.target.closest('form[action^="/import/backup"]');
+      if (!form) return;
+      e.preventDefault();
+      const data = new FormData(form, e.submitter || undefined);
+      let html;
+      try {
+        // **Accept: text/html 是必须的**：成功时那一发 303 跟过去的是面板那一页，
+        // 它若带 `*/*`，Service Worker 会把它按**指纹资源**缓存住（那一族
+        // immutable、永不过期）——于是面板被永久钉住，"导完看到的还是上一次的"。
+        const res = await fetch(form.getAttribute('action'), {
+          method: 'POST', body: data, headers: { Accept: 'text/html' },
+          credentials: 'same-origin', redirect: 'follow',
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        html = await res.text();
+      } catch (err) {
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        return;
+      }
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const panel = doc.querySelector('section.prefs');
+      if (!panel) {
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), 'no panel'));
+        return;
+      }
+      const notice = doc.querySelector('main > .notice');
+      replacePrefsPanel(panel, notice);
+    });
+    // 页面名字 / 排列方式 / 第二行 / 分组列表的位置 / 主题 / 界面语言那六张（POST /prefs；
+    // 2026-10-14 补上前几张，2026-10-19 加上第二行，2026-10-20 加上界面语言）。
+    //
+    // **它们不能走 applyOps**：那六格改的是 `profile.json`（台面偏好），不产生
     // rev、不做快照——而 applyOps 走的是 `/api/v1/batch`（书签文档），那是**另一份
     // 文件**。所以这一族是普通 fetch + 就地改，不假装它是 batch。
     //

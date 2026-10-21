@@ -34,51 +34,74 @@ func Test仓库地址与模块路径同源(t *testing.T) {
 	}
 }
 
-// **一处**：档案页**页脚**那一枚 GitHub 猫头。
+// **一处**：**设置面板**最下面那一行里的一枚 GitHub 猫头（2026-10-21 从档案页的
+// 页脚搬过来，用户定的）。
 //
-// **为什么是页脚**（2026-10-20 的两轮改判）：网页上「源码/仓库」历来就在页脚，
-// 而那是这一页**最不抢眼**的位置——顶栏那一排是「这台机器/这一份」的动作，源码
-// 链接放那儿是抢主视觉区；而设置面板最下面那一处紧挨着「回我的页面」，挨着的
-// 读起来像个导航项。
+// **为什么搬**：档案页是**天天看**的那一页，而「源码/需求」是低频事——放在那一页，
+// 它就成了别人不点也要看见的东西；多栏那一档它还被多栏关进栏里（base.css 那一段）。
+// 设置面板是"出了事去找设置"的落点，源码入口放那儿各得其所。
 //
-// **它是一枚图标，不带文字**：猫头是「代码/仓库」最通用的记号，而落点正好就是
-// GitHub。所以判据不是"有一行字"，而是"有一个图形 + 一个可及名"——**图标换成
-// 图标不等于丢掉名字**：读屏与悬停都得有话说。
+// **它带一个字，不是一枚孤零零的图标**：图标 + 文字（`common.repoTitle`）。
+// 纯图标读作"某个没有名字的东西"——那正是它在多栏那一档被当成"一条没有名字的
+// 书签"的那件事。带一个字之后它读作**一句引用**。
 //
-// **可及名与语言包同源**：界面上那句与语言包里那把键逐字相同（`common.repoTitle`），
-// 改文案只改一处。
-func Test页脚带着仓库链接(t *testing.T) {
+// **可及名就是那句可见文字**（WCAG 2.5.3）：所以它**没有 aria-label**——文字自己
+// 就是名字，再写一遍 aria-label 是同一句话说两遍。**可及名与语言包同源**：
+// 界面上那句与语言包里那把键逐字相同（`common.repoTitle`），改文案只改一处。
+//
+// **搬走不是复制**：档案页**不再**带它（下面那条判据钉的就是这件事）。
+func Test设置面板带着仓库链接(t *testing.T) {
 	s := seeded(t)
 	save(t, s, "dad", "爸爸的台", "dsm")
 	r := renderer(t, s)
 
-	page, err := r.ProfilePage(PageRequest{ID: "dad"})
+	page, err := r.PrefsPage("dad", "", i18n.Zh)
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(page.Body)
 
-	// 在**页脚里**：不在顶栏（主视觉区），也不在别处。
-	i := strings.Index(body, "<footer>")
-	j := strings.Index(body, "</footer>")
-	if i < 0 || j < 0 {
-		t.Fatalf("这一页没有页脚（页脚是那一枚链接所在的地方）")
+	// 在**面板的最下面那一行**里（`.prefs-foot`）：不在顶栏（主视觉区），也不在
+	// 档案页的页脚（那儿现在只剩用户自己那段文字了）。
+	//
+	// **那一行是 `<div>` 不是 `<p>`**：全局那条 `main p{…max-width:42em}`（说明句
+	// 一行不许超过 42 字）会把 `<p>` 截到 630px——这一行要占满面板的宽度。
+	i := strings.Index(body, `class="prefs-foot"`)
+	if i < 0 {
+		t.Fatalf("设置面板里没有最下面那一行（源码链接所在的地方）")
 	}
-	foot := body[i : j+len("</footer>")]
+	foot := body[i:]
+	if j := strings.Index(foot, "</div>"); j >= 0 {
+		foot = foot[:j]
+	}
 	if !strings.Contains(foot, `href="`+RepoURL+`"`) {
-		t.Errorf("页脚里没有那个仓库链接（要找 href=%q）", RepoURL)
+		t.Errorf("那一行里没有那个仓库链接（要找 href=%q）", RepoURL)
 	}
-	// 新标签打开：它是站外的链接，而这一页开着面板，离开就丢状态了；
+	// **新标签打开**：它是站外的链接，而这一页开着面板，离开就丢状态了；
 	// 而**外链**不认 rel=noopener 的话，新开的标签能反过来操纵这一页（window.opener）。
 	if !strings.Contains(foot, `rel="noopener noreferrer"`) {
-		t.Errorf("页脚里那个链接没有 rel=\"noopener noreferrer\"：外链不认它就能反过来操纵这一页")
+		t.Errorf("那个链接没有 rel=\"noopener noreferrer\"：外链不认它就能反过来操纵这一页")
 	}
-	// **图标得有话**：图形按钮不带可及名，读屏软件只会念「链接」。
-	m := regexp.MustCompile(`aria-label="([^"]+)"`).FindStringSubmatch(foot)
-	if m == nil {
-		t.Fatal("页脚里那个图标链接没有 aria-label：读屏软件只会念「链接」")
+	// **图标得有话**：图形按钮不带可及名，读屏软件只会念「链接」。而这一枚是
+	// **图标 + 文字**，所以名字就是那句可见文字。
+	if want := i18n.Load(i18n.Zh).T("common.repoTitle"); !strings.Contains(foot, want) {
+		t.Errorf("那一行里没有语言包里那把键（%q）：可及名与文案不同源", want)
 	}
-	if want := i18n.Load(i18n.Zh).T("common.repoTitle"); m[1] != want {
-		t.Errorf("页脚那个可及名是 %q，而语言包里那把键是 %q：两处不是同一句", m[1], want)
+	if strings.Contains(foot, "aria-label=") {
+		t.Errorf("那个链接带 aria-label：它的可见文字就是名字，再写一遍是同一句话说两遍")
+	}
+	// **「回我的页面」与它在同一行**（2026-10-21，用户要的"平行"）：两样东西
+	// 都是这一页底部的——一个是出口，一个是引用。分两行就散了。
+	if !strings.Contains(foot, `class="prefs-back"`) {
+		t.Errorf("那一行里没有「回我的页面」那枚出口：它与源码入口该是同一行（用户要的「平行」）")
+	}
+
+	// **搬走不是复制**：档案页不再带它。
+	prof, err := r.ProfilePage(PageRequest{ID: "dad"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(prof.Body), RepoURL) {
+		t.Errorf("档案页上还有那个仓库链接：它已经搬进设置面板了，两处都有就成了两处都像二手的")
 	}
 }

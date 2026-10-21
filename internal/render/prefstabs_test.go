@@ -24,7 +24,7 @@ func TestPrefsTabs_三颗radio与三块pane一一对应且默认选中第一颗(
 		t.Fatalf("面板里 %d 颗 tab radio，要 4 颗（第四颗是 2026-10-20 加的「我的 PIN」）", n)
 	}
 	if !strings.Contains(html, `id="prefs-tab-look" checked`) {
-		t.Error("第一颗（外观）没有 checked：不 checked 就谁都不显示，整块面板是空的")
+		t.Error("第一颗（这一页）没有 checked：不 checked 就谁都不显示，整块面板是空的")
 	}
 	for _, id := range []string{"prefs-tab-look", "prefs-tab-out", "prefs-tab-groups", "prefs-tab-pin"} {
 		if !strings.Contains(html, `id="`+id+`"`) {
@@ -37,7 +37,7 @@ func TestPrefsTabs_三颗radio与三块pane一一对应且默认选中第一颗(
 	}
 	// **三块 pane 都要有 id**：显隐规则是按 id 指的（pane 是 fieldset 的兄弟，
 	// `:has()` 从共同祖先上选，落到 pane 上只能按 id）。少了第一块那个 id，
-	// 于是"按第二、三颗时关掉外观"那两条**匹配不到任何东西**——而默认态看起来
+	// 于是"按第二、三颗时关掉这一页"那两条**匹配不到任何东西**——而默认态看起来
 	// 一切正常（默认那颗恰好就是外观），症状是"切到分组还是显示外观"。
 	for _, id := range []string{"prefs-pane-look", "prefs-pane-out", "prefs-pane-groups", "prefs-pane-pin"} {
 		if !strings.Contains(html, `id="`+id+`"`) {
@@ -120,7 +120,7 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 		// **为什么现在不成立**：**独立页上那列 radio 根本不改 URL**（那张页不引
 		// app.js，radio 只切本地）——于是「当前那一节」在人按下去的那一刻**已经
 		// 变了**，而表单上带的是**页面加载时**的那一节。实测（2026-10-20）：独立页
-		// 打开在「外观」，点「分组」，按一个颜色 → 落回 `/prefs?tab=look`，**人
+		// 打开在「这一页」，点「分组」，按一个颜色 → 落回 `/prefs?tab=look`，**人
 		// 刚待的那一节没了**。带自己那一节就落在 `/prefs?tab=groups`，人还在原地。
 		//
 		// 浮层那条路不受影响：那里的分组表单被 app.js 拦下走 applyOps（不导航），
