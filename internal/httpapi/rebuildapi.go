@@ -109,7 +109,9 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 		}); histErr != nil {
 			fmt.Fprintf(os.Stderr, "rebuild history append failed profile=%s: %v\n", p.ID, histErr)
 		}
-		// 成功体与建档同一形状：键序 id, title, admin 由字段序固定（§4.3）。
+		// 成功体与建档同一形状：键序 id, title 由字段序固定（§4.3）——
+		// **没有第三格**：档案上的 admin 属性 2026-10-12 就删了，所以建档与重建
+		// 的成功体里都不再吐 admin（判据见 createProfileResponse）。
 		// 200 的含义与 spec §6.1 一致——"那张卡真的回来了"，因为 RebuildProfile
 		// 在同一把锁内回读过，返回的就是盘上那份。
 		writeJSON(w, http.StatusOK, createProfileResponse{ID: p.ID, Title: p.Title})

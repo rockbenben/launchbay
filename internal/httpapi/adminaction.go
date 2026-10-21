@@ -265,8 +265,9 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 // deleteBlocked 是删档唯一的形状闸。
 //
 // **只有一道，没有"最后一个管理员"那一道**——这不是漏写，是它在本案的权限模型下
-// **不可达**：require(credAdmin) 判的是 `activeIsAdmin`（只看 lb_profile 指向的
-// 档案，routes.go 的 activeIsAdmin 注释里写了为什么只看它）。于是能进管理页的人
+// **不可达**：require(credAdmin) 判的是"这次请求有没有带一把真的管理权"（routes.go
+// 的 AdminToken.Matches 与 hasAdminCookie），而**管理员是机器级的一把 key，不属于
+// 任何档案**（档案上的 admin 属性 2026-10-12 就删了）。于是能进管理页的人
 // 本身就是一个管理员，他能删的目标里"唯一的管理员"只有两个可能：他正在用的这一份
 // （被 self 拦）或另一个管理员（那就不是最后一个）。
 //

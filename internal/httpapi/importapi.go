@@ -420,6 +420,7 @@ type importApplyResponse struct {
 // 意义——扩展读不到会话 cookie，而浏览器自己那条 `/import` 走的是零 JS 表单。
 // 写进契约前，这一档与 `credScoped` 共用，于是文档报成"令牌或会话都行"，
 // 照文档写脚本的扩展会拿会话 cookie 换来一句「令牌认不出来」。
+
 // adminTokenGuard 答"这把 bearer 是不是管理员那把 key"，并且答掉。
 //
 // 它是**返回 true 就已经答出去了**（403），所以调用方的形状是
@@ -594,6 +595,7 @@ func importAPIError(w http.ResponseWriter, err error) {
 // renderImport 是导入页唯一的渲染出口。Profile 在这里填一次而不是在三处
 // 各写一遍——它决定响应的 X-LB-Profile（SW 据此分桶）与 no-store 的理由，
 // 两份写起来就会有一份开始撒谎。
+
 // importPlan 是一次导入"会写什么"的结论。浏览器表单页与 API 两个壳共用它。
 type importPlan struct {
 	Count int

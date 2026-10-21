@@ -122,22 +122,22 @@ type Info struct {
 // 否则 Test错误码三处说的是同一份 会当场红（漏登记的码在文档里不存在，
 // 而 AI 读者照文档生成请求时永远学不到它）。
 var Registry = map[string]Info{
-	CredentialMissing:     {401, "把凭证带上：浏览器那条路是登录，扩展与脚本那条路是 Bearer 令牌"},
-	CredentialUnknown:     {401, "这一把不被认：多半是少复制了字符，或者机器那边换过令牌"},
-	CredentialScope:       {403, "换一枚作用域正好对上这个档案的令牌（管理员那把只管账号）"},
-	CredentialAdminOnly:   {403, "这一条要管理员身份，档案令牌不行"},
-	CredentialAdminToken:  {403, "这是管理密钥，扩展要配的是那份档案自己的令牌"},
-	PinWrong:              {401, "再输一次；忘了就走管理页那格设新 PIN"},
-	PinOldWrong:           {403, "旧 PIN 不对：走管理页那格改新 PIN（管理员是家人忘了 PIN 的出路）"},
-	ProfileNotFound:       {404, "确认这个 id 还在，或先建一份"},
-	ProfileBroken:         {503, "先修好那个数据文件（管理页会说要重建）"},
-	ProfileExists:         {409, "换一个名字或 id"},
+	CredentialMissing:    {401, "把凭证带上：浏览器那条路是登录，扩展与脚本那条路是 Bearer 令牌"},
+	CredentialUnknown:    {401, "这一把不被认：多半是少复制了字符，或者机器那边换过令牌"},
+	CredentialScope:      {403, "换一枚作用域正好对上这个档案的令牌（管理员那把只管账号）"},
+	CredentialAdminOnly:  {403, "这一条要管理员身份，档案令牌不行"},
+	CredentialAdminToken: {403, "这是管理密钥，扩展要配的是那份档案自己的令牌"},
+	PinWrong:             {401, "再输一次；忘了就走管理页那格设新 PIN"},
+	PinOldWrong:          {403, "旧 PIN 不对：走管理页那格改新 PIN（管理员是家人忘了 PIN 的出路）"},
+	ProfileNotFound:      {404, "确认这个 id 还在，或先建一份"},
+	ProfileBroken:        {503, "先修好那个数据文件（管理页会说要重建）"},
+	ProfileExists:        {409, "换一个名字或 id"},
 	// ProfileDisabled 是**403 而不是 401**（2026-10-20 改判）：停用不是凭证问题。
 	// 401 在这张表里是「凭证没带 / 认不出」，而停用这一份的凭证是**好的**（令牌
 	// 作用域正对，PIN 也还没轮到输）——被拒的理由是这一份的状态，不是身份。
 	// 答 401 会把出路指反：脚本作者会以为自己的令牌坏了去换一把，而它没坏。
 	// 于是浏览器那条 PIN 门与令牌那条（profileDisabledRefuse）**同码同状态**。
-	ProfileDisabled: {403, "这一份被停用了：去管理页点「启用」，或者换一份进"},
+	ProfileDisabled:       {403, "这一份被停用了：去管理页点「启用」，或者换一份进"},
 	ProfileNotRebuildable: {409, "这份读得动，不需要重建；改 PIN 走 profiles/pin"},
 	RevConflict:           {409, "重读一次再写（别人刚动过）"},
 	SnapshotFailed:        {507, "什么都没改；腾出空间或稍后再试"},

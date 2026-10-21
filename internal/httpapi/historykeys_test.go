@@ -18,9 +18,9 @@ import (
 // 判据是**每一枚都在语言包里**（两种语言都要有）。
 func Test历史那一族的key都在语言包里(t *testing.T) {
 	for name, m := range map[string]map[string]string{
-		"itemFieldKeys": itemFieldKeys,
+		"itemFieldKeys":  itemFieldKeys,
 		"groupFieldKeys": groupFieldKeys,
-		"byChannels":    byChannels,
+		"byChannels":     byChannels,
 	} {
 		for field, key := range m {
 			if key == "" {

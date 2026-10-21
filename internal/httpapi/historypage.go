@@ -281,8 +281,8 @@ func (s *Server) opPhrase(op store.HistoryOp, dict *historyDict) string {
 // 两层都认不出（快照已经被 50 份的窗口裁掉了）就印 id 本身：id 是屏幕上
 // 本来就看得见的东西，而编一个名字是假话。
 type historyDict struct {
-	st     *store.Store
-	id     string
+	st *store.Store
+	id string
 	// tr 是**这一份**的翻译器（2026-10-20）：这一页的每一句话都要跟档案页
 	// 的 chrome 同一种语言，否则一页上会出现中英混排。
 	tr     tr
