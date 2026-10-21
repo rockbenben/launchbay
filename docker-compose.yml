@@ -21,7 +21,7 @@ services:
       #   就能建档、删档、给你改 PIN（那会让你登不进自己那份，书签还在盘上）。**换成你自己的。**
       LAUNCHBAY_ADMIN_TOKEN: "launchbay123"
       # 档案作用域令牌，**默认留空**：书签页、管理页、回退、导入全走会话 cookie，一个令牌都不需要。
-      # 只有三样要它：浏览器扩展、`launchbay revert` / `import-bookmarks`、AI 与自动化脚本。
+      # 只有三样要它：浏览器扩展、`launchbay revert` / `import-bookmarks` / `backup` / `restore`、AI 与自动化脚本。
       # 要用就填上再 `docker compose up -d`：名字:密钥:档案 —— 档案段写具体 id 时只管那一份。
       # id 由名字派生（`Dad` → `dad`；中文名转不出 slug，落到 `home`），填完记得对上真建出来的那一份。
       LAUNCHBAY_WRITE_TOKENS: ""

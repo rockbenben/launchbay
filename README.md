@@ -2,7 +2,7 @@
 
 > English | [简体中文](README.zh.md)
 
-> Your everyday pages — open it, click, done.
+> Your everyday pages — open it, click, done. On your own machine, no sign-up, works offline.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
 
@@ -10,18 +10,48 @@
 
 > Open it from any device on your LAN, not from `localhost` — `localhost` only means "this device", so typing it on your phone opens the phone. Use the NAS's LAN address or hostname (`http://10.0.0.5:7600`), or `http://localhost:7600` if you are sitting at the machine itself.
 
-![launchbay profile page: top-bar search, sidebar groups, tiles and single-column layouts](docs/home-1280.webp)
+![launchbay profile page: top-bar search, sidebar groups, tiles and single-column layouts](docs/home-1280.en.webp)
 
-Put the addresses you can never remember onto one page: the NAS admin panel, the router admin, the company OA, the monitoring dashboard, the sites you keep going back to.
-Make it your browser home page, and from then on every time you open the browser it is that — **one click, no waiting for it to spin.**
+Put the addresses you can never remember onto one page: the NAS admin panel, the router admin, the company OA, the monitoring dashboard, the sites you keep going back to. Make it your browser home page, and from then on every time you open the browser it is that — **one click, no waiting for it to spin.**
 
 It runs on a machine of your own: a home NAS, a Raspberry Pi, a soft router, or one box on the company intranet. Your data never leaves your LAN.
 
+## Why this one, and not another bookmark tool
+
+Plenty of tools do "save it, then get to it fast". Side by side, they differ on four things: **whose server holds the data, how a family shares it, whether it still works offline, and whether you can organise it by dragging**.
+
+| Compared on | The browser's own bookmarks page | A cloud bookmark service | A self-hosted single-user bookmark manager | A shared NAS landing page | launchbay |
+|---|---|---|---|---|---|
+| Where the data is | The browser's own profile directory (it follows your browser account) | **The vendor's servers** | Your own machine | Your own machine | Your own machine |
+| One per person | Via the browser's profiles | Per account | Usually one person | One page for the whole house | **One per person, kept apart on the server** |
+| Do you register | Yes | Yes | No | No | No |
+| Offline | The bookmarks are still there (local) | **Doesn't work** | Works | Works | **Works** (cache + an offline queue) |
+| How fast it opens | Open the manager, then click a folder | Depends on the network and the vendor | Depends on the machine | Depends on the machine | **One page file**: 25 bookmarks are 13,129 bytes gzipped |
+| Organising by dragging | The bookmarks bar and folders take drags, but it is a **folder tree**, not one laid-out page | Mostly not | Some do | Mostly not | **Drop it and it is saved, drag to reorder, drag across groups** |
+
+**If you are just one person, the browser's own bookmarks page is probably enough** — it follows your account, syncs across devices, and an extension does the rest. launchbay is not here to replace that; it trades it for the things below:
+
+- **One page to click, no manager to open first.** Make it your browser home page and opening it *is* it: the NAS panel, the router admin, the monitoring dashboard and the sites you keep going back to, laid out on one page — **one click, done**. Most tools in this category hand you a **management interface** (tags, search, bulk editing); that is what you use *after* saving. This one is about the moment *before*.
+- **It is one HTML file served by a machine of your own.** No account, no sign-up, no third-party script, no telemetry. Apart from fetching a site's favicon once when you want its icon (and a failure puts that origin on a 24-hour cooldown), it talks to no outside service — **your bookmarks have never been through somebody else's server**.
+- **One each, and nobody else sees it.** Sharing one computer doesn't mix people up, and **the admin cannot read yours either**: they can create profiles, delete them and set your PIN, but there is no route on the server that lets them read your bookmarks (an admin key that tries gets a 403).
+- **It still works when the network is down.** The last page you saw is cached in your browser, so a server that is temporarily down does not take the page away with it; **bookmarks you add while offline go into a queue** and replay themselves when the network comes back — not "wait for it to sync", but "it is written down".
+- **Tidying up is dragging.** Drag a link — from the bookmarks bar, from the address bar, **from another tab** — onto a group and it is saved into that group; cards on the page can be dragged to a new position, across groups, or onto a group title to append to the end. The browser's bookmark page is a **folder tree**; this is **one page laid out in your groups and your order**.
+
 ## The three things you'll actually care about
 
-- **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. Most things in this category need a script before they will show you a link at all; the purely static, script-free kind really is fast, but it doesn't even have an edit screen, so you hand-edit a config file. Measured on 2026-10-20: 25 bookmarks render as 13.5 KB gzipped (63.7 KB raw) — those byte counts are a snapshot, and the budget test prints the current ones on every run; the LCP 77ms and CLS 0.00 next to them were measured on an earlier, smaller build, and the target I settled on is LAN first-paint LCP < 300ms, which you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits"). If the server is temporarily down, the copy in your browser cache still opens.
-- **One each, nobody else sees it.** One page per person, and you type a 4–6 digit PIN to get in. Sharing one computer doesn't mix people up — **and the admin can't see yours either**: they can create profiles, delete them, set your PIN for you, but they cannot read what is on your page. That isn't done by hiding things in the frontend; the server keeps them apart: an admin key that tries to read somebody else's bookmarks is refused outright (403). To be straight about it, this is not "protecting you from them" in the cryptographic sense — an admin who sets your PIN knows that PIN, and anyone on the LAN can edit a cookie and be somebody else. What I mean is that there is **no route at all** for them to read your bookmarks. The PIN is **optional**, though — tick "No PIN" and that profile opens with one click, for a TV in the living room or a tablet nobody watches. Then it is open to **everyone on the LAN**, which is exactly what the tick says it does; that one page stops being private, the rest are unchanged.
-- **If you break it, you can go back.** Every bulk change takes a backup first; the "Revert" button under "Revert and history" in the Settings panel shows you what every older version looked like (how many bookmarks, which groups), and you recognise it and click once to go back — **the current version is saved first too**, so a revert done by mistake can itself be reverted. History is kept, not erased, and **that line has a screen of its own**: "Change history" (in the same panel) says line by line who touched this profile, when, through what (the page, an AI, the extension, the command line), and to which entry. It does not record what things now look like — the audit line never held content, and this page shouldn't turn into a second copy of your bookmarks. A backup is just an ordinary folder on disk; copying the whole thing is the whole backup.
+- **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. Most things in this category need a script before they will show you a link at all; the purely static, script-free kind really is fast, but it doesn't even have an edit screen, so you hand-edit a config file.
+
+  Measured on 2026-10-21: 25 bookmarks render as **13,129 bytes** gzipped (63,299 bytes raw) — those byte counts are a snapshot, and the budget test prints the current ones on every run. The LCP 77ms and CLS 0.00 next to them were measured on an earlier, smaller build, so don't read them as today's numbers.
+
+  The target I settled on is LAN first-paint LCP < 300ms, which you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits"). If the server is temporarily down, the copy in your browser cache still opens.
+- **One each, nobody else sees it.** One page per person, and you type a 4–6 digit PIN to get in. Sharing one computer doesn't mix people up — **and the admin can't see yours either**: they can create profiles, delete them, set your PIN for you, but they cannot read what is on your page. That isn't done by hiding things in the frontend; the server keeps them apart: an admin key that tries to read somebody else's bookmarks is refused outright (403).
+
+  To be straight about it, this is not "protecting you from them" in the cryptographic sense — an admin who sets your PIN knows that PIN, and anyone on the LAN can edit a cookie and be somebody else. What I mean is that there is **no route at all** for them to read your bookmarks.
+
+  The PIN is **optional**, though — tick "No PIN" and that profile opens with one click, for a TV in the living room or a tablet nobody watches. Then it is open to **everyone on the LAN**, which is exactly what the tick says it does; that one page stops being private, the rest are unchanged.
+- **If you break it, you can go back.** Every bulk change takes a backup first; the "Revert" button under "Backup & history" in the Settings panel shows you what every older version looked like (how many bookmarks, which groups), and you recognise it and click once to go back — **the current version is saved first too**, so a revert done by mistake can itself be reverted.
+
+  History is kept, not erased, and **that line has a screen of its own**: "Change history" (in the same panel) says line by line who touched this profile, when, through what (the page, an AI, the extension, the command line), and to which entry. It does not record what things now look like — the audit line never held content, and this page shouldn't turn into a second copy of your bookmarks. A backup is just an ordinary folder on disk; copying the whole thing is the whole backup.
 
 ## What this covers
 
@@ -37,14 +67,29 @@ It runs on a machine of your own: a home NAS, a Raspberry Pi, a soft router, or 
 
 ## What it can do
 
+**Saving and tidying**
+
+- **Drop it and it is saved**: drag a link — from the bookmarks bar, from the address bar, **from another tab** — onto a group and it goes into that group. **No question, no dialog**: you dragged an address onto a group, so the drop *is* the answer, and asking again would split one finished action into two
+- **Drag to reorder**: a new position inside a group, across groups, or onto a group title to append to the end. Long press or a keyboard shortcut enters multi-select, then one action tags, moves or deletes a batch
+- **See it, save it on the spot**: drag the bookmarklet into your bookmarks bar; one click on any site brings the address back here; you still press save once before it is really written
+- **Brought in from your browser**: upload the bookmarks file Chrome / Edge / Firefox exported; you get a reconciliation report — which entry got in, which did not, and why, every one named. **The web page's main button imports right away and skips that screen** ("Import now"); pick "Show what this would import" to read the report first. The command line prints the report and writes in the same run — `--dry-run` stops at the report
+- **Take a whole profile with you**: export one file with the bookmarks **and** how that page looks (theme, layout, view, second line, page name, language), then import it back on another machine.
+
+  The PIN, the profile's identity and the background image stay out of it — a door key, an identity and a file that lives on that one machine are not yours to hand over. The same from the command line: `launchbay backup --profile <id> --out <file>` / `launchbay restore --profile <id> <file>`
+
+**Finding it**
+
 - **Grouped properly, quick to search**: bookmarks are filed under groups, and the top bar searches names, addresses and tags directly — type and press Enter and results are there (no JavaScript at any point); with scripts on, press `/` to jump to the search box, or use the `⌘/Ctrl K` panel
-- **Tabbed preference panel**: click "Settings" in the top bar to open the preferences sheet, categorized into Look (language, page name, view, second line, group-list position, theme, background, and how a bookmark opens — this tab or a new one), Groups, Revert & History, and My PIN — the last one is where you lock or unlock **your own** profile, no admin needed; works seamlessly as zero-JS static page or interactive floating modal
 - **Featured bookmark banners**: promote frequently visited groups into an enlarged top banner ("feature"), displaying prominent cards with large icons and clean hostnames
 - **Vast icon library & resolution**: built-in offline library of 10,000+ Tabler and Simple Icons with instant search and live preview, alongside automatic Favicon caching via Resolve
-- **Brought in from your browser**: upload the bookmarks file Chrome / Edge / Firefox exported; you get a reconciliation report — which entry got in, which did not, and why, every one named. **The web page's main button imports right away and skips that screen** ("Import now"); pick "Show what this would import" to read the report first. The command line prints the report and writes in the same run — `--dry-run` stops at the report
-- **See it, save it on the spot**: drag the bookmarklet into your bookmarks bar; one click on any site brings the address back here; you still press save once before it is really written
-- **Bulk actions & drag-and-drop**: long press or keyboard shortcuts to enter multi-select mode; batch tag, move between groups, or delete entries at once; effortless reordering with clear drop-indicator hints
 - **Icons work offline too**: two icon indexes (tabler + simple-icons) gzipped into the binary, so installing needs no network and nothing at runtime asks a third party just to draw an icon
+
+**The page itself**
+
+- **Tabbed preference panel**: click "Settings" in the top bar to open the preferences sheet, categorized into This page (language, page name, view, second line, group-list position, theme, background, and how a bookmark opens — this tab or a new one), Groups, Backup & history, and My PIN — the last one is where you lock or unlock **your own** profile, no admin needed.
+
+  The zero-JS page and the floating modal are the same thing, seamlessly.
+- **Works when the network is down**: the last page you saw is cached in your browser, so a server that is temporarily down does not take the page away with it; bookmarks you add while offline go into a queue and replay themselves when the network comes back
 - **Scripts and AI can do it for you**: a REST interface plus profile-scoped tokens, so a browser extension, a command line and automation scripts each get their own key; a token that steps outside its scope and writes somebody else's profile gets a 403, not the write
 
 ## Quick start
@@ -55,26 +100,23 @@ cd launchbay
 docker compose up -d
 ```
 
-Three commands, no `.env`, nothing to install Go for, the image is simply pulled. **All you have to fill in is one admin key** (the
-`LAUNCHBAY_ADMIN_TOKEN` line in compose carries a default you can use as it stands, so this round works), the image is `:latest`, and the
-**first** `up` pulls the most recent release — a machine that is already running has to `docker compose pull`
-first (why is under "Where the image comes from" below).
+Three commands, no `.env`, nothing to install Go for, the image is simply pulled. **All you have to fill in is one admin key** (the `LAUNCHBAY_ADMIN_TOKEN` line in compose carries a default you can use as it stands, so this round works), the image is `:latest`, and the **first** `up` pulls the most recent release — a machine that is already running has to `docker compose pull` first (why is under "Where the image comes from" below).
 
 > ### ⚠ The first thing to do: change that default key
->
+> 
 > compose has `LAUNCHBAY_ADMIN_TOKEN` set to `launchbay123` — **that is a published default,
 > it is right there in the source**. Anyone on the same LAN who knows the name can create profiles, delete profiles, and **change your PIN**
 > (change it and you can no longer get into your own profile — the bookmarks are still on disk but out of reach). **Open `docker-compose.yml`,
 > put your own there, then `docker compose up -d`.**
->
+> 
 > It cannot read anybody's bookmarks (that would need the profile's own PIN, and only the owner of a profile knows it), so the worst
 > case is somebody locking you out of your own place, not seeing what you saved. This machine was designed for LAN use in the first place
 > (see "Limits" below). Putting your own there is one line:
->
+> 
 > ```yaml
 > LAUNCHBAY_ADMIN_TOKEN: "your-own-admin-key"
 > ```
->
+> 
 > ```bash
 > docker compose up -d
 > ```
@@ -89,16 +131,11 @@ On the same page there is an **Interface language** dropdown (中文 / English) 
 
 ### Where the image comes from
 
-compose only **pulls** the published image; building is CI's job: tag a `v*` (or dispatch that workflow by hand), and
-`.github/workflows/docker.yml` builds and pushes both amd64 and arm64 to Docker Hub and GHCR.
-Anyone using the machine does not need to install Go, and does not need to read the `Dockerfile`.
+compose only **pulls** the published image; building is CI's job: tag a `v*` (or dispatch that workflow by hand), and `.github/workflows/docker.yml` builds and pushes both amd64 and arm64 to Docker Hub and GHCR. Anyone using the machine does not need to install Go, and does not need to read the `Dockerfile`.
 
-The image tag is `:latest`. On the **first** `up` the machine has no such image, so it goes to the registry and pulls the most recent
-release; a machine that is already running already has it locally, and `up` does not go back and ask the registry, so you have to
-**`docker compose pull` first** to get the new one.
+The image tag is `:latest`. On the **first** `up` the machine has no such image, so it goes to the registry and pulls the most recent release; a machine that is already running already has it locally, and `up` does not go back and ask the registry, so you have to **`docker compose pull` first** to get the new one.
 
-Releasing rides on a **git tag**: tag a `v0.1.0`, push it, and the pipeline builds and pushes five images — the three version tags `0.1.0`, `0.1` and `0`, plus `latest` and one tagged with the commit's short sha. There is no second version number in this repo to keep in step — `image:` uses `:latest`, so it takes
-no part in releasing, and the version comes only from the tag.
+Releasing rides on a **git tag**: tag a `v0.1.0`, push it, and the pipeline builds and pushes five images — the three version tags `0.1.0`, `0.1` and `0`, plus `latest` and one tagged with the commit's short sha. The **image's** version comes only from the tag — `image:` uses `:latest`, so it takes no part in releasing. The one other number in the repo is the extension's own `version` in `extension/manifest.json`: Chrome insists on it being written out, so it is set by hand to the same number when you release, and nothing checks that it still matches.
 
 Would rather not clone — pull the published image directly (both amd64 and arm64 are built, same name on Docker Hub and GHCR):
 
@@ -116,14 +153,14 @@ Tokens split across **two variables**, one required and one optional:
 | Variable | Required? | What it covers |
 |---|---|---|
 | `LAUNCHBAY_ADMIN_TOKEN` | **Required**, a bare key. The default `launchbay123` is public, so **swap it for your own as shown above** | The account layer: creating profiles, deleting them, setting somebody else's PIN, disabling/enabling, cross-profile status and the audit trail. **Accounts only** — hitting `/api/v1/data`, `/api/v1/batch` or `/api/v1/export` is a 403 across the board; it cannot read anybody's bookmarks |
-| `LAUNCHBAY_WRITE_TOKENS` | **Optional**, left empty by default | Profile-scoped write tokens, `name:secret:profile`. **Only three things want it**: the browser extension, the command line (`revert` / `import-bookmarks`), and AI or automation scripts |
+| `LAUNCHBAY_WRITE_TOKENS` | **Optional**, left empty by default | Profile-scoped write tokens, `name:secret:profile`. **Only three things want it**: the browser extension, the command line (`revert` / `import-bookmarks` / `backup` / `restore`), and AI or automation scripts |
 
 > **Why no tokens by default?** The bookmark page, the admin page, revert and import all ride on the session cookie; not one
 > token is needed. And those three things have to be installed by a person on purpose anyway. Making everyone who does not need a
 > token fill one in, and then leaving it as the default, would hand every single machine a free key that can write the
 > `dad` profile (`dad` being the most common profile id). If you want the extension or AI, fill in that line in compose
 > and then `docker compose up -d`:
->
+> 
 > ```yaml
 > LAUNCHBAY_WRITE_TOKENS: "name:key-you-pick:profile id"
 > ```
@@ -134,16 +171,11 @@ What the admin page does is account-level only: **create a profile**, **add or c
 
 **The interface language belongs to each profile**: everyone picks their own in **their own panel** (中文 / English / follow the default), so one machine can have dad reading Chinese and the kid reading English. What the admin sets on the admin page is the **default** — it only reaches the people who have not picked one; the ones who have are not moved when the admin changes it.
 
-> **The profile id is derived from the name and is not necessarily `dad`** (this is only about `LAUNCHBAY_WRITE_TOKENS`). Creating a profile asks only
-> for a name and a PIN; the id comes from the name: if there are ASCII alphanumerics in it, that slug is what you get (`Dad` → `dad`, `nas box` → `nas-box`),
-> and **a Chinese name turns into nothing usable, so it always falls into the `home` / `home-2` base-name sequence**. So after creating the first profile with a
-> Chinese name, the `…:dad` scope in your token matches no profile at all, and you get a 403 when you use it.
-> Two ways to fix it: change the token's scope to the real profile id (recommended), or give the first profile an ASCII name.
+> **The profile id is derived from the name and is not necessarily `dad`** (this is only about `LAUNCHBAY_WRITE_TOKENS`). Creating a profile asks only for a name and a PIN; the id comes from the name: if there are ASCII alphanumerics in it, that slug is what you get (`Dad` → `dad`, `nas box` → `nas-box`), and **a Chinese name turns into nothing usable, so it always falls into the `home` / `home-2` base-name sequence**. So after creating the first profile with a Chinese name, the `…:dad` scope in your token matches no profile at all, and you get a 403 when you use it. Two ways to fix it: change the token's scope to the real profile id (recommended), or give the first profile an ASCII name.
 
 The host port defaults to 7600; on Windows the whole 7532–7631 range is held by Hyper-V for dynamic reservation, so if you land on one of them, prefix the command line with `LAUNCHBAY_HOST_PORT=7601 docker compose up -d` (the port inside the container does not move).
 
-The project name and the container name are both hardcoded in compose (`launchbay`), so those `docker compose …`
-commands do not care which directory you cloned into, and `docker logs launchbay`, `docker exec launchbay …` work as written.
+The project name and the container name are both hardcoded in compose (`launchbay`), so those `docker compose …` commands do not care which directory you cloned into, and `docker logs launchbay`, `docker exec launchbay …` work as written.
 
 ### Browser extension (optional)
 
@@ -165,25 +197,18 @@ Once it is installed: right-click any page → save to launchbay; the settings p
 
 **An import only goes into an empty profile** — that is the rule on all three routes (the web page, the extension, `import-bookmarks` on the command line). An import brings the browser's whole set in; it does not add on top of what is already there. So if the target profile already has bookmarks, the write is refused before it starts — the extension's API answers 422, the web page shows a "blocked" notice, the command line stops with exit code 1 — and not one byte on disk changes — use an empty profile, or clear that one out yourself first. If you would rather not clear it, save things one at a time; the right-click save has no such limit.
 
-> On install Chrome warns "Read and change your data on all sites": the extension needs that to answer a right-click on any
-> site, which is exactly what it is for. Everything it asks for is `contextMenus` / `storage` / `tabs` / `notifications`,
-> with `bookmarks` as the one optional-request item.
-> The token lives only in `chrome.storage.local` on that computer, **never in sync, never in the cloud**; that is also why this
-> settings page has no export-config button. Switching profile means switching token, and if one machine leaks you only revoke that one.
-> Firefox is unverified — `extension/` was written against Chrome / Edge.
+> On install Chrome warns "Read and change your data on all sites": the extension needs that to answer a right-click on any site, which is exactly what it is for. Everything it asks for is `contextMenus` / `storage` / `tabs` / `notifications`, with `bookmarks` as the one optional-request item. The token lives only in `chrome.storage.local` on that computer, **never in sync, never in the cloud**; that is also why this settings page has no export-config button. Switching profile means switching token, and if one machine leaks you only revoke that one. Firefox is unverified — `extension/` was written against Chrome / Edge.
 
 ### Permissions on the data directory
 
-By default the data lands in `./data`, next to `docker-compose.yml`, and inside the container it is always `/data`. To put it somewhere else, change
-the `volumes` line in compose — the usual one on a NAS:
+By default the data lands in `./data`, next to `docker-compose.yml`, and inside the container it is always `/data`. To put it somewhere else, change the `volumes` line in compose — the usual one on a NAS:
 
 ```yaml
     volumes:
       - /volume1/docker/launchbay:/data
 ```
 
-On Windows, if you write an absolute path, the colon in `D:` fights the separator; use the long syntax instead
-(splitting `source` / `target` into two fields leaves nothing ambiguous):
+On Windows, if you write an absolute path, the colon in `D:` fights the separator; use the long syntax instead (splitting `source` / `target` into two fields leaves nothing ambiguous):
 
 ```yaml
     volumes:
@@ -192,38 +217,34 @@ On Windows, if you write an absolute path, the colon in `D:` fights the separato
         target: /data
 ```
 
-The container runs as **uid 65534**, while that directory on the NAS is root-owned by default — once it is mounted, creating profiles,
-importing and writing bookmarks all fail. **Hand it to that user from the host** (using the default `./data` below):
+The container runs as **uid 65534**, while that directory on the NAS is root-owned by default — once it is mounted, creating profiles, importing and writing bookmarks all fail. **Hand it to that user from the host** (using the default `./data` below):
 
 ```bash
 sudo chown -R 65534:65534 ./data
 ```
 
-Don't get around it with `sudo docker run` or `--user root` (that is the same as letting the service write every file in your
-house as **root**). This one is not a guess: the probe creates and deletes a temporary file in the data directory on every
-health check, and when the permissions are wrong `docker ps` shows **unhealthy** outright, with the line in the container log
-telling you that same chown command. The page side says the same thing — the create-profile form answers with "The data directory is not writable — this program has no permission there. Hand that directory to the user running it (uid 65534 in the container) and try again." If you run the binary directly instead of a container, swap the uid in that sentence for your own system user.
+Don't get around it with `sudo docker run` or `--user root` (that is the same as letting the service write every file in your house as **root**). This one is not a guess: the probe creates and deletes a temporary file in the data directory on every health check, and when the permissions are wrong `docker ps` shows **unhealthy** outright, with the line in the container log telling you that same chown command. The page side says the same thing — the create-profile form answers with "The data directory is not writable — this program has no permission there. Hand that directory to the user running it (uid 65534 in the container) and try again." If you run the binary directly instead of a container, swap the uid in that sentence for your own system user.
 
 ## How to use it
 
 | What you want to do | Where |
 |---|---|
 | Adjust page appearance, view, navigation layout, background, group styles, and how a bookmark opens | "Settings" in the top bar, or `POST /prefs`, `POST /prefs/background`, `POST /prefs/group` and `POST /prefs/tabs` |
-| Create a profile, delete one, set somebody's PIN, disable someone | "Manage this machine" in the top bar, or `POST /api/v1/profiles` (`{"id","title","nopass":true}` creates one with no PIN) |
+| Create a profile, delete one, set somebody's PIN, disable someone | "Manage this machine" in the top bar, or `POST /api/v1/profiles` (`{"id","title","nopass":true}` creates one with no PIN); from the command line, `launchbay profile create --id <slug> --title <name>` (needs the admin key) |
+| Clean up bookmark names that are really addresses | `launchbay profile fix-names --profile <id>` (add `--dry-run` to see what it would change first) — it rewrites names by a rule, so it is a command-line action, not a button |
 | Have AI or a script change bookmarks | `POST /api/v1/batch`, with `expectedRev` so a write does not overwrite |
 | Rescue a broken profile (`profile.json` will not read) | `POST /api/v1/profiles/rebuild`, or `launchbay profile rebuild --id <slug> --title <name> (--pin <4-6 digits> \| --nopass)` |
 | Count clicks (who is clicking which bookmarks) | `POST /api/v1/usage` — writes only the current profile, and does not take part in the revision number |
 | Save a URL and get its title and icon back | `POST /api/v1/resolve` — writes no bookmarks, only fills the cache |
 | Change the interface language | "Default language" on the admin page changes the **machine-wide default**; **everyone's own** language is picked in their own panel |
 | See what every change actually was | `GET /api/v1/history` (records actions and paths only, never content) |
+| Export or import a whole profile — bookmarks **and** how the page looks | `GET /api/v1/backup` / `POST /api/v1/restore`, `launchbay backup --profile <id> --out <file>` / `launchbay restore --profile <id> <file>`, or "Backup & history" in the Settings panel |
 
-**The complete endpoint list, request body shapes and error codes are in [AGENTS.md](AGENTS.md)** — that is the authoritative contract written for AI,
-every field name checked against the route table one by one, so changing one makes a test go red; which is why there is no second copy of it here in the README.
+**Export and import** take one whole profile — the bookmarks plus how that page looks (theme, layout, view, second line, page name, language) — into a single file, and read it back. Three things are deliberately **not** in that file: the **PIN** (exporting it would be printing the key on paper), the profile's **identity** (its id, title and created date belong to the machine it lives on), and the **background image** (that one is a file on the machine, not a string — a backup carrying it would restore a picture that is not there). A backup that carries bookmarks only goes into an **empty** profile, because importing is "bring this one in", not "add on top of what is already there"; a backup that carries only settings can be imported any time. Settings written this way do not move the revision counter and do not appear in "Revert": they are desk preferences, not bookmark data, exactly like the Settings panel.
 
-**If you drive it from the command line**, two things are worth knowing and neither is documented anywhere else: results and reports go to
-**stdout**, failures go to **stderr** — so `launchbay import-bookmarks … > plan.log` gives you the report — **and the same run writes the bookmarks** (add `--dry-run` for the report and the ops without committing) — and `2> err.log` gives you the reason when it
-goes wrong — and every failure quotes the server's own error code in brackets (`[rev-conflict]`, `[ops-invalid]`) rather than paraphrasing
-it, so a script can branch on the code. `--help` and a subcommand's `-h` both exit 0; a usage error exits 2; everything else exits 1.
+**The complete endpoint list, request body shapes and error codes are in [AGENTS.md](AGENTS.md)** — that is the authoritative contract written for AI, every field name checked against the route table one by one, so changing one makes a test go red; which is why there is no second copy of it here in the README.
+
+**If you drive it from the command line**, two things are worth knowing and neither is documented anywhere else: results and reports go to **stdout**, failures go to **stderr** — so `launchbay import-bookmarks … > plan.log` gives you the report — **and the same run writes the bookmarks** (add `--dry-run` for the report and the ops without committing) — and `2> err.log` gives you the reason when it goes wrong — and every failure quotes the server's own error code in brackets (`[rev-conflict]`, `[ops-invalid]`) rather than paraphrasing it, so a script can branch on the code. `--help` and a subcommand's `-h` both exit 0; a usage error exits 2; everything else exits 1.
 
 Two more things about the command line, both of which you only learn by hitting them: `launchbay revert --to 0` is refused as a usage error, because rev 0 may well be the snapshot your profile was born with and the command line will not guess that you meant it — the error message prints the exact `curl` that does it. And `launchbay import-bookmarks` takes the file as a **positional argument**, not a flag: `launchbay import-bookmarks --profile <id> <bookmarks.html>`. It needs a token scoped to that profile, like every other write.
 
@@ -244,7 +265,5 @@ The "opening it doesn't wait" line above is not an adjective: bookmarks and the 
 ## About the 365 Open Source Plan
 
 Project **#042** of the [365 Open Source Plan](https://github.com/rockbenben/365opensource) — one person + AI, 300+ open-source projects in a year.
-
-**The source code and the request/issue entry point** live in the **footer of every profile page** — a small GitHub icon next to your footer note. It points at [the repository itself](https://github.com/rockbenben/launchbay), so Issues is one click inside.
 
 [Submit your idea →](https://365.aishort.top/) · [Discord](https://discord.gg/PZTQfJ4GjX) · [Telegram](https://t.me/aishort_top)
