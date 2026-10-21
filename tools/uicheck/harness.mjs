@@ -60,6 +60,36 @@ export async function seedFixture(srv, adm, wrt) {
   if (r.status !== 200) throw new Error('铺数据失败: ' + r.status + ' ' + r.body);
 }
 
+// assertDesktopPointer：闸量的是**桌面档**的形状，而"是不是桌面档"这件事
+// **浏览器自己报**（`matchMedia('(hover: hover) and (pointer: fine)')`）。
+//
+// 紧凑档的"每条一行"（40px）是**精确指针那一档**的形状：base.css 里那族去壳规则
+// ——去边框、去内衬、图标收到 15px、把手回流到行尾——整族写在
+// `@media (hover:hover) and (pointer:fine)` 里面，**触摸设备一个字都不省**
+//（那里 §7.5 的 44px 地板接着管，密集不能拿触摸目标去换）。
+//
+// **2026-10-21 的 CI 实录**：CI runner 上的无头 Chrome（Linux，没有 X、没有鼠标）
+// 报的是 `pointer: none`——那族去壳规则整族不生效，紧凑档的卡于是保持着整副壳，
+// 量到 69–82px，而那一档的契约是 40px。闸于是报"紧凑档里有 82px 高的条目"，
+// **读起来像界面坏了，其实量的是另一个档**。本机（Windows 的浏览器本来就报精确
+// 指针）读到 40px，全绿——**同一条闸在两台机器上答案相反**，绿的那一次才让人
+// 以为"界面验过了"。与 2026-10-21 那次"站级默认语言"是同一族病：环境没钉住。
+//
+// 闸自己起的那台浏览器由启动参数钉死（uicheck_test.go 的 `--blink-settings`）；
+// **这一格是最后一道**：参数哪天失效了、或者用 LB_CDP 复用了一台别人开着的
+// 浏览器（那台报什么就是什么），这里**立刻说破**，而不是让 54 步拿错形状量一遍。
+export async function assertDesktopPointer(run) {
+  const raw = await run(`JSON.stringify({悬停:matchMedia('(hover: hover)').matches,
+    精确:matchMedia('(pointer: fine)').matches, 粗:matchMedia('(pointer: coarse)').matches,
+    无:matchMedia('(pointer: none)').matches})`);
+  const p = JSON.parse(raw);
+  if (p.精确 && p.悬停) return p;
+  throw new Error('这台浏览器没报「精确指针 + 能悬停」（读到 ' + raw + '）——'
+    + '闸量的是桌面档的形状：紧凑档的去壳规则只对精确指针生效（触摸设备保留 44px 的地板）。'
+    + '闸自己起的那台浏览器由启动参数钉死；若用 LB_CDP 复用别人开着的浏览器，'
+    + '那台浏览器得自己报精确指针，否则量出来的不是这一档。');
+}
+
 export async function connect(cdp) {  const tab = await (await fetch(`${cdp}/json/new?about:blank`, { method: 'PUT' })).json();
   const ws = new WebSocket(tab.webSocketDebuggerUrl);
   let id = 0;
@@ -85,6 +115,16 @@ export async function connect(cdp) {  const tab = await (await fetch(`${cdp}/jso
   await send('Page.enable');
   await send('Runtime.enable');
   await send('Network.enable');
+  // 前置检查失败时**先把连接收了再抛**：node 在 Windows 上带着一个开着的
+  // WebSocket 退出时会崩在 libuv 的断言上（退出码 0xc0000409），
+  // 于是那句真正要说的话被一行断言刷过去——**报错要说得出话**。
+  try {
+    await assertDesktopPointer(run);
+  } catch (e) {
+    try { await fetch(`${cdp}/json/close/${tab.id}`); } catch { /* 关不掉就算了 */ }
+    ws.close();
+    throw e;
+  }
   const close = async () => {
     try { await fetch(`${cdp}/json/close/${tab.id}`); } catch { /* 关不掉就算了 */ }
     ws.close();

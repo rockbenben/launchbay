@@ -479,7 +479,10 @@ await step('紧凑档 → 每条一行（长名字也不许把行撑高）', asy
         t:(a.querySelector('b')?.textContent||'').trim().slice(0,10)};}).filter(Boolean);
     const top=cs.slice().sort((x,y)=>y.h-x.h).slice(0,3);
     return JSON.stringify({最高:Math.max(...cs.map(c=>c.h)), n:cs.length, 最高的几张:top,
-      视图:document.body.dataset.profileView||'?'});
+      视图:document.body.dataset.profileView||'?',
+      // **指针那一格也进读数**：这一档的形状只在精确指针上成立，而浏览器报什么
+      // 是它自己说的（harness.mjs 的 connect() 已经先把过这一关）。
+      指针:(matchMedia('(hover: hover) and (pointer: fine)').matches?'精确':'非精确')});
   })()`);
   await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=${b.v}&addrLevel=${b.a}'})`);
   await sleep(700);

@@ -360,6 +360,32 @@ func browser(t *testing.T, tmp string) (cdp string, stop func()) {
 		"--user-data-dir=" + profile,
 		"--no-first-run", "--no-default-browser-check",
 		"--disable-gpu", "--hide-scrollbars",
+		// **指针能力钉成「精确指针 + 能悬停」**（2026-10-22 修）。
+		//
+		// 紧凑档的"每条一行"是**桌面档**的形状：base.css 里那族去壳规则
+		// （去边框、去内衬、图标收到 15px、把手回流到行尾）整族写在
+		// `@media (hover:hover) and (pointer:fine)` 里——**触摸设备一个字都不省**
+		// （那里 §7.5 的 44px 地板接着管）。
+		//
+		// 而"是不是鼠标"是**浏览器自己报的**：CI runner 上的无头 Chrome 在 Linux 上
+		// 没有 X、没有鼠标，于是报 `pointer: none`——那族去壳规则整族不生效，
+		// 紧凑档的卡于是保持着整副壳，量到 69–82px，而这一档的契约是 40px。
+		// **2026-10-21 的 CI 实录**：紧凑档那一格读到 82px（三个组各一条 82px 的），
+		// 本机读到 40px——**同一条闸在两台机器上答案相反**，而绿的那一次
+		// 才让人以为"界面验过了"。
+		//
+		// 数字是 Blink 的那套：pointer none=1 / coarse=2 / fine=4，hover none=1 / hover=2。
+		// 实测（Chrome 155）：这一串能把媒体查询从"没指针"改成"精确指针"，
+		// 反过来（none）也改得动——**它确实是媒体查询读的那一格**。
+		//
+		// **这不是给产品加的开关**：产品那一族的分档由用户的设备说话（§7.5 的地板
+		// 不让路）。这里钉的是**闸量东西时用的那台浏览器**——与 2026-10-21 把
+		// 站级默认语言钉成中文是同一件事：**闸要在一个说清楚话的环境里量**。
+		//
+		// 用 LB_CDP 复用一台已经开着的浏览器时**这一格用不上**（启动参数是那台
+		// 浏览器自己的事）——所以 harness.mjs 的 connect() 里有一道前置检查，
+		// 那台浏览器报的不是精确指针就**立刻说破**，而不是让 54 步拿错形状量一遍。
+		"--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
 	}
 	// 容器里的 Chrome 起来不了（沙箱要 namespaces，而容器里通常没有），那时用
 	// LB_CHROME_NO_SANDBOX=1 让它带 --no-sandbox。GitHub 托管的 runner 是普通用户
