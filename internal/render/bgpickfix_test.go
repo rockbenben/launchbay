@@ -123,14 +123,17 @@ func Test图标库空态说的是先搜而不是图库的来源(t *testing.T) {
 	}
 }
 
-// 背景那一格的「选择文件」**不能是原生控件**（实拍：暗色页上是一块浅灰底 +
+// 面板里**选文件那一族**的「选择文件」**不能是原生控件**（实拍：暗色页上是一块浅灰底 +
 // 系统字体的东西，压在暗色面板里像另一个产品贴上来的零件）。
 //
 // **为什么不是"改一改原生控件的样式"**：那颗按钮由浏览器自己画，
 // `color-scheme` 管不到它，能改外框的 `::file-selector-button` 一族要按引擎各写一份，
 // 而第三方浏览器会落空。所以判据是**反过来的那一半**：真 input 收起来，
 // 露出来的是一颗 `.fld`（全站按钮同一张脸），input 透明铺在上面仍然可点。
-func Test背景选文件按钮是全站那张脸而不是原生控件(t *testing.T) {
+//
+// 2026-10-21：这一族从"背景那一格"提成"面板里那一族"（导入一份备份也是选文件），
+// 于是类名从 `prefs-bg-*` 变成 `prefs-file*`——**名字说的是这一族，不是一个用途**。
+func Test选文件按钮是全站那张脸而不是原生控件(t *testing.T) {
 	cssRaw, err := webFS.ReadFile("web/base.css")
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +146,7 @@ func Test背景选文件按钮是全站那张脸而不是原生控件(t *testing
 	tmpl := string(tmplRaw)
 
 	// 一：原生 input 必须透明铺在按钮上（这是"收起来"的机制本身）。
-	if !strings.Contains(css, ".prefs-bg-file input[type=file]{position:absolute;inset:0") {
+	if !strings.Contains(css, ".prefs-file input[type=file]{position:absolute;inset:0") {
 		t.Error("真 input 没有透明铺在那颗按钮上：不铺它就还是原生控件，铺了它点击热区才是整颗键")
 	}
 	if !strings.Contains(css, "opacity:0") {
@@ -155,7 +158,7 @@ func Test背景选文件按钮是全站那张脸而不是原生控件(t *testing
 	}
 	// 三：那颗可见按钮**不许自己吃掉点击**（pointer-events:none）——点击要落到
 	// 下面那个 input 上，而 input 铺满整颗键，任何一点都该打开文件对话框。
-	if !strings.Contains(css, ".prefs-bg-file .fld{pointer-events:none}") {
+	if !strings.Contains(css, ".prefs-file .fld{pointer-events:none}") {
 		t.Error("可见按钮没有 pointer-events:none：点击会落在 span 上而不是下面的 input 上")
 	}
 	// 四：反向证人——**不许退回"给原生控件写样式"那条路**。
@@ -165,10 +168,51 @@ func Test背景选文件按钮是全站那张脸而不是原生控件(t *testing
 		}
 	}
 	// 五：选了文件之后要有地方显示文件名（原生控件收起之后那一段就没了）。
-	if !strings.Contains(tmpl, `class="prefs-bg-picked"`) {
+	if !strings.Contains(tmpl, `class="prefs-file-picked"`) {
 		t.Error("没有那一行文件名回显：控件收起之后「选了什么」就无处可说")
 	}
-	if !strings.Contains(css, ".prefs-bg-picked:empty{display:none}") {
+	if !strings.Contains(css, ".prefs-file-picked:empty{display:none}") {
 		t.Error("文件名那一行在没选文件时也占位，面板会多出一段空白")
+	}
+	// 六：**这一族是通用的**，所以类名里不许再留着"背景"那两个字——
+	// 留着就等于说"导入备份那一处是背景那一族的分支"，而它不是。
+	for _, dead := range []string{"prefs-bg-file", "prefs-bg-picked", "prefs-bg-upload"} {
+		if strings.Contains(css, dead) || strings.Contains(tmpl, dead) {
+			t.Errorf("还有 %s 这一处：选文件已经是面板里通用的一族，类名不许再绑在一个用途上", dead)
+		}
+	}
+}
+
+// 导入一份备份那一格与背景那一格是**同一个手势**（选一个文件、按一下就用它），
+// 所以它们必须共用那一族的脸——两处各画一个，就是两个产品长的选文件器。
+func Test导入备份与背景共用选文件那一族(t *testing.T) {
+	tmplRaw, err := webFS.ReadFile("web/profile.tmpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := string(tmplRaw)
+
+	bg := strings.Index(tmpl, `action="/prefs/background"`)
+	bk := strings.Index(tmpl, `action="/import/backup`)
+	if bg < 0 || bk < 0 {
+		t.Fatal("面板里找不到背景那一格或导入备份那一格")
+	}
+	// 两处都要有：真 input 收起来、露一颗 .fld 的脸、旁边一个文件名回显。
+	for _, what := range []struct {
+		name string
+		seg  string
+	}{
+		{"背景", tmpl[bg:min(bk, bg+3000)]},
+		{"导入备份", tmpl[bk:min(bk+3000, len(tmpl))]},
+	} {
+		if !strings.Contains(what.seg, `class="prefs-file"`) {
+			t.Errorf("%s 那一格没有用 .prefs-file：原生控件会露出来（暗色页上一块浅灰）", what.name)
+		}
+		if !strings.Contains(what.seg, `<span class="fld" aria-hidden="true">`) {
+			t.Errorf("%s 那一格屏上那一颗不是 .fld：它与全站按钮不是同一张脸", what.name)
+		}
+		if !strings.Contains(what.seg, `class="prefs-file-picked"`) {
+			t.Errorf("%s 那一格没有文件名回显：控件收起之后「选了什么」就无处可说", what.name)
+		}
 	}
 }

@@ -134,7 +134,7 @@ func TestPrefsPanel_背景那一节画得出来且三张表单各自只交自己
 }
 
 // 面板里那一节的**次序**也是判据：这一屏读作「这一页长什么样」的几行（改名/怎么看/
-// 分组导航/主题/背景）连成一片，然后才是两个出口（回退与历史），最后才是落在书签
+// 分组导航/主题/背景）连成一片，然后才是两个出口（备份与历史），最后才是落在书签
 // 数据上的「分组」。
 //
 // 背景那一节 2026-10-14 插进去时落在出口**下面**，于是这屏读成「四行设置 → 两个
@@ -148,12 +148,12 @@ func TestPrefsPanel_设置连成一片而出口在它们下面(t *testing.T) {
 	// 「分组导航」的前缀，按字找会先找到错的那一节）。
 	at := map[string]int{}
 	for name, anchor := range map[string]string{
-		"改名":    `class="prefs-label" for="lb-page-title"`,
-		"怎么看":   `name="view" value="groups"`,
-		"分组导航":  `name="layout" value="sidebar"`,
-		"主题":    `name="theme" value="auto"`,
-		"背景":    `class="prefs-bg"`,
-		"回退与历史": `href="/history"`,
+		"改名":   `class="prefs-label" for="lb-page-title"`,
+		"怎么看":  `name="view" value="groups"`,
+		"分组导航": `name="layout" value="sidebar"`,
+		"主题":   `name="theme" value="auto"`,
+		"背景":   `class="prefs-bg"`,
+		"历史出口": `href="/history"`,
 		// 「分组」这一节的锚点从 `prefs-groups-head` 换成 `prefs-groups`（2026-10-14）：
 		// 那个 div 只画了个并排的小标签，已被 `h3.prefs-sec` 取代——三个分节头现在
 		// 共用一个类，所以**不能拿分节头当锚点**（三处都匹配，取到的是第一处）。
@@ -168,7 +168,7 @@ func TestPrefsPanel_设置连成一片而出口在它们下面(t *testing.T) {
 	}
 	for _, pair := range [][2]string{
 		{"改名", "怎么看"}, {"怎么看", "分组导航"}, {"分组导航", "主题"},
-		{"主题", "背景"}, {"背景", "分组"}, {"分组", "回退与历史"},
+		{"主题", "背景"}, {"背景", "分组"}, {"分组", "历史出口"},
 	} {
 		if at[pair[0]] > at[pair[1]] {
 			t.Errorf("「%s」该排在「%s」前面（屏上是「这一页长什么样」的几行与「分组」设置连成一片，最后才是出口）",

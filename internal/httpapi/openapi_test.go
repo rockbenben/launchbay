@@ -47,9 +47,9 @@ var xCredentialNames = map[cred]string{
 // 拿 Bearer 去打一条其实拒令牌的通路，少写 sessionCookie 则让人以为页面通路要令牌。
 // Task 5 评审 I-2 实测到的正是前者——POST /admin 的 security 里留着一开始复制来的 bearerAuth。
 var credSecuritySchemes = map[cred]string{
-	credNone:      "",
-	credSession:   "sessionCookie",
-	credScoped:    "bearerAuth|sessionCookie",
+	credNone:    "",
+	credSession: "sessionCookie",
+	credScoped:  "bearerAuth|sessionCookie",
 	// **adminCookie 而不是 sessionCookie**（2026-10-20 修）：credAdmin 这一族要的是
 	// **管理权**，而档案会话（`lb_profile`）**一律 403**——登进 dad 也不等于能管这台
 	// 机器。真正能用的那条通路是 `lb_admin`（管理 cookie），而从前契约里**没有它**：
@@ -89,6 +89,10 @@ var tokensRefusedByForm = map[string]bool{
 	// 机器上的所有人，所以只给管理员会话，不接受令牌替身。行为证人见
 	// TestAdminLanguage_令牌一律303且不写盘。
 	"POST /admin/language": true,
+	// 导入一份备份那条（2026-10-21）：判据同上——档案从会话推导，档案作用域
+	// 令牌打它是 303 而不是 401/403（浏览器表单通路的权限类拒绝一律 303）。
+	// 行为证人见 TestRestoreForm_令牌一律303且不写盘。
+	"POST /import/backup": true,
 }
 
 // docOperation 是测试要读的 operation 字段（其余字段由 json 忽略）。

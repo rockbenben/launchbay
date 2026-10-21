@@ -14,7 +14,7 @@
 </head>
 <body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}}{{with .AddrLevel}} data-addr-level="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
 <header>
-  {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「改名」那一格里改），
+  {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「页面名字」那一格里改），
        空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
        都写上（`页面名 · 档案名`）——切换标签页时认的是后者，看内容时读的是前者。
 
@@ -314,11 +314,14 @@
 {{end}}
 {{/* 页脚**在正文列里**（2026-10-20 改）：它原来在 .shell 之后，于是落在
      侧栏那一列（实测 x=20，而正文从 x=415 开始）——单看像游离的元素。
-     挪进 <main> 之后，它与上面那些分组左缘对齐，读得出是"这一页的页脚"。 */}}
+     挪进 <main> 之后，它与上面那些分组左缘对齐，读得出是"这一页的页脚"。
+
+     **它现在是空的**（2026-10-21）：那一枚 GitHub 猫头**搬进设置面板**了（用户定的），
+     页脚只剩**用户自己那段文字**（bookmarks.json 的 footer，没有就是空的）。
+     元素留着（不因为没内容就不画）：它是"这一页的页脚"这个**位置**本身，
+     而那两条多栏/栅格的横跨规则正是为它准备的（见 base.css 那一段）。 */}}
 <footer>
   {{with .Bookmarks.Footer}}<p>{{.}}</p>{{end}}
-  <a class="repo-link" href="{{repoURL}}" target="_blank" rel="noopener noreferrer"
-    title="{{.T "common.repoTitle"}}" aria-label="{{.T "common.repoTitle"}}">{{template "icon" .RepoIcon}}</a>
 </footer>
 </main>
 </div>
@@ -430,13 +433,13 @@
 <section class="prefs">
   <h2 id="lb-prefs-h">{{.T "prefs.heading"}}</h2>
   {{/* 面板顶上原来有一句把三个 tab 各自管什么再说一遍（2026-10-17 删）：「外观」改
-       外观、「回退与历史」是出口、「分组」改书签——前两句是在复述三个 tab 名，第三
+       外观、「备份与历史」是出口、「分组」改书签——前两句是在复述三个 tab 名，第三
        句与下面分组那一节的说明**一字不差**（那一处才是它该在的地方）。三样都删掉
        之后顶栏直接进 tab，而「改的是书签本身、能退回去」仍然读得到。 */}}
 
   {{/* ── 左侧分类 tab（2026-10-15）─────────────────────────────────────────
        这一屏原本是一条 1900px 的长列（1440 实测），而它自己已经分成三节——
-       外观 / 分组 / 回退与历史——却没有一处能跳。手机上滚到第三屏才看得见
+       外观 / 分组 / 备份与历史——却没有一处能跳。手机上滚到第三屏才看得见
        「分组」，而「删掉这一组」「＋ 新分组」都在那一节里。
 
        **四颗，不是更多**：tab 的价值是"跳得远"，而这一屏只有四处真正的断层
@@ -454,9 +457,10 @@
        render 侧那一份）：分组那一节里每一次按色块、按排法、改名、建组、删组
        都是一次提交，而这一屏有二十个分组时"改完跳回第一类"等于那一节没法用。
        所以那一族的表单 action 带 `?tab=`，而 303 落回时也带着（httpapi 的
-       `prefsTab` + `applyPrefsOps`）。**带的是哪一族**：外观那几行的落点是
-       profile.json、成功后回 `/`（那里根本没有左侧这一列），而「回退与历史」
-       那一节里没有表单；「我的 PIN」那一族也带（它带的是自己那一节 `pin`——
+       `prefsTab` + `applyPrefsOps`）。**带的是哪一族**：「这一页」那几行的落点是
+       profile.json、成功后回 `/`（那里根本没有左侧这一列），而「备份与历史」
+       那一节里那张导入表单也带（`?tab=out`，2026-10-21 加——那一节从前没有表单，
+       于是「带的是哪一族」在它上面是空的）；「我的 PIN」那一族也带（它带的是自己那一节 `pin`——
        服务端答错时把面板连同那句话一起重画，读的就是请求上的 `?tab=`）。
 
        可及名走 **fieldset + legend**：这是"选一节来看"而不是 tablist——用
@@ -487,7 +491,7 @@
   {{/* 每一行都是**一张独立的表单**：一次按下只改一件事，于是"改坏了退回上一档"
        永远是一颗键的事，不需要"提交"这一步。
 
-       改名那一行用 `<label for>` 而不是 `<span>` + 内层 `<label>`：可见文字
+       页面名字那一行用 `<label for>` 而不是 `<span>` + 内层 `<label>`：可见文字
        **就是**输入框的可及名（WCAG 2.5.3），而且点那五个字会直接把光标送进
        输入框。内层再写一遍「这一页的名字」是同一句话说了两遍。 */}}
   {{/* ── 这一页长什么样 ──────────────────────────────────────────────────
@@ -646,27 +650,31 @@
       <p class="hint">{{.T "prefs.bg.none"}}</p>
       {{end}}
       <div class="prefs-keys">
-        <form method="post" action="/prefs/background" enctype="multipart/form-data" class="prefs-bg-upload">
-          {{/* 真 input 透明铺在按钮上（见 base.css .prefs-bg-file 那段），所以屏上露出来的
+        <form method="post" action="/prefs/background" enctype="multipart/form-data" class="prefs-file-form">
+          {{/* 真 input 透明铺在按钮上（见 base.css .prefs-file 那段），所以屏上露出来的
                是一颗与全站同脸的 .fld，而读屏念到的仍是那个 label 的可及名。
                **三样都要在**：input（提交与点开对话框）、label 的可及名（这一格是背景图，
                不是"文件名"）、以及下面那颗可见按钮（人点的那个形状）。少一样症状各不相同：
-               少 input 点不开，少 label 读屏只念"选择文件"，少按钮屏上就还是原生控件。 */}}
-          <label class="prefs-bg-file">
+               少 input 点不开，少 label 读屏只念"选择文件"，少按钮屏上就还是原生控件。
+
+               **这一族是面板里通用的**（2026-10-21）：导入一份备份也是"选文件"，
+               两处共用 `.prefs-file` / `.prefs-file-form` / `.prefs-file-picked`
+               这三个类——各写一份样式就会有两个产品长的选文件器。 */}}
+          <label class="prefs-file">
             <span class="prefs-visually-hidden">{{.T "prefs.bg.pick"}}</span>
             <span class="fld" aria-hidden="true">{{.T "prefs.bg.chooseFile"}}</span>
             <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif">
           </label>
           <button type="submit" class="fld">{{if .BackgroundFile}}{{.T "prefs.bg.replace"}}{{else}}{{.T "prefs.bg.upload"}}{{end}}</button>
           {{/* 选中的文件名。原生控件收起之后它没有别的地方可显示，所以自己管一行，
-               `.prefs-bg-picked:empty{display:none}` 让没选时不占位。
+               `.prefs-file-picked:empty{display:none}` 让没选时不占位。
                **这一行只在 JS 开着时才有内容**：app.js 在档案页会 fetch `/prefs`
                注入同一份面板，那时它给这一行填上选中的文件名；而 `GET /prefs`
                那张零 JS 的独立页里没人填它，于是看不见选了什么（表单照样能提交，
                提交后这一节会重画并给出结果）。这是"用真按钮换掉原生控件"的代价，
                明说在此，不假装它没有——而两处界面共用同一个 define，
                少一个出口好过两个出口长得不一样。 */}}
-          <span class="prefs-bg-picked" aria-live="polite"></span>
+          <span class="prefs-file-picked" aria-live="polite"></span>
         </form>
         {{if .BackgroundFile}}
         {{if .Profile.BackgroundOff}}
@@ -688,8 +696,8 @@
     </div>
   </div>
 
-  {{/* 「回退与历史」不是设置，是**两个出口**——它排在上面那几行"这一页长什么样"
-       （改名/排法/第二行/档案形态/主题/背景）之后，而不在它们中间：
+  {{/* 「备份与历史」不是设置，是**数据进出的出口**——它排在上面那几行"这一页长什么样"
+       （界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景）之后，而不在它们中间：
        2026-10-14 之前背景那一节落在它下面，于是这屏读成
        「几行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
   {{/* 「点开书签」：**当前标签页 / 新标签页**（openInNewTab）。它排在「分组」那节
@@ -708,8 +716,8 @@
     </div>
   </form>
 
-  {{/* ── tab 一（外观）到此为止，「点开书签」那一行仍属于它 ─────────────── */}}
-  </div>{{/* /prefs-pane 外观 */}}
+  {{/* ── tab 一（这一页）到此为止，「点开书签」那一行仍属于它 ─────────────── */}}
+  </div>{{/* /prefs-pane 这一页 */}}
   {{/* tab 二：分组（含「＋ 新分组」与每组那颗删键）。 */}}
   <div class="prefs-pane" id="prefs-pane-groups">
   {{/* ── 分组：颜色 + 这一组自己的排法 ──────────────────────────────────────
@@ -908,9 +916,9 @@
   </div>
   {{end}}
   </div>{{/* /prefs-pane 分组 */}}
-  {{/* tab 三：回退与历史。 */}}
+  {{/* tab 三：备份与历史。 */}}
   <div class="prefs-pane" id="prefs-pane-out">
-  {{/* 两个出口（回退 / 改动历史）**不是设置**，所以独立成节并排在设置项（外观、分组）
+  {{/* 两个出口（回退 / 改动历史）**不是设置**，所以独立成节并排在设置项（这一页、分组）
        之后 —— 面板是改偏好，这两个是数据变动的出口。 */}}
   <h3 class="prefs-sec">{{.T "prefs.sec.out"}}</h3>
   <p class="prefs-hint">{{.T "prefs.sec.out.hint"}}</p>
@@ -923,7 +931,68 @@
       </div>
     </div>
   </div>
-  </div>{{/* /prefs-pane 回退与历史 */}}
+  {{/* ── 备份这一份 · 导入一份备份（2026-10-21）──────────────────────────────
+       这两格是**这一份的完整状态**进出：书签 + 这一页的样子（主题、排法、
+       整页形态、第二行、页面名、界面语言）。导出的是一个文件，导入吃的是
+       自己导出的那种文件——所以两边形状是同一份。
+
+       **放在「备份与历史」这一节里，因为它同属"数据进出的出口"**，
+       而不是"改偏好"：导出与回退都是把这一份挪到别处的时间点，导入与改
+       偏好不是一回事（导入进来的设置不产生 rev，也进不了「回退」）。
+
+       **PIN 不在导出里，背景图也不在**：门闩不进文件，背景是这台机器上的
+       一个文件而不是一串字符。边界写在 backup.sec.hint 那一句里——说清
+       "少了什么"比让人事后发现少了一样强。
+
+       **两格而不是一格**（2026-10-21 实拍后改判）：一格塞两个方向时，屏上
+       出现过"导出这一份 / 备份文件 / 导入这一份"三处几乎同一句话——标签与键
+       互相重复，读起来像三个动作其实只有两个。拆成两格之后，一格一件事：
+       上面那格产出一份文件（出口，与「回退」「改动历史」同一族：a.badge
+       加上 CSS 那个箭头），下面那格吃进一份文件（表单，与「背景」那格
+       选图片是**同一种手势**，所以它共用 `.prefs-file` 那一族的脸）。
+
+       导出是一条**普通的链接**（GET /api/v1/backup），它带会话 cookie，
+       所以人在浏览器里点它就下载得到；导入是一张**零 JS 的表单**
+       （POST /import/backup，multipart）——面板里每一格都是一次提交，
+       这一格也不例外。 */}}
+  <div class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label">{{.T "backup.sec"}}</span>
+      <p class="prefs-hint">{{.T "backup.sec.hint"}}</p>
+      <div class="prefs-keys">
+        <a class="badge" href="/api/v1/backup?profile={{.Profile.ID}}" title="{{.T "backup.export.title"}}">{{.T "backup.export"}}</a>
+      </div>
+    </div>
+  </div>
+  <div class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label">{{.T "backup.import.sec"}}</span>
+      <p class="prefs-hint">{{.T "backup.import.hint"}}</p>
+      <div class="prefs-keys">
+        <form method="post" action="/import/backup?tab=out" enctype="multipart/form-data" class="prefs-file-form">
+          {{/* 表单**必须显式写 enctype**——缺了它浏览器会按 urlencoded 发，
+               服务端读到的是一个空的文件字段，而页面会说"没有选文件"。
+
+               **带的是自己那一节的 `?tab=out`**（与面板里其它表单同一纪律）：
+               失败时服务端把面板连同那句话一起重画，读的就是它——不带的话
+               错话会落回第一颗 tab（人刚待的那一节没了）。
+
+               这张表单与「背景」那一格选图片是**同一个手势**（选一个文件、
+               按一下就用它），所以它共用 `.prefs-file` 那一族：真 input 透明
+               铺在那颗 chip 上，屏上露出来的是全站同一张脸，而不是浏览器
+               自己画的那块浅灰（见 base.css .prefs-file 那段）。 */}}
+          <label class="prefs-file">
+            <span class="prefs-visually-hidden">{{.T "backup.import.pick"}}</span>
+            <span class="fld" aria-hidden="true">{{.T "backup.import.chooseFile"}}</span>
+            <input type="file" name="backup" accept=".json,application/json">
+          </label>
+          <button type="submit" class="fld">{{.T "backup.import.go"}}</button>
+          <span class="prefs-file-picked" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+  </div>
+  </div>{{/* /prefs-pane 备份与历史 */}}
 
   {{/* tab 四：我的 PIN（2026-10-20）。落点是 POST /prefs/pin，与 API 那条
        （/api/v1/profiles/self/pin）**共用同一个落点**（selfPin）——两个壳不许
@@ -946,7 +1015,7 @@
        所以它带的是**自己那一节**而不是当前那一节。带它的理由是**落点**：
        服务端答错时会把面板连同顶部那句提示一起重画（`renderPrefsNotice`），
        而那一重画读的是请求上的 `?tab=`——不带它，错话就落回第一颗 tab
-       （屏上是「外观」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
+       （屏上是「这一页」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
        与 `/prefs/group` 那一族同一个道理：停在哪要活过一次保存。 */}}
   <form method="post" action="/prefs/pin?tab=pin" class="prefs-row">
     <div class="prefs-field">
@@ -971,12 +1040,29 @@
                 显式补上，DOM 与从前一模一样（那一层后面本来就没有别的孩子），
                 而那一行回到面板的最下面。 */}}
 
-  {{/* 源码与需求在 GitHub 上（2026-10-20 加，2026-10-20 当天撤）：这一枚曾先后
-       落在**顶栏**与**这里**（面板最下面），两处都被否了——顶栏那一排是
-       「这台机器/这一份」的动作，源码链接放那儿是抢主视觉区；而这一处紧挨着
-       「回我的页面」，挨着的读起来像个导航项。它现在住在**档案页的页脚**
-       （正文最下面那一行）——网页上「源码/仓库」历来所在的位置，也是那一页
-       最不抢眼的一处。 */}}
+  {{/* 面板**最下面**那一行（2026-10-21）：左边是「回我的页面」，右边是源码入口。
+       **两样东西同一行**（用户要的"平行"）：它们都是这一页底部的两样东西——一个
+       是**出口**，一个是**引用**。分两行摆着时，右下角那一行与左下角那一枚看着
+       不像一家人；同一行里，中间隔开的那一段空白就是它们的关系。
+
+       「回我的页面」**搬进面板**了（它原来在面板之外、页面上的那一枚）：不搬的
+       话，源码那一行在面板**里面**、出口那一枚在面板**外面**，两者永远不同行。
+       搬进来之后，**浮层那一面**（档案页里点「设置」弹出来的那张）里那枚出口
+       是不该有的——它就浮在你的书签页上，× 就是出口——所以 app.js 注入面板时
+       把它摘掉（见 app.js 的 prefsOpen）。**独立页**（零 JS 也能到的那张）留着
+       它，两条路因此长得不一样：一张是页面、一张是对话框。
+
+       **源码那一枚是"图标 + 一行字"**（从前那枚是纯图标）：纯图标读作"某个没有
+       名字的东西"——这正是它在多栏那一档被当成"一条没有名字的书签"的那件事；
+       带一个字之后，它读作**一句引用**。**不是徽标**：徽标是"点了会做一件事"的
+       形状，而这一枚是个引用（与选择页那句「提需求」同一处置）。
+
+       **名字就是那句可见文字**（WCAG 2.5.3）：所以没有 aria-label——文字自己
+       就是可及名，再写一遍 aria-label 是同一句话说两遍。 */}}
+  <div class="prefs-foot">
+    <nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
+    <a class="repo-link" href="{{repoURL}}" target="_blank" rel="noopener noreferrer">{{template "icon" .RepoIcon}}<span>{{.T "common.repoTitle"}}</span></a>
+  </div>
 </section>
 {{end}}
 
@@ -1004,7 +1090,9 @@
      h1（.prefs-visually-hidden），屏上不占地方。 */}}
 <h1 class="prefs-visually-hidden">{{.T "prefs.heading"}}</h1>
 {{template "prefs-panel" .}}
-<nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
+{{/* 「回我的页面」那枚徽标**在面板的最后一行里**（prefs-panel 那个 define），
+     不在这里：它与右下角那个源码入口是**同一行**的两样东西（用户要的"平行"），
+     分成两行就散了。 */}}
 </main>
 </body>
 </html>

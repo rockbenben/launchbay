@@ -34,13 +34,22 @@ func isUnreadable(err error) bool {
 // 自报口径，不参与任何权限判定），所以非法值不值得一个 422——退回 web
 // 并把原值打进 stderr，界面上少一个筛选标签比拒掉一次恢复便宜。
 func byOfRequest(r *http.Request) string {
+	return byOfRequestDefault(r, "web")
+}
+
+// byOfRequestDefault 是 byOfRequest 的带缺省版：缺省那一档由调用方给。
+//
+// **为什么导入那一族要另一个缺省**：缺省 `web` 说的是"人是在页面上按的"，
+// 而机器那条 `POST /api/v1/restore` 是脚本发起的——把它记成"网页上"会让
+// 审计线说错是谁动的手。它那一族的缺省是 `import`（它就是导入）。
+func byOfRequestDefault(r *http.Request, def string) string {
 	raw := strings.TrimSpace(r.Header.Get("X-LB-By"))
 	if raw == "" {
-		return "web"
+		return def
 	}
 	if !store.ValidBy(raw) {
-		fmt.Fprintf(os.Stderr, "忽略非法的 X-LB-By %q，按 web 记\n", raw)
-		return "web"
+		fmt.Fprintf(os.Stderr, "忽略非法的 X-LB-By %q，按 %s 记\n", raw, def)
+		return def
 	}
 	return raw
 }

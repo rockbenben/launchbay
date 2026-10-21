@@ -266,12 +266,21 @@ func (s *Server) writeAuthFailure(w http.ResponseWriter, r *http.Request) {
 // 读不出来的那一份**不在这里分诊**（各有各的 503/坏档理由）——这里只管"读得动、
 // 而它被停用了"这一种。
 func (s *Server) profileDisabledRefuse(w http.ResponseWriter, id string) bool {
-	p, err := s.deps.Store.LoadProfile(id)
-	if err != nil || !p.Disabled {
+	if !s.profileDisabled(id) {
 		return false
 	}
 	writeJSON(w, http.StatusForbidden, errorResponse{Code: 403, Kind: apierr.ProfileDisabled, Detail: "这一份被停用了"})
 	return true
+}
+
+// profileDisabled 问"这一份被停用了吗"，**不写任何响应**。
+//
+// **判据只有这一处**：profileDisabledRefuse 是它加那句 403 的外壳（机器那一路），
+// 而浏览器那一路要的是"把面板画回来，顶部说清"——那是另一种长相，同一套判据。
+// 写成两处判"停用"就会有一处漂，而漂掉的那一处会让停用对页面那条路是空的。
+func (s *Server) profileDisabled(id string) bool {
+	p, err := s.deps.Store.LoadProfile(id)
+	return err == nil && p.Disabled
 }
 
 // errorResponse 是全 API 错误响应的唯一外壳：struct 字段序 = 输出键序

@@ -123,6 +123,12 @@ func (s *Server) routes() []route {
 			Summary: "导入第二步：收文件、解析、给报告（不写盘）", H: s.handleImportUpload},
 		{Method: "POST", Pattern: "/import/apply", Cred: credSession,
 			Summary: "导入第三步：确认写入（一次性令牌）", H: s.handleImportApply},
+		// 整份备份的导入（2026-10-21）：台面面板里那个「导入」表单。它吃的是
+		// **自己导出的那种文件**（书签 + 台面设置），不是浏览器导出的书签——
+		// 那是上面那三步的事。**只认会话**：档案从会话推导，令牌一律 303。
+		// 与机器那条 /api/v1/restore 共用 parseBackup/restoreInto，判据一份。
+		{Method: "POST", Pattern: "/import/backup", Cred: credSession,
+			Summary: "导入一份备份文件（书签 + 台面设置，仅会话，multipart 表单通路）", H: s.handleRestoreForm},
 		// 令牌通路的两步，给**浏览器扩展**用：扩展读得到浏览器的整棵书签树，却
 		// 读不到会话 cookie，于是只能带令牌来。体是原始 Netscape HTML，档案
 		// **从令牌作用域推导、不接受申报**——一枚 dad 的令牌只能导进 dad。
@@ -143,7 +149,7 @@ func (s *Server) routes() []route {
 		// 准入与 /revert、/history 同一族（selfProfileOnly，档案从会话推导），
 		// 所以管理员进得了也只能改自己那一份。
 		{Method: "GET", Pattern: "/prefs", Cred: credSession,
-			Summary: "台面面板的独立页（改名/视图/档案形态/主题 + 回退与改动历史两条路；左侧一列分类 tab；JS 关着时顶栏那颗「台面」落在这里）", H: s.handlePrefsPage}, {Method: "GET", Pattern: "/revert", Cred: credSession,
+			Summary: "台面面板的独立页（页面名字/排列方式/分组列表的位置/主题 + 回退与改动历史两条路；左侧一列分类 tab；JS 关着时顶栏那颗「台面」落在这里）", H: s.handlePrefsPage}, {Method: "GET", Pattern: "/revert", Cred: credSession,
 			Summary: "回退到某一版的确认页（第一步；浏览器表单通路）", H: s.handleRevertPage},
 		{Method: "POST", Pattern: "/revert", Cred: credSession,
 			Summary: "确认回退（第二步；与 POST /api/v1/revert 同一落点）", H: s.handleRevertForm},
@@ -230,6 +236,11 @@ func (s *Server) routes() []route {
 		{Method: "GET", Pattern: "/api/v1/status", Cred: credAdmin, Summary: "各档案 rev/条目/快照/坏档汇总", H: s.handleStatus},
 		{Method: "GET", Pattern: "/api/v1/data", Cred: credScoped, Summary: "该档案全量数据 + rev", H: s.handleData},
 		{Method: "GET", Pattern: "/api/v1/export", Cred: credScoped, Summary: "导出磁盘上的 bookmarks.json 原字节", H: s.handleExport},
+		// 整份备份那一对（2026-10-21）。**与上面那条不是一回事**：那条导的是
+		// 磁盘上 bookmarks.json 的原字节（可以直接喂 batch 对照），这一对导的是
+		// **这一份的完整状态**——书签 + 台面偏好。改那条的形状就是毁掉它的契约。
+		{Method: "GET", Pattern: "/api/v1/backup", Cred: credScoped, Summary: "导出这一份的整份备份（书签 + 台面设置）", H: s.handleBackup},
+		{Method: "POST", Pattern: "/api/v1/restore", Cred: credScoped, Summary: "导入一份备份（书签 + 台面设置，段可缺省）", H: s.handleRestore},
 		{Method: "GET", Pattern: "/api/v1/history", Cred: credScoped, Summary: "动作审计线（不含 ops 内容）；省略 profile = 全家庭聚合，仅管理员（credAdmin）", H: s.handleHistoryAPI},
 		{Method: "POST", Pattern: "/api/v1/batch", Cred: credScoped,
 			Summary: "一批 ops 原子写入某档案", H: s.handleBatch},
