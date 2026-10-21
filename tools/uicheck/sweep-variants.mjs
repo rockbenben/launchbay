@@ -311,6 +311,74 @@ await step('设置面板 → 改自己那道门（不跳走）', async () => {
   return problems;
 } });
 
+// ── 对齐（2026-10-21 实拍后加）───────────────────────────────────────────────
+//
+// 这一族量的是**像素**，不是功能：键照样能按、图标照样能点，而屏上看着没对齐。
+// 这一族的两条判据都来自用户实拍：
+//   ① 台面面板「我的 PIN」那一行：键浮在输入框上方 15px（键 145..189、框 160..204）。
+//   ② 档案页的**页脚**掉进某一栏里（全局档它碎成两片：栏 2 底部 + 栏 3 顶部）。
+//
+// **为什么放在这道横扫而不是只写一条 CSS 断言**：CSS 断言钉的是「规则还在」，
+// 而这里钉的是「**现在真的平**」——两份标记（独立页与浮层注入）共用同一份 CSS，
+// 而浮层那一份是 fetch 进来再注入的，它有没有真的拿到那条规则，只有浏览器知道。
+await step('台面面板 → 「我的 PIN」那一行的键与输入框平齐', async () => {
+  const r = await prefs();
+  if (r !== 'opened') return r;
+  // 浮层里那列 radio 只切本地（不改 URL），所以要自己点过去。
+  await ev(`const x=document.querySelector('#lb-prefs #prefs-tab-pin'); if(!x) return 'NO-RADIO';
+    x.checked=true; x.dispatchEvent(new Event('change',{bubbles:true})); return 'ok'`);
+  await sleep(300);
+  return await run(`(()=>{const f=document.querySelector('#lb-prefs form[action^="/prefs/pin"]'); if(!f) return 'NO-FORM';
+    const inp=f.querySelector('input[name=new]'); const btn=f.querySelector('button[type=submit]');
+    if(!inp||!btn) return 'NO-FIELD';
+    const a=inp.getBoundingClientRect(), b=btn.getBoundingClientRect();
+    return JSON.stringify({inp:[Math.round(a.top),Math.round(a.bottom)],btn:[Math.round(b.top),Math.round(b.bottom)]});})()`);
+}, { noInvariant: true, wait: 600,
+  outcome: (inv, d, res) => {
+    const m = /"inp":\[(-?\d+),(-?\d+)\],"btn":\[(-?\d+),(-?\d+)\]/.exec(String(res));
+    if (!m) return [`读数没拿到：${res}`];
+    const dTop = Number(m[3]) - Number(m[1]);
+    const dBot = Number(m[4]) - Number(m[2]);
+    const problems = [];
+    // 1px 的容差：亚像素布局下 getBoundingClientRect 会给出 0.5px 的碎值，
+    // 而肉眼看不出的那一档不值得让这道闸红。
+    if (Math.abs(dTop) > 1) problems.push(`键比输入框高了 ${dTop}px（输入框 ${m[1]}..${m[2]}，键 ${m[3]}..${m[4]}）`);
+    if (Math.abs(dBot) > 1) problems.push(`键比输入框低了 ${-dBot}px（输入框 ${m[1]}..${m[2]}，键 ${m[3]}..${m[4]}）`);
+    return problems;
+  } });
+
+await step('全局视图 → 页脚横跨整幅，不在栏里', async () => {
+  // 视图是**全机器的偏好**（全档案共享），所以先记住原来那一档，最后改回去。
+  const view0 = await run(`document.documentElement.dataset.profileView || ''`);
+  await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=wall'})`);
+  await sleep(900);
+  await goHome();
+  const read = await run(`(()=>{const f=document.querySelector('footer'); const main=document.querySelector('main');
+    if(!f||!main) return 'NO-FOOTER';
+    const fr=f.getBoundingClientRect(), mr=main.getBoundingClientRect();
+    const secs=[...main.querySelectorAll(':scope > section')].map(s=>Math.round(s.getBoundingClientRect().bottom));
+    return JSON.stringify({fw:Math.round(fr.width),mw:Math.round(mr.width),ft:Math.round(fr.top),
+      lowest:secs.length?Math.max(...secs):0,frags:f.getClientRects().length});})()`);
+  // 还原视图（后面那些步骤要的是原来那一档的版面）。
+  await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=${view0 || 'groups'}'})`);
+  await sleep(700);
+  await goHome();
+  return `view0=${view0} ${read}`;
+}, { noInvariant: true, wait: 800,
+  outcome: (inv, d, res) => {
+    const problems = [];
+    const m = /"fw":(\d+),"mw":(\d+),"ft":(\d+),"lowest":(\d+),"frags":(\d+)/.exec(String(res));
+    if (!m) return [`读数没拿到：${res}`];
+    const [, fw, mw, ft, lowest, frags] = m.map(Number);
+    // 页脚必须是**一整块**：碎成几片就是被栏切了（实测全局档碎成栏 2 底部 + 栏 3 顶部两片）。
+    if (frags !== 1) problems.push(`页脚碎成了 ${frags} 片——它被多栏切开了`);
+    // 与正文同宽：它是这一页的页脚，不该是某一栏里的一个盒子。
+    if (Math.abs(fw - mw) > 2) problems.push(`页脚宽 ${fw}px，正文宽 ${mw}px——它没有横跨整幅`);
+    // 落在所有分组下面：页脚在正文列的末尾，不在某一栏的中间。
+    if (ft < lowest) problems.push(`页脚顶边 ${ft}px 还在某个分组（最低 ${lowest}px）上面——它不是页脚`);
+    return problems;
+  } });
+
 // ── 搜索两路 ────────────────────────────────────────────────────────────────
 await step('搜索 → 整页与面板对同一个词给同一个答案', async () => {
   const word = '甲';
@@ -350,6 +418,153 @@ await step('窄屏 390 + 浅色 → 不许横向溢出，且屏上仍与盘上�
     else if (Number(m[1]) > Number(m[2]) + 1) problems.push(`横向溢出：内容 ${m[1]}px，视口 ${m[2]}px`);
     return problems;
   } });
+
+// ── 版式三件事（2026-10-21 加）────────────────────────────────────────────────
+// 这一族全是**同一件事的三个切面**：长文本与行内对齐。
+//
+//	① 同一排里各卡的**图标**要齐平（名字长到与图标挤不到同一行时，图标会被
+//	  独自留在第一行——那一格于是从 40px 长到 93px）；
+//	② **紧凑档每条一行**（这一档的契约就是这八个字）；
+//	③ 横幅上那颗**关闭键不许折行**（中文到处可断，它的自动最小尺寸只剩一个字，
+//	  于是「知道了」被压成「知道 / 了」两行）。
+//
+// 它们从前都不在闸里，于是能一直坏着。**长文本铺进固定数据**（harness.mjs 的
+// seedFixture）之后，这一族才在闸里可见——2026-10-21 那三个修法就是靠这批数据
+// 量出来的。
+
+// ① 同一排里图标与名字齐平
+await step('卡片 → 同一排里图标与名字齐平（没有孤儿图标）', async () => {
+  await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await goHome();
+  return await run(`(()=>{
+    const bad=[];
+    for(const li of document.querySelectorAll('li[data-item]')){
+      const a=li.querySelector('.card,.plain'); if(!a) continue;
+      const ic=a.querySelector('.ic,.ic-svg,.ic-img'); const b=a.querySelector('b');
+      if(!ic||!b) continue;
+      const d=Math.abs(ic.getBoundingClientRect().top-b.getBoundingClientRect().top);
+      if(d>6) bad.push((b.textContent||'').trim().slice(0,10)+' 差'+Math.round(d)+'px');
+    }
+    return JSON.stringify({孤儿:bad.length, 例:bad.slice(0,3)});
+  })()`);
+}, { noInvariant: true, wait: 500,
+  outcome: (inv, d, res) => {
+    const m = /"孤儿":(\d+)/.exec(String(res));
+    if (!m) return ['读数没拿到：' + res];
+    return Number(m[1]) > 0 ? [`有 ${m[1]} 张卡的图标与名字不在同一行（图标成了孤儿）：${res}`] : [];
+  } });
+
+// ② 紧凑档每条一行
+await step('紧凑档 → 每条一行（长名字也不许把行撑高）', async () => {
+  // 视图与「第二行印什么」都是**全机器的偏好**（改它会重画整页），
+  // 所以先记住现在这两样，量完放回去。
+  const before = await run(`JSON.stringify({v:document.body.dataset.profileView||'groups',
+    a:document.body.dataset.addrLevel||'host'})`);
+  const b = JSON.parse(before);
+  // **第二行必须是「主机名」这一档**（2026-10-21 改判）：「完整地址」是**用户显式选的**
+  // 那一档，而那一档**按设计**就该在紧凑档里也印出第二行——`prefs.addrLevel.hint`
+  // 明写「选了完整地址之后，密集视图与窄屏磁贴也显示第二行」。
+  // 拿它当缺陷 = 把用户的显式选择读成 bug（2026-10-21 第一次写这条时正是这么错的：
+  // 读到 90px 的行就红了，而那是**横扫自己**把第二行改成完整地址造成的）。
+  await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=dense&addrLevel=host'})`);
+  await sleep(900);
+  await goHome();
+  const res = await run(`(()=>{
+    // 只量**能点的那些卡**：「点不动的那一行」（.plain）自带一行地址，
+    // 它高一点是设计（那一行的正文就是地址）。
+    const cs=[...document.querySelectorAll('li[data-item]')].map(li=>{
+      const a=li.querySelector('.card'); if(!a) return null;
+      return {h:Math.round(a.getBoundingClientRect().height),
+        sec:li.closest('section')?.dataset.gid||'?',
+        t:(a.querySelector('b')?.textContent||'').trim().slice(0,10)};}).filter(Boolean);
+    const top=cs.slice().sort((x,y)=>y.h-x.h).slice(0,3);
+    return JSON.stringify({最高:Math.max(...cs.map(c=>c.h)), n:cs.length, 最高的几张:top,
+      视图:document.body.dataset.profileView||'?'});
+  })()`);
+  await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=${b.v}&addrLevel=${b.a}'})`);
+  await sleep(700);
+  return res;
+}, { noInvariant: true, wait: 400,
+  outcome: (inv, d, res) => {
+    const m = /"最高":(\d+)/.exec(String(res));
+    if (!m) return ['读数没拿到：' + res];
+    // 40px 是这一档的行高；60 留一格余量（44px 的地板 + 内衬）。
+    return Number(m[1]) > 60 ? [`紧凑档里有 ${m[1]}px 高的条目——这一档的契约是「每条一行」：${res}`] : [];
+  } });
+// ③ 横幅的关闭键不许折行
+await step('横幅 → 关闭键不折行（一个字一行是坏的）', async () => {
+  await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await goHome();
+  // 长按进多选：那条提示横幅就是这时候出来的（app.js 的 app.multi.hint）。
+  await ev(`const li=document.querySelector('li[data-item]');
+    if(!li) return 'NO-LI'; li.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0})); return 'held'`);
+  await sleep(900);
+  const res = await run(`(()=>{
+    const d=document.querySelector('#lb-banner .dismiss'); if(!d) return JSON.stringify({键:'没有'});
+    const b=d.getBoundingClientRect();
+    return JSON.stringify({字:d.textContent.trim(), 宽:Math.round(b.width), 高:Math.round(b.height)});
+  })()`);
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+  await sleep(400);
+  return res;
+}, { noInvariant: true, wait: 400,
+  outcome: (inv, d, res) => {
+    const m = /"高":(\d+)/.exec(String(res));
+    if (!m) return ['读数没拿到（多选那条横幅没出来？）：' + res];
+    // 一行是 44px（min-height 那个地板）；折成两行就是 52、三行 72。
+    return Number(m[1]) > 46 ? [`关闭键被压成 ${m[1]}px 高——它的字折行了：${res}`] : [];
+  } });
+
+// ── 管理页在窄屏下：六列表格翻成卡片，全仓没有闸量过它 ────────────────────────
+// **它不用 `step()`**：那个 helper 的前置是"这一步开始时页面还得是档案页"
+// （[data-gid] 数为 0 就判成"上一步把页面弄走了"），而管理页本来就没有分组。
+// 零 JS 那几步也是自己走一套（见下面那个 noJS）——同一件事，同一种做法。
+{
+  stats.ran++;
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  // 管理权要一把真的管理密钥（环境变量里那把）——这一页是账号层面，管理员那把才进得去。
+  await run(`fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'key=${ADM}'})`);
+  await sleep(500);
+  await send('Page.navigate', { url: SRV + '/admin' }); await sleep(1600);
+  const res = await run(`(()=>{
+    const de=document.documentElement, vw=de.clientWidth;
+    const over=[...document.querySelectorAll('body *')].filter(n=>{
+      const b=n.getBoundingClientRect(); return b.width>0 && b.height>0 && b.right>vw+1;})
+      .slice(0,3).map(n=>n.tagName+'.'+String(n.className).slice(0,16));
+    const tbl=document.querySelector('.adm');
+    const thead=tbl?getComputedStyle(tbl.querySelector('thead')).display:'no-table';
+    // 同一**横行**里两格左右交叠 = 卡片式排版撞了
+    let overlap=null;
+    for(const tr of document.querySelectorAll('.adm tbody tr')){
+      const cells=[...tr.children].map(c=>({k:c.getAttribute('data-k')||c.className, b:c.getBoundingClientRect()}));
+      for(let i=0;i<cells.length;i++) for(let j=i+1;j<cells.length;j++){
+        const A=cells[i].b,B=cells[j].b;
+        const sameRow=Math.abs(A.top-B.top)<Math.min(A.height,B.height)/2;
+        if(sameRow && A.left < B.right-1 && B.left < A.right-1) overlap=[cells[i].k,cells[j].k];
+      }
+    }
+    return JSON.stringify({vw, scrollW:de.scrollWidth, thead, over, overlap});
+  })()`);
+  const problems = [];
+  // **键序要与上面 JSON.stringify 的对象字面量一致**（vw 在前、scrollW 在后）：
+  // 2026-10-21 第一次写成了 "scrollW":…,"vw":…，于是正则永远不匹配，
+  // 每一次都报「读数没拿到」——**一条量不出东西的断言比没有断言更坏**。
+  const m = /"vw":(\d+),"scrollW":(\d+)/.exec(String(res));
+  if (!m) problems.push('读数没拿到：' + res);
+  else {
+    if (Number(m[2]) > Number(m[1]) + 1) problems.push(`横向溢出：内容 ${m[2]}px，视口 ${m[1]}px`);
+    if (!/"thead":"none"/.test(String(res))) problems.push('窄屏下表头没收起来（列名会与每格重复）');
+    if (/"overlap":\[/.test(String(res))) problems.push('同一行里两格左右交叠：' + res);
+    // **空数组不算**：「"over":[]」是"没有元素越界"，而 `\[\S` 会把 `]` 当成内容——
+    // 那样每一次都误报（2026-10-21 第二次写这条时踩的）。
+    // 要判的是**方括号里确实有东西**：`\[[^\]]`。
+    if (/"over":\[[^\]]/.test(String(res))) problems.push('有元素超出视口右缘：' + res);
+  }
+  if (problems.length) { stats.fails++; say('FAIL 管理页 · 窄屏 390 → 表格翻成卡片，不横滚不重叠'); for (const p of problems) say('     · ' + p); }
+  else say('PASS 管理页 · 窄屏 390 → 表格翻成卡片，不横滚不重叠');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 1300, deviceScaleFactor: 1, mobile: false });
+  await goHome();
+}
 
 // ── 减弱动效 ────────────────────────────────────────────────────────────────
 await step('减弱动效 → 新加的那几条显式关掉', async () => {

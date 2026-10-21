@@ -6,8 +6,8 @@
 // 这个项目里反复出现的 bug 是同一句——**屏上说的与盘上存的分家**——而 2026-10-15 之前
 // **没有任何东西会跑界面**：go test 只判服务端契约与若干条源码级断言。于是每一个界面
 // 缺陷都要等人手动碰到才浮出来，一次一个，「修完发现还有下一个」。这道闸把「每次写盘
-// 之后屏上必须与盘上一致」变成机械核对，**43 步一次跑完**（两道横扫：档案页那 26 步
-// + 另外那些族 17 步）。
+// 之后屏上必须与盘上一致」变成机械核对，**54 步一次跑完**（两道横扫：档案页那 26 步
+// + 另外那些族 28 步）。
 //
 // 跑法：`LB_UI=1 go test ./tools/uicheck/`
 //
@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,7 +54,7 @@ const (
 // 只 Kill 父进程的话，Chrome 的子进程（渲染器、网络服务、那个 optimization
 // guide 的模型下载）还活着，于是 Go 的 t.TempDir 清理撞上它们：
 // "The process cannot access the file because it is being used by another
-// process" ——**整支测试判 FAIL**，而那 43 步其实全绿。
+// process" ——**整支测试判 FAIL**，而那 54 步其实全绿。
 //
 // 这是一条"红了但什么也不代表"的失败：它会训练人忽略红色，于是**真的**红的那
 // 次也被一起忽略。横扫本身是这台机器上唯一能看出"屏上与盘上是不是一致"的
@@ -97,6 +98,9 @@ func Test档案页交互横扫(t *testing.T) {
 	port := freePort(t)
 	startServer(t, bin, data, port)
 	waitHealthy(t, port, 20*time.Second)
+	// **语言要在横扫之前钉住**（2026-10-21 修）：那道闸断言的是中文按钮，而页面说
+	// 哪一门语言由机器说了算——见 setMachineLang 那段。
+	setMachineLang(t, port)
 
 	cdp, stop := browser(t, tmp)
 	defer stop()
@@ -260,6 +264,76 @@ func waitHealthy(t *testing.T, port int, within time.Duration) {
 		time.Sleep(150 * time.Millisecond)
 	}
 	t.Fatalf("服务 %d 秒内没起来", within/time.Second)
+}
+
+// setMachineLang 把这台机器的**站级默认语言**钉成中文。
+//
+// **为什么闸要钉住语言**（2026-10-21 实测）：这道闸断言的是**中文按钮**
+// ——「移动到」「从图标库换图标」——而页面说哪一门语言由 httpapi 的 machineLang
+// 决定，三格依次是：站级默认 → 浏览器说的那一门 → 英文。一台**刚装好、没人设过
+// 语言**的机器于是听浏览器的：CI runner 上的 Chrome 发 `Accept-Language: en-US`，
+// 页面于是整屏英文，于是闸去点一颗中文按钮，找不到，判 FAIL。
+//
+// 实录（2026-10-20 的 CI）：四条步骤全红——「编辑 → 从图标库换图标」是 NO-LIB，
+// 「多选 → 移动到 / 打标签 / 删掉」是 NO-BAR-BTN ×3，**每一条都是"找不到那颗
+// 中文按钮"**。产品没坏，是尺子量错了地方：同一台机器上把 Chrome 的语言设成
+// zh-CN 再跑，四条全绿——**同一条闸在两台机器上答案相反**，而它绿的那一次
+// 才让人以为"界面验过了"。
+//
+// **为什么钉在机器上而不是钉在浏览器上**：浏览器那一格随机器、随人、随 runner
+// 变（LB_CDP 指向谁开着的浏览器，那台浏览器的语言就是这一格），而站级默认只有
+// 一处（data/settings.json），改一次就定住。**闸要的是"这台机器说什么话"，
+// 不是"这台浏览器说什么话"。**
+//
+// 走的是**产品自己的那条路**（POST /admin/login 拿管理 cookie，再 POST
+// /admin/language）——测试不直接写 settings.json，那会把盘上格式抄成第二份
+// 真相：格式哪天变了，闸会静悄悄地回到英文，而症状与今天一模一样。
+//
+// 站级语言**每次请求现读**（store.DefaultLanguage 刻意不做内存缓存），所以
+// 这里改完立刻生效，不用重启被测服务。
+func setMachineLang(t *testing.T, port int) {
+	t.Helper()
+	base := fmt.Sprintf("http://127.0.0.1:%d", port)
+	// **不跟 303**：cookie 在**第一个**响应上，跟过去之后 resp 是最终那一页。
+	client := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	// 一、管理员登录：浏览器表单通路要的是**会话 cookie**——带令牌一律 303
+	//    （handleAdminLanguage 的第一行），所以这里走 key 那一条。
+	resp, err := client.PostForm(base+"/admin/login", url.Values{"key": {adminToken}})
+	if err != nil {
+		t.Fatalf("管理员登录失败：%v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("管理员登录该 303，实际 %d", resp.StatusCode)
+	}
+	var admin *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == "lb_admin" {
+			admin = c
+		}
+	}
+	if admin == nil {
+		t.Fatalf("管理员登录没发 lb_admin cookie：这道闸的语言钉不住")
+	}
+	// 二、站级默认语言 = 中文。
+	req, err := http.NewRequest("POST", base+"/admin/language", strings.NewReader("language=zh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(admin)
+	rs, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("设语言失败：%v", err)
+	}
+	defer rs.Body.Close()
+	if rs.StatusCode != http.StatusSeeOther {
+		t.Fatalf("设语言该 303，实际 %d", rs.StatusCode)
+	}
 }
 
 // browser 拿一个能用的调试口：先看 LB_CDP（已经开着的），再自己起一个无头浏览器。

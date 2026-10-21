@@ -1,4 +1,4 @@
-// 走查量尺：把肉眼看到的几处拿去量。node uiprobe.mjs <port> <cdp>
+// 走查量尺：把肉眼看到的几处拿去量。node measure.mjs <port> <cdp>
 const SRV = 'http://127.0.0.1:' + (process.argv[2] || 7881);
 const CDP = process.argv[3] || 'http://127.0.0.1:9222';
 const tab = await (await fetch(`${CDP}/json/new?about:blank`, { method: 'PUT' })).json();
