@@ -153,6 +153,34 @@ await step('添加浮层 → 顺带建一个新分组', () => addSheet(U(), '扫
     return g.items.length === 1 ? [] : [`新分组里有 ${g.items.length} 条，要 1 条`];
   } });
 
+// 关掉再打开必须是空表单（2026-10-25）：上一次失败/放弃的地址、名字、说明、新分组名
+// 不能留到下一次——resolve 只在名字为空时才填，旧名字会把新地址盖成旧名字。
+await step('添加浮层 → 关掉再打开是空表单', async () => {
+  return ev(`const add=document.getElementById('lb-add');
+    add.click();
+    const u=document.getElementById('lb-url'); u.value='https://stale.example/';
+    document.getElementById('lb-title').value='上一次的名字';
+    document.getElementById('lb-desc').value='上一次的说明';
+    const g=document.getElementById('lb-group');
+    g.value=g.querySelector('option:last-child').value;
+    g.dispatchEvent(new Event('change',{bubbles:true}));
+    const n=document.getElementById('lb-newgroup'); n.value='上一次的分组';
+    document.querySelector('#lb-sheet button.close').click();
+    add.click();
+    const show={url:u.value,title:document.getElementById('lb-title').value,
+      desc:document.getElementById('lb-desc').value,newGroup:n.value,
+      creating:!n.hidden,group:g.value};
+    document.querySelector('#lb-sheet button.close').click();
+    return show;`);
+}, { wait: 300,
+  outcome: (inv, d, res) => {
+    if (!res || typeof res !== 'object') return ['读不到表单状态：' + JSON.stringify(res)];
+    if (res.url !== '' || res.title !== '' || res.desc !== '' || res.newGroup !== '' || res.creating) {
+      return ['关掉再打开还留着上一次的输入：' + JSON.stringify(res)];
+    }
+    return [];
+  } });
+
 // 5-8) 编辑模态
 await step('编辑 → 改名字', async () => {
   await openEdit(firstIn('tiles-1')); await sleep(400);

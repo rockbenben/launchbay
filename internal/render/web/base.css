@@ -371,7 +371,10 @@ details[open]>summary::before{content:"▾"}
      页面会把人的第一反应变成"我划错了什么"。换成 grid 把第二轨钉成
      `minmax(0,1fr)`：同一行高 58px 不变、文档宽回到 390、分组带在自己那 245px 里
      横向滚（scrollWidth 仍是 747，但那正是它该有的位置）。 */
-  .side .drawer{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px}
+  /* 对齐用 start 而不是 center（2026-10-25）：分组名换到第二行时，center 会把
+     「分组」把手放在两行之间，屏上读成「第一组在上面、分组在下面」；start 让
+     把手与第一行齐平，层级不变。 */
+  .side .drawer{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:8px}
   .side .drawer>summary{min-width:0}
   .side .drawer>.gnav{min-width:0}
 }

@@ -32,7 +32,9 @@
        {{if .Skipped}}{{.T "import.skipped" .Skipped}}{{end}}</p>
     {{/* **人话摘要在上，完整报告在下**（2026-10-24）：报告是给排查用的
          （ASCII/id/三条核对），普通用户要决定的只有"会进哪些组、少了哪几条"。
-         报告不折叠（它仍是这一页的完整依据），但先让人看见结论。 */}}
+         报告不折叠（它仍是这一页的完整依据），但先让人看见结论。
+         **「确认导入」也跟在摘要后面**（2026-10-25）：报告是排查材料，不该把
+         唯一的出口压在几十行技术文本之后。 */}}
     {{if .PreviewGroups}}
       <p class="preview-sum"><b>{{.T "import.preview.will"}}</b>
         {{range $i, $g := .PreviewGroups}}{{if $i}}{{$.T "import.preview.sep"}}{{end}}{{$.T "import.preview.group" $g.Title $g.Count}}{{end}}</p>
@@ -45,7 +47,6 @@
       <ul class="skipped">{{range .}}<li>{{.Name}} <span class="u"> — {{.URL}}</span></li>{{end}}</ul>
     {{end}}
     <p class="hint">{{.T "import.more"}}</p>
-    <div class="rep">{{reportHTML .Report}}</div>
     {{/* 令牌是一次性的（过期/用过/不是这个档案都回第一步），所以这一发
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}
     <form method="post" action="/import/apply" class="act">
@@ -53,6 +54,7 @@
       <button type="submit" class="primary">{{.T "import.apply"}}</button>
       <a class="badge" href="/">{{.T "import.cancel"}}</a>
     </form>
+    <div class="rep">{{reportHTML .Report}}</div>
   {{else if eq .Mode "done"}}
     {{/* 走完之后的**结论**，不是预览：写进去了几条、有哪些没能进来。
          逐条点名是这一页存在的全部理由——只印一个"跳过了 N 条"的话，

@@ -58,11 +58,11 @@ const APP_I18N = {
     "app.close": "关闭",
     "app.reading": "正在读取那个网页…",
     "app.readFail": "没读到东西，标题可以自己填",
-    "app.readOk": "已读到标题、说明和图标",
+    "app.readOk": "已读到标题",
     "app.readEmpty": "这个网页没给出可读的信息，标题自己填",
     "app.readErr": "读不出来：%s",
     "app.netErr": "没能连上这台机器（网络断了，或者它没开机）。等它回来再试一次。",
-    "app.netQueued": "这台机器现在连不上，这条先记在待办里；等它回来会自己补，也可以点待办里的「补进去」。",
+    "app.netQueued": "这台机器现在连不上，这条先记在待办里；等它回来点「补进去」就能补上。",
     "app.backup.imported": "备份已导入。",
     "app.err.group": "先选一个分组。",
     "app.err.groupName": "先给这个分组起个名字。",
@@ -71,7 +71,7 @@ const APP_I18N = {
     "app.offline.chip": "待办 %d 条",
     "app.offline.aria": "看待办条目",
     "app.offline.drop": "不要这条",
-    "app.offline.list": "下面这些是还没补进去的；网络通了会自动补，没补上就点「补进去」再试一次。",
+    "app.offline.list": "下面这些是还没补进去的；点「补进去」再试一次。浏览器重新联网时会自动补。",
     "app.offline.retry": "补进去",
     "app.offline.blocked": "现在没网，只能看。添加会先记下来，网络通了自动补进去。",
     "app.offline.done": "待办里的 %d 条已经补进去",
@@ -210,11 +210,11 @@ const APP_I18N = {
     "app.close": "Close",
     "app.reading": "Reading that page…",
     "app.readFail": "Nothing was read; you can fill the title in yourself",
-    "app.readOk": "Read the title, description and icon",
+    "app.readOk": "Read the title",
     "app.readEmpty": "That page gave nothing readable, so fill the title in yourself",
     "app.readErr": "Could not read it: %s",
     "app.netErr": "Couldn't reach this machine (the network is down, or it's off). Try again when it's back.",
-    "app.netQueued": "This machine can't be reached, so this one is queued. It will be sent when the machine is back, or press “Send now” in the queue.",
+    "app.netQueued": "This machine can't be reached, so this one is queued. When it is back, press “Send now” in the queue.",
     "app.backup.imported": "Backup imported.",
     "app.err.group": "Pick a group first.",
     "app.err.groupName": "Give the new group a name first.",
@@ -223,7 +223,7 @@ const APP_I18N = {
     "app.offline.chip": "Pending: %d",
     "app.offline.aria": "See pending items",
     "app.offline.drop": "Drop this one",
-    "app.offline.list": "These are still pending. They will go through when the connection is back; if not, press “Send now” and try again.",
+    "app.offline.list": "These are still pending. Press “Send now” to retry; they also go through automatically when the browser comes back online.",
     "app.offline.retry": "Send now",
     "app.offline.blocked": "No network, so this is read-only for now. Additions are queued and sent automatically when you are back.",
     "app.offline.done": "%d pending items went through",
@@ -460,7 +460,8 @@ const APP_I18N = {
 
   // 打开浮层这件事有四个入口（按按钮、按 n、bookmarklet 带进来、⌘K 的剪贴板），
   // 光标该落在哪儿只有一个答案。从前只有 `n` 那条会 focus()：鼠标用户点开之后
-  // 还要再点一下输入框才能贴地址。
+  // 还要再点一下输入框才能贴地址。**四个入口复用同一张表单，所以每次打开先复位**——
+  // 上一次关掉的输入不能留到下一次；bookmarklet 复位后再写预填值。
   // aria-modal="true" 是一句**声明**，浏览器不会替你做到。改前实测：浮层开着时
   // 面板外还有 29 个可聚焦元素（面板内只有 9 个），Tab 一路走到背后那张被遮住的
   // 页面上去——焦点跑到看不见的地方，比没有浮层更难找回。
@@ -562,8 +563,28 @@ const APP_I18N = {
     return [...document.querySelectorAll('#lb-sheet, .cmdk, .sheet')].filter((n) => !n.hidden).pop() || null;
   }
 
-  function openSheet() {
+  // **每次从「＋ 添加」/ n / 剪贴板进来都是一张新表单**（2026-10-25）：
+  // 关掉一次没填完的浮层之后，旧的地址、名字、说明、图标候选与分组不能留到下一次。
+  // 从前它们会留下来，而 resolve 只在名字为空时才填——于是"上次失败的名字"
+  // 会把下一条新地址盖成旧名字。save and continue 那条路不走这里，它有意只清
+  // URL/名字/说明并保留分组与图标。
+  function resetSheetForm() {
+    fUrl.value = '';
+    fTitle.value = '';
+    fDesc.value = '';
+    fNewGroup.value = '';
+    iconChoices([]);
+    const first = [...fGroup.options].find((o) => o.value !== NEW_GROUP);
+    fGroup.value = first ? first.value : NEW_GROUP;
+    syncGroupFields();
+    pickShape('tiles');
+    urlErr.textContent = '';
+    say('');
+  }
+
+  function openSheet(reset = false) {
     sheet.hidden = false;
+    if (reset) resetSheetForm();
     syncTrap();
     say('');
     fUrl.focus();
@@ -574,7 +595,7 @@ const APP_I18N = {
     // 一个动作，不是"这一页上你唯一该做的事"——搜索、设置、换档案都在它旁边。
     // 加重之后它比顶栏右侧那三颗都响，而这一页真正的主内容是下面那些书签。
     type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
-    on: { click: openSheet },
+    on: { click: () => openSheet(true) },
   });
   // 插在搜索表单**之后**而不是 header 末尾：DOM 顺序就是视觉顺序，这样「＋ 添加」
   // 跟着标题与搜索框排同一行，不再独占一行拉成一条横带（1440 上实测 980×44）。
@@ -1671,9 +1692,9 @@ const APP_I18N = {
   // 那一行**时，看起来像"add 按钮没生成"，与真正的病因隔了半个文件。
   const pending = body.dataset.add || '';
   if (pending) {
+    openSheet(true);
     fUrl.value = pending;
     fTitle.value = body.dataset.addTitle || '';
-    openSheet();
     resolveNow();
   }
 
@@ -1903,6 +1924,9 @@ const APP_I18N = {
         }
       }
       iconChoices(r.iconCandidates);
+      // **只承诺标题**（2026-10-25）：resolve 可以只读到 title（description 只认
+      // og:description，icon 也可能抓不到）；旧文案「标题、说明和图标」会在两格
+      // 空着时说假话。空着的字段自己看得见，状态别替它们打包票。
       say(r.title ? T('app.readOk') : T('app.readEmpty'), r.title ? 'ok' : 'warn');
     } catch (e) {
       // 这一轮已经被一次写入接手：它的错误说的是"这一次读取"，不该盖掉
@@ -2601,7 +2625,7 @@ const APP_I18N = {
   function addClipboard() {
     // 这条动作只在 `navigator.clipboard?.readText` 真的存在时才会被列进面板
     // （见 cmdkRender），下面两道判据是**贴进来不像网址**与**系统拒了权限**。
-    openSheet();
+    openSheet(true);
     if (!navigator.clipboard?.readText) {
       say(T('app.clip.denied'), 'warn');
       fUrl.focus();
@@ -3646,7 +3670,7 @@ const APP_I18N = {
     }
     if (typing || mod(e) || e.altKey) return;
     if (e.key === '/') { e.preventDefault(); $('input[type=search]')?.focus(); return; }
-    if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openSheet(); return; }
+    if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openSheet(true); return; }
     if (e.key === '?') {
       e.preventDefault();
       help.hidden = !help.hidden;

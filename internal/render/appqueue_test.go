@@ -34,3 +34,20 @@ func Test离线待办_网络错误也进队列且重放对账(t *testing.T) {
 		}
 	}
 }
+
+// 机器暂时连不上、但浏览器仍在线时，自动重放不会发生（那只挂在 `online` 事件上）；
+// 唯一出路是待办里的「补进去」。文案不许再承诺“等它回来会自己补”，否则用户会
+// 等着一个不会发生的动作，以为书签丢了。
+func Test离线待办_文案不承诺机器自愈(t *testing.T) {
+	src := readAppJS(t)
+	for _, bad := range []string{"等它回来会自己补", "网络通了会自动补"} {
+		if strings.Contains(src, bad) {
+			t.Errorf("app.js 仍承诺自动补：%q（机器回来不会触发 online 事件）", bad)
+		}
+	}
+	for _, want := range []string{"等它回来点「补进去」", "浏览器重新联网时会自动补"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("app.js 缺少 %q：待办的出路没有说清", want)
+		}
+	}
+}

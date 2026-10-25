@@ -31,3 +31,29 @@ func TestImportPage_预览摘要的标点跟着页面语言(t *testing.T) {
 		t.Error("预览摘要没有折行判据：没有空格的长分组名会把整页撑宽")
 	}
 }
+
+// 「确认导入」不许压在几十行技术报告之后（2026-10-25）：摘要已经给了会进哪些组、
+// 少了哪几条；报告是排查材料，页面自己说“看不懂可以跳过”，就不该让唯一的出口
+// 留在报告末尾。表单只许出现一次（令牌一次性，不要两个提交口）。
+func TestImportPage_确认导入在完整报告之前(t *testing.T) {
+	s := seeded(t)
+	p, err := renderer(t, s).ImportPage(ImportView{
+		Mode: "report", Count: 2, Groups: 2, Report: "report body", Token: "tok",
+		PreviewGroups: []PreviewGroup{{Title: "Work", Count: 2}},
+	}, i18n.Zh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(p.Body)
+	apply := strings.Index(body, `action="/import/apply"`)
+	report := strings.Index(body, `class="rep"`)
+	if apply < 0 || report < 0 {
+		t.Fatalf("确认表单或报告不见了：apply=%d report=%d\n%.900s", apply, report, body)
+	}
+	if apply > report {
+		t.Error("「确认导入」排在完整报告之后——摘要看完还要滚过整份报告才能确认")
+	}
+	if n := strings.Count(body, `action="/import/apply"`); n != 1 {
+		t.Errorf("确认表单出现了 %d 次，要 1 次（令牌一次性，不要两个提交口）", n)
+	}
+}

@@ -485,6 +485,42 @@ await step('窄屏 390 + 浅色 → 不许横向溢出，且屏上仍与盘上�
     return problems;
   } });
 
+// 分组名换到第二行时，「分组」把手必须和**第一行**齐平（2026-10-25）。
+// 从前 drawer 用 align-items:center，把手被放在两行之间，屏上读成「第一组在上面、
+// 分组在下面」——分组导航的层级反了。夹具里的 long-1 组保证这里会换行。
+await step('窄屏 390 · 分组把手与第一行齐平', async () => {
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  // 上一段设置步骤把分组导航挪到了顶栏；这一条量的是侧栏抽屉，先挪回来。
+  const r = await prefs();
+  if (r !== 'opened') return 'PREFS ' + r;
+  const hit = await clickIn('button[name=layout][value=sidebar]');
+  if (!String(hit).startsWith('clicked')) return 'CLICK ' + hit;
+  await waitFor(c, `document.body.dataset.profileLayout==='sidebar'`, 8000);
+  await goHome();
+  return await run(`(() => {
+    const d=document.querySelector('.side .drawer');
+    const s=d && d.querySelector('summary');
+    const n=d && d.querySelector('.gnav');
+    if(!d||!s||!n) return JSON.stringify({err:'missing'});
+    const sr=s.getBoundingClientRect(), nr=n.getBoundingClientRect();
+    const tops=[...n.querySelectorAll('li')].map(li=>Math.round(li.getBoundingClientRect().top));
+    return JSON.stringify({summaryTop:Math.round(sr.top), navTop:Math.round(nr.top), tops});
+  })()`);
+}, { wait: 300,
+  outcome: (inv, d, res) => {
+    let x;
+    try { x = JSON.parse(String(res)); } catch { return ['读数拿不到：' + res]; }
+    if (x.err) return ['分组抽屉不在：' + res];
+    const problems = [];
+    if (Math.abs(x.summaryTop - x.navTop) > 2) {
+      problems.push(`「分组」把手 y=${x.summaryTop}，分组名第一行 y=${x.navTop}，要齐平`);
+    }
+    if (!Array.isArray(x.tops) || x.tops.length < 2) {
+      problems.push('夹具只量到一组，量不到换行形状');
+    }
+    return problems;
+  } });
+
 // 无结果那一句会把查询词原样印出来（2026-10-24）：贴一条没有空格的长地址
 // 进来搜是常事，而它不会自己折行——实测窄屏视口 486、整页 scrollWidth 1593，
 // 那一句与「看全部」都被推到屏幕外；修复后这一步在 390 档复测。屏上还得真有

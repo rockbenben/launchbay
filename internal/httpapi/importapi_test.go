@@ -122,6 +122,42 @@ func TestImport_上传只给报告不写盘(t *testing.T) {
 	}
 }
 
+func TestImport_结论页不把坏地址说成源文件是好的(t *testing.T) {
+	s, h := setupBatch(t)
+	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {
+		t.Fatal(err)
+	}
+	cookie := loginCookie(t, h, "dad", "1234")
+	file := `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p>
+<DT><A HREF="https://example.com/">好的一条</A>
+<DT><A HREF="javascript:alert(1)">坏的一条</A>
+</DL><p>`
+	ct, body := uploadOf("bookmarks.html", []byte(file))
+	up := postImport(t, h, cookie, ct, body)
+	if up.Code != http.StatusOK {
+		t.Fatalf("预览该 200，得到 %d %s", up.Code, up.Body.String())
+	}
+	token := hiddenValue(t, up.Body.String(), "token")
+
+	form := strings.NewReader("token=" + token)
+	req := httptest.NewRequest("POST", "/import/apply", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Cookie", cookie)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("确认写入该给结论页（200），得到 %d %s", rec.Code, rec.Body.String())
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, "每一条都写明了原因") {
+		t.Errorf("结论页该说每条都有原因，实际:\n%.600s", out)
+	}
+	if strings.Contains(out, "来源文件里它们是好的") {
+		t.Errorf("结论页把 javascript: 这类坏地址说成源文件是好的:\n%.600s", out)
+	}
+}
+
 func TestImport_不是书签文件要说清而不是报成功(t *testing.T) {
 	s, h := setupBatch(t)
 	if err := s.SaveBookmarks("dad", emptyBookmarks()); err != nil {

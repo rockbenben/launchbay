@@ -6,8 +6,8 @@
 // 这个项目里反复出现的 bug 是同一句——**屏上说的与盘上存的分家**——而 2026-10-15 之前
 // **没有任何东西会跑界面**：go test 只判服务端契约与若干条源码级断言。于是每一个界面
 // 缺陷都要等人手动碰到才浮出来，一次一个，「修完发现还有下一个」。这道闸把「每次写盘
-// 之后屏上必须与盘上一致」变成机械核对，**57 步一次跑完**（两道横扫：档案页那 26 步
-// + 另外那些族 31 步）。
+// 之后屏上必须与盘上一致」变成机械核对，**整轮一次跑完**（两道横扫：档案页那一轮
+// + 另外那些族）。
 //
 // 跑法：`LB_UI=1 go test ./tools/uicheck/`
 //
@@ -54,7 +54,7 @@ const (
 // 只 Kill 父进程的话，Chrome 的子进程（渲染器、网络服务、那个 optimization
 // guide 的模型下载）还活着，于是 Go 的 t.TempDir 清理撞上它们：
 // "The process cannot access the file because it is being used by another
-// process" ——**整支测试判 FAIL**，而那 57 步其实全绿。
+// process" ——**整支测试判 FAIL**，而那一轮其实全绿。
 //
 // 这是一条"红了但什么也不代表"的失败：它会训练人忽略红色，于是**真的**红的那
 // 次也被一起忽略。横扫本身是这台机器上唯一能看出"屏上与盘上是不是一致"的
@@ -384,7 +384,7 @@ func browser(t *testing.T, tmp string) (cdp string, stop func()) {
 		//
 		// 用 LB_CDP 复用一台已经开着的浏览器时**这一格用不上**（启动参数是那台
 		// 浏览器自己的事）——所以 harness.mjs 的 connect() 里有一道前置检查，
-		// 那台浏览器报的不是精确指针就**立刻说破**，而不是让 57 步拿错形状量一遍。
+		// 那台浏览器报的不是精确指针就**立刻说破**，而不是让整轮拿错形状量一遍。
 		"--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
 	}
 	// 容器里的 Chrome 起来不了（沙箱要 namespaces，而容器里通常没有），那时用

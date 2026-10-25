@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
 
-[`docker compose up -d`](https://github.com/rockbenben/launchbay#quick-start) → open **http://\<this machine's address\>:7600** · [Releases](https://github.com/rockbenben/launchbay/releases) · pull ≈ 7 MB
+[`docker compose up -d`](https://github.com/rockbenben/launchbay#quick-start) → open **http://\<this machine's address\>:7600** · [Releases](https://github.com/rockbenben/launchbay/releases)
 
 > English | [简体中文](README.zh.md)
 
@@ -26,7 +26,7 @@ Plenty of tools do "save it, then get to it fast". Side by side, they differ on 
 | One per person | Via the browser's profiles | Per account | Usually one person | One page for the whole house | **One per person, kept apart on the server** |
 | Do you register | Yes | Yes | No | No | No |
 | Offline | The bookmarks are still there (local) | **Doesn't work** | Works | Works | **Works** (cache + an offline queue) |
-| How fast it opens | Open the manager, then click a folder | Depends on the network and the vendor | Depends on the machine | Depends on the machine | **One page file**: 25 bookmarks are 13,261 bytes gzipped |
+| How fast it opens | Open the manager, then click a folder | Depends on the network and the vendor | Depends on the machine | Depends on the machine | **One server-rendered page**: links show before any script runs |
 | Organising by dragging | The bookmarks bar and folders take drags, but it is a **folder tree**, not one laid-out page | Mostly not | Some do | Mostly not | **Drop it and it is saved, drag to reorder, drag across groups** |
 
 No account, no third-party script, no telemetry. Apart from fetching a site's favicon once when you want its icon (a failed origin cools down for 24 hours), it talks to no outside service — **your bookmarks have never been through somebody else's server.**
@@ -37,9 +37,8 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 
 - **Opening it doesn't wait.** The whole page is one HTML file; bookmarks and the icons they use are drawn straight into the page — no images to download, no waiting for a script to finish before anything shows. A purely static page is fast too, but it has no edit screen; a script-driven dashboard has one, but nothing shows until the script runs. This one keeps both.
 
-  Measured on 2026-10-24: 25 bookmarks render as **13,261 bytes** gzipped (63,970 bytes raw) — those byte counts are a snapshot, and the budget test prints the current ones on every run. An earlier, smaller build measured LCP 77ms and CLS 0.00; don't read those as today's numbers.
+  The budget test prints the current byte counts on every run, so they are not copied here. The target is LAN first-paint LCP < 300ms, which you can only measure in a real browser on a real network — a cold start on an actual NAS has still not been measured (see "Limits").
 
-  The target I settled on is LAN first-paint LCP < 300ms, which you can only measure in a real browser on a real network — I have still not measured a cold start on an actual NAS (see "Limits").
 - **One each, nobody else sees it.** One page per person, and you type a 4–6 digit PIN to get in. Sharing one computer doesn't mix people up — **and the admin can't see yours either**: they can create profiles, delete them, set your PIN for you, but they cannot read what is on your page. That isn't done by hiding things in the frontend; the server keeps them apart: an admin key that tries to read somebody else's bookmarks is refused outright (403).
 
   To be straight about it, this is not "protecting you from them" in the cryptographic sense — an admin who sets your PIN knows that PIN, and anyone on the LAN can edit a cookie and be somebody else. What I mean is that there is **no route at all** for them to read your bookmarks.
@@ -82,7 +81,7 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 **The page itself**
 
 - **Tabbed preference panel**: click **Settings** in the top bar. One sheet holds this page's look and language (theme, page name, view, second line, navigation, background, how a bookmark opens), the group list, backup and history, and **My PIN** — where you lock or unlock **your own** profile, no admin needed.
-- **Works when the network is down**: the last page you saw is cached in your browser, so a server that is temporarily down does not take the page away with it; bookmarks you add while offline or while the machine cannot be reached go into a queue; they replay when it is back, and a “Send now” button retries them
+- **Works when the network is down**: the last page you saw is cached in your browser, so a server that is temporarily down does not take the page away with it; bookmarks you add while offline or while the machine cannot be reached go into a queue. When the browser comes back online they replay; if the machine itself was down, press **Send now** in the queue.
 - **Scripts and AI can do it for you**: a REST interface plus profile-scoped tokens, so a browser extension, a command line and automation scripts each get their own key; a token that steps outside its scope and writes somebody else's profile gets a 403, not the write
 
 ## Quick start
