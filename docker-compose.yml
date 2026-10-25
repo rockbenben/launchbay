@@ -5,7 +5,7 @@ services:
     image: ghcr.io/rockbenben/launchbay:latest
     container_name: launchbay
     # 不写 pull_policy：`up` 不会上仓库确认一遍，已在跑的机器要 `docker compose pull` 才拿得到新版。
-    # 宿主端口 7600；被占就 `LAUNCHBAY_HOST_PORT=7601`（Windows 上 7532-7631 常被 Hyper-V 预留）。
+    # 宿主端口 7600；被占就 `LAUNCHBAY_HOST_PORT=8901`（有些 Windows 机器上 Hyper-V 会占走 7532-7631 一段）。
     # 容器内恒为 7600 —— healthcheck 探的也是它。
     ports: ["${LAUNCHBAY_HOST_PORT:-7600}:7600"]
     volumes:
