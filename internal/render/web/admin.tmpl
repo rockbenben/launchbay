@@ -118,6 +118,16 @@
               {{if .CanDelete}}
                 <a class="badge danger" href="/admin/delete?profile={{.ID}}">{{$.T "admin.act.delete"}}</a>
               {{end}}
+              {{if .IsActive}}
+                {{/* 说明里让"先回选择页"，而这一页从前没有那一步的入口：点「回首页」
+                     落在自己的档案页，还得认出右上角那枚徽标能换档案（2026-10-24
+                     新用户走查）。这里给一次真正的离开动作——/switch 只清档案会话，
+                     管理员 cookie 留着，所以回来时管理页照样进得去。 */}}
+                <form method="post" action="/switch">
+                  <input type="hidden" name="to" value="picker">
+                  <button type="submit" class="badge">{{$.T "admin.act.topicker"}}</button>
+                </form>
+              {{end}}
               </span>
               {{/* 这一格下面那句话说的是"**为什么少了两颗键**"。它原先用的是
                    `.plain`——那是书签卡那一族的脸（带边框与底色），于是在表格里
@@ -150,9 +160,9 @@
          两个标签把输入框挤到右边各剩几百像素，而"PIN（4 到 6 位数字）"这个标签
          本身就有 130px——读起来像在一堆字里找输入框。竖排之后每一格自带
          "名字 + 框"、"PIN + 框"，两格并排、下面一行是勾选与按钮。 */}}
-    <form method="post" action="/admin" class="adm newprofile">
+    <form method="post" action="/admin" class="adm newprofile" novalidate>
       <div class="newprofile-fields">
-        <label class="fld">{{.T "admin.new.title"}} <input name="title" type="text" maxlength="60" required autocomplete="off"></label>
+        <label class="fld">{{.T "admin.new.title"}} <input name="title" type="text" maxlength="{{profileTitleMax}}" value="{{.Key.FormTitle}}" required autocomplete="off"></label>
         {{/* 格式写在标签上，不等人说错了才告诉他——与引导建档那一屏同一处置
              （picker.setup.pinField，2026-10-16 那一轮定的规矩）。这一格原先只有
              「PIN」两个字，规则要等撞了 `?err=badpin` 才出现。 */}}

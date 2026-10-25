@@ -77,7 +77,7 @@ export async function seedFixture(srv, adm, wrt) {
 //
 // 闸自己起的那台浏览器由启动参数钉死（uicheck_test.go 的 `--blink-settings`）；
 // **这一格是最后一道**：参数哪天失效了、或者用 LB_CDP 复用了一台别人开着的
-// 浏览器（那台报什么就是什么），这里**立刻说破**，而不是让 54 步拿错形状量一遍。
+// 浏览器（那台报什么就是什么），这里**立刻说破**，而不是让 57 步拿错形状量一遍。
 export async function assertDesktopPointer(run) {
   const raw = await run(`JSON.stringify({悬停:matchMedia('(hover: hover)').matches,
     精确:matchMedia('(pointer: fine)').matches, 粗:matchMedia('(pointer: coarse)').matches,

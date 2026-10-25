@@ -628,10 +628,11 @@ func TestExtension_每种错误码都有交代(t *testing.T) {
 var extUnreachable = map[string]string{
 	"pin-wrong":               "扩展不带 PIN：进门是浏览器那条路（Cookie/PIN 表单）",
 	"pin-old-wrong":           "同上：改自己 PIN 那一族也是浏览器那条路（self/pin 的 403）",
-	"profile-exists":          "建档只有管理页表单与 POST /api/v1/profiles 两条通路，扩展都不走",
+	"profile-exists":          "建档那几条通路（管理页表单、POST /api/v1/profiles、POST /api/v1/profiles/new 与浏览器那条 /new）扩展都不走",
 	"profile-not-rebuildable": "rebuild 是管理员与 CLI 的动作，扩展没有这条通路",
 	"body-unreadable":         "请求体由这份脚本自己组装成 JSON；导入那一路发原始 HTML，读不出东西归 import-no-bookmarks",
 	"field-duplicate":         "同一份组装出来的对象里不会有重复键",
+	"field-too-long":          "扩展不建档，也就不发 title；它那一族请求体里没有这一格（2026-10-23 建档那两条加上限之后多出来的这一码）",
 	"field-unknown":           "同上：多出来的键只可能是这份脚本自己写错了，那时该红的是代码",
 	"query-invalid":           "扩展唯一那个带查询参数的请求（/api/v1/data?profile=）在发出去之前就判过 id 非空",
 	"route-not-found":         "路径由这份脚本写死",

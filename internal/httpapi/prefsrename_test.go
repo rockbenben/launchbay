@@ -191,7 +191,7 @@ func TestPrefsPanel_每一组都有一个带上限的名字输入框(t *testing.
 		t.Errorf("面板上 %d 张分组表单却有 %d 个改名输入框：每一组都要有一个", forms, boxes)
 	}
 	// 建组那张：有一个 `add` 输入框，而**没有** `group` 那一格（id 由服务端派生，
-	// 界面上不问——与 `/setup` 与管理页那两张建档表单同一族决定）。
+	// 界面上不问——与 `/setup`、`/new` 与管理页那三张建档表单同一族决定）。
 	if got := strings.Count(page, `name="add"`); got != 1 {
 		t.Errorf("面板里 %d 个建组输入框，要 1 个（清空的那一份没有它）", got)
 	}

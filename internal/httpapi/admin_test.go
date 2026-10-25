@@ -254,6 +254,11 @@ func TestDeleteProfileEndpoint(t *testing.T) {
 	if rec := getWithMethod(h, "DELETE", "/api/v1/profiles?profile=..", "Bearer "+adminTok); rec.Code != 400 {
 		t.Fatalf("非 slug 该 400, got %d", rec.Code)
 	}
+	// **鉴权排在形状校验之前**（2026-10-23 修，与同族的 profiles/pin 同一纪律）：
+	// 没带凭证的人问"这个 id 合不合法"，答案不该随载荷变——从前是 400。
+	if rec := getWithMethod(h, "DELETE", "/api/v1/profiles?profile=..", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("没带凭证该 401（不是 400），got %d：%s", rec.Code, rec.Body)
+	}
 	// 档案作用域令牌删档该 403（不是 404：先鉴权后查存在）。
 	if rec := getWithMethod(h, "DELETE", "/api/v1/profiles?profile=dad", "Bearer "+dadTok); rec.Code != 403 {
 		t.Fatalf("got %d %s", rec.Code, rec.Body)

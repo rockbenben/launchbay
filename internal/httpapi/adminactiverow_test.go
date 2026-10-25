@@ -46,6 +46,14 @@ func TestAdmin_当前在用的那一行说清为什么没有动作(t *testing.T)
 	if !strings.Contains(*page, "/admin/pin?profile=kid") {
 		t.Error("当前在用的那一份没有「改 PIN」入口：管理员是机器级的一把 key，改自己那一份合法")
 	}
+	// 说明让「回选择页」，那一页就得真有一个能离开这一份的入口（2026-10-24）：
+	// /switch 只清档案会话，管理员 cookie 留着，回来还能进管理页。
+	if got := strings.Count(*page, `action="/switch"`); got != 1 {
+		t.Errorf("/switch 离开入口出现了 %d 次，期望只在当前在用的那一行出现 1 次", got)
+	}
+	if !strings.Contains(*page, `name="to" value="picker"`) {
+		t.Error("离开入口没带 to=picker：点了不会回选择页")
+	}
 	_ = s
 }
 

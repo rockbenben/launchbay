@@ -61,16 +61,20 @@ const APP_I18N = {
     "app.readOk": "已读到标题、说明和图标",
     "app.readEmpty": "这个网页没给出可读的信息，标题自己填",
     "app.readErr": "读不出来：%s",
+    "app.netErr": "没能连上这台机器（网络断了，或者它没开机）。等它回来再试一次。",
+    "app.netQueued": "这台机器现在连不上，这条先记在待办里；等它回来会自己补，也可以点待办里的「补进去」。",
+    "app.backup.imported": "备份已导入。",
     "app.err.group": "先选一个分组。",
     "app.err.groupName": "先给这个分组起个名字。",
     "app.err.url": "先填地址。",
     "app.offline.queued": "离线了，这条先记下，网络通了自动补上。",
-    "app.offline.chip": "离线记了 %d 条",
-    "app.offline.aria": "看离线记下的条目",
+    "app.offline.chip": "待办 %d 条",
+    "app.offline.aria": "看待办条目",
     "app.offline.drop": "不要这条",
-    "app.offline.list": "下面这些是离线时记下的，网络通了会自动补进去。",
+    "app.offline.list": "下面这些是还没补进去的；网络通了会自动补，没补上就点「补进去」再试一次。",
+    "app.offline.retry": "补进去",
     "app.offline.blocked": "现在没网，只能看。添加会先记下来，网络通了自动补进去。",
-    "app.offline.done": "离线记下的 %d 条已经补进去",
+    "app.offline.done": "待办里的 %d 条已经补进去",
     "app.offline.dropped": "这 %d 条和别人改的撞上了，没自动合并，请重新加一次：%s",
     "app.offline.left": "还有 %d 条没存进去：%s",
     "app.saving": "正在保存…",
@@ -96,6 +100,7 @@ const APP_I18N = {
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
   "app.group.new": "＋ 新分组…",
+  "app.group.count": "%s（%d 条）",
   "app.group.shape": "这一组的排法",
     "app.layout.rows": "单列",
     "app.layout.feature": "大卡",
@@ -208,16 +213,20 @@ const APP_I18N = {
     "app.readOk": "Read the title, description and icon",
     "app.readEmpty": "That page gave nothing readable, so fill the title in yourself",
     "app.readErr": "Could not read it: %s",
+    "app.netErr": "Couldn't reach this machine (the network is down, or it's off). Try again when it's back.",
+    "app.netQueued": "This machine can't be reached, so this one is queued. It will be sent when the machine is back, or press “Send now” in the queue.",
+    "app.backup.imported": "Backup imported.",
     "app.err.group": "Pick a group first.",
     "app.err.groupName": "Give the new group a name first.",
     "app.err.url": "Fill in an address first.",
     "app.offline.queued": "You are offline. This one is queued and will go through when the connection is back.",
-    "app.offline.chip": "%d queued offline",
-    "app.offline.aria": "Show bookmarks queued while offline",
+    "app.offline.chip": "Pending: %d",
+    "app.offline.aria": "See pending items",
     "app.offline.drop": "Drop this one",
-    "app.offline.list": "These were saved while offline and will go through once you are back online.",
+    "app.offline.list": "These are still pending. They will go through when the connection is back; if not, press “Send now” and try again.",
+    "app.offline.retry": "Send now",
     "app.offline.blocked": "No network, so this is read-only for now. Additions are queued and sent automatically when you are back.",
-    "app.offline.done": "%d queued bookmarks have been sent",
+    "app.offline.done": "%d pending items went through",
     "app.offline.dropped": "%d bookmarks clashed with someone else's changes and were not merged automatically. Please add them again: %s",
     "app.offline.left": "%d bookmarks still not saved: %s",
     "app.saving": "Saving…",
@@ -243,6 +252,7 @@ const APP_I18N = {
     "app.edit.fallbackName": "this bookmark",
     "app.layout.tiles": "Tiles",
   "app.group.new": "+ New group…",
+  "app.group.count": "%s (%d)",
   "app.group.shape": "Arrange it as",
     "app.layout.rows": "Single column",
     "app.layout.feature": "Big card",
@@ -342,6 +352,8 @@ const APP_I18N = {
   const body = document.body;
   const profile = body.dataset.profile || '';
   let rev = Number(body.dataset.rev || '0');
+  // 备份导入成功会在浮层里重载页面；这一格把成功话带过重载（一次性）。
+  const RESTORE_OK = 'lb-restored-' + profile;
   if (!profile) return; // 不是档案首屏（选择页 / 坏档页），这里什么也不注入
 
 
@@ -418,6 +430,12 @@ const APP_I18N = {
   // **为什么按参数分流而不是分两个函数**：一个叫 say 一个叫 sayField 的话，
   // 第三个调用点开始就有人挑错，而挑错的后果是"字段错误飘到表单最底端"——
   // 那正是 2026-10-14 实拍到的那个位置（地址是第一格，红字在「保存」下面）。
+  // **状态行只有一个，而两个异步动作都会往它上面写**（2026-10-24）：点「保存」
+  // 时地址那一格的 blur 会先发一轮 resolve，它与写入并发；谁后回来谁的字留下，
+  // 于是慢半步的 resolve 会把「这一条已经在这份里了」盖成「已读到标题」——
+  // 人看到一句成功、浮层没关，以为保存没生效。序号让**写入的答案**说了算：
+  // submit 一进场就 ++，任何比它早出发的 resolve 回来后一个字都不许写。
+  let statusSeq = 0;
   const say = (msg, kind = 'info', into = null) => {
     const node = into || status;
     if (!msg) {
@@ -430,7 +448,10 @@ const APP_I18N = {
     }
     node.textContent = msg;
     node.className = 'sheet-status fieldmsg ' + kind;
-    if (into && into !== node) { status.textContent = ''; status.className = 'sheet-status'; }
+    // **给了落点就要清掉底部那条**（2026-10-24 修）：原先写的是 `into !== node`，
+    // 而 `node` 就是 `into`——条件恒假，于是字段错误写上去之后，上一句
+    // 「正在读取那个网页…」仍挂在底部，地址已经报错了屏上还在转。
+    if (into) { status.textContent = ''; status.className = 'sheet-status'; }
   };
 
   // ── 顶栏按钮 ──────────────────────────────────────────────────────────────
@@ -561,11 +582,42 @@ const APP_I18N = {
   header.insertBefore(openBtn, searchForm ? searchForm.nextSibling : header.firstChild);
 
   // ── 浮层 ──────────────────────────────────────────────────────────────────
-  const fUrl = el('input', { type: 'url', id: 'lb-url', class: 'fld', placeholder: 'https://', required: 'required', autocomplete: 'off' });
+  // **地址那一格不加 `required`**（2026-10-22 改）：原生表单校验会**抢在产品
+  // 自己的校验前面**——浏览器拦下提交，浮层里一个字都没有，出来的是浏览器自己
+  // 的气泡，而那句**跟着浏览器界面语言走，不跟页面的语言走**。
+  //
+  // 实测（2026-10-22）：页面中文（`lang="zh-CN"`，顶栏「我的书签」）+ 浏览器界面
+  // 英文（`navigator.language = en-US`）→ 气泡是 "Please fill out this field."，
+  // 而产品自己准备好的那句「先填地址。」（中英各一份）**永远到不了**——下面第五
+  // 句那句 `say(T('app.err.url'), 'bad', urlErr)` 被 required 挡在了门外。
+  //
+  // 去掉它之后，submit() 自己那句说了算：它在**页面语言**里，落在**地址那一格
+  // 自己下面**，焦点也回到那一格——与这一族其余的字段错同一形状。
+  //
+  // **可及性不丢**：required 顺带告诉读屏「这一格必填」，所以补一个 aria-required。
+  // **type="url" 留着**：移动端它给的是网址键盘，autofill 也认它。
+  //
+  // **但 type="url" 自己也会拦提交**（2026-10-24 实测）：敲 "abc" 按「保存」，
+  // 浏览器原生气泡「请输入网址。」先冒出来——它跟着浏览器界面语言走，而 submit()
+  // 根本没跑，产品那句「这个地址还不完整…」也就到不了。所以下面这张表单带
+  // `novalidate`：留下 type=url 的键盘与 autofill，把判据交回 submit() 自己。
+  const fUrl = el('input', { type: 'url', id: 'lb-url', class: 'fld', placeholder: 'https://', 'aria-required': 'true', autocomplete: 'off' });
   const fTitle = el('input', { type: 'text', id: 'lb-title', class: 'fld', placeholder: T('app.ph.title'), autocomplete: 'off' });
   const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
-  const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: T('app.ph.group'), autocomplete: 'off' });
+  // 「新分组名」这一格**也带上限**，与设置面板那两个框同一个数
+  // （model.MaxGroupTitleRunes，页面把它印在 <body data-max-group-title> 上）。
+  //
+  // **为什么这一格原本没有**：面板里那两格是服务端渲染的，maxlength 顺手就印上了，
+  // 而这一格是脚本造的，忘了这一件事——于是同一个动作在两个入口给出两个答案：
+  // 面板里 60 字以上打不进去，浮层里打多少都收。实测：浮层里存进去一个 200 字的
+  // 分组名，回到设置面板那一格（maxlength=60，装不下）**只显示得下一部分**，
+  // 而那个名字还印在每个节标题、分组导航与导出文件里。
+  //
+  // **数从 <body> 上读，不在这里写死**：app.js 是静态资产，读不到服务端的 catalog；
+  // 页面把那一个数递过来，两处于是永远是同一个（model 那一份是唯一来源）。
+  const maxGroupTitle = Number(body.dataset.maxGroupTitle) || undefined;
+  const fNewGroup = el('input', { type: 'text', id: 'lb-newgroup', class: 'fld', placeholder: T('app.ph.group'), autocomplete: 'off', maxlength: maxGroupTitle });
   // 「新分组名」这一格的**标签**要能跟着输入框一起藏（2026-10-21 修）——
   // 见 syncGroupFields 那段：只藏输入框的话，屏上会留下一行没有框的标签。
   const fNewGroupLabel = el('label', { text: T('app.field.newGroup') }, [fNewGroup]);
@@ -647,6 +699,7 @@ const APP_I18N = {
   // **只给这一层自己的表单一个类**，别的 form（面板那些行、上传那一枚）都不碰。
   const form = el('form', {
     class: 'sheet-form',
+    novalidate: '',
     on: { submit: (e) => { e.preventDefault(); submit(false); } },
   }, [
     el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [fUrl]), urlErr]),
@@ -960,13 +1013,14 @@ const APP_I18N = {
         return;
       }
       // 那句话在 `<main>` 里、面板**之前**（renderPrefsNotice 插在那儿），
-      // 所以连它一起搬进来——否则「错话说过了」而屏上什么都没有。
-      const notice = doc.querySelector('main > .notice');
+      // 外面套着一层 `.prefs-notice`（独立页上用来与居中面板对齐）——
+      // 取**里面那个 `.notice`**，搬进浮层后仍是面板前的一条提示。
+      const notice = doc.querySelector('.prefs-notice .notice');
       replacePrefsPanel(panel, notice);
     });
     // 导入一份备份那一格（POST /import/backup，2026-10-21 补上）。
     //
-    // **它从前是原生提交的**，而服务端答 303 回 `/prefs?tab=look`——于是在浮层里
+    // **它从前是原生提交的**，而服务端答 303 回 `/prefs?tab=look&ok=imported`——于是在浮层里
     // 按一下「导入」，整页导航到独立页（症状读作「设置变成单独页面了」）。
     // 与 2026-10-14 给「点开书签」、2026-10-20 给「我的 PIN」修过的是同一件事，
     // 这一族是漏了同一份委托。
@@ -974,9 +1028,10 @@ const APP_I18N = {
     // **体是 multipart**：服务端那条落点收 multipart（文件字段），所以 FormData
     // 原样交出去就行（与背景那一族同一处置）。
     //
-    // **答有两种，形状一样**：成功时 303 跟到 `/prefs?tab=look`，失败时 200 且
-    // 面板顶上带着那句提示（renderPrefsNotice 重画的就是它）——所以不必分成功与
-    // 失败，从答里取 `section.prefs` 换进去就行（同「我的 PIN」那一族）。
+    // **答有两种，形状不一样了**（2026-10-24）：成功时 303 跟到
+    // `/prefs?tab=look&ok=imported`，面板顶上是 `.notice.ok`（蓝色）——导入的
+    // 设置要真正画到后面那一页上，所以这时**重载**，由一次性横幅补一句；失败时
+    // 200，面板顶上带普通 `.notice`（橙）——把面板换回来、留在原地。
     prefsSheet.addEventListener('submit', async (e) => {
       // `^=` 而不是 `=`：这张表单的 action 带着 `?tab=out`（它只出现在「导出、
       // 导入与历史」那一节），写死成 `=` 匹配不到它。
@@ -1005,7 +1060,15 @@ const APP_I18N = {
         showBanner(T('app.applyOps.fail', T('app.ops.prefs'), 'no panel'));
         return;
       }
-      const notice = doc.querySelector('main > .notice');
+      const notice = doc.querySelector('.prefs-notice .notice');
+      // **成功必须重载**（2026-10-24）：导入的设置里有 theme/layout/view/页面名/
+      // 语言，只换面板不会把它们画到后面的页面上（实拍：面板里「亮色」已按下，
+      // 页面仍旧是暗的）。重载后由 app.backup.imported 横幅补一句成功话。
+      if (notice && notice.classList.contains('ok')) {
+        try { sessionStorage.setItem(RESTORE_OK, '1'); } catch { /* 存不下就不说 */ }
+        location.reload();
+        return;
+      }
       replacePrefsPanel(panel, notice);
     });
     // 页面名字 / 排列方式 / 第二行 / 分组列表的位置 / 主题 / 界面语言那六张（POST /prefs；
@@ -1187,7 +1250,7 @@ const APP_I18N = {
     // 于是下拉里第一项是「常用7」，别的组（正文标题没有徽标）是干净的。
     // groupName 只取标题那一份文字，它是同一族几处（拖拽时的 aria-label、删除确认
     // 句里那一句）已经在用的判据。
-    fGroup.append(el('option', { value: h2.dataset.group, text: groupName(h2) }));
+    fGroup.append(el('option', { value: h2.dataset.group, text: groupLabel(h2.dataset.group, groupName(h2)) }));
   }
   // 末尾那颗「＋ 新分组…」是**建组唯一的入口**。从前新分组只在"一个分组都还没有"
   // 的时候问（fNewGroup.hidden = fGroup.options.length > 0），于是有了书签之后
@@ -1584,6 +1647,20 @@ const APP_I18N = {
     closeIconPicker();
   }
 
+  // **浏览器能解析成 URL 才值得发请求**（2026-10-24）：去掉原生校验之后，
+  // 敲 "abc" 会先跑一次 resolve、按保存时再跑一次 batch，两次都必然失败。
+  // 这里只拦"一眼不是地址"的形状；主机名、scheme、slug 的正式判据仍在服务端
+  // 那一处（`model.CheckURL`），不在这里抄第二份。
+  //
+  // **必须放在下面那个 bookmarklet 预填之前**：`?add=` 那一支会在模块初始化时
+  // 调用 `resolveNow()`，而它第一件事就是用这一格。写在 resolveNow 旁边时，
+  // 那一发会撞上 TDZ（`Cannot access 'parseableAddress' before initialization`）：
+  // 浮层照开、`t=` 带来的标题还在，但那一次读取整个不发生（说明/图标/建议分组
+  // 都读不到，状态行空着），错误只在 console 里。
+  const parseableAddress = (s) => {
+    try { new URL(s); return true; } catch { return false; }
+  };
+
   // ── bookmarklet 带进来的一条（§6.3）────────────────────────────────────
   // 页面已经渲染完并带着 data-add（服务端透传，见 PageRequest）。这里只**预填**
   // 并把浮层打开，**不自动保存**：bookmarklet 从来不是"点一下就自动存"——
@@ -1786,12 +1863,18 @@ const APP_I18N = {
   fUrl.addEventListener('blur', resolveNow);
 
   async function resolveNow() {
+    const seq = ++statusSeq;
     const url = fUrl.value.trim();
     if (!url) return;
+    if (!parseableAddress(url)) {
+      say(T('app.resolveBadUrl'), 'bad', urlErr);
+      return;
+    }
     // 读之前先说"正在读…"——那是**这一次读取的状态**，归底部那条。
     say(T('app.reading'), 'busy');
     try {
       const r = await api('/api/v1/resolve', { url, profile });
+      if (seq !== statusSeq) return;
       if (r.detail || r.code) {
         // 屏上说的仍是**这一类**的话：那一格的文本是给脚本对照的协议话，
         // 英文界面里冒出一句中文、还不说这是哪一步，等于让人自己猜。
@@ -1822,6 +1905,9 @@ const APP_I18N = {
       iconChoices(r.iconCandidates);
       say(r.title ? T('app.readOk') : T('app.readEmpty'), r.title ? 'ok' : 'warn');
     } catch (e) {
+      // 这一轮已经被一次写入接手：它的错误说的是"这一次读取"，不该盖掉
+      // "这一条存没存上"——那是人按过保存之后唯一关心的答案。
+      if (seq !== statusSeq) return;
       // **写失败一律显式报错，不静默吞**（§8.7）：一条"正在读取…"永远停在那儿，
       // 用户会以为它在加载。
       //
@@ -1924,11 +2010,29 @@ const APP_I18N = {
   }
 
   async function submit(keepOpen) {
+    ++statusSeq; // 这一发写入的答案优先于任何还在路上的 resolve（见 say 上面那段）
     const url = fUrl.value.trim();
     // 空地址同样归那一格（与 resolve 的地址类失败同一处）：它说的是这一格，
     // 而这一格下面就是它自己。人按了「保存」得到一句飘在五格之外的话，
     // 得自己判断那句是在说哪一格——而这一格是唯一可能空的那一格。
-    if (!url) { say(T('app.err.url'), 'bad', urlErr); fUrl.focus(); return; }
+    //
+    // **先把焦点送过去，再写那句话**（2026-10-22 改）：焦点那一格有个
+    // 「一敲就撤」的规矩（clearUrlErr：回到这一格就撤掉上一句，因为上一句已经
+    // 不作数了）。而 `focus()` **会把焦点从「保存」那颗键搬回来**——于是那一次
+    // focus 事件把**刚刚写上去的那句**当场擦掉，浮层里一个字都不剩。
+    //
+    // 顺序反过来就对了：focus 事件先跑（撤掉的是**上一轮**的话，本来就该撤），
+    // 然后这一句才写上去。（焦点若本来就在这一格，focus() 不发事件，一样是
+    // 「先撤旧的、再写新的」。）
+    if (!url) { fUrl.focus(); say(T('app.err.url'), 'bad', urlErr); return; }
+    // **坏地址不送 batch**（2026-10-24）：与 resolveNow 同一个判据，提前一步
+    // 把必然 422 的那一发拦下来；焦点先送回去，再写那一格下面的话（顺序与
+    // 空地址那条一样：focus 的「一敲就撤」会擦掉刚写的话）。
+    if (!parseableAddress(url)) {
+      fUrl.focus();
+      say(T('app.resolveBadUrl'), 'bad', urlErr);
+      return;
+    }
     const name = itemName(fTitle.value.trim(), url);
     const value = { id: slug(url, true), name, url };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
@@ -1984,8 +2088,26 @@ const APP_I18N = {
         reloadKeepingPlace({ gid: g.gid, item: value.id });
       }
     } catch (e) {
+      // **连不上 ≠ 服务端说不行**（2026-10-24）：请求可能根本没到，也可能到了
+      // 而响应丢了。统一记进待办，重放时按盘上现状对账——条目已在且地址相同
+      // 就跳过，所以"存了但没收到 200"不会写成第二条，也不会丢掉这次输入。
+      if (e.network) {
+        enqueue({ gid: g.gid, ops: g.ops, value });
+        for (const f of [fUrl, fTitle, fDesc]) f.value = '';
+        iconChoices([]);
+        sheet.hidden = true;
+        syncTrap();
+        showBanner(T('app.netQueued'), 'warn');
+        return;
+      }
       // 409 是"数据变了"，不是"再试一次就好"：让人自己看清了刷新。
-      say(e.status === 409 ? T('app.conflict') : e.message, 'bad');
+      //
+      // **地址类错误也归地址那一格**（2026-10-24）：resolve 在 blur 时已经写过
+      // 一次同一句话，submit 这一发再写到底部就是屏上同一句红字两遍。只认
+      // `url-incomplete` 一个 kind，不把 batch 的其它 field-invalid（例如分组名
+      // 太长）也贴到地址格去。
+      say(e.status === 409 ? T('app.conflict') : e.message, 'bad',
+        e.kind === 'url-incomplete' ? urlErr : null);
     } finally {
       saveBtn.disabled = moreBtn.disabled = false;
     }
@@ -2015,6 +2137,14 @@ const APP_I18N = {
   // 「待办 N 条」从前是一枚 `<span>`：点不开、看不到是哪几条、也删不掉。
   // 一个只报数量的读数等于让人猜自己存了什么。现在它是按钮，点开是清单，
   // 每条能单独撤掉。
+  //
+  // **清空时整个清单壳一起摘掉**（2026-10-24）：那份清单从 10-24 起包在一层
+  // `.notice` 里（它多了一颗「补进去」）；只摘 `#lb-qlist` 会留下一个空壳，
+  // 而离线时那颗重试键不画、又没有关闭键——空壳会一直挂到刷新。
+  function closeQueue() {
+    document.getElementById('lb-queue')?.remove();
+  }
+
   function paintQueue() {
     const n = readQueue().length;
     let chip = $('#lb-q');
@@ -2024,14 +2154,13 @@ const APP_I18N = {
       header.append(chip);
     }
     if (chip) chip.textContent = T('app.offline.chip', n);
-    if (!n && chip) chip.remove();
-    if (!n && $('#lb-qlist')) $('#lb-qlist').remove();
+    if (!n) { closeQueue(); if (chip) chip.remove(); }
     paintOnline();
   }
 
   function showQueue() {
     const old = $('#lb-qlist');
-    if (old) { old.remove(); return; }
+    if (old) { closeQueue(); return; }
     const q = readQueue();
     if (!q.length) return;
     const list = el('ul', { class: 'qlist', id: 'lb-qlist' }, q.map((entry, i) => el('li', {}, [
@@ -2041,10 +2170,20 @@ const APP_I18N = {
         const left = readQueue();
         left.splice(i, 1);
         writeQueue(left);
+        // 清单不是响应式的：必须把旧壳摘掉重画，否则删掉的那一条还留在屏上。
+        closeQueue();
         paintQueue();
+        if (readQueue().length) showQueue();
       } } }),
     ])));
-    header.after(el('div', { class: 'notice', role: 'status' }, [
+    // **手动补一次**（2026-10-24）：自动重放只在 `online` 事件上跑；如果当时
+    // 这台机器还没起来，队列会一直躺着等人。这一颗只在浏览器认为自己在线时
+    // 出现——不在线时它只会白按。
+    const retry = navigator.onLine
+      ? el('button', { type: 'button', class: 'fld', text: T('app.offline.retry'), on: { click: () => { closeQueue(); replay(); } } })
+      : null;
+    header.after(el('div', { class: 'notice', id: 'lb-queue', role: 'status' }, [
+      ...(retry ? [retry] : []),
       el('p', { text: T('app.offline.list') }), list,
     ]));
   }
@@ -2064,26 +2203,65 @@ const APP_I18N = {
   async function replay() {
     if (replaying) return;
     const q = readQueue();
-    if (!q.length) { paintQueue(); return; }
+    if (!q.length) { paintQueue(); closeQueue(); return; }
     replaying = true;
     let done = 0;
     const dropped = [];
     // **重放前先取最新 rev**（§8.7）：拿队列存下来的那个 rev 一定会撞 409，
-    // 而那个 409 说的不是"数据变了"而是"你自己过期了"。
+    // 而那个 409 说的不是"数据变了"而是"你自己过期了"。同时留下盘上现状，
+    // 给下面的**对账**用（2026-10-24）：请求可能已经写进去了，只是响应没回来。
+    let doc = null;
     try {
       const cur = await (await fetch('/api/v1/data?profile=' + encodeURIComponent(profile),
         { credentials: 'same-origin' })).json();
       rev = cur.rev;
+      doc = cur.data;
     } catch { /* 取不到就按队列里的 rev 试，撞了会逐条丢弃 */ }
+
+    const itemURLs = new Map();
+    const groupURLs = new Map();
+    for (const g of (doc && doc.groups) || []) {
+      const urls = new Set();
+      for (const it of g.items || []) {
+        itemURLs.set(g.id + '/' + it.id, it.url);
+        urls.add(it.url);
+      }
+      groupURLs.set(g.id, urls);
+    }
+    const groupIds = new Set(((doc && doc.groups) || []).map((g) => g.id));
+    const createdGroups = new Set();
 
     const left = [];
     for (const entry of q) {
+      const key = entry.gid + '/' + entry.value.id;
+      // 已经在盘上、而且是同一个地址：这一次的写入已经成功，只是响应丢了。
+      if (itemURLs.has(key)) {
+        if (itemURLs.get(key) === entry.value.url) { done++; continue; }
+        // 同一个 id 却指向别的地址：不是"已存"，别静默吞；留着让人自己删/改。
+        left.push(entry);
+        continue;
+      }
+      // 同一个地址已经在这一组里（可能是 AI/CLI 用别的 id 存的）：也算到了。
+      const knownURLs = groupURLs.get(entry.gid);
+      if (knownURLs && knownURLs.has(entry.value.url)) {
+        itemURLs.set(key, entry.value.url);
+        done++;
+        continue;
+      }
+      // 分组已经在盘上（或本次重放的前一条刚建出来）：只补条目，不再建组。
+      let ops = entry.ops || [];
+      if (groupIds.has(entry.gid) || createdGroups.has(entry.gid)) ops = [];
+      ops = [...ops, { op: 'add', path: 'groups/' + entry.gid + '/items', value: entry.value }];
       try {
         const r = await api('/api/v1/batch', {
-          profile, expectedRev: rev, by: 'web',
-          ops: [...(entry.ops || []), { op: 'add', path: 'groups/' + entry.gid + '/items', value: entry.value }],
+          profile, expectedRev: rev, by: 'web', ops,
         });
         rev = r.rev;
+        itemURLs.set(key, entry.value.url);
+        const urls = groupURLs.get(entry.gid) || new Set();
+        urls.add(entry.value.url);
+        groupURLs.set(entry.gid, urls);
+        if (entry.ops && entry.ops.length) createdGroups.add(entry.gid);
         done++;
       } catch (e) {
         // **409 的那条丢掉并点名**：补一次之后还有 409 说明别人真的改过了，
@@ -2094,6 +2272,7 @@ const APP_I18N = {
     }
     writeQueue(left);
     paintQueue();
+    closeQueue();
     replaying = false;
 
     if (done || dropped.length) {
@@ -2115,12 +2294,24 @@ const APP_I18N = {
 
   // ── api：同一份错误形状，不让每个调用点各写一遍 ──────────────────────────
   async function api(path, body) {
-    const res = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'same-origin', // 会话 cookie 就是凭证（credScoped）
-    });
+    // **fetch 自己抛错时没有 status**：那是"连不上"（NAS 重启、Wi-Fi 掉了、
+    // 页面开着而机器关机），不是服务端答了一个错。原样把 TypeError 的
+    // "Failed to fetch" 印到中文页上，等于让人看一句英文技术话。离线队列
+    // 只认 `navigator.onLine === false`，所以"Wi-Fi 还在、这台机器不在"
+    // 这一档会走到这里——给它一句人话，并让调用方照常保留表单。
+    let res;
+    try {
+      res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'same-origin', // 会话 cookie 就是凭证（credScoped）
+      });
+    } catch {
+      const e = new Error(T('app.netErr'));
+      e.network = true;
+      throw e;
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       // **按状态码换成带出路的句子，屏上不出现服务端那格协议话。**
@@ -2683,23 +2874,68 @@ const APP_I18N = {
     }));
   }
 
-  // 「这一组有几条」在屏上有两处载体：侧栏/顶栏导航那一格 `<a href="#g-<id>"><b class="cnt">`，
-  // 大卡带那一行 `h2.feat-g .feat-n`。
+  // 一组在屏上的**计数格**：侧栏/顶栏导航那一格里的 `<b class="cnt">`，
+  // 大卡带那一行的 `.feat-n`。
+  //
+  // **判据只有一处**：bumpCount（改它）与 groupLabel（读它）共用它——两处各写
+  // 一遍选择器，早晚会漂。
   //
   // **按整段 href 比，不按前缀比**（2026-10-16 审计时看到的）：`^=` 会把 `#g-news` 与
   // `#g-news2` 一起算进来——两组 id 互为前缀时（导入按文件夹名生成 id，这种一对很常见），
   // 搬一条进 `news`，屏上 `news2` 的计数也跟着 +1，而盘上没动它。
   // 带 ?q= 时 href 后面跟着查询串，所以判据是「等于 `#g-<id>` 或以 `#g-<id>?` 开头」。
-  function bumpCount(gid, by) {
-    const bump = (n) => { n.textContent = String(Math.max(0, (Number(n.textContent) || 0) + by)); };
+  function countNodes(gid) {
+    const out = [];
     for (const a of document.querySelectorAll('a[href^="#"]')) {
       const href = a.getAttribute('href') || '';
       for (const p of ['#g-' + gid, '#f-' + gid]) {
-        if (href === p || href.startsWith(p + '?')) { const n = a.querySelector('b.cnt'); if (n) bump(n); }
+        if (href === p || href.startsWith(p + '?')) { const n = a.querySelector('b.cnt'); if (n) out.push(n); }
       }
     }
     const fn = document.querySelector('h2.feat-g[data-group="' + gid + '"] .feat-n');
-    if (fn) bump(fn);
+    if (fn) out.push(fn);
+    return out;
+  }
+
+  function bumpCount(gid, by) {
+    const bump = (n) => { n.textContent = String(Math.max(0, (Number(n.textContent) || 0) + by)); };
+    for (const n of countNodes(gid)) bump(n);
+  }
+
+  // 一个组在「挑一组」的那些名单里**该叫什么**（2026-10-22）。
+  //
+  // **同名要能分开**：台面面板「＋ 新分组」不查重名（id 由服务端派生，名字原样留下）、
+  // 「改名」那一格也不查，浏览器导出的书签里也有两个同名文件夹——所以磁盘上躺着两个
+  // 叫「常用」的组是**正常形状**。侧栏那一份导航分得清（它带着条目数：常用 1 / 常用 4），
+  // 而这三处（添加浮层的下拉、多选里的「移动到」、编辑模态里的「分组」）从前只印标题，
+  // 于是两个「常用」长得一模一样——人挑了哪一组全靠猜，存错了要回头翻。
+  //
+  // **判据只有一处**：同一个标题在页面上出现不止一次时才补上条目数；标题唯一时
+  // 一个字都不多（那一档最常见，不该被噪声打扰）。
+  //
+  // **条目数取的是侧栏那一格里的同一个数**（countNodes 那一处，bumpCount 改的也是
+  // 它），所以这几处与导航永远说同一件事。
+  //
+  // **歧义也从导航那几行判**：每一行的 title 属性是那一组的**整条路径**（与服务端
+  // 渲染给正文节标题的那一份同源），于是「有哪几个组、谁跟谁同名」在导航与这三处
+  // 之间是**同一份判据**，而不是这里再数一遍。
+  //
+  // **为什么不用 groupsOnPage()**：那一份是 `const`，而添加浮层的下拉**在模块
+  // 初始化的时候**就把它建好了——那时候 groupsOnPage 还在 TDZ 里（声明在文件后面），
+  // 引用它会让整个模块抛 ReferenceError，于是**下拉里一条选项都没有**（实测）。
+  // 导航那几行是**服务端渲染**的，初始化时就在 DOM 里。
+  //
+  // 收 (gid, 名字) 而不是收一个元素：三处给的元素不一样（添加浮层给的是 h2，
+  // 另外两处给的是带 data-gid 的容器），而**名字与 gid 都有**。
+  function groupLabel(gid, name) {
+    if (!name || !gid) return name;
+    let same = 0;
+    for (const a of document.querySelectorAll('.gnav a[title]')) {
+      if ((a.getAttribute('title') || '').trim() === name) same++;
+    }
+    if (same < 2) return name;
+    const n = countNodes(gid)[0];
+    return T('app.group.count', name, n ? (Number(n.textContent) || 0) : 0);
   }
 
   // index 为 null = 追加到末尾（与服务端 `index` 缺席同义）。
@@ -2969,9 +3205,10 @@ const APP_I18N = {
     // `itemURL` 一处（大卡带里点不动的外部地址那一行屏上不印地址，模板写在 data-addr 上——
     // 从前这里按 href 读，读成空串就会照发一条 `set …/url=""`，整批 422）。
     const url = itemURL(li);
-    // 正文那一行用 <i>，大卡那一行没有 <i>（说明与主机名合成一行 .host）——
-    // 读不到就填空，存下去等于把说明抹掉，所以回退到 data-desc（⌘K 读同一份）。
-    const desc = li.querySelector('i')?.textContent || li.dataset.desc || '';
+    // 说明从 `data-desc` 读，**不读 `<i>`**（2026-10-24 修）：没有说明的卡片
+    // 那一格印的是主机名（`<i class="host">`），拿它当说明会在下一次保存时把
+    // example.com 写进空说明里——用户会在历史里看到一条自己没做过的"改说明"。
+    const desc = li.dataset.desc || '';
     const group = groupOf(li);
     const gid = group?.dataset.gid || '';
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
@@ -3006,7 +3243,7 @@ const APP_I18N = {
     // 本来没有出口的"能配"。
     const gs = el('select', { id: 'lb-edit-group', class: 'fld' });
     for (const g of groupsOnPage()) {
-      const o = el('option', { value: g.dataset.gid, text: groupName(g) });
+      const o = el('option', { value: g.dataset.gid, text: groupLabel(g.dataset.gid, groupName(g)) });
       if (g.dataset.gid === gid) o.selected = true;
       gs.append(o);
     }
@@ -3047,15 +3284,24 @@ const APP_I18N = {
       on: {
         submit: async (e) => {
           e.preventDefault();
-          // icon 只在**人真的换过**时发：没动过就不许发一条 set 把它清掉
-          // （下拉里"不选图标"是空串，与"当前没有图标"同值，靠比较而不是靠非空判断）。
-          const ops = opsFor(li, { name: n.value.trim() || name, desc: d.value, url: u.value.trim(),
-            icon: ic.value === curIcon ? null : ic.value });
+          // **没改的字段不发**（2026-10-24 修）：从前名字、说明、地址三格永远发，
+          // 于是打开一条按「保存」什么都不改，也会写一版快照、rev +1，并在历史
+          // 里留下"改名 / 改说明 / 改地址"三条假动作。没改就没改，与分组那一族
+          // 「没改就不算一次改名」同一判据。
+          const fields = {};
+          const nextName = n.value.trim() || name;
+          if (nextName !== name) fields.name = nextName;
+          if (d.value !== desc) fields.desc = d.value;
+          if (u.value.trim() !== url) fields.url = u.value.trim();
+          if (ic.value !== curIcon) fields.icon = ic.value;
+          const ops = opsFor(li, fields);
           // 挪组排在改字段**之后**：那些 set 走的是现在这一组的路径，先挪就把
           // 它们指到还没有的那一组上去（ops 在锁内按顺序应用，顺序就是语义）。
           if (gs.value && gs.value !== gid) {
             ops.push({ op: 'move', path: `groups/${gid}/items/${li.dataset.item}`, to: gs.value, index: 0 });
           }
+          // 空批也会写一版 rev：打开看看再关掉，不该在「回退」里多一条。
+          if (!ops.length) { closeEdit(); return; }
           if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
         },
         // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
@@ -3231,7 +3477,7 @@ const APP_I18N = {
     const dlg = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.move.aria') }, [
       el('h2', { text: T('app.move.title', picked.length) }),
       el('div', { class: 'sheet-actions' }, groups.map((g) => el('button', {
-        type: 'button', class: 'fld', text: groupName(g),
+        type: 'button', class: 'fld', text: groupLabel(g.dataset.gid, groupName(g)),
         on: {
           click: async () => {
             dlg.remove(); // 从前是 dlg.hidden = true：节点留在 DOM 里，第二次进多选会攒出第二个同名 dialog
@@ -3518,5 +3764,20 @@ const APP_I18N = {
         });
       });
     }
+  }
+
+  // 备份导入成功后重载的那一页：补一句成功话（浮层里那条已随重载消失）。
+  //
+  // **必须在文件末尾**：showBanner 是函数声明、会提升，但它读的 bannerLife 是
+  // 一个 const——放在文件前半段调用时那一格还在 TDZ 里，异常被 catch 吞掉，
+  // 于是"重载了、设置生效了，却没有成功话"。这条实测抓到的就是它（2026-10-24）。
+  try {
+    if (sessionStorage.getItem(RESTORE_OK)) {
+      sessionStorage.removeItem(RESTORE_OK);
+      showBanner(T('app.backup.imported'), 'ok');
+    }
+  } catch (e) {
+    // 存不下就不说，独立页那条蓝色提示仍在；但别静默吞掉真正的脚本错误。
+    console.warn('lb: restore banner failed', e);
   }
 })();

@@ -20,13 +20,16 @@
        文案由 httpapi 的白名单给，这里只负责说。 */}}
   {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}
   {{if .Setup}}
+    {{/* 第一次打开的人不知道「档案」是书签页（2026-10-24 加）：标题只说"没有进得去的
+         档案"，表单只问名字与 PIN，从头到尾没有一句说这一页是干什么的。 */}}
+    <p class="hint">{{.T "picker.setup.what"}}</p>
     {{/* 引导建档（设计 §3）：只有名字与口令两格。不问 id（由 store 按名字派生）。
          语言**不在这张表单里**——它在下面自己的表单上（2026-10-12）：绑在一张
          别的表单里，它的生效时机就成了"按另一个按钮"，人拨完下拉页面纹丝不动，
          连下拉自己的标签都还是原来那种语言，看上去就是坏的。而这是新装机的
          人看到的第一块屏幕。成功之后照样要输 PIN 才进门。 */}}
-    <form method="post" action="/setup" class="pick setup">
-      <label>{{.T "picker.setup.name"}} <input name="title" type="text" maxlength="60" required autocomplete="off" autofocus></label>
+    <form method="post" action="/setup" class="pick setup" novalidate>
+      <label>{{.T "picker.setup.name"}} <input name="title" type="text" maxlength="{{profileTitleMax}}" required autocomplete="off" autofocus value="{{.FormTitle}}"></label>
       {{/* PIN 改成**选填**（2026-10-12），不设防是同一个动作的另一端。
            为什么不是"留空就行"：忘了敲一位就回车，会静悄悄地建出一份局域网里
            谁都能进的书签页，而这个产品最核心的那句承诺正是"各人一份，别人看不见"。
@@ -96,7 +99,7 @@
     <li>
       {{/* 每张卡片都是一个自包含的表单：profile 走 hidden 字段，
            选档案不需要任何脚本。?add= 同样逐卡片带上，穿过 PIN 步骤。 */}}
-      <form method="post" action="/pin" class="pick">
+      <form method="post" action="/pin" class="pick" novalidate>
         <input type="hidden" name="profile" value="{{.ID}}">
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
@@ -144,6 +147,35 @@
     </li>
   {{end}}
   </ul>
+  {{- /* 「新建自己的一份」（2026-10-23）：**非管理员自己建一份档案**的入口。
+         它折叠着，因为这一页的正事是「选你是谁」，建档是另一件事——而它一旦
+         展开，页面就成了一个表单页。
+
+         表单与引导那一张同一副脸（同一套字段、同一套判据、同一句代价说明），
+         只是落在 /new 上：/setup 是「零档案时的第一个」（建完那条路自己关），
+         这一条是「随时可建」。**零档案那一支画的是引导表单**，所以有档案时
+         这里才出现——那一支的建档入口是那一张表单，不是这一张。
+
+         为什么它不要求管理权（这是这一族最容易被当成漏洞的地方，所以理由写在
+         handler 那边的注释里）：§11 明写不防局域网内冒充，而建出来的那一份是
+         **空的**、只属于它自己的 PIN，它不授予任何读取别人书签的权限。反过来，
+         「要管理员才能建」意味着这台机器上第一个想用的人得等家长回来开一次
+         管理页——那正是这个产品要拿掉的形状。代价明写：局域网里任何设备都能
+         建档，于是这一页上会多出一张卡（管理员随时能删掉它）。 */}}
+  <details class="pick-new"{{if .NewOpen}} open{{end}}>
+    <summary>{{.T "picker.new.summary"}}</summary>
+    <form method="post" action="/new" class="pick setup" novalidate>
+      <label>{{.T "picker.setup.name"}} <input name="title" type="text" maxlength="{{profileTitleMax}}" required autocomplete="off" value="{{.FormTitle}}"></label>
+      {{/* 格式写在标签上，与引导那张同一句话（picker.setup.pinField）；PIN 选填，
+           「不设 PIN」是单独勾出来的一个决定（判据在 httpapi 的 wantsNoPin）。 */}}
+      <label>{{.T "picker.setup.pinField"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"
+                            minlength="{{pinMin}}" maxlength="{{pinMax}}"></label>
+      <label class="chk"><input type="checkbox" name="nopass" value="1"> {{.T "picker.setup.nopass"}}</label>
+      <p class="hint">{{.T "picker.setup.nopassHint"}}</p>
+      <button type="submit" class="primary">{{.T "picker.new.submit"}}</button>
+      <p class="hint">{{.T "picker.new.hint"}}</p>
+    </form>
+  </details>
   {{- /* 「管理这台机器」挪到**卡片之后**（2026-10-20）：它原本排在 h1 底下、
        卡片之前——一台机器级的动作压在「这一份是谁」上面，读起来像这一页的正事。
        现在它在下面一行、居中，与登录页那个回链同一张脸（.pick-admin 与

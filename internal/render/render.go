@@ -210,6 +210,12 @@ type PickerOptions struct {
 	// Notice 是进门失败后要说的一句人话（由 httpapi 的白名单给出，
 	// 渲染器不参与判断该说什么）。
 	Notice string
+	// FormTitle 是建档表单失败重画时要回填的名字（PIN 不回填）。只从
+	// `?err=` 那一跳带回来；正常打开时为空。
+	FormTitle string
+	// NewOpen 在 `/new` 的错误回跳时为真：把「新建自己的一份」那一块展开，
+	// 否则错误提示在顶上、表单却折着，人得自己再点开。
+	NewOpen bool
 	// Heading 是 h1 的全部内容：0 档案「还没有档案」、1 档案那个人的名字、
 	// ≥2「谁来用？」。空串退回「谁来用？」——标题不许因为漏传而变空白。
 	Heading string
@@ -295,7 +301,8 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
 		NoWayIn:   len(views) == 0 && len(blocked) == 0,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
-		Notice: opts.Notice, HasAdmin: opts.HasAdmin, DefaultLang: opts.DefaultLang}
+		Notice: opts.Notice, FormTitle: opts.FormTitle, NewOpen: opts.NewOpen,
+		HasAdmin: opts.HasAdmin, DefaultLang: opts.DefaultLang}
 	body, err := r.tmpl.picker(v, i18n.Load(opts.Lang))
 	if err != nil {
 		return Page{}, err
@@ -392,6 +399,9 @@ type AdminOptions struct {
 	// 管理员看到"English"被选中就以为这台机器已经是英文的了——而他按一下那颗
 	// 按钮，就把"没人设过"悄悄变成了"显式设成英文"。
 	DefaultLang string
+	// FormTitle 是管理页建档表单失败重画时要回填的名字（PIN 不回填）。只从
+	// `?err=` 那一跳带回来；正常打开时为空。与 PickerOptions.FormTitle 同一处置。
+	FormTitle string
 }
 
 // AdminSentinel 是管理页在 X-LB-Profile 与 ETag 前缀里的名字。它刻意长成
@@ -426,6 +436,14 @@ type AdminField struct {
 	Type      string // text / password
 	Hint      string // 字段说明，空串就不印（印了要挂 aria-describedby）
 	Autofocus bool
+	// InputMode 是给移动端的那一格软键盘（空串 = 不写那个属性）。
+	//
+	// **它归字段自己**，不归模板：PIN 那一格要数字键盘（`numeric`），
+	// 而管理密钥那一格**不能**要——那把 key 是一段任意文本（默认那把是
+	// `launchbay123`，但用户自己换的那把可以有字母），给数字键盘就等于
+	// 在手机上没法输它。2026-10-23 加这一格就是为这件事：删档要密码
+	// 那一格是这一族第一格**不是**数字的东西。
+	InputMode string
 	// MinLen / MaxLen 是**这一格的长度范围**，0 = 不印那个属性。
 	//
 	// 只有 PIN 那一格有范围，而它的范围取自 auth 那两个常量（见 adminaction.go）：
@@ -500,9 +518,11 @@ type AdminAction struct {
 	// NoForm 是"这一页没有可提交的东西"，整张表单不画（回退页零份快照时那一支：
 	// 画一个只有按钮的空表单，等于给人一条点了之后没有出路的路）。
 	//
-	// **它必须显式，不能从"Fields 与 Choices 都空"推**：删档页正是两者皆空而
-	// 仍然要按钮的那一张——它提交的就是那个 hidden profile。推出来的话，
-	// 删档会跟着这条一起消失，而且现象是"删档页少了个按钮"，极难联想到这一行。
+	// **它必须显式，不能从"Fields 与 Choices 都空"推**：**停用页**正是两者皆空而
+	// 仍然要按钮的那一张——它提交的就是那个 hidden profile（2026-10-23：这一族里
+	// 原本是删档页，但删档页从那天起多了一格「管理密钥」，形状变了，停用页接了
+	// 那个位置）。推出来的话，停用会跟着这条一起消失——管理页上再没有「停用/启用」
+	// 那两颗键，而现象是"停用页少了个按钮"，极难联想到这一行。
 	NoForm bool
 }
 
@@ -545,11 +565,20 @@ type ImportView struct {
 	// SkippedItems 逐条点名。**不许拿 Skipped 那个数字代替它**：导入唯一会让人
 	// 后悔的信息就是"少的是哪几条"，只给个数的话那几条就没人知道了。
 	SkippedItems []SkippedEntry
+	// PreviewGroups 是报告页顶上那份人话摘要（会进哪些组、每组几条）。
+	// 由 plan.Bookmarks 算出来，不让渲染层重新解析报告。
+	PreviewGroups []PreviewGroup
 }
 
 // SkippedEntry 一条没能进档案的书签。它是 render 自己的形状而不是
 // bookimport.SkippedItem：渲染层不认识解析器，知道的只有"这三样要印出来"。
 type SkippedEntry struct{ Name, URL, Reason string }
+
+// PreviewGroup 是「会导入到这些分组」那一行的数据。
+type PreviewGroup struct {
+	Title string
+	Count int
+}
 
 // ImportPage 渲染导入页。no-store：报告与令牌都在这一次响应的上下文里，
 // 缓存住它等于把"这个人打算导什么"留给下一个共用这台电脑的人。

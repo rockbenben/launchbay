@@ -206,6 +206,13 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
+	// 备份导入成功之后 303 到这里（`ok=imported`）。成功也要说一句：没有这句话时，
+	// 一份设置与盘上相同的备份导完之后，屏上什么都没变——"按了没反应"与"已经成了"
+	// 分不开（2026-10-24 实拍）。
+	if r.URL.Query().Get("ok") == "imported" {
+		s.renderPrefsNoticeOK(w, r, id, s.trFor(r, id).t("backup.ok.imported"))
+		return
+	}
 	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
 	if err != nil {
 		s.handleError(w, err)
@@ -320,7 +327,7 @@ func (s *Server) handlePrefsGroup(w http.ResponseWriter, r *http.Request) {
 	// id 由服务端派生（`store.NextGroupID`）：面板这张表单一格是中文，而中文
 	// slug 不出 ASCII（那是 §11.2 写死在明处的代价），所以派生出来多半是
 	// `group` / `group-2` 那条基名序列。人看见的永远是 `Title`，id 只是寻址键。
-	// **不要在界面上要人去填 id**：`/setup` 与管理页那两张建档表单都不问，
+	// **不要在界面上要人去填 id**：`/setup`、`/new` 与管理页那三张建档表单都不问，
 	// 这里是同一族决定。
 	add, hasAdd := r.Form["add"]
 	if hasAdd {
@@ -613,22 +620,35 @@ func (s *Server) handlePrefsPin(w http.ResponseWriter, r *http.Request) {
 // 落点复用的是 handlePrefsPage 的那道分诊（读不动 profile.json → 503），
 // 所以这里只多一句 notice，页面本身由同一条渲染路径出。
 func (s *Server) renderPrefsNotice(w http.ResponseWriter, r *http.Request, id, notice string) {
+	s.renderPrefsNoticeClass(w, r, id, notice, "notice")
+}
+
+// renderPrefsNoticeOK 是同一行字的**成功**版（2026-10-24）：备份导入成功
+// 也走这条落点，但它不是警告。用 `.notice.ok` 与错误那一条分开——橙框里的
+// "已导入"会被读成"出了点问题"；浮层那一侧还靠这个 class 认出"该重载页面
+// 让导入的设置生效"。
+func (s *Server) renderPrefsNoticeOK(w http.ResponseWriter, r *http.Request, id, notice string) {
+	s.renderPrefsNoticeClass(w, r, id, notice, "notice ok")
+}
+
+func (s *Server) renderPrefsNoticeClass(w http.ResponseWriter, r *http.Request, id, notice, class string) {
 	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 	body := page.Body
-	// 插在 <body...> 之后、面板之前。位置判据用面板自己的根 class 而不是
+	// 插在面板之前、`<main>` 之内。位置判据用面板自己的根 class 而不是
 	// "<body>"：body 标签带一串 data-* 属性，逐字找标签名会在下一次有人
-	// 加属性时静默失配。
+	// 加属性时静默失配；从前插在 body 之后还让这条提示落在 main 之外，宽屏上
+	// 它铺满整页左缘、面板却居中 900px（2026-10-24 实拍）。
 	at := bytes.Index(body, []byte(`<section class="prefs">`))
 	if at < 0 {
 		// 面板的根 class 变了：宁可把这句话原样写进页头，也不要悄悄丢掉一次失败。
 		s.writePage(w, r, page)
 		return
 	}
-	warn := `<p class="notice">` + html.EscapeString(notice) + `</p>` + "\n"
+	warn := `<div class="prefs-notice"><p class="` + class + `">` + html.EscapeString(notice) + `</p></div>` + "\n"
 	page.Body = append(body[:at], append([]byte(warn), body[at:]...)...)
 	s.writePage(w, r, page)
 }

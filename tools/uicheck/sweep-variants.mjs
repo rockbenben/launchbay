@@ -10,6 +10,8 @@
 //	  同一个答案**，这是 AGENTS.md 里写过的一条判据。
 //	剪贴板那一格：⌘K 里"把剪贴板里的网址存进来"。
 //	窄屏 390 + 浅色：不许横向溢出。
+//	待办删掉最后一条：外层提示框一起走，不留空壳。
+//	bookmarklet 预填：?add= 打开浮层，读取要有一个字的状态。
 //	减弱动效：prefers-reduced-motion: reduce 下新加的那几条必须显式关掉。
 //	零 JS 通路：/pin、/prefs、/prefs/group、/revert、/import、/admin —— 这些页面
 //	  本来就是给"没有脚本也能用"准备的，而第一道全程开着脚本。
@@ -86,6 +88,70 @@ await step('恢复联网 → 队列自己重放（屏上 == 盘上）', async ()
     const problems = [];
     const q = d.groups.flatMap((g) => g.items).filter((i) => i.url.includes('offline.example.com'));
     if (q.length !== 1) problems.push(`盘上那条离线存的有 ${q.length} 条，要 1 条（${res}）`);
+    return problems;
+  } });
+
+// 待办清单「删掉最后一条」：外层提示框必须跟着走（2026-10-24）。
+// 清单从这一版起包在 `.notice` 里；只摘 `#lb-qlist` 会留下一个空壳，而离线时
+// 那颗「补进去」不画、又没有关闭键——空壳会一直挂到刷新。判据是壳本身消失，
+// 不只是列表消失。
+await step('待办 → 删掉最后一条后不留空壳', async () => {
+  await send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+  await ev(`document.getElementById('lb-add').click()`); await sleep(300);
+  await ev(`const u=document.getElementById('lb-url'); u.value='https://offline.example.com/drop';
+    u.dispatchEvent(new Event('input',{bubbles:true})); u.dispatchEvent(new Event('blur',{bubbles:true}))`);
+  await sleep(500);
+  await ev(`const g=document.getElementById('lb-group'); g.value='tiles-1'; g.dispatchEvent(new Event('change',{bubbles:true}));`);
+  await ev(`document.querySelector('#lb-sheet button[type=submit]').click()`);
+  await sleep(1000);
+  await ev(`document.getElementById('lb-q')?.click()`);
+  await sleep(400);
+  await ev(`document.querySelector('#lb-qlist button')?.click()`);
+  await sleep(400);
+  const res = await run(`JSON.stringify({
+    queue: localStorage.getItem('lb-queue-dad'),
+    chip: !!document.getElementById('lb-q'),
+    box: !!document.getElementById('lb-queue'),
+    list: !!document.getElementById('lb-qlist') })`);
+  await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await ev(`window.dispatchEvent(new Event('online')); return 'online'`);
+  await sleep(800);
+  await goHome();
+  return res;
+}, { noInvariant: true, allowBad: true, wait: 400,
+  outcome: (inv, d, res, before) => {
+    let m;
+    try { m = JSON.parse(String(res)); } catch { return ['读数没拿到：' + res]; }
+    const problems = [];
+    if (m.queue !== '[]') problems.push(`队列里还剩 ${m.queue}，要清空`);
+    if (m.chip) problems.push('待办 chip 还在');
+    if (m.list) problems.push('清单 ul 还在');
+    if (m.box) problems.push('清单摘空了但外层提示框还在（离线时没有关闭键，会一直挂到刷新）');
+    if (JSON.stringify(d) !== JSON.stringify(before)) problems.push('删一条待办竟然动了盘上的书签');
+    return problems;
+  } });
+
+// bookmarklet 预填（?add=）会在模块初始化时调用 resolveNow（2026-10-24）。
+// 它用到的那一格地址形状闸如果写在调用点之后，会撞 TDZ：浮层照开、但读取整个
+// 不发生，状态行空着，错误只在 console。判据是状态行有结论，不只是浮层开了。
+await step('bookmarklet 预填 → 浮层打开且读取有结论', async () => {
+  const target = SRV + '/healthz';
+  await send('Page.navigate', { url: SRV + '/?add=' + encodeURIComponent(target) + '&t=Bookmarklet' });
+  await sleep(1800);
+  const res = await run(`(()=>{const d=[...document.querySelectorAll('[role=dialog]')].find(x=>getComputedStyle(x).display!=='none');
+    if(!d) return JSON.stringify({sheet:false});
+    return JSON.stringify({sheet:true, url:d.querySelector('input[type=url]')?.value||'',
+      statuses:[...d.querySelectorAll('.sheet-status')].map(n=>n.textContent.trim()).filter(Boolean)});})()`);
+  await goHome();
+  return res;
+}, { noInvariant: true, allowBad: true, wait: 400,
+  outcome: (inv, d, res) => {
+    let m;
+    try { m = JSON.parse(String(res)); } catch { return ['读数没拿到：' + res]; }
+    const problems = [];
+    if (!m.sheet) problems.push('?add= 没有打开添加浮层');
+    if (!String(m.url).includes('/healthz')) problems.push(`浮层里的地址不对：${m.url}`);
+    if (!m.statuses || !m.statuses.length) problems.push('读取没有一个字的状态：resolveNow 没跑（TDZ 或调用顺序又断了）');
     return problems;
   } });
 
@@ -416,6 +482,30 @@ await step('窄屏 390 + 浅色 → 不许横向溢出，且屏上仍与盘上�
     const problems = [];
     if (!m) problems.push('读数没拿到：' + res);
     else if (Number(m[1]) > Number(m[2]) + 1) problems.push(`横向溢出：内容 ${m[1]}px，视口 ${m[2]}px`);
+    return problems;
+  } });
+
+// 无结果那一句会把查询词原样印出来（2026-10-24）：贴一条没有空格的长地址
+// 进来搜是常事，而它不会自己折行——实测窄屏视口 486、整页 scrollWidth 1593，
+// 那一句与「看全部」都被推到屏幕外；修复后这一步在 390 档复测。屏上还得真有
+// 那一句，否则这一步在空转。
+await step('窄屏 390 · 搜索一个无空格长词 → 不许横向溢出', async () => {
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await send('Page.navigate', { url: SRV + '/?q=' + 'a'.repeat(200) });
+  await sleep(1500);
+  const res = await run(`JSON.stringify({ scrollW: document.documentElement.scrollWidth, inner: window.innerWidth,
+    has: !!document.querySelector('.nomatch') })`);
+  // 下一步的前置是「开始时页面还是档案页」，而搜索结果页没有 [data-gid]：
+  // 量完把页面放回去，别让下一条替我背这个锅。
+  await goHome();
+  return res;
+}, { noInvariant: true, wait: 800,
+  outcome: (inv, d, res) => {
+    const m = /"scrollW":(\d+),"inner":(\d+),"has":(true|false)/.exec(String(res));
+    if (!m) return ['读数没拿到：' + res];
+    const problems = [];
+    if (Number(m[1]) > Number(m[2]) + 1) problems.push(`横向溢出：内容 ${m[1]}px，视口 ${m[2]}px`);
+    if (m[3] !== 'true') problems.push('没有命中无结果那一句——这一步没走到要量的地方');
     return problems;
   } });
 

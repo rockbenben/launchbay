@@ -32,6 +32,16 @@ const (
 	// "令牌与档案对不上"在协议层就无法表达）。收会话等于把那条更强的性质削一半，
 	// 只为迁就一份写错的文档——那是本末倒置。
 	credTokenOnly
+	// credAdminKey 是**只认那把机器级 key 本身**的一档（2026-10-23 加）。
+	//
+	// 为什么要有这一档：删档是这台机器上唯一**不可逆**的动作（快照跟着档案一起
+	// 没了，`revert` 救不了它），而管理 cookie 是 key 的派生值——它进 devtools、
+	// 进导出、进浏览器同步。于是"登着管理页"不再等于"有权删档"：删档这一条要
+	// 那把 key 本身（用户 2026-10-23 拍板：「删除需要有确认警示，并要求密码」）。
+	//
+	// 它与 credAdmin 的差别**只在 cookie 那一半**：管理员令牌在两档里都算数，
+	// 而 `lb_admin` 只过 credAdmin、过不了这一档。判据只有 AdminToken.Matches 一处。
+	credAdminKey
 )
 
 type route struct {
@@ -78,6 +88,18 @@ func (s *Server) routes() []route {
 			Summary: "引导页上那个语言下拉自己的通路（零档案时可用；按下去页面立刻换语言）", H: s.handleSetupLanguage},
 		{Method: "POST", Pattern: "/setup", Cred: credNone,
 			Summary: "引导建档：只在磁盘零档案时有效（浏览器表单通路；建出来的是第一个人的书签页，不是管理员）", H: s.handleSetup},
+		// 自建档（2026-10-23）：**非管理员自己建一份**。
+		//
+		// 免凭证是刻意的（用户 2026-10-23 拍板：「非管理员用户有个 new 接口，
+		// 可以自己建档案」）：§11 明写不防局域网内冒充，而建出来的那一份是
+		// **空的**、只属于它自己的 PIN——它不授予任何读取别人书签的权限。
+		// 要管理员才能建，来的第一个人就得等家长回来。
+		//
+		// 与 /setup 的差别只有一条判据：/setup 是"零档案时的第一个"（CreateFirstProfile
+		// 在锁内重查目录数），这一条是"随时可建"（CreateProfile）。别的都同族：
+		// 不问 id（由名字派生）、不发会话（建完照样要输 PIN 才进门）。
+		{Method: "POST", Pattern: "/new", Cred: credNone,
+			Summary: "自建一份档案（浏览器表单通路；免凭证，id 由名字派生）", H: s.handleNewProfileForm},
 		// 管理员的浏览器通路（2026-10-12）。管理员不再是某个档案，于是"怎么进管理页"
 		// 需要一条**自己的**门：POST 一次 key，服务端发一条 lb_admin cookie（装的是
 		// 派生值，不是 key 本身）。
@@ -215,8 +237,14 @@ func (s *Server) routes() []route {
 		{Method: "GET", Pattern: "/backgrounds/{name}", Cred: credSession,
 			Summary: "这一份档案自己的背景图（内容哈希命名，仅会话）", H: s.handleBackgroundFile},
 		{Method: "POST", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "建档（不带任何起步内容，模板机制 2026-10-10 整条拆掉）", H: s.handleCreateProfile},
+		// 自建档的机器通路（2026-10-23）：与上面那条的差别只有两处，且都写进契约——
+		// **id 由名字派生**（不许申报，于是不能占用别人的 id）与**没有 admin 那一格**
+		// （档案本来就没有管理员属性）。凭证是免的：这是"非管理员自己建"。
+		{Method: "POST", Pattern: "/api/v1/profiles/new", Cred: credNone,
+			Summary: "自建一份档案（免凭证；id 由名字派生，非管理员也能建）", H: s.handleNewProfile},
 		{Method: "GET", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "档案元信息列表（零条目）", H: s.handleListProfiles},
-		{Method: "DELETE", Pattern: "/api/v1/profiles", Cred: credAdmin, Summary: "删档（连快照，历史保留）", H: s.handleDeleteProfile},
+		{Method: "DELETE", Pattern: "/api/v1/profiles", Cred: credAdminKey,
+			Summary: "删档（连快照，历史保留；这一条要那把机器级 key 本身，管理 cookie 不够）", H: s.handleDeleteProfile},
 		{Method: "POST", Pattern: "/api/v1/profiles/self/pin", Cred: credSession,
 			// 旧 PIN 只在这一份**现在有 PIN** 时才要（2026-10-12）：一份不设防的档案
 			// 可以直接给自己设上第一个 PIN，而 `new` 留空则是取消它（取消仍要旧 PIN）。
@@ -289,14 +317,16 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 		// Linkding 一致）。现在它只进 credAdmin 那一族（建档/删档/改 PIN/
 		// status/审计聚合），写书签必须用档案作用域令牌 `name:secret:dad`。
 		if s.deps.AdminToken.Matches(tok) {
-			if want != credAdmin {
+			if want != credAdmin && want != credAdminKey {
 				return "", auth.Scope{}, false
 			}
 			return adminActor, auth.Scope{}, true
 		}
 		sc, ok := s.deps.Tokens.Authorize(tok)
-		// 档案作用域令牌过不了 credAdmin，哪怕它申报的就是自己的档案。
-		if !ok || want == credAdmin {
+		// 档案作用域令牌过不了 credAdmin，哪怕它申报的就是自己的档案；
+		// 也过不了 credAdminKey（删档那一档要那把机器级 key，2026-10-23）——
+		// 一枚 dad 的令牌删掉 dad 那一份，与"管理员令牌删掉 dad"是两件事。
+		if !ok || want == credAdmin || want == credAdminKey {
 			return "", auth.Scope{}, false
 		}
 		if !sc.Allows(profileID) {
@@ -317,6 +347,18 @@ func (s *Server) require(r *http.Request, want cred, profileID string) (string, 
 	// 可能没登任何档案就想去看一眼状态。
 	adminOK := s.hasAdminCookie(r)
 	if !sess.Valid() && !adminOK {
+		return "", auth.Scope{}, false
+	}
+	if want == credAdminKey {
+		// **管理 cookie 不算数**（2026-10-23）：删档要那把 key 本身。
+		//
+		// 走到这一支说明请求里没有那把 key（带着它的话在前面的令牌分支就被分走
+		// 了），而 `lb_admin` 只是派生值——它进 devtools、进导出、进浏览器同步，
+		// 而删档是这台机器上唯一不可逆的动作。
+		//
+		// 401 还是 403 由 writeAuthFailure 分：连会话与管理 cookie 都没有 → 401
+		//（没带凭证）；带着 cookie 或档案会话 → 403（凭证认出来了，但这一档要的
+		// 不是它）。**不许合并成 403**：那会让"忘带 key"的人以为自己没登录。
 		return "", auth.Scope{}, false
 	}
 	if want == credAdmin {

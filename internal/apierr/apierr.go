@@ -76,6 +76,15 @@ const (
 	FieldInvalid   = "field-invalid"
 	FieldUnknown   = "field-unknown"
 	FieldDuplicate = "field-duplicate"
+	// FieldTooLong 是**那一格太长**（2026-10-23 加）。
+	//
+	// 为什么它要与 FieldInvalid 分开：这一族里 422 混着好几种"这一格不对"，
+	// 而**出路不同**——值不对要改这个值，太长要把它改短。而界面那把键
+	// （`?err=`）更是有两个形状：**空着与太长是两句话**（与 self/selfdisable、
+	// pin/pinboth 同一纪律），所以它们得能被分开认出来。
+	//
+	// 按"kind 只增不改不删"的规矩新增一个，不改也不删已发布的那些。
+	FieldTooLong   = "field-too-long"
 	BodyUnreadable = "body-unreadable"
 	QueryInvalid   = "query-invalid"
 	URLIncomplete  = "url-incomplete"
@@ -146,6 +155,7 @@ var Registry = map[string]Info{
 	MissingTarget:         {422, "那一组/那一条不在了：刷新之后再看"},
 	IconUnknown:           {422, "换一个查得到的图标名"},
 	FieldInvalid:          {422, "改那一格的值"},
+	FieldTooLong:          {422, "把那一格改短一点"},
 	FieldUnknown:          {422, "删掉不认识的字段再发"},
 	FieldDuplicate:        {422, "同一字段只带一次"},
 	BodyUnreadable:        {422, "重新提交一次"},

@@ -255,17 +255,36 @@ type navNode struct {
 // 合成父节点与真实分组**必须分得清**：只有真实分组能链到锚点、才有计数与色点。
 // 一段路径恰好也是某个分组标题时（"工具" 与 "工具 / 同步" 同时存在），那一段按
 // **真实分组**画——否则那个分组在侧栏里就没有入口了，而它明明是可进去的。
+//
+// **每一组都要有一行**（2026-10-22 修）：从前这里按**标题**去重，于是两个叫同一
+// 个名字的分组里，第二个**整行不见了**——它从侧栏的导航里消失，而页面上明明还
+// 画着它（同一个屏上，「＋ 添加」那格的下拉里两份都在）。实测：一份里有三个
+// 叫「常用」的组，侧栏只剩一行「常用 1」，另外两组（4 条与 0 条）连入口都没有。
+//
+// **重名是正常形状，不是脏数据**：台面面板「＋ 新分组」不查重名（id 由服务端
+// 派生，名字原样留下），「改名」那一格也不查——所以磁盘上躺着两个叫「常用」的
+// 组，是人正常用这台机器用得出来的结果。既然它是合法状态，导航就得**画得出来**：
+// 少画一行不是"去重"，是**把一组藏起来**（空组那条纪律「空的分组照画」是同一
+// 条：存在的东西不许从导航里消失）。
+//
+// 于是判据分成三支：
+//   - **自己那一行**（走到最后一段）：这一组在导航里独占一行，重名也独占。
+//   - **中途那一段**：它要么是**别的**真分组的标题（那一行归那个组，锚点与
+//     计数取自**它**而不是当前这一组），要么只是一段路标（合成父级，不可点）。
+//   - **路标**：整条路径只画一次。
 func groupNav(groups []groupView) []navNode {
 	if len(groups) == 0 {
 		return nil
 	}
-	// 先知道哪些整串标题是真实分组：合成父节点靠它判断"我该不该可点"。
-	real := make(map[string]bool, len(groups))
+	// 一个标题可能对应**好几个**真分组（重名），所以这里存的是"这个标题对应
+	// 哪几个组"，而不是"这个标题是不是真分组"。
+	owners := make(map[string][]groupView, len(groups))
 	for _, g := range groups {
-		real[g.Title] = true
+		owners[g.Title] = append(owners[g.Title], g)
 	}
 	var out []navNode
-	seen := map[string]bool{} // 已经画过的那一整串路径
+	seen := map[string]bool{}  // 这一整串路径已经画过（合成父级只画一次）
+	drawn := map[string]bool{} // 某一个组自己的那一行已经画过
 	for _, g := range groups {
 		full := ""
 		for _, seg := range splitAll(g.Title) {
@@ -274,30 +293,54 @@ func groupNav(groups []groupView) []navNode {
 			} else {
 				full += pathSep + seg
 			}
+			// 走到最后一段时，full 就是**这一组自己的整条路径**。
+			if full == g.Title {
+				if drawn[g.ID] {
+					continue
+				}
+				drawn[g.ID] = true
+				out = append(out, navNodeOf(g, full, true))
+				continue
+			}
+			// 中途段：它可能正是**别的**真分组的标题（"工具 / 同步" 存在时，
+			// "工具" 那一段就是一个真分组）。
+			if ows := owners[full]; len(ows) > 0 {
+				owner := ows[0]
+				if drawn[owner.ID] {
+					continue
+				}
+				drawn[owner.ID] = true
+				// 那一行画的是**那个组**：锚点与计数取自它，不取自当前这一组
+				//（当前这一组只是恰好路过这一段）。
+				out = append(out, navNodeOf(owner, full, true))
+				continue
+			}
+			// 剩下的是**路标**：既不是任何分组的标题，就只是路标，不可点。
 			if seen[full] {
 				continue
 			}
 			seen[full] = true
-			isGroup := real[full]
-			// 合成父节点的标题就是它自己那一段；真实分组用原标题（两者在拆开之后
-			// 得到的是同一组 Leaf/Parents——差别只在这一串给不给锚点与计数）。
-			title := seg
-			if isGroup {
-				title = full
-			}
-			node := navNode{Label: title, IsGroup: isGroup,
-				Depth: strings.Count(title, pathSep)}
-			node.Parents, node.Leaf = pathSplit(title)
-			if isGroup {
-				node.Href = "#g-" + g.ID
-				node.Count = len(g.Items)
-				node.Accent = g.Accent
-				node.AccentCSS = CSSAccent(g.Accent)
-			}
-			out = append(out, node)
+			out = append(out, navNodeOf(g, seg, false))
 		}
 	}
 	return out
+}
+
+// navNodeOf 画一行导航：isGroup 说的是"这一行可不可点"。
+//
+// 真实分组用**整条路径**当标签（"工具 / 同步"），合成父级用它自己那一段
+// （"工具"）——两者在 pathSplit 之后得到的是同一组 Leaf/Parents，差别只在这一串
+// 给不给锚点与计数。
+func navNodeOf(g groupView, title string, isGroup bool) navNode {
+	node := navNode{Label: title, IsGroup: isGroup, Depth: strings.Count(title, pathSep)}
+	node.Parents, node.Leaf = pathSplit(title)
+	if isGroup {
+		node.Href = "#g-" + g.ID
+		node.Count = len(g.Items)
+		node.Accent = g.Accent
+		node.AccentCSS = CSSAccent(g.Accent)
+	}
+	return node
 }
 
 // splitAll 把标题按分隔符全拆开（pathSplit 只拆最后一处，这里要每一段）。
@@ -450,6 +493,16 @@ type profileView struct {
 	// MaxGroupTitleRunes 是「分组名」那一格的长度上限，**原样带上 model 那个数**
 	// （不为模板抄一份，也不为它加一个 setter）。模板把它印成那个 maxlength：
 	// 服务端那条通路判的是同一个数，两处不同数时症状是"浏览器拦住了、curl 拦不住"。
+	//
+	// **档案页也要带它**（2026-10-22 补）：「＋ 添加」浮层里那个「新分组名」输入框
+	// 是**脚本造的**，它没有 maxlength——于是同一个动作在两个入口给出两个答案：
+	// 面板里 60 字以上打不进去，浮层里打多少都收。实测：浮层里存进去一个 200 字的
+	// 分组名，回到设置面板那一格（maxlength=60，框宽 416px）**只显示得下前 46 个字**，
+	// 而那个名字还印在每个节标题、分组导航与导出文件里。
+	//
+	// 档案页把它印在 `<body data-max-group-title>` 上，脚本从那儿读（app.js 是静态
+	// 资产，读不到服务端的 catalog，所以这一格只能由页面递过去——与 data-rev /
+	// data-add 同一族）。**数仍是 model 那一份**，两处不各写一个字面量。
 	MaxGroupTitleRunes int
 	// Background 是**这一页画背景用的** URL（`/backgrounds/<名字>`），空串 = 不画。
 	// BackgroundFile 是**盘上那一份**的 URL，不管画不画。
@@ -561,8 +614,11 @@ type pickerView struct {
 	// 步骤——只带地址不带标题的话，进门后浮层里得自己再填一遍。
 	KeepAddTitle string
 	Notice       string
-	Heading      string
-	Setup        bool
+	// FormTitle / NewOpen 是建档表单字段错时的回填与展开（2026-10-24）。
+	FormTitle string
+	NewOpen   bool
+	Heading   string
+	Setup     bool
 	// NoWayIn 是"一张卡都画不出、也没有哪一份被点名为读不动"——也就是这一页
 	// 没有任何人能进得去（2026-10-16 取景）。它把标题从一句**没人能回答的问话**
 	// 换成那句事实本身：全家用档案都被停用、或目录都在但一份 profile.json 读不出
@@ -669,6 +725,12 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	funcs := template.FuncMap{
 		"shortTime": ShortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
 		"pinMin": func() int { return auth.PinMinLen }, "pinMax": func() int { return auth.PinMaxLen },
+		// profileTitleMax 是**档案名**的长度上限，直接取 model 那一个数
+		// （model.MaxProfileTitleRunes，与 MaxGroupTitleRunes 同一处纪律）。
+		// 三张建档表单上那个 maxlength 印的就是它：服务端建档那条落点判的也是
+		// 同一个数，两处各写一个字面量的话，改一处要记得改另一处，而漏掉的那
+		// 一处症状是"浏览器拦住了、curl 拦不住"。
+		"profileTitleMax": func() int { return model.MaxProfileTitleRunes },
 		// repoURL 是**源码仓库的地址**（render.RepoURL）。做成模板函数而不是
 		// 视图上的一个字段：字段要**每一页都记得填**，而忘了填的那一处症状是
 		// "链接点得开、却什么也不做"（href 空）——一种平时完全看不出来的错。
@@ -997,7 +1059,10 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
-		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab}}
+		Bookmarks: profileData{Title: b.Title, Footer: b.Footer, OpenInNewTab: b.OpenInNewTab},
+		// 分组名上限**原样带上 model 那个数**（不为它抄一份）：面板那两个输入框的
+		// maxlength 与服务端那条表单通路的判据都是它，浮层这一格要跟它们同数。
+		MaxGroupTitleRunes: model.MaxGroupTitleRunes}
 	// 这一页的名字：起了就用，没起就按语言给通用默认（见 profileView.PageTitle）。
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
 	if v.PageTitle == "" {

@@ -180,6 +180,16 @@ main{max-width:1600px;margin:0 auto;padding:0 16px}
    只管段落：表格那一格（`td` 实测 30–31 字）本来就该用满宽度放数据，
    所以这条不碰 td，也不碰 .shell>main 里那些卡片。 */
 main p,main .notice,main .hint,main .explain{max-width:42em}
+/* 搜索无结果那一句会把**查询词原样印出来**（profile.nomatch）。贴一整条地址
+   进来搜是常事，而一个没有空格的长串不会折行——实测窄屏视口 486、整页
+   scrollWidth 1593，横向一滚那一句与「看全部」都跑到屏幕外（2026-10-24；
+   390 档由第二道横扫钉住）。
+   `anywhere` 只在放不下时断，正常句子一个像素都不动。 */
+.nomatch{overflow-wrap:anywhere}
+/* 导入预览顶上那句「会导入到这些分组」把浏览器文件夹名原样印出来（2026-10-24）。
+   那一格也是段落，而一个没有空格的长文件夹名同样不会自己折行——与 .nomatch
+   同一处置，只在这里按需断。 */
+.preview-sum{overflow-wrap:anywhere}
 /* **选择页这一族自己收窄**（2026-10-14 实拍后加）。上面那条 1600 是为档案页与
    管理页那种"内容本来就铺满"的页面定的；选择页与建档页的内容是**两三张卡**，
    1600 的后果是量到的东西：
@@ -209,6 +219,21 @@ main p,main .notice,main .hint,main .explain{max-width:42em}
    "必须显式覆盖"。 */
 .shell{display:grid;grid-template-columns:206px minmax(0,1fr);gap:24px;align-items:start;
   max-width:1600px;margin:0 auto;padding:0 16px}
+/* **一个分组都没有时，不留侧栏那条空带**（2026-10-22）。
+   侧栏那一列是定宽 206px，而"分组"那一格空的时候那 206px **什么都不画**
+   （`.side` 量出来高 0，`summary` 是 `display:none`）。
+   于是新建的第一份档案的第一屏就是：左边一条 206px 的空白，正文从 x=266 开始，
+   而右边只有 36px——**内容偏在右边**，看着像排版没对。
+   （实测 1280 档：`.side` 宽 206 高 0，正文左边界 266、宽 978。）
+
+   **判据由服务端给**（`.shell` 上那个 `no-side`）：它是"这一份有没有分组"这件事的
+   唯一判据（`.Bookmarks.Nav` 为空 = 没有分组）。**不要用 CSS 的 `:empty` 去判**：
+   那个 `ul` 里留着换行的空白，而 `:empty` 在浏览器里不算它空——第一版就是这么写的，
+   规则**根本没生效**（实测侧栏仍占 206px）。
+
+   **它仍是纯 CSS 的隐藏，标记照旧在 DOM 里**（与紧凑档那一族同一条纪律）：
+   服务端给的是**一个类名**，不是"不渲染那一列"——零 JS 时页面与开着 JS 时长得一样。 */
+.shell.no-side{grid-template-columns:minmax(0,1fr)}
 .shell>main{max-width:none;margin:0;padding:0}
 .side{position:sticky;top:12px;align-self:start;min-width:0}
 /* 侧栏与主区之间的那道线（**只在桌面档**，2026-10-11 加）。
@@ -278,6 +303,7 @@ details[open]>summary::before{content:"▾"}
    **三个数是同一份**：max-width / margin / padding 抄 header 与 .shell 那两行，
    抄错一个就重新错开——而这一处错了不会有人报，只是看着没对齐。 */
 .gnav.top{margin:0 auto 14px;padding:0 16px;max-width:1600px}
+
 /* 顶栏那一行**折行，不横向滚**（2026-10-14 实拍后改判）。
    原来是 `overflow-x:auto`：实测 714 那一档（8 个分组：应用 常用 NAS 应用 影视 工具 播客 娱乐 后端）
    放不下，于是它开始滚 —— 而滚动的后果有三条：
@@ -394,6 +420,17 @@ section{content-visibility:auto;contain-intrinsic-size:auto 700px}
 h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 6px;
   display:flex;align-items:center;gap:8px}
 h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
+/* 节标题里的两格（父路径 + 叶名）**不许撑破主区**（2026-10-23）。
+   分组名可以是任意长度（ops 与导入那两条写路不判长度，长度上限只管"人打字的
+   那两处"——面板表单与浮层那个输入框），而 h2 是 flex 容器、flex 项的
+   min-width:auto 让它不肯缩——于是一个 200 字的拉丁名会把这一行顶出正文栏，
+   页面多出一条横向滚动条。
+   **截断而不是换行**：与这一页的另外三张脸同一口径（侧栏 .gnav a span、顶栏
+   h1、卡片名都是省略号），而且极端值下差别很大——一个 200 KB 的组名（深目录
+   导入压平出来的路径）换行会折成上千行，把整页顶到几万像素高，截断只占一行。
+   整名仍在 title 属性里（悬停能看见），截断不等于丢信息。 */
+h2 .sec-path,h2 .sec-leaf{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+h2 .sec-leaf{flex:1 1 auto}
 /* 裸 `ul` 只**复位样式**；网格挂在下面那一条的条目列表类上。
    从前网格就写在这个裸选择器上，于是每一条"不是条目列表"的 ul 都得自己声明
    display 才逃得掉——三处漏了：⌘K 的结果表、离线队列表、导入报告的清单。
@@ -838,6 +875,16 @@ a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);
 [data-profile-layout=sidebar][data-profile-view=dense] .shell{grid-template-columns:minmax(0,1fr)}
 .notice{margin:0 0 16px;padding:10px 14px;border:1px solid var(--warn);border-radius:12px;
   background:rgba(255,157,108,.12);color:var(--ink)}
+/* 成功是**蓝**，不是橙（2026-10-24）：`.notice` 一直是警告/失败的颜色，备份导入
+   成功那一句借用它时，"已导入"看起来像"出了点问题"。 */
+.notice.ok{border-color:var(--accent);background:var(--accent-tint)}
+/* /prefs 那张独立页的顶部提示（2026-10-24）：它插在面板之前，而 `.prefs` 自己
+   `width:min(900px,100%);margin:0 auto`——不套这一层时提示铺满整页左缘、面板居中
+   900px，宽屏上像两件互不相干的东西。margin 收在包装层，内层归零，免得两处叠加。 */
+.prefs-notice{width:min(900px,100%);margin:0 auto 16px}
+/* `main p` 那条 42em 会把它收成 630px（1440 实测），而这一条要与面板同宽：
+   提示说的是"这一页刚发生了什么"，不是一段正文。 */
+.prefs-notice .notice{margin:0;max-width:none}
 /* .explain 是确认页的后果说明，**以前根本没有规则**——句子里带的 \n\n 被 HTML
    默认折成空格，于是"现在是这样"与"回退会怎样"挤成一段，而这一页存在的意义
    就是让人把"会发生什么"读清楚。pre-line 让空行真的断成段（单换行仍折行，
@@ -1214,6 +1261,11 @@ select option{background:var(--bg);color:var(--ink)}
    `auto` 的左右外边距会**吃掉整行的余量**（它会把这一行撑开），所以归零。 */
 .prefs-foot .prefs-back{margin:0;max-width:none}
 .prefs-back{margin:16px auto 0;max-width:900px}
+/* 独立页顶部那颗出口（2026-10-24）：与底部那枚徽标**不是同一颗**——这里用
+   一行小字，底部仍是面板页脚里的徽标；两颗在不同位置，不是重复按钮。 */
+.prefs-top{font-size:13px;line-height:1.5}
+.prefs-top a{color:var(--ink2);text-decoration:none}
+.prefs-top a:hover{color:var(--ink)}
 
 /* 「背景」那一节（2026-10-14）：预览 + 三个动作（上传/换、暂时不显示、移除）。
    预览那一张走的是**与页面同一个端点** `/backgrounds/<name>`，所以它同时是
@@ -2029,6 +2081,15 @@ ol.rep-list{list-style:decimal}
    「这一份是谁」上面，读起来像这一页的正事。现在它挪到卡片**之后**、居中一行。
    宽度同 `.login-back`（460 并居中）：它是这一页的退路，不该跟档案卡抢宽度。 */
 .pick-admin{max-width:460px;margin:16px auto 0;display:flex;justify-content:center}
+/* 选择页那枚「新建自己的一份」（2026-10-23）：**折叠起来**的建档表单。
+   折叠是因为这一页的正事是「选你是谁」，建档是另一件事；展开它，这一页就
+   变成一个表单页了。宽度与居中照抄 `.pick-admin` 那一档（460 并居中）——
+   它是这一页的第二个动作，不该跟档案卡抢宽度。
+
+   表单本身是 `.pick setup`（与引导那张同一副脸），所以输入框、勾选框与按钮
+   都由那两条族规则接，这里**不新写**任何一条：只管这一个块的位置。 */
+.pick-new{max-width:460px;margin:16px auto 0}
+.pick-new[open]>summary{margin-bottom:10px}
 /* 选择页那一句「提需求」（2026-10-20）。**是一句小字，不是一枚徽标**：徽标是
    「点一下会做一件事」的形状（进这一页、提需求、回我的页面），而这一句说的是
    「这个软件是开源的」——它不是这台机器上的一个动作。徽标那版实拍下来是两块

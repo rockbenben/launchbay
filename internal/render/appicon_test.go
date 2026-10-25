@@ -27,8 +27,9 @@ func TestEditSheet_hasIconFieldAndOnlyWritesItWhenTouched(t *testing.T) {
 		"fillIconChoices(ic, [], curIcon)",
 		"li.dataset.iconName",
 		// 没动过就不发：这是这一格唯一安全的写法——"不选图标"是空串，
-		// 与"这一条本来没有图标"同值，靠非空判断会把图标清掉。
-		"icon: ic.value === curIcon ? null : ic.value",
+		// 与"这一条本来没有图标"同值，靠非空判断会把图标清掉。2026-10-24
+		// 起它并进"没改的字段不发"那一组（同一个保存动作，同一套判据）。
+		"if (ic.value !== curIcon) fields.icon = ic.value;",
 		// 候选图标仍要能现查（resolve 那一条通路复用添加那层的同一份判据）。
 		"'/api/v1/resolve', { url: u.value.trim() || url, profile }",
 	} {

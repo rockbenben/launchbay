@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -160,8 +161,30 @@ func TestSetup_字段错说人话(t *testing.T) {
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("%q 要 303，得到 %d", body, rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/?err="+want {
-			t.Errorf("%q 的 Location = %q，要 /?err=%s", body, loc, want)
+		loc := rec.Header().Get("Location")
+		u, err := url.Parse(loc)
+		if err != nil || u.Path != "/" {
+			t.Errorf("%q 的 Location = %q，要回 /", body, loc)
+			continue
+		}
+		q := u.Query()
+		if q.Get("err") != want {
+			t.Errorf("%q 的 Location = %q，要 err=%s", body, loc, want)
+		}
+		if q.Get("new") != "" {
+			t.Errorf("%q 的 Location 带了 new=1：引导页不是 /new，折着的那一块不该展开", body)
+		}
+		// **名字要带回来**（2026-10-24）：PIN 错了只改 PIN，名字没了的下一发
+		// 会变成 noname。PIN 本身绝不回填（它是凭证）。
+		src, _ := url.ParseQuery(body)
+		if got, wantTitle := q.Get("title"), strings.TrimSpace(src.Get("title")); got != wantTitle {
+			t.Errorf("%q 的 Location 里 title = %q，要 %q", body, got, wantTitle)
+		}
+		if title := q.Get("title"); title != "" {
+			page := get(h, loc, "")
+			if !strings.Contains(page.Body.String(), `value="`+title+`"`) {
+				t.Errorf("回跳后的引导页没有把名字 %q 填回去:\n%.500s", title, page.Body.String())
+			}
 		}
 	}
 }

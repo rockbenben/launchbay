@@ -16,10 +16,29 @@ import (
 //
 // 判据是**选项文字里不许有那一枚徽标的数字**：读 `groupName`（同一族几处已经在用
 // 的那份）而不是 `textContent`。
-func Test添加浮层的分组选项不带上条目数(t *testing.T) {
+//
+// **2026-10-22 改判**：这一族原来叫「选项**不带条目数**」，而它当年的理由是
+// **漏出来**的那一枚（徽标粘在名字后面，读的是 textContent）。后来情况变了：
+// 重名分组是**合法形状**（台面面板「＋ 新分组」不查重名、「改名」也不查，浏览器
+// 导出的书签里也有两个同名文件夹），而侧栏那一份导航从 2026-10-22 起**每一组都
+// 有一行**（它带着条目数：常用 1 / 常用 4）。
+// 于是「选项只印标题」就从「省事」变成了「**两个同名组长得一模一样**」——那正是
+// 这条判据当年想避免的那件事，只是换了个形状。
+//
+// 现在的判据分成两半：
+//   - **不许漏**：选项文字仍然只从 groupName 那一份来（不是 textContent），所以
+//     「常用7」那种**粘上去**的数字不会再来；
+//   - **要分得开**：只有**同名**的那几组才补上条目数，而且那个数是**这一组自己
+//     的**（countNodes 那一处，与侧栏同数），标题唯一时一个字都不多。
+func Test添加浮层的分组选项不漏徽标且同名才带条目数(t *testing.T) {
 	js := stripJSComments(readAppJS(t))
-	if !strings.Contains(js, "text: groupName(h2)") {
-		t.Errorf("分组下拉的选项还在读 h2.textContent：大卡那一组会显示成「常用7」\n%s", firstLines(js, "for (const h2 of document.querySelectorAll('main h2[data-group]'))", 3))
+	if !strings.Contains(js, "text: groupLabel(h2.dataset.group, groupName(h2))") {
+		t.Errorf("分组下拉的选项不是从 groupName 那一份来的：大卡那一组会显示成「常用7」\n%s", firstLines(js, "for (const h2 of document.querySelectorAll('main h2[data-group]'))", 3))
+	}
+	// 补上去的那个数是**这一组自己的**（侧栏那一格里的同一个数），不是徽标里
+	// 粘过来的那一个。
+	if !strings.Contains(js, "const n = countNodes(gid)[0];") {
+		t.Error("补上去的条目数不是侧栏那一格的数：两处会不是同一件事")
 	}
 	// 反向证人：那一枚徽标确实在标题里，所以这不是"模板里没有它"的另一种解释。
 	tmpl := readWeb(t, "web/profile.tmpl")

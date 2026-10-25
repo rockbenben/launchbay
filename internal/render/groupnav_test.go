@@ -120,6 +120,89 @@ func TestGroupNav_折出来的中间段不可点(t *testing.T) {
 	}
 }
 
+// **重名的分组每一组都要有一行**（2026-10-22 修）：台面面板「＋ 新分组」不查
+// 重名（id 由服务端派生，名字原样留下），「改名」那一格也不查——于是磁盘上躺着
+// 两个叫「常用」的组，是**人正常用这台机器用得出来的形状**。
+//
+// 从前 groupNav 按**标题**去重，第二个**整行不见了**：它从侧栏的导航里消失，
+// 而页面上明明还画着它（同一个屏上，「＋ 添加」那格的下拉里两份都在）。实测：
+// 一份里有三个叫「常用」的组，侧栏只剩一行「常用 1」，另外两组（4 条与 0 条）
+// 连入口都没有——**一组从导航里消失了**，而它明明是可进去的。
+//
+// 这一族钉的是"**没有一组被藏起来**"：行数 = 组数，每一行的锚点指向**自己**
+// 那一组（不是同名的另一组），计数也各是各的。
+func TestGroupNav_重名的组每一组都有一行(t *testing.T) {
+	mk := func(id, title string, n int) groupView {
+		g := groupView{ID: id, Title: title, Layout: model.LayoutList}
+		g.Parents, g.Leaf = pathSplit(title)
+		for i := 0; i < n; i++ {
+			g.Items = append(g.Items, itemView{ID: id + "-" + string(rune('a'+i)), Name: "x"})
+		}
+		return g
+	}
+	groups := []groupView{
+		mk("g1", "常用", 1),
+		mk("g2", "常用", 4),
+		mk("g3", "常用", 0),
+		mk("g4", "工作", 3),
+	}
+	nav := groupNav(groups)
+	if len(nav) != len(groups) {
+		t.Fatalf("每一组都要有一行：得到 %d 行，要 %d 行（%+v）", len(nav), len(groups), nav)
+	}
+	want := []struct {
+		href  string
+		count int
+	}{
+		{"#g-g1", 1},
+		{"#g-g2", 4},
+		{"#g-g3", 0},
+		{"#g-g4", 3},
+	}
+	for i, w := range want {
+		if nav[i].Href != w.href || nav[i].Count != w.count {
+			t.Errorf("第 %d 行 = %+v，要 href=%s count=%d", i, nav[i], w.href, w.count)
+		}
+	}
+}
+
+// 中途段那一行要归**真正的那个组**："工具 / 同步" 存在时，"工具" 那一段是
+// "工具" 那一组的入口，锚点与计数都得取自**它**。
+//
+// 从前取的是当前这一组（正在拆 "工具 / 同步 / 脚本" 的那一组），于是顺序一换
+// （深的那组排在前面），"工具" 那一行会链到**"工具 / 同步"** 那一组去——点过去
+// 落点不对，而那一组自己的入口反而不存在了。
+func TestGroupNav_中途段归真正的那个组(t *testing.T) {
+	mk := func(id, title string, n int) groupView {
+		g := groupView{ID: id, Title: title, Layout: model.LayoutList}
+		g.Parents, g.Leaf = pathSplit(title)
+		for i := 0; i < n; i++ {
+			g.Items = append(g.Items, itemView{ID: id + "-" + string(rune('a'+i)), Name: "x"})
+		}
+		return g
+	}
+	// 深的那组排在前面——这正是"导入完的档案"里常见的顺序。
+	nav := groupNav([]groupView{
+		mk("g3", "工具 / 同步 / 脚本", 2),
+		mk("g2", "工具", 2),
+		mk("g1", "工具 / 同步", 0),
+	})
+	if len(nav) != 3 {
+		t.Fatalf("该有三行，实际 %d 行（%+v）", len(nav), nav)
+	}
+	// "工具" 那一行链到 g2（真正叫「工具」的那一组），不是 g3。
+	if nav[0].Label != "工具" || nav[0].Href != "#g-g2" || nav[0].Count != 2 {
+		t.Errorf("「工具」那一行该归 g2：%+v", nav[0])
+	}
+	// "工具 / 同步" 那一行链到 g1。
+	if nav[1].Label != "工具 / 同步" || nav[1].Href != "#g-g1" {
+		t.Errorf("「工具 / 同步」那一行该归 g1：%+v", nav[1])
+	}
+	if nav[2].Label != "工具 / 同步 / 脚本" || nav[2].Href != "#g-g3" {
+		t.Errorf("最后一行该是 g3：%+v", nav[2])
+	}
+}
+
 // 没有分隔符的标题原样进树（深度 0），而**数据一个字都不许被改**：groupNav
 // 之后重读磁盘，标题必须与标题一致。
 func TestGroupNav_不动数据(t *testing.T) {

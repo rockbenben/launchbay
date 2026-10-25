@@ -22,7 +22,7 @@
      这一页上，要的就是这句话——**当前配置的那一把一个字都不进页面**，进页面的
      只有 compose 里那个**公开的**默认值（认得它的人本来就管得了这台机器）。 */}}
 <main role="main" class="chooser">
-  <form method="post" action="/admin/login" class="pick login">
+  <form method="post" action="/admin/login" class="pick login" novalidate>
     <h1>{{.T "admin.login.title"}}</h1>
     {{/* 提示留在最前：读屏的人不该先听完这一页才知道刚才那把 key 不对。 */}}
     {{with .Notice}}<p class="notice" role="alert">{{.}}</p>{{end}}

@@ -156,8 +156,12 @@ func TestImport_确认写入走的是batch那个落点(t *testing.T) {
 	req.Header.Set("Cookie", cookie)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("确认写入该 303 回首页，得到 %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("确认写入该给结论页（200），得到 %d %s", rec.Code, rec.Body.String())
+	}
+	if out := rec.Body.String(); !strings.Contains(out, "导入完成") ||
+		!strings.Contains(out, "写进了 2 条书签。") {
+		t.Errorf("确认写入之后要像直接导入那样说清结果:\n%.600s", out)
 	}
 
 	got, err := s.LoadBookmarks("dad")
@@ -310,12 +314,26 @@ func TestImport_进不来的条目被跳过而不是整批失败(t *testing.T) {
 	if !strings.Contains(page, "javascript:void(0)") {
 		t.Errorf("报告里要逐条点名哪几条没进来：\n%.600s", page)
 	}
+	// **人话摘要在上，完整报告在下**（2026-10-24）：普通用户要决定的是
+	// "会进哪些组、少了哪几条"，不是 ASCII/id/三条核对。
+	if !strings.Contains(page, "会导入到这些分组") || !strings.Contains(page, "没能进来的：") {
+		t.Errorf("报告页没有把结论摘要摆在报告上面：\n%.900s", page)
+	}
 
-	// 真正写入：成功回首页（不是"没写进去"那一页），盘上留下两条。
+	// 真正写入：成功也给结论页（与直接导入同一张），盘上留下两条。
+	// 从前这里 303 回 `/`，于是"先看报告再确认"这条更谨慎的路反而少一句
+	// "成了没有"（2026-10-24 修）。
 	token := hiddenValue(t, page, "token")
 	rec := postImportApply(t, h, cookie, "token="+token)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
-		t.Fatalf("该 303 回首页，实际 %d %s", rec.Code, rec.Header().Get("Location"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("该给结论页（200），实际 %d %s", rec.Code, rec.Body.String())
+	}
+	if out := rec.Body.String(); !strings.Contains(out, "导入完成") ||
+		!strings.Contains(out, "写进了 2 条书签。") {
+		t.Errorf("确认写入之后要说清结果:\n%.600s", out)
+	}
+	if !strings.Contains(rec.Body.String(), "javascript:void(0)") {
+		t.Errorf("预览时说会跳过的条目，结论页也要点名:\n%.600s", rec.Body.String())
 	}
 	got, err := s.LoadBookmarks("dad")
 	if err != nil {

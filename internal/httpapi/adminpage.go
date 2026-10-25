@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/rockbenben/launchbay/internal/apierr"
 	"github.com/rockbenben/launchbay/internal/auth"
@@ -77,7 +79,12 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	// ?err= 只当键用：不在白名单里的值一个字都不进页面（与进门页同一套，
 	// 判据由 httpapi 算，渲染器只印）。
 	notice := s.notice(r, r.URL.Query().Get("err"))
-	page, err := s.deps.Render.AdminPage(views, notice, s.adminOptions(), s.machineLang(r))
+	opts := s.adminOptions()
+	// 字段错重画时把刚输入的名字带回来（2026-10-24，与 /setup、/new 同一处置）：
+	// 建档失败一次就清空名字，人得从头再打一遍；PIN 错的那一发更会顺手变成
+	// noname，白跑两趟。PIN 一个字都不回填——它是这一页的凭证。
+	opts.FormTitle = strings.TrimSpace(r.URL.Query().Get("title"))
+	page, err := s.deps.Render.AdminPage(views, notice, opts, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -131,17 +138,17 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case len(res.FieldErrs) > 0:
-		redirectAdminFail(w, setupFieldKey(res.FieldErrs))
+		redirectAdminCreateFail(w, r, setupFieldKey(res.FieldErrs))
 	case res.Status == http.StatusConflict:
 		// 派生的 id 撞上并发提交（两个同名请求算出同一个空位）。落点只在这里分：
 		// 少了这一支，409 会掉进下面那条 writeInternalError(res.Err)，而 409 那一支
 		// 是不带 Err 的（Detail 才是白名单文本）——等于吐一个"内部错误: <nil>"的 500。
-		redirectAdminFail(w, "nametaken")
+		redirectAdminCreateFail(w, r, "nametaken")
 	case res.Permission:
 		// 与 /setup 同一族、同一句：宿主数据目录对跑服务的用户不可写。
 		// 管理页是管理员装机后第二眼会看的地方，这里回 500 JSON 等于把
 		// "去宿主机 chown" 这句话藏进 stderr。
-		redirectAdminFail(w, "permission")
+		redirectAdminCreateFail(w, r, "permission")
 	case res.Status != 0:
 		writeInternalError(w, res.Err)
 	default:
@@ -155,6 +162,22 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 // 过 pinNotices 白名单。
 func redirectAdminFail(w http.ResponseWriter, code string) {
 	w.Header().Set("Location", "/admin?err="+code)
+	w.WriteHeader(http.StatusSeeOther)
+}
+
+// redirectAdminCreateFail 是建档表单那一族：键与 redirectAdminFail 同一份白名单，
+// 另外把**刚输入的名字**带回去（2026-10-24，与 /setup、/new 同一处置）——失败一次
+// 就清空名字，人得从头再打一遍；PIN 错的那一发更会顺手变成 noname，白跑两趟。
+// **PIN 一个字都不回填**：它是这一页的凭证，不该出现在 URL/历史里。
+//
+// 名字从 r 里读而不是由调用方递：那条白名单闸按调用实参里的字面量收键，
+// 多递一个 `r.FormValue("title")` 会让 "title" 被当成一个 ?err= 的键。
+func redirectAdminCreateFail(w http.ResponseWriter, r *http.Request, code string) {
+	loc := "/admin?err=" + code
+	if t := strings.TrimSpace(r.FormValue("title")); t != "" {
+		loc += "&title=" + url.QueryEscape(t)
+	}
+	w.Header().Set("Location", loc)
 	w.WriteHeader(http.StatusSeeOther)
 }
 

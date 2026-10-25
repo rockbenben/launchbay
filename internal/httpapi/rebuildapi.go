@@ -66,6 +66,14 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(in.Title) == "" {
 		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "title", Reason: "不能为空"})
 	}
+	// **名字太长**（2026-10-23 加）：与建档那一条**同一个数**
+	// （model.MaxProfileTitleRunes）、同一个码（apierr.FieldTooLong）——
+	// 重建写的也是 profile.json 的 title，那一格的长度上限不该因为走的是重建
+	// 就没人管。理由（选单页每次都要拉、名字印在每一张卡上）见 model 那一处。
+	if n := len([]rune(in.Title)); n > model.MaxProfileTitleRunes {
+		errs = append(errs, fieldError{Kind: apierr.FieldTooLong, Field: "title",
+			Reason: fmt.Sprintf("最多 %d 个字", model.MaxProfileTitleRunes)})
+	}
 	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（createrule_test.go 第三档钉着）
 	errs = append(errs, pinErrs...)
 	if len(errs) > 0 {

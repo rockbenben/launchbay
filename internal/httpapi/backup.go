@@ -275,9 +275,10 @@ func (s *Server) handleRestoreForm(w http.ResponseWriter, r *http.Request) {
 		s.renderPrefsNotice(w, r, id, tr.t(berr.key))
 		return
 	}
-	// 成功：回面板的「这一页」那一节——**导入进来的设置就在那里看得见**，
-	// 而那是这一次唯一需要人确认的东西（书签在回我的页面上看得见）。
-	http.Redirect(w, r, "/prefs?tab=look", http.StatusSeeOther)
+	// 成功：回面板的「这一页」那一节——**导入进来的设置就在那里看得见**。
+	// `ok=imported` 让那一页顶上多一句成功话（2026-10-24）：此前成功与"什么都没变"
+	// 长得一模一样，而备份里的设置恰好与现在相同时，人按完「导入」看不出成没成。
+	http.Redirect(w, r, "/prefs?tab=look&ok=imported", http.StatusSeeOther)
 }
 
 // restoreTarget 从凭证推导目标档案：令牌取它的作用域，会话取自己那一份。

@@ -31,12 +31,20 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 			[]fieldError{{Kind: apierr.BodyUnreadable, Field: "body", Reason: "表单读不出来"}})
 		return
 	}
-	if n := len(r.Form["key"]); n > 1 {
+	// **key 只从请求体里读**（2026-10-23 修）：`r.FormValue` 是**查询串与表单体
+	// 的合并值**，所以 `POST /admin/login?key=<那把 key>`（body 空）也算数——
+	// 而那把 key 于是进了 URL：浏览器历史、访问日志、Referer 头都留着它。
+	// 这一条存在的全部理由就是"原始 key 从不离开那一次 POST"（见 auth.AdminToken），
+	// 于是它只能走请求体。
+	//
+	// 同名多值照旧拒（"没说要哪一个"不是"取第一个"），而它查的是**请求体**那一份
+	// ——查询串里那个 key 现在压根不算数。
+	if n := len(r.PostForm["key"]); n > 1 {
 		writeFieldErrors(w, http.StatusUnprocessableEntity,
 			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "key", Reason: "同一个字段只能出现一次"}})
 		return
 	}
-	if !s.deps.AdminToken.Matches(strings.TrimSpace(r.FormValue("key"))) {
+	if !s.deps.AdminToken.Matches(strings.TrimSpace(r.PostFormValue("key"))) {
 		// 不说"这把 key 是管理员的那把"——那等于把 key 的**身份**漏出去。
 		// 只说不对，与 PIN 步骤对错都答同一句是同一条纪律。
 		redirectAdminFail(w, "badkey")

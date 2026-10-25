@@ -29,7 +29,22 @@
     <p><b>{{.FileName}}</b>{{.T "import.file.sep"}}{{.T "import.intro" .Count .Groups}}
        {{/* 没能进来的单独说一句：只报"会加几条"会让人以为文件里就这么多书签，
             而少的那些去了哪里只有报告知道。 */}}
-       {{if .Skipped}}{{.T "import.skipped" .Skipped}}{{end}}{{.T "import.more"}}</p>
+       {{if .Skipped}}{{.T "import.skipped" .Skipped}}{{end}}</p>
+    {{/* **人话摘要在上，完整报告在下**（2026-10-24）：报告是给排查用的
+         （ASCII/id/三条核对），普通用户要决定的只有"会进哪些组、少了哪几条"。
+         报告不折叠（它仍是这一页的完整依据），但先让人看见结论。 */}}
+    {{if .PreviewGroups}}
+      <p class="preview-sum"><b>{{.T "import.preview.will"}}</b>
+        {{range $i, $g := .PreviewGroups}}{{if $i}}{{$.T "import.preview.sep"}}{{end}}{{$.T "import.preview.group" $g.Title $g.Count}}{{end}}</p>
+    {{end}}
+    {{with .SkippedItems}}
+      <p class="preview-sum"><b>{{$.T "import.preview.wont"}}</b></p>
+      {{/* 原因不在这份人话摘要里印：它是写路径的判定原话（带引号与协议名），
+           会被 html/template 转成 &#34;，也会把普通人推回技术细节。完整原因
+           就在下面报告的「没能进来的」那一节。 */}}
+      <ul class="skipped">{{range .}}<li>{{.Name}} <span class="u"> — {{.URL}}</span></li>{{end}}</ul>
+    {{end}}
+    <p class="hint">{{.T "import.more"}}</p>
     <div class="rep">{{reportHTML .Report}}</div>
     {{/* 令牌是一次性的（过期/用过/不是这个档案都回第一步），所以这一发
          重放也写不进第二次——这比"确认后锁按钮"更可靠，零 JS。 */}}
@@ -64,7 +79,7 @@
     {{/* multipart 是这一页与其它表单通路唯一的不同：它带文件。
          表单**必须显式写 enctype**——缺了它浏览器会按 urlencoded 发，
          服务端读到的是一个空的文件字段，而页面会说"没有选文件"。 */}}
-    <form method="post" action="/import" enctype="multipart/form-data" class="act">
+    <form method="post" action="/import" enctype="multipart/form-data" class="act" novalidate>
       <p><label for="f">{{.T "import.file"}}</label>
         <input id="f" type="file" name="bookmarks" accept=".html,text/html" required></p>
       {{/* **两个按钮，同一个表单**（2026-10-12）：`go=direct` 收下文件就写，

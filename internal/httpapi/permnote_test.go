@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -148,8 +149,13 @@ func TestAdmin_数据目录不可写说得出出路(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("数据目录不可写要 303 回管理页说人话，得到 %d %.200s", rec.Code, rec.Body.String())
 	}
-	if loc := rec.Header().Get("Location"); loc != "/admin?err=permission" {
-		t.Fatalf("Location = %q，要 /admin?err=permission", loc)
+	loc := rec.Header().Get("Location")
+	u, err := url.Parse(loc)
+	if err != nil {
+		t.Fatalf("Location 解析不了：%q", loc)
+	}
+	if got := u.Query().Get("err"); got != "permission" {
+		t.Fatalf("err = %q，要 permission（Location=%q）", got, loc)
 	}
 	page := get(h, "/admin?err=permission", adminOnlyCookie(t))
 	if !strings.Contains(page.Body.String(), noticeOf(i18n.Default, "permission")) {

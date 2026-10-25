@@ -214,21 +214,33 @@ func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listProfilesResponse{Profiles: out})
 }
 
-// handleDeleteProfile 是本案唯一的删档通路，只给管理员，且三道闸
+// handleDeleteProfile 是删档的**机器通路**（浏览器那一条是 `POST /admin/delete`，
+// 两步走、落点同一份 store.DeleteProfile），且三道闸
 // （ASCII slug / 目录须是 profilesDir 下的同名直接子目录 / 档案写锁）全在
 // store.DeleteProfile 内部——端点只负责鉴权与形状转换，绝不在它这里再
 // "规范化"id（那等于绕过闸）。
 //
+// **凭证是 credAdminKey 而不是 credAdmin**（2026-10-23，用户拍板「删除需要
+// 有确认警示，并要求密码」）：删档是这台机器上唯一**不可逆**的动作（快照跟着
+// 档案一起没了，`revert` 救不了它），而 `lb_admin` 是那把机器级 key 的派生值——
+// 它进 devtools、进导出、进浏览器同步。于是这一条要**那把 key 本身**
+// （Authorization: Bearer），只带管理 cookie 一律 403。
+//
 // 顺序是"先鉴权后查存在"：作用域外的令牌问档案在不在，本身就是信息泄漏，
 // 所以 dadTok 删 kid 该 403，不是 404（Task 6/7 同口径，用例钉住）。
+//
+// **鉴权排在形状校验之前**（2026-10-23 修，与同族的 `POST /api/v1/profiles/pin`
+// 同一纪律，2026-10-20 那次定的）：没带凭证的人问"这个 id 合不合法"，答案不该
+// 随载荷变——从前是 400（形状错），带对了凭证时同一个请求却是 401。
+// 于是顺序是**凭证 → 形状 → 存在性**。
 func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("profile"))
-	if id == "" || !model.ValidSlug(id) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?profile=<ASCII slug>"})
+	if _, _, ok := s.require(r, credAdminKey, id); !ok {
+		s.writeAuthFailure(w, r)
 		return
 	}
-	if _, _, ok := s.require(r, credAdmin, id); !ok {
-		s.writeAuthFailure(w, r)
+	if id == "" || !model.ValidSlug(id) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Code: 400, Kind: apierr.QueryInvalid, Detail: "要带 ?profile=<ASCII slug>"})
 		return
 	}
 	err := s.deps.Store.DeleteProfile(id)

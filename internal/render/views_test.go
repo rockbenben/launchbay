@@ -177,7 +177,8 @@ func TestCSS_搜索控件的44px由哪条规则保证(t *testing.T) {
 	var joint []declRule
 	for _, r := range rules {
 		for _, s := range r.sels {
-			// 两张建档表单（引导 .setup、管理页 .newprofile）都不许自己写 min-height：
+			// 三张建档表单（引导 .setup、自建 .setup——同一族共用这个 class、
+			// 管理页 .newprofile）都不许自己写 min-height：
 			// 写了要么是多一个 44 的位点，要么靠层叠把族规则盖矮（复扫实测：只禁 .setup 时
 			// .newprofile input{min-height:30px} 全绿，只有族数那半抓到东西）。
 			for _, ban := range []string{".setup", ".newprofile"} {
@@ -514,8 +515,18 @@ func TestPickerNoJSSubmitPathPerProfile(t *testing.T) {
 			t.Fatalf("档案 %q 的表单没有 hidden profile 字段:\n%s", prof.ID, body)
 		}
 	}
-	if got := strings.Count(body, `name="pin"`); got != len(profiles) {
-		t.Fatalf("每张表单都要有自己的 PIN 输入，got %d want %d:\n%s", got, len(profiles), body)
+	// 每张 /pin 表单里各自要有一格 PIN。**数的是那几张表单里的**，不是整页：
+	// 这一页现在还有一张建档表单（/new，2026-10-23），它也带一格 PIN——
+	// 那是**另一种东西**（建档那一格，与进门那一格不是同一件事），混进同一个
+	// 计数里，这条断言就分不清"少了一张卡的 PIN"与"多了建档那一格"。
+	// 于是按 `</form>` 分段，一段一段数。
+	for _, seg := range strings.Split(body, "</form>") {
+		if !strings.Contains(seg, `action="/pin"`) {
+			continue
+		}
+		if got := strings.Count(seg, `name="pin"`); got != 1 {
+			t.Errorf("一张 /pin 表单里该恰好一格 PIN，得到 %d:\n%s", got, seg)
+		}
 	}
 	// ?add= 在每张卡片上都得带上，不然换一张卡就丢。
 	if got := strings.Count(body, `name="keep_add"`); got != len(profiles) {
@@ -1288,7 +1299,10 @@ func TestPickerPage_三形状(t *testing.T) {
 	// `</ul>\n  <p class="pick-admin">` 这条接缝就是包 wrapper 之后 HEAD 的输出
 	// 形状，{{- end}} 收的就是它。**2026-10-20**：「管理这台机器」那颗徽标从卡片
 	// **之前**挪到了**之后**（它原本压在「这一份是谁」上面），于是接缝多了那一行。
-	if !strings.Contains(string(two.Body), "</ul>\n  <p class=\"pick-admin\"") {
+	// **2026-10-23**：卡片与那颗徽标之间多了一个折叠块（「新建自己的一份」，
+	// 自建档的入口），于是接缝从 `</ul>` 挪到 `</details>`——**见证的还是同一件事**
+	// （包 wrapper 的缩进不许漏进输出），只是末尾那一块换了形状。
+	if !strings.Contains(string(two.Body), "</details>\n  <p class=\"pick-admin\"") {
 		t.Errorf("≥2 形状的输出接缝变了（wrapper 的缩进漏进页面），尾部是:\n%s",
 			tail(string(two.Body), 60))
 	}

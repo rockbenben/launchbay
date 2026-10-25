@@ -43,9 +43,14 @@ type importStash struct {
 	profile string
 	raw     []byte
 	at      time.Time
+	// count / skipped 是**确认页那一发要用的结论**（2026-10-24）。只存这两个
+	// 小东西，不存整份 Bookmarks：后者进来会让 64 份待确认的导入各背一棵树，
+	// 而错误点名那一路在 apply 时本来就会重新解析一次。
+	count   int
+	skipped []bookimport.SkippedItem
 }
 
-func (s *Server) stashImport(profile string, raw []byte) string {
+func (s *Server) stashImport(profile string, raw []byte, count int, skipped []bookimport.SkippedItem) string {
 	var buf [16]byte
 	if _, err := rand.Read(buf[:]); err != nil {
 		// 系统熵不可用时不退化成"没有令牌也能写"：这条路径直接报错更安全。
@@ -74,22 +79,22 @@ func (s *Server) stashImport(profile string, raw []byte) string {
 		}
 		delete(s.imports, oldest)
 	}
-	s.imports[token] = importStash{profile: profile, raw: raw, at: now}
+	s.imports[token] = importStash{profile: profile, raw: raw, at: now, count: count, skipped: skipped}
 	return token
 }
 
-func (s *Server) takeImport(token, profile string) ([]byte, bool) {
+func (s *Server) takeImport(token, profile string) ([]byte, int, []bookimport.SkippedItem, bool) {
 	s.importMu.Lock()
 	defer s.importMu.Unlock()
 	v, ok := s.imports[token]
 	if !ok || v.profile != profile || time.Since(v.at) > importStashTTL {
 		delete(s.imports, token)
-		return nil, false
+		return nil, 0, nil, false
 	}
 	// 一次性：取走就删。同一枚令牌再发一次会拿到"过期"，而不是把同一批
 	// ops 应用两遍。
 	delete(s.imports, token)
-	return v.raw, true
+	return v.raw, v.count, v.skipped, true
 }
 
 // importGuard 是这三条端点共用的入口闸：只认**本人的会话**、只动自己的档案、
@@ -220,12 +225,20 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 		s.directImport(w, r, profile, hdr.Filename, plan)
 		return
 	}
+	// 报告页顶上那份人话摘要：会进哪些组、每组几条。完整报告照旧印在下面，
+	// 但它答的是"迁移干不干净"，不是"我要不要按确认"——两件事分开摆。
+	pg := make([]render.PreviewGroup, 0, len(plan.Bookmarks.Groups))
+	for _, g := range plan.Bookmarks.Groups {
+		pg = append(pg, render.PreviewGroup{Title: g.Title, Count: len(g.Items)})
+	}
 	s.renderImport(w, r, render.ImportView{
 		Mode: "report", Heading: tr.t("import.reportHeading"),
 		Count: plan.Count, Skipped: plan.Skipped, Groups: plan.Groups,
 		Report: plan.Report, Token: plan.Token,
-		FileName: hdr.Filename,
-		Profile:  profile,
+		SkippedItems:  skipEntries(plan.SkippedItems),
+		PreviewGroups: pg,
+		FileName:      hdr.Filename,
+		Profile:       profile,
 	})
 }
 
@@ -241,7 +254,7 @@ func (s *Server) handleImportUpload(w http.ResponseWriter, r *http.Request) {
 // 写完之后人真正要的是"成了没有、少了哪几条"——那正是这一屏印的东西。
 func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, fileName string, plan importPlan) {
 	tr := s.trFor(r, profile)
-	out, err := s.applyImport(plan.Token, profile, profile, "import")
+	out, _, err := s.applyImport(plan.Token, profile, profile, "import")
 	if err != nil {
 		// 令牌取不到（过期/被用过）或解析这一趟出了意外：回第一步重来，
 		// 形状与 /import/apply 那条完全一致（importOutcomeText 说得出的话它说得出）。
@@ -302,7 +315,7 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 	}
 	// 令牌取走即删（applyImport 里做）。过期 / 已被用过 / 不是这个档案的：一律回
 	// 第一步重新选，不说哪一种——令牌是一次性的，说"过期了"等于教人反复点确认。
-	out, err := s.applyImport(r.FormValue("token"), profile, profile, "import")
+	out, meta, err := s.applyImport(r.FormValue("token"), profile, profile, "import")
 	if err != nil {
 		http.Redirect(w, r, "/import", http.StatusSeeOther)
 		return
@@ -310,18 +323,25 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 	tr := s.trFor(r, profile)
 	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
-		// 第二格传 nil：这条路手上只有令牌，解析结果在暂存里已经被用掉了。
-		// 拿不到 Bookmarks 就退回"有 N 条过不了校验"那句话（宁可少一句点名，
-		// 也不要指错一条）；走「直接导入」那条路拿得到，点名照常。
+		// **meta.bookmarks 让这一条路也能点名**（2026-10-24）：apply 时重新解析过
+		// 一次，传进来就能把"第 N 条 op 失败"翻成那条书签的名字；从前这里传 nil，
+		// 同一次失败在直接导入那条路会点名、在这一条只说"有 N 条过不了校验"。
 		s.renderImport(w, r, render.ImportView{
 			Mode: "pick", Heading: tr.t("import.heading"),
-			Notice:  tr.t("import.notice.notSaved", s.importOutcomeText(tr, out, nil)),
+			Notice:  tr.t("import.notice.notSaved", s.importOutcomeText(tr, out, meta.bookmarks)),
 			Explain: tr.t("import.explainStep"),
 			Profile: profile,
 		})
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// 成功也走与「直接导入」同一张结论页（2026-10-24）：从前这里 303 回 `/`，
+	// 于是"先看报告再确认"这条更谨慎的路反而比直接导入少一句"成了没有"。
+	// 条数取暂存里的 plan.Count（书签条数，不是 op 条数），跳过清单同源。
+	s.renderImport(w, r, render.ImportView{
+		Mode: "done", Heading: tr.t("import.done.heading"),
+		Count: meta.count, SkippedItems: skipEntries(meta.skipped),
+		Profile: profile,
+	})
 }
 
 // importOutcomeText 把 applyBatch 的失败结论翻成一句人话。
@@ -544,7 +564,7 @@ func (s *Server) handleImportApplyAPI(w http.ResponseWriter, r *http.Request) {
 		writeFieldErrors(w, http.StatusUnprocessableEntity, decodeFieldErrors(err))
 		return
 	}
-	out, err := s.applyImport(in.Token, sc.Profile, actor, "extension")
+	out, _, err := s.applyImport(in.Token, sc.Profile, actor, "extension")
 	if err != nil {
 		importAPIError(w, err)
 		return
@@ -659,7 +679,7 @@ func (s *Server) planImport(profile string, raw []byte, words func(string, ...an
 		}
 		return importPlan{}, errNothingToImport
 	}
-	token := s.stashImport(profile, raw)
+	token := s.stashImport(profile, raw, n, res.Report.Skipped)
 	if token == "" {
 		return importPlan{}, errNoStash
 	}
@@ -674,12 +694,23 @@ func (s *Server) planImport(profile string, raw []byte, words func(string, ...an
 	}, nil
 }
 
+// importApplyMeta 是 applyImport 顺手带回来的两样东西：
+//   - count / skipped 来自暂存，给「先看再确认」那条路的结论页；
+//   - bookmarks 来自 apply 时的重新解析，只用来把失败的第 N 条 op 翻成哪一条
+//     书签（importOutcomeText）。它不写盘、不出响应。
+type importApplyMeta struct {
+	count     int
+	skipped   []bookimport.SkippedItem
+	bookmarks *model.Bookmarks
+}
+
 // applyImport 把暂存里那份解析一遍并写入。**令牌取走即删**：同一枚再发一次
 // 写不进第二次——这比"确认后用 JS 锁按钮"可靠，且关掉 JS 时照样成立。
-func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, error) {
-	raw, ok := s.takeImport(token, profile)
+func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, importApplyMeta, error) {
+	raw, count, skipped, ok := s.takeImport(token, profile)
+	meta := importApplyMeta{count: count, skipped: skipped}
 	if !ok {
-		return batchOutcome{}, errStashGone
+		return batchOutcome{}, meta, errStashGone
 	}
 	// **目标必须一条书签都没有**（2026-10-19 补上，判据收在这一处）。
 	//
@@ -704,24 +735,27 @@ func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, er
 	snap, err := s.deps.Store.Current(profile)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return batchOutcome{missing: true}, nil
+		return batchOutcome{missing: true}, meta, nil
 	case errors.Is(err, store.ErrCorrupt):
-		return batchOutcome{broken: corruptDetail(s.deps.Store, profile, err)}, nil
+		return batchOutcome{broken: corruptDetail(s.deps.Store, profile, err)}, meta, nil
 	case err != nil:
-		return batchOutcome{}, err
+		return batchOutcome{}, meta, err
 	}
 	if n := bookimport.CountItems(snap.B); n > 0 {
-		return batchOutcome{}, errTargetNotEmpty
+		return batchOutcome{}, meta, errTargetNotEmpty
 	}
 	res, err := bookimport.Convert(raw, s.deps.Icons, bookimport.Options{})
 	if err != nil {
-		return batchOutcome{}, err
+		return batchOutcome{}, meta, err
 	}
+	// 失败点名要用它（第 N 条 op 是哪一条书签）；成功那一路不看它。
+	meta.bookmarks = res.Bookmarks
 	opList, err := decodeImportOps(bookimport.Ops(res.Bookmarks))
 	if err != nil {
-		return batchOutcome{}, err
+		return batchOutcome{}, meta, err
 	}
-	return s.applyBatch(profile, actor, by, nil, opList)
+	out, err := s.applyBatch(profile, actor, by, nil, opList)
+	return out, meta, err
 }
 
 // 这四个 sentinel 是**给调用方分诊**用的，不是给用户看的：每个壳按自己的

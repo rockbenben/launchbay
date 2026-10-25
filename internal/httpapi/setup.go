@@ -3,6 +3,7 @@ package httpapi
 import (
 	"github.com/rockbenben/launchbay/internal/apierr"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/i18n"
@@ -58,14 +59,14 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case len(res.FieldErrs) > 0:
-		redirectSetup(w, setupFieldKey(res.FieldErrs))
+		redirectSetupForm(w, setupFieldKey(res.FieldErrs), r.FormValue("title"), false)
 	case res.Status == http.StatusConflict:
 		redirectPicker(w)
 	case res.Permission:
 		// 落盘失败里唯一说得出出路的一族（宿主数据目录不可写）：303 回引导页
 		// 带白名单键，而不是给一个刚打开浏览器的人一段 500 JSON——这是装机的
 		// 头一个故障，页面上那句话正好告诉他下一步在宿主机上。
-		redirectSetup(w, "permission")
+		redirectSetupForm(w, "permission", r.FormValue("title"), false)
 	case res.Status != 0:
 		// 其余落盘失败不是权限拒，走 JSON 外壳（spec §6.1 的两种长相）。
 		writeInternalError(w, res.Err)
@@ -79,7 +80,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		// 的键就变成了一个变量，agents 测试里那道静态闸（每个 redirectSetup 的键
 		// 都得是登记过的字面量）就再也拦不住一个没登记的键了。两处失败分开说，
 		// 就是这里有两条 redirectSetup 而不是一条的原因。
-		if s.applySetupLanguage(w, r.FormValue("language")) {
+		if s.applySetupLanguage(w, r.FormValue("language"), r.FormValue("title")) {
 			return
 		}
 		redirectPicker(w)
@@ -99,20 +100,20 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 // **给语言留空不是错**：那一格是后加的，老的自动装机脚本与测试夹具都在 POST
 // 只带 title 与 pin。空 = 不动，仍是缺省的中文——升级不该让一条本来能用的
 // 无 JS 通路突然报字段错。
-func (s *Server) applySetupLanguage(w http.ResponseWriter, raw string) bool {
+func (s *Server) applySetupLanguage(w http.ResponseWriter, raw, title string) bool {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return false
 	}
 	l := i18n.Lang(raw)
 	if !l.Valid() {
-		redirectSetup(w, "badlang")
+		redirectSetupForm(w, "badlang", title, false)
 		return true
 	}
 	// 写不进去（数据目录不可写）**不阻断建档**：档案已经落盘了，把这一趟说成
 	// 全失败比只说语言没设上更糟——那会让人以为机子上什么都没有。
 	if err := s.deps.Store.SetLanguage(l); err != nil {
-		redirectSetup(w, "langfail")
+		redirectSetupForm(w, "langfail", title, false)
 		return true
 	}
 	return false
@@ -125,11 +126,40 @@ func redirectSetup(w http.ResponseWriter, code string) {
 	w.WriteHeader(http.StatusSeeOther)
 }
 
+// redirectSetupForm 与 redirectSetup 同一条白名单，另外把**刚输入的名字**带回去
+// （2026-10-24）：字段错重画时名字被清空，人得从头再打一遍；而 PIN 错了之后
+// 只改 PIN、名字却没了的下一发会变成 noname，白跑两趟。`new` 让 `/new` 那一块
+// 折着的表单在错误后展开——否则提示在顶上、表单看不见。
+//
+// **PIN 一个字都不回填**：它是这一页的凭证，不该出现在 URL/历史里。
+func redirectSetupForm(w http.ResponseWriter, code, title string, isNew bool) {
+	q := url.Values{}
+	q.Set("err", code)
+	if t := strings.TrimSpace(title); t != "" {
+		q.Set("title", t)
+	}
+	if isNew {
+		q.Set("new", "1")
+	}
+	w.Header().Set("Location", "/?"+q.Encode())
+	w.WriteHeader(http.StatusSeeOther)
+}
+
 // setupFieldKey 把 createProfile 的字段错翻成 ?err= 的键。引导表单只有两格，所以
 // 这是一张小表而不是拼接：id 由名字派生（不问），建档也不接受任何"起步带几条"的东西。
 // 名字排在口令前面——两格都没填对时说"要先起个名字"，因为那是这一页的第一格；
 // 出现第三种字段说明判据变了，那种情况下宁可说中性的那句。
 func setupFieldKey(errs []fieldError) string {
+	// **名字太长与名字没给是两句话**（2026-10-23 加）：后果不同（一个是"你没起名"，
+	// 一个是"你起得太长"），而 `?err=` 那一格只能印一句。
+	//
+	// 判据是**码**（apierr.FieldTooLong），不是中文字面量——靠原话做子串匹配去猜，
+	// 正是这条通路最容易烂掉的地方（改一个标点，分类就静默错）。
+	for _, e := range errs {
+		if e.Kind == apierr.FieldTooLong {
+			return "titlelong"
+		}
+	}
 	for _, e := range errs {
 		if e.Field == "title" {
 			return "noname"

@@ -395,8 +395,8 @@ func TestRestoreForm_会话能导入(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("导入该 303，得到 %d: %s", rec.Code, rec.Body.String())
 	}
-	if loc := rec.Header().Get("Location"); loc != "/prefs?tab=look" {
-		t.Errorf("Location = %q，要 /prefs?tab=look（导入进来的设置就在那一节看得见）", loc)
+	if loc := rec.Header().Get("Location"); loc != "/prefs?tab=look&ok=imported" {
+		t.Errorf("Location = %q，要 /prefs?tab=look&ok=imported（导入进来的设置就在那一节看得见，另带一句成功话）", loc)
 	}
 	p, err := s.LoadProfile("dad")
 	if err != nil {
@@ -404,6 +404,28 @@ func TestRestoreForm_会话能导入(t *testing.T) {
 	}
 	if p.Theme != "light" {
 		t.Errorf("盘上 theme = %q，要 light", p.Theme)
+	}
+	// 跟到落点：这一页顶上要有一句成功话（2026-10-24）。
+	// 没有它时，导入一份设置与盘上相同的备份，屏上什么都没变——按了没反应。
+	page := get(h, "/prefs?tab=look&ok=imported", cookie)
+	if page.Code != http.StatusOK {
+		t.Fatalf("跟到 %q 该 200，得到 %d", "/prefs?tab=look&ok=imported", page.Code)
+	}
+	if !strings.Contains(page.Body.String(), "备份已导入") {
+		t.Errorf("导入成功之后面板顶上没有那句成功话:\n%.600s", page.Body.String())
+	}
+	// 成功不是警告：`.notice.ok` 是蓝色那一档；橙色 `.notice` 留给失败。
+	if !strings.Contains(page.Body.String(), `class="notice ok"`) {
+		t.Errorf("成功话仍用警告色提醒框，读起来像出了点问题:\n%.600s", page.Body.String())
+	}
+	// 提示要落在 <main> 里、面板之前，并且与面板同一个宽度基准（2026-10-24）：
+	// 从前它插在 body 之后就铺满整页左缘，而面板居中 900px。
+	body := page.Body.String()
+	mainAt := strings.Index(body, `<main`)
+	noticeAt := strings.Index(body, `class="prefs-notice"`)
+	panelAt := strings.Index(body, `<section class="prefs">`)
+	if mainAt < 0 || noticeAt < mainAt || panelAt < noticeAt {
+		t.Errorf("提示不在 main 里、或不在面板之前：main=%d notice=%d panel=%d", mainAt, noticeAt, panelAt)
 	}
 }
 

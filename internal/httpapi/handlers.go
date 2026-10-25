@@ -65,6 +65,14 @@ var pinNotices = map[string]string{
 	// 因为"这台机器已经建过档了"本身就是枚举线索（设计 §3）。
 	"noname": "notice.noname",
 	"badpin": "notice.badpin",
+	// **名字太长**（2026-10-23 加）：与「noname」是两件事（一个没起、一个太长），
+	// 所以两把键——与 self/selfdisable、pin/pinboth 同一纪律。
+	//
+	// 那句话里**不写"最多几个字"**：这个数住在 model.MaxProfileTitleRunes，而
+	// `?err=` 这一格只能带一个键、页面拿不到那个数——写死一份字面量的话，改了
+	// 那个数这句话就成了假话。想知道上限的人看得到两处：表单那一格的 maxlength，
+	// 与 API 那条 422 的 reason。
+	"titlelong": "notice.titlelong",
 	// 「PIN 与『不设 PIN』两个都给」（2026-10-20）。建档那两张表单各有两格，
 	// 而它们**互斥**：勾了「不设 PIN」就该把 PIN 那一格留空。这一把键存在的
 	// 理由是——从前敲进去的 PIN 被静默丢掉、建出一份不设防的档案，而那个人
@@ -368,6 +376,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		// 没设过就用**浏览器说的那一门**——第一次用这台机器的人正在读哪一门，
 		// 那一门就是他最像的那一门（判据见 machineLang）。
 		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice,
+			FormTitle: r.URL.Query().Get("title"), NewOpen: r.URL.Query().Get("new") == "1",
 			HasAdmin: s.hasAdminCookie(r), Lang: s.machineLang(r), DefaultLang: s.rawDefaultLang()}
 		switch {
 		case n == 0:
@@ -593,6 +602,22 @@ func (s *Server) createProfile(in createInput) createResult {
 	}
 	if strings.TrimSpace(in.Title) == "" {
 		errs = append(errs, fieldError{Kind: apierr.FieldInvalid, Field: "title", Reason: "不能为空"})
+	}
+	// **名字太长**（2026-10-23 加）：上限是 model.MaxProfileTitleRunes，与三张建档
+	// 表单上那个 maxlength 同一个数（那个数住在 model，理由见那一处的注释）。
+	//
+	// 为什么写侧要判：那个 maxlength 只有浏览器认，curl 与扩展不认——而
+	// `POST /api/v1/profiles/new` 是**免凭证**的，于是局域网里任何设备都能写进
+	// 一个几 KB 的名字，而选单页（**全家人每次打开都要拉的那一页**）从此每次都
+	// 带着它。实测：一个 5000 字的标题让那一页从 4.8 万字节涨到 5.3 万。
+	//
+	// 数的是**原样那个标题**（落盘的就是它），按字（rune）数不按字节。
+	//
+	// **它不进 Profile.Validate**（见 model 那一处的注释）：在读路径上判长度等于
+	// 把"名字超长"升级成"这一份是坏档"，而那个人从此进不去。
+	if n := len([]rune(in.Title)); n > model.MaxProfileTitleRunes {
+		errs = append(errs, fieldError{Kind: apierr.FieldTooLong, Field: "title",
+			Reason: fmt.Sprintf("最多 %d 个字", model.MaxProfileTitleRunes)})
 	}
 	hash, pinErrs := hashFormPIN(in.PIN, in.NoPass) // PIN 判据只有一份：建档族共用（见函数上的注释）
 	errs = append(errs, pinErrs...)

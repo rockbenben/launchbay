@@ -79,7 +79,7 @@
         }
       }
     },
-    "/app.5af1f45f670a.js": {
+    "/app.ecad09ee4540.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -161,7 +161,8 @@
                 "type": "object",
                 "properties": {
                   "title": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 60
                   },
                   "pin": {
                     "type": "string"
@@ -186,6 +187,45 @@
         "responses": {
           "303": {
             "description": "成功回 /（不发会话）；字段错回 /?err=noname 或 /?err=badpin；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）；窗口已关回 / 不带键"
+          },
+          "422": {
+            "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
+          }
+        }
+      }
+    },
+    "/new": {
+      "post": {
+        "summary": "自建一份档案（浏览器表单通路；免凭证，id 由名字派生）",
+        "x-credential": "none",
+        "security": [],
+        "description": "**非管理员自己建一份档案**（2026-10-23，用户拍板）。浏览器表单通路（**AI 不走这条**；机器那一条是 `POST /api/v1/profiles/new`）。体是 `application/x-www-form-urlencoded` 的 `{title, pin, nopass?}`，**不问 id**（由名字派生，中文走 `home`、`home-2` 基名序列）。\n\n**免凭证是刻意的**：§11 明写不防局域网内冒充，而建出来的那一份是**空的**、只属于它自己的 PIN——它不授予任何读取别人书签的权限。代价明写：局域网里任何设备都能建档，于是选单页上会多出一张卡（管理员随时能删掉它），档案总数没有上限。\n\n与 `POST /setup` 的差别只有一条判据：/setup 是「零档案时的第一个」（磁盘目录数判据，与写入同属一次串行化），这一条是「随时可建」。成功**不发会话**——建完照样要输一次 PIN 才进门。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "pin": {
+                    "type": "string"
+                  },
+                  "nopass": {
+                    "type": "string",
+                    "description": "只认 `1`：明确不设 PIN"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "成功回 /（选单页，不发会话）；字段错回 /?err=noname 或 /?err=badpin；名字撞车回 /?err=nametaken；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）"
           },
           "422": {
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
@@ -832,7 +872,8 @@
                 "type": "object",
                 "properties": {
                   "title": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 60
                   },
                   "pin": {
                     "type": "string"
@@ -1007,7 +1048,7 @@
             "description": "要删的档案 id（ASCII slug）"
           }
         ],
-        "description": "两步二次确认的第一步：读 `?profile=<ASCII slug>`，回一张**把后果写死在页面里**的确认页——条目数与快照数取自 `statusRows`（与管理页那张表同一趟遍历，不为了排版再遍历一次）。删档不可逆，`revert` 救不了它（快照跟着档案一起没了），所以\"会发生什么\"必须在提交按钮**之前**被读到。\n\n两道形状闸，判据是\"这台机器之后还能不能管\"：目标**就是当前会话正在用的那一份** → 303 `/admin?err=self`；没有「最后一个管理员」那一道闸：权限只看 `lb_profile` 指向的档案在磁盘上是不是管理员，能进这一页的人本身就是管理员，而「唯一的管理员」只可能是他自己在用那一份（已被 `err=self` 拦住）。档案不存在 → 303 `/admin?err=notfound`。**带令牌、无管理权、无会话**一律 303 回 `/`（不带提示）。",
+        "description": "两步二次确认的第一步：读 `?profile=<ASCII slug>`，回一张**把后果写死在页面里**的确认页——条目数与快照数取自 `statusRows`（与管理页那张表同一趟遍历，不为了排版再遍历一次）。删档不可逆，`revert` 救不了它（快照跟着档案一起没了），所以\"会发生什么\"必须在提交按钮**之前**被读到。\n\n**页面上多一格「管理密钥」**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：那把 key 就是这台机器的密码，而它是删档这条**唯一不可逆**动作的钥匙——`lb_admin` 只是它的**派生值**（进 devtools、进导出、进浏览器同步）。于是\"登着管理页\"不等于\"有权删档\"：确认页上要**再输一次那把 key** 才真的删。**后果说明里还点名了档案 id**（两份档案可以同名，派生 id 那时是 `home` / `home-2` 两份不同的档案、标题一模一样——只写名字的那一页分不清要删的是哪一份）。\n\n两道形状闸，判据是\"这台机器之后还能不能管\"：目标**就是当前会话正在用的那一份** → 303 `/admin?err=self`；没有「最后一个管理员」那一道闸：权限只看 `lb_profile` 指向的档案在磁盘上是不是管理员，能进这一页的人本身就是管理员，而「唯一的管理员」只可能是他自己在用那一份（已被 `err=self` 拦住）。档案不存在 → 303 `/admin?err=notfound`。**带令牌、无管理权、无会话**一律 303 回 `/`（不带提示）。",
         "responses": {
           "200": {
             "description": "确认页（no-store；后果写死在页面上）"
@@ -1028,16 +1069,25 @@
             "adminCookie": []
           }
         ],
-        "description": "体是 `application/x-www-form-urlencoded` 的 `{profile}`。**不是第二条删档通路**：三道闸（ASCII slug / 目录须是 profilesDir 下的同名直接子目录 / 档案写锁）全在 `store.DeleteProfile` 内部，端点层不再\"规范化\" id（那等于绕过闸）。历史 `history.jsonl` 的行保留（§12：删档不抹审计线）。\n\n成功 303 回 `/admin`；档案不存在 303 `/admin?err=notfound`；两道形状闸同上。**落盘失败走 500 JSON 外壳**——删档失败必须说得清，不能像表单字段错那样静默回管理页。",
+        "description": "体是 `application/x-www-form-urlencoded` 的 `{profile, key}`——**`key` 是那把机器级密钥**（`LAUNCHBAY_ADMIN_TOKEN`），**缺了或不对就一步都不删**（303 回确认页 `/admin/delete?profile=…&err=badkey`）。没填与填错是同一件事，所以一把键 `badkey` 就够。\n\n**`key` 只从请求体里读**：`POST /admin/delete?profile=kid&key=<那把 key>`（body 空）**不算数**——`r.FormValue` 是**查询串与表单体的合并值**，而那把 key 一旦进了 URL，浏览器历史、访问日志、Referer 头就都留着它（与 `POST /admin/login` 同一纪律：原始 key 从不离开那一次 POST）。同一个字段出现两次 → 422。\n\n判据顺序是**形状（id 合不合法）→ 密码 → 存在性 → self**：密码排在存在性之前，于是\"key 不对\"这一支的答案与目标无关（不问\"这个 id 在不在\"），而那正是这一族该有的形状。\n\n**不是第二条删档通路**：三道闸（ASCII slug / 目录须是 profilesDir 下的同名直接子目录 / 档案写锁）全在 `store.DeleteProfile` 内部，端点层不再\"规范化\" id（那等于绕过闸）。历史 `history.jsonl` 的行保留（§12：删档不抹审计线）。\n\n成功 303 回 `/admin`；档案不存在 303 `/admin?err=notfound`；`self` 303 `/admin?err=self`；**`key` 缺了或不对 303 回确认页带 `err=badkey`**（回确认页而不是管理页——人已经在那一页上，改一格就能再按一次）；带令牌与**没有管理权**都回 `/`（不带 err）。**落盘失败走 500 JSON 外壳**——删档失败必须说得清，不能像表单字段错那样静默回管理页。",
         "requestBody": {
           "required": true,
           "content": {
             "application/x-www-form-urlencoded": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "profile",
+                  "key"
+                ],
                 "properties": {
                   "profile": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "要删的档案 id（ASCII slug）"
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "那把机器级密钥 `LAUNCHBAY_ADMIN_TOKEN`（**只从请求体读**，查询串里的不算数）"
                   }
                 }
               }
@@ -1046,7 +1096,7 @@
         },
         "responses": {
           "303": {
-            "description": "成功回 /admin（不带 err）；notfound / self 回 /admin?err=对应键；带令牌与**没有管理权**都回 /（不带 err）"
+            "description": "成功回 /admin（不带 err）；notfound / self 回 /admin?err=对应键；**key 缺了或不对**回 /admin/delete?profile=…&err=badkey；带令牌与**没有管理权**都回 /（不带 err）"
           },
           "422": {
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
@@ -1861,7 +1911,8 @@
                     "description": "ASCII slug"
                   },
                   "title": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 60
                   },
                   "pin": {
                     "type": "string",
@@ -1917,14 +1968,11 @@
         }
       },
       "delete": {
-        "summary": "删档（连快照，历史保留）",
-        "x-credential": "admin",
+        "summary": "删档（连快照，历史保留；这一条要那把机器级 key 本身，管理 cookie 不够）",
+        "x-credential": "admin-key",
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "adminCookie": []
           }
         ],
         "parameters": [
@@ -1937,7 +1985,7 @@
             }
           }
         ],
-        "description": "仅管理员。?profile=<id> 必填。先鉴权后查存在：作用域外的合法凭证问\"这个档案在不在\"本身就是泄漏，所以越权是 403 而不是 404。删档案目录连同 snapshots/，但 history.jsonl 里这个档案的动作线保留。",
+        "description": "仅管理员，且**这一条要那把机器级 key 本身**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：`Authorization: Bearer <LAUNCHBAY_ADMIN_TOKEN>`。**只带 `lb_admin` 管理 cookie 一律 403**——删档是这台机器上唯一不可逆的动作（快照跟着档案一起没了，`revert` 救不了它），而 cookie 是 key 的派生值（它进 devtools、进导出、进浏览器同步）。浏览器那一条是 `POST /admin/delete`：页面上要**再输一次那把 key**。\n\n?profile=<id> 必填。**顺序是凭证 → 形状 → 存在性**（2026-10-23，与同族的 `POST /api/v1/profiles/pin` 同一纪律）：没带凭证的人问\"这个 id 合不合法\"，答案不该随载荷变——从前缺 `?profile=` 或 id 不是 slug 一律 400，而带对了凭证时同一个请求是 401。\n\n先鉴权后查存在：作用域外的合法凭证问\"这个档案在不在\"本身就是泄漏，所以越权是 403 而不是 404。删档案目录连同 snapshots/，但 history.jsonl 里这个档案的动作线保留。",
         "responses": {
           "200": {
             "description": "已删除",
@@ -1972,6 +2020,75 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/new": {
+      "post": {
+        "summary": "自建一份档案（免凭证；id 由名字派生，非管理员也能建）",
+        "x-credential": "none",
+        "security": [],
+        "description": "**非管理员自己建一份档案**（2026-10-23，用户拍板：「非管理员用户有个 new 接口，可以自己建档案」）。与 `POST /api/v1/profiles` 的差别只有两处，且都写在这一格：id 由名字派生（不接受申报）、没有 `admin` 那一格。\n\n**免凭证是刻意的**：§11 明写不防局域网内冒充，而建出来的那一份是**空的**、只属于它自己的 PIN——它不授予任何读取别人书签的权限。反过来，「要管理员才能建」意味着这台机器上第一个想用的人得等家长回来开一次管理页，那正是这个产品要拿掉的形状。代价明写：局域网里任何设备都能建档，于是选单页上会多出一张卡（管理员随时能删掉它），档案总数没有上限。\n\n体是 `{title, pin, nopass?}`：**没有 id**——不接受申报，否则任何人都能建一份 id 叫 `dad` 的档案顶替别人的那一格；id 由名字派生（slug 得动且没被占就用它，中文走 `home`、`home-2` 基名序列）。**没有 admin**：档案从 2026-10-12 起就没有管理员属性，送来是 422 且点名该字段。**title 最多 60 个字**（`model.MaxProfileTitleRunes`）：超了 422 点名 `title`、码 `field-too-long`——这一条尤其要它，因为免凭证那一条原先只有表单的 `maxlength` 挡着（浏览器认、curl 与扩展不认），而选单页是**全家人每次打开都要拉的那一页**。\n\n成功 201 `{id, title}`，**不发会话**——建完照样要输一次 PIN 才进门（与 POST /setup 同一条纪律）。`nopass: true` = 明确不设 PIN（局域网里谁都能进这一份）；两个都给是 422 点名 `nopass`。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "pin": {
+                    "type": "string",
+                    "description": "4-6 位数字"
+                  },
+                  "nopass": {
+                    "type": "boolean",
+                    "description": "明确不设 PIN：这一份局域网里谁都能进"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "建档成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "派生 id 撞车（两个同名请求算出同一个空位）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "字段级错误（title/pin/nopass）：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
           }
         }
       }
@@ -2214,6 +2331,7 @@
                   },
                   "title": {
                     "type": "string",
+                    "maxLength": 60,
                     "description": "重建后的显示名字（读不出来的那份已经没有名字可保了）"
                   },
                   "pin": {
@@ -3164,8 +3282,11 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "写成了 → **结论页**（写进几条书签 + 没能进来的逐条清单；no-store）。没写成（校验没过/快照写不下/目标没了）→ **选文件页**并在顶部说清（也是 200，不是 303）。"
+          },
           "303": {
-            "description": "写成了 → 303 回 `/`（**会话不受影响**）；没写成（校验没过/快照写不下/目标没了）→ 303 回 `/import` 并在顶部说清；权限类拒绝 → 303 回选择页。"
+            "description": "令牌过期/已被用过/不是这一份 → 303 回 `/import`；权限类拒绝 → 303 回选择页。"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -3192,7 +3313,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "台面面板里那个「导入」表单。体是 `multipart/form-data`，文件字段名 `backup`，内容是**自己导出的那种备份文件**（`GET /api/v1/backup` 的字节）——不是浏览器导出的书签（那是 `/import` 那三步的事）。\n\n**只认会话**：档案从会话推导，令牌一律 303 回选择页（浏览器表单通路的权限类拒绝答 303，不答 401/403）。\n\n与机器那条 `POST /api/v1/restore` **共用同一份判据**（parseBackup / restoreInto）：目标档案必须一条书签都没有（带书签段时）、设置里有一格不认就在写任何东西之前 422。\n\n成功 → 303 回 `/prefs?tab=look`（**导入进来的设置就在那一节看得见**）；没成 → 把面板画回把面板画回来来，顶部说清这一次为什么没成。",
+        "description": "台面面板里那个「导入」表单。体是 `multipart/form-data`，文件字段名 `backup`，内容是**自己导出的那种备份文件**（`GET /api/v1/backup` 的字节）——不是浏览器导出的书签（那是 `/import` 那三步的事）。\n\n**只认会话**：档案从会话推导，令牌一律 303 回选择页（浏览器表单通路的权限类拒绝答 303，不答 401/403）。\n\n与机器那条 `POST /api/v1/restore` **共用同一份判据**（parseBackup / restoreInto）：目标档案必须一条书签都没有（带书签段时）、设置里有一格不认就在写任何东西之前 422。\n\n成功 → 303 回 `/prefs?tab=look&ok=imported`（**导入进来的设置就在那一节看得见**，顶上另带一句成功话）；没成 → 把面板画回来，顶部说清这一次为什么没成。",
         "requestBody": {
           "required": true,
           "content": {
@@ -3214,8 +3335,11 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "没写成 → 200 把面板画回来并在顶部说清（no-store）。"
+          },
           "303": {
-            "description": "写成了 → 303 回 `/prefs?tab=look`；没写成 → 200 把面板画回来并在顶部说清；权限类拒绝 → 303 回选择页。"
+            "description": "写成了 → 303 回 `/prefs?tab=look&ok=imported`（那一页顶上带一句成功话）；权限类拒绝 → 303 回选择页。"
           }
         }
       }
@@ -3462,7 +3586,7 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "lb_admin",
-        "description": "**管理 cookie**（`lb_admin`）：`POST /admin/login` 交一次管理密钥之后服务端发的一条，里面装的是那把 key 的 **HMAC 派生值**，不是 key 本身（key 会进 devtools、进导出、进浏览器同步；派生值即使泄露也只等于一把管理员 key）。它与档案会话 `lb_profile` 是**两件独立的事**：管理员可能一边登着自己的档案在用书签、一边仍带着管理权；反过来，只拿得出 `lb_admin` 而没登任何档案也完全正常。**档案会话（`lb_profile`）不算管理权**——登进 dad 也不等于能管这台机器。"
+        "description": "**管理 cookie**（`lb_admin`）：`POST /admin/login` 交一次管理密钥之后服务端发的一条，里面装的是那把 key 的 **HMAC 派生值**，不是 key 本身（key 会进 devtools、进导出、进浏览器同步；派生值即使泄露也只是**一把管理员 cookie**——够管账号，但**删档那条要那把 key 本身**，它不够）。它与档案会话 `lb_profile` 是**两件独立的事**：管理员可能一边登着自己的档案在用书签、一边仍带着管理权；反过来，只拿得出 `lb_admin` 而没登任何档案也完全正常。**档案会话（`lb_profile`）不算管理权**——登进 dad 也不等于能管这台机器。"
       }
     },
     "schemas": {
@@ -3707,6 +3831,7 @@
           "duplicate-id",
           "field-duplicate",
           "field-invalid",
+          "field-too-long",
           "field-unknown",
           "host-invalid",
           "icon-unknown",

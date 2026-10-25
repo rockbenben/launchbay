@@ -321,8 +321,8 @@ func TestSetup_不认识的语言说清且档案仍在(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("该 303，实际 %d", rec.Code)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/?err=badlang" {
-		t.Errorf("应当回 /?err=badlang，实际 %q", loc)
+	if loc := rec.Header().Get("Location"); loc != "/?err=badlang&title=Dad" {
+		t.Errorf("应当回 /?err=badlang&title=Dad（名字带回、语言那半说清），实际 %q", loc)
 	}
 	if got := s.Language(); got != i18n.Zh {
 		t.Errorf("不认识的语言被写进了配置：拿到 %q", got)

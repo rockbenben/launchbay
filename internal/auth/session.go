@@ -77,8 +77,12 @@ func ReadAdminCookie(r *http.Request) string {
 }
 
 // WriteAdminCookie 存派生值。**绝不发原始 key**：cookie 会进 devtools、
-// 进浏览器导出、进同步，而派生值即使泄露也只等于一把管理员 key——与原始
-// key 泄露的后果一样，但至少原始那句不会被复制出去。
+// 进浏览器导出、进同步。
+//
+// 派生值泄露的后果**比原始 key 泄露小一档**（2026-10-23 起的形状）：账号层面
+// 两者一样（管理员那一族管的就是账号），但**删档那条要那把 key 本身**
+// （`DELETE /api/v1/profiles` 只认 Bearer 的原始 key，只带 `lb_admin` 一律 403）。
+// 所以"派生值等于一把管理员 key"这句话今天不成立——它等于的是一把管理员 cookie。
 func WriteAdminCookie(w http.ResponseWriter, derived string) {
 	setCookie(w, CookieAdmin, derived, SessionCookieMaxAge)
 }

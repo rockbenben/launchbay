@@ -102,11 +102,14 @@ func TestAdmin_删档确认页写明后果(t *testing.T) {
 
 // **闸门在 POST 这一头，不在 GET**：只挡确认页等于没挡 —— 手搓一个 POST 就能
 // 绕过"先看一眼后果"这一步。所以这一支直接打 POST。
+//
+// **密码是 2026-10-23 新加的那一道**（用户拍板「删除需要有确认警示，并要求密码」）：
+// POST 必须带那把机器级密钥，于是下面每一个 POST 都带 `key=`。
 func TestAdmin_删档的形状闸在POST上也拦(t *testing.T) {
 	s, h, dad := adminScene(t)
 
 	t.Run("不能删掉正在用的那一份", func(t *testing.T) {
-		rec := postForm(h, "/admin/delete", "profile=dad", dad)
+		rec := postForm(h, "/admin/delete", "profile=dad&key="+testAdminKey, dad)
 		if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "err=self") {
 			t.Fatalf("删自己该 303 ?err=self，实际 %d %q", rec.Code, rec.Header().Get("Location"))
 		}
@@ -116,7 +119,7 @@ func TestAdmin_删档的形状闸在POST上也拦(t *testing.T) {
 	})
 
 	t.Run("删掉之后就找不回来了", func(t *testing.T) {
-		if rec := postForm(h, "/admin/delete", "profile=kid", dad); rec.Code != http.StatusSeeOther {
+		if rec := postForm(h, "/admin/delete", "profile=kid&key="+testAdminKey, dad); rec.Code != http.StatusSeeOther {
 			t.Fatalf("删 kid 该 303，实际 %d：%s", rec.Code, rec.Body.String())
 		}
 		if _, err := s.deps.Store.LoadProfile("kid"); err == nil {
@@ -129,9 +132,73 @@ func TestAdmin_删档的形状闸在POST上也拦(t *testing.T) {
 	})
 
 	t.Run("目标不存在", func(t *testing.T) {
-		rec := postForm(h, "/admin/delete", "profile=根本没有", dad)
+		rec := postForm(h, "/admin/delete", "profile=根本没有&key="+testAdminKey, dad)
 		if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "err=notfound") {
 			t.Fatalf("该 303 ?err=notfound，实际 %d %q", rec.Code, rec.Header().Get("Location"))
+		}
+	})
+}
+
+// **删档要密码**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）。
+//
+// 这一条是"删档不可逆"的对策：管理 cookie 是那把机器级 key 的派生值（它进
+// devtools、进导出、进浏览器同步），而删档是这台机器上唯一找不回来的动作。
+// 于是页面这一条要**再输一次那把 key**。
+//
+// 两件事要分清：**没填**与**填错**是同一件事（"你得把那把钥匙拿出来"），
+// 所以一把键 badkey 就够；而**密码不对时档案一个字都不动**——这是这条闸
+// 的全部意义（密码是唯一挡在"手滑"前面的东西，它要真的挡得住）。
+func TestAdmin_删档要密码(t *testing.T) {
+	s, h, dad := adminScene(t)
+
+	t.Run("确认页上确实有那一格", func(t *testing.T) {
+		// 密码这件事要**看得见**：确认页上得有那一格（type=password），
+		// 否则人永远不知道要填什么。
+		//
+		// 这一支排**最前**：后面的三支会真把 kid 删掉，而确认页要的是一个
+		// 还在的档案（不在的话答 303 notfound，那不是这一支要验的东西）。
+		body := adminPageGet(t, h, "/admin/delete?profile=kid", dad)
+		if !strings.Contains(*body, `name="key"`) || !strings.Contains(*body, `type="password"`) {
+			t.Errorf("确认页上该有「管理密钥」那一格（name=key、type=password）:\n%.400s", *body)
+		}
+		// **软键盘要是文字的**：那把 key 是一段任意文本，而 PIN 那一格要的是
+		// 数字键盘。模板原先把 inputmode 写死成 numeric，于是这一格在手机上
+		// 弹出来的是数字键盘——用户自己换的那把 key 只要有字母就输不进去。
+		if !strings.Contains(*body, `inputmode="text"`) {
+			t.Errorf("管理密钥那一格的 inputmode 该是 text:\n%.400s", *body)
+		}
+		if strings.Contains(*body, `inputmode="numeric"`) {
+			t.Errorf("管理密钥那一格不该要数字键盘（那把 key 可以有字母）:\n%.400s", *body)
+		}
+	})
+
+	t.Run("没填密码", func(t *testing.T) {
+		rec := postForm(h, "/admin/delete", "profile=kid", dad)
+		if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "err=badkey") {
+			t.Fatalf("没填密码该 303 ?err=badkey，实际 %d %q", rec.Code, rec.Header().Get("Location"))
+		}
+		if _, err := s.deps.Store.LoadProfile("kid"); err != nil {
+			t.Fatalf("kid 不该被删掉：%v", err)
+		}
+	})
+
+	t.Run("密码不对", func(t *testing.T) {
+		rec := postForm(h, "/admin/delete", "profile=kid&key=不对的那把", dad)
+		if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "err=badkey") {
+			t.Fatalf("密码不对该 303 ?err=badkey，实际 %d %q", rec.Code, rec.Header().Get("Location"))
+		}
+		if _, err := s.deps.Store.LoadProfile("kid"); err != nil {
+			t.Fatalf("kid 不该被删掉：%v", err)
+		}
+	})
+
+	t.Run("密码对了才删", func(t *testing.T) {
+		rec := postForm(h, "/admin/delete", "profile=kid&key="+testAdminKey, dad)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("密码对了该 303，实际 %d %s", rec.Code, rec.Body.String())
+		}
+		if _, err := s.deps.Store.LoadProfile("kid"); err == nil {
+			t.Error("kid 还在——密码对了却没删")
 		}
 	})
 }
@@ -148,17 +215,17 @@ func TestAdmin_删档的形状闸在POST上也拦(t *testing.T) {
 func TestAdmin_删光档案也不影响这台机器还能管(t *testing.T) {
 	srv, h, admin := adminScene(t)
 	for _, id := range []string{"kid"} {
-		if rec := postForm(h, "/admin/delete", "profile="+id, admin); rec.Code != http.StatusSeeOther {
+		if rec := postForm(h, "/admin/delete", "profile="+id+"&key="+testAdminKey, admin); rec.Code != http.StatusSeeOther {
 			t.Fatalf("删 %s 该 303，实际 %d %s", id, rec.Code, rec.Body)
 		}
 	}
 	// dad 是"我正在用的那一份"，删它要先把那份会话放下——这正是 self 那道闸。
-	if rec := postForm(h, "/admin/delete", "profile=dad", admin); !strings.Contains(rec.Header().Get("Location"), "err=self") {
+	if rec := postForm(h, "/admin/delete", "profile=dad&key="+testAdminKey, admin); !strings.Contains(rec.Header().Get("Location"), "err=self") {
 		t.Fatalf("删自己该 self，实际 %q", rec.Header().Get("Location"))
 	}
 	// 放下会话之后再删：这一次没有任何档案了。
 	noProfile := adminOnlyCookie(t)
-	if rec := postForm(h, "/admin/delete", "profile=dad", noProfile); rec.Code != http.StatusSeeOther {
+	if rec := postForm(h, "/admin/delete", "profile=dad&key="+testAdminKey, noProfile); rec.Code != http.StatusSeeOther {
 		t.Fatalf("没登任何档案时删 dad 该 303，实际 %d %s", rec.Code, rec.Body)
 	}
 	if n, _ := srv.deps.Store.CountProfiles(); n != 0 {

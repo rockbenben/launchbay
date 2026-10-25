@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -122,8 +123,20 @@ func Test建档_PIN与不设PIN同给不是静默丢(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("两个要给 303（带键），实际 %d：%s", rec.Code, rec.Body)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/admin?err=pinboth" {
-		t.Errorf("Location = %q，要 /admin?err=pinboth", loc)
+	loc := rec.Header().Get("Location")
+	u, err := url.Parse(loc)
+	if err != nil {
+		t.Fatalf("Location 解析不了：%q", loc)
+	}
+	if got := u.Query().Get("err"); got != "pinboth" {
+		t.Errorf("err = %q，要 pinboth（Location=%q）", got, loc)
+	}
+	// 名字跟着回去，PIN 不回去（2026-10-24）。
+	if got := u.Query().Get("title"); got != "客厅" {
+		t.Errorf("title = %q，要 客厅（Location=%q）", got, loc)
+	}
+	if u.Query().Get("pin") != "" {
+		t.Errorf("PIN 进了 URL：%q", loc)
 	}
 	// **没有建出任何一份档案**——一个静悄悄建出来的档案比一个错误更坏。
 	if _, err := s.LoadProfile("home"); err == nil {

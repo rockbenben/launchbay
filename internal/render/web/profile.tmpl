@@ -12,7 +12,7 @@
 <title>{{.PageTitle}} · {{.Profile.Title}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}}{{with .AddrLevel}} data-addr-level="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
+<body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}}{{with .AddrLevel}} data-addr-level="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}" data-max-group-title="{{.MaxGroupTitleRunes}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
 <header>
   {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「页面名字」那一格里改），
        空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
@@ -38,8 +38,14 @@
     </button>
   </form>
   {{/* 「共 N 条」以前写成"命中 6 条 · 共 20 条"，那个 20 是**档案总条目数**，
-       读起来像"还有 20 条没显示"。说清是谁的总数。 */}}
-  {{if .Query}}<p class="hits">{{.T "profile.hits" .Hits .Total}}</p>{{end}}
+       读起来像"还有 20 条没显示"。说清是谁的总数。
+
+       **它排在 nav 之后**（2026-10-22 改）：`.hits` 是 `flex:0 0 100%`——它要**独占
+       一行**（那是它自己的形状：一条读数，不是顶栏上的一颗键）。而它从前排在 nav
+       **前面**，于是那一行把 nav 顶到了**第三行**：搜索结果页的页头从 46px 涨到
+       130px，右上角那两枚徽标掉到第三行，而第二行右边空着 460px（实测 1280 档）。
+       换个顺序就对了：第一行照旧是「标题 + 搜索 + ＋添加 + 徽标」，读数那一行仍在
+       它原来的位置（第二行），页头 76px。**Tab 顺序也不变**（读数那一行不是可聚焦的）。 */}}
   <nav aria-label="{{.T "profile.nav.aria"}}">
     {{/* /admin 的路由真的存在（而且现在没管理权时会渲染登录页而不是死链），
          这枚徽章才有资格发链接。判据那一格由 httpapi 算，见上面的注释。 */}}
@@ -90,6 +96,7 @@
          却都会往审计线追一行。要按"有没有行"画这一枚，判据就得进渲染缓存键
          多出一维，而那一维天生滞后——为了一枚本来就该常驻的徽标不值得。 */}}
   </nav>
+  {{if .Query}}<p class="hits">{{.T "profile.hits" .Hits .Total}}</p>{{end}}
 </header>
 {{/* 管理横幅整块删掉了（2026-10-10 改判）：它那句「正在管理 X 的书签 · 由 Y 操作」
      是代管态的提醒，而代管这件事已经不存在了。留着一个永远不出现的横幅，
@@ -103,23 +110,28 @@
 {{if $top}}
   {{/* 顶栏形态：分组行常驻顶栏下方。同一份 grouplist，两种挂法——
        判据（分组、计数、色点、锚点）只有一份。 */}}
-  <nav class="gnav top" aria-label="{{.T "profile.nav.groups"}}">{{template "grouplist" .}}</nav>
+  {{if .Bookmarks.Nav}}<nav class="gnav top" aria-label="{{.T "profile.nav.groups"}}">{{template "grouplist" .}}</nav>{{end}}
 {{end}}
-<div class="shell">
+<div class="shell{{if not .Bookmarks.Nav}} no-side{{end}}">
 {{if not $top}}
   {{/* aside 不带 aria-label：名字只给里面的 nav，一页一个具名导航地标。
        open 写死：桌面要它展开，平板断点下 summary 才现身当抽屉把手；
        键盘开合与可及性由原生 <details> 负责，零脚本，不补 role/aria-expanded 那类仪式。 */}}
-  <aside class="side">
+  {{/* 一个分组都没有时，那一列**整个不画**（2026-10-22）：它是定宽 206px，而空的时候
+       那 206px 什么都不画（summary 是 display:none、侧栏量出来高 0）——留着就是一条
+       206px 的空带，正文偏在右边（实测左 266 / 右 36）。
+       **服务端不画**，而不是"画了再藏"：这里藏它的是**内容为空**（紧凑档那一族藏它
+       是因为视图档位，标记要留在 DOM 里，判据不一样）。 */}}
+  {{if .Bookmarks.Nav}}<aside class="side">
     <details class="drawer" open>
       <summary>{{.T "profile.summary.groups"}}</summary>
       <nav class="gnav" aria-label="{{.T "profile.nav.groups"}}">{{template "grouplist" .}}</nav>
     </details>
-  </aside>
+  </aside>{{end}}
 {{end}}
 <main role="main">
 {{if .Query}}
-  {{if not .Bookmarks.Groups}}<p>{{.T "profile.nomatch" .Query}} <a href="/">{{.T "profile.nomatch.all"}}</a></p>{{end}}
+  {{if not .Bookmarks.Groups}}<p class="nomatch">{{.T "profile.nomatch" .Query}} <a href="/">{{.T "profile.nomatch.all"}}</a></p>{{end}}
 {{else if .Empty}}
   <p>{{.T "profile.empty"}}</p>
   {{/* 导入卡片：只在**一条书签都没有**时出现（判据是 .Empty，exec.go 算一次，
@@ -1017,7 +1029,7 @@
        而那一重画读的是请求上的 `?tab=`——不带它，错话就落回第一颗 tab
        （屏上是「这一页」那一节顶上一句「现在的 PIN 不对」，而人刚待的地方没了）。
        与 `/prefs/group` 那一族同一个道理：停在哪要活过一次保存。 */}}
-  <form method="post" action="/prefs/pin?tab=pin" class="prefs-row">
+  <form method="post" action="/prefs/pin?tab=pin" class="prefs-row" novalidate>
     <div class="prefs-field">
       <div class="prefs-ctl">
         {{if .HasPin}}<div class="prefs-pinfield"><label class="prefs-label" for="lb-pin-old">{{.T "prefs.pin.old"}}</label>
@@ -1085,6 +1097,11 @@
      顺带第二个后果：base.css 里"说明句一行不许超过 42 字"那条判据写的是
      `main .hint`，没有 main 的这张页正好躲过它（实测那句 75 字）。 */}}
 <main role="main">
+{{/* 独立页的顶栏出口（2026-10-24）：这一页在手机上能长到近 1800px，底部的
+     「回我的页面」要滚到底才够得着；零 JS / PWA 独立窗口又没有浏览器返回键。
+     这条只在**独立页**有，浮层那张不取它（浮层只取 section.prefs，× 是出口）。
+     不放进面板 define：放进去会让浮层也多一颗，和 × 重复。 */}}
+<nav class="prefs-back prefs-top" aria-label="{{.T "common.back.aria"}}"><a href="/">← {{.T "common.back.home"}}</a></nav>
 {{/* 这一页原先**没有 h1**：整页唯一的标题是面板里的 h2。读屏按标题跳时这一页
      没有一级标题，层级从 h2 起步（其余五张一级页都有 h1）。补一个只给读屏的
      h1（.prefs-visually-hidden），屏上不占地方。 */}}

@@ -36,6 +36,10 @@ var xCredentialNames = map[cred]string{
 	credAdmin:     "admin",
 	credSession:   "session",
 	credTokenOnly: "token", // 只有档案作用域令牌，会话一律 401（2026-10-19）
+	// **admin-key**（2026-10-23）：只要那把机器级 key 本身（删档要密码）。
+	// 它与 "admin" 的差别**只在 cookie 那一半**——管理员令牌两档都算数，
+	// 而 `lb_admin` 只过 admin、不过 admin-key。
+	credAdminKey: "admin-key",
 }
 
 // credSecuritySchemes 是同一份 Cred 在文档 `security` 那一格里该报的形状。写法是
@@ -60,6 +64,11 @@ var credSecuritySchemes = map[cred]string{
 	// bearerAuth 前面。
 	credAdmin:     "adminCookie|bearerAuth",
 	credTokenOnly: "bearerAuth", // 2026-10-19：照实报，不许顺手加 sessionCookie
+	// **只有 bearerAuth**（2026-10-23）：删档要那把机器级 key 本身，
+	// 管理 cookie 不算数——它是 key 的派生值，而删档是这台机器上唯一
+	// 不可逆的动作。文档若在这里写上 adminCookie，就是**教 AI 用一把
+	// 会被拒的钥匙**（AGENTS.md：「文档骗 AI 比骗人更贵」）。
+	credAdminKey: "bearerAuth",
 }
 
 // tokensRefusedByForm 是 Cred 与 API 同类、却**不认令牌**的浏览器表单通路：
@@ -188,6 +197,45 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	// 上限要**钉在契约里**并且钉的是那个数：只写"有 maxLength"等于放开到任何值都算过。
 	if got := form.Schema.Properties["title"].MaxLength; got == nil || *got != 60 {
 		t.Errorf("openapi 里 title 的 maxLength = %v，要 60（与 prefs.go 的 maxPageTitleRunes 同源）", got)
+	}
+}
+
+// 建档那几条通路的**档案名上限**要钉在契约里，而且钉的是那个数：只写
+// "有 maxLength"等于放开到任何值都算过。
+//
+// 那个数住在 model（`model.MaxProfileTitleRunes`），与三张建档表单上那个
+// maxlength 是**同一个**——三处各写一个字面量的话，改一处要记得改另外两处，
+// 而漏掉的那一处症状是"浏览器拦住了、curl 拦不住"。
+func TestOpenAPI建档的档案名上限与model同数(t *testing.T) {
+	var doc struct {
+		Paths map[string]map[string]struct {
+			RequestBody struct {
+				Content map[string]struct {
+					Schema struct {
+						Properties map[string]struct {
+							MaxLength *int `json:"maxLength"`
+						} `json:"properties"`
+					} `json:"schema"`
+				} `json:"content"`
+			} `json:"requestBody"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(openAPIDoc, &doc); err != nil {
+		t.Fatalf("openapi.json 读不出形状: %v", err)
+	}
+	for _, p := range []string{"/api/v1/profiles", "/api/v1/profiles/new", "/api/v1/profiles/rebuild"} {
+		got := doc.Paths[p]["post"].RequestBody.Content["application/json"].Schema.Properties["title"].MaxLength
+		if got == nil || *got != model.MaxProfileTitleRunes {
+			t.Errorf("%s 的 title maxLength = %v，要 %d（与 model.MaxProfileTitleRunes 同数）",
+				p, got, model.MaxProfileTitleRunes)
+		}
+	}
+	for _, p := range []string{"/setup", "/new", "/admin"} {
+		got := doc.Paths[p]["post"].RequestBody.Content["application/x-www-form-urlencoded"].Schema.Properties["title"].MaxLength
+		if got == nil || *got != model.MaxProfileTitleRunes {
+			t.Errorf("%s 的 title maxLength = %v，要 %d（与 model.MaxProfileTitleRunes 同数）",
+				p, got, model.MaxProfileTitleRunes)
+		}
 	}
 }
 

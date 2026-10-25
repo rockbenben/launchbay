@@ -94,13 +94,21 @@ func Test一个判据一个出口(t *testing.T) {
 	})
 
 	t.Run("计数按整段href比而不是前缀", func(t *testing.T) {
-		bc := between(js, "function bumpCount(gid, by) {", "\n  }")
+		// **判据住在 countNodes 那一处**（2026-10-22）：组计数在屏上有两处载体
+		// （导航那一格的 b.cnt、大卡带那一行的 .feat-n），而**改**它的是 bumpCount、
+		// **读**它的是 groupLabel（同名组要分得开时补的那个数）——两者都该走同一份
+		// 判据，于是那一份被抽成了 countNodes，bumpCount 只剩"加/减"这一件事。
+		bc := between(js, "function countNodes(gid) {", "\n  }")
 		if strings.Contains(bc, `a[href^="#g-' + gid + '"]`) {
-			t.Errorf("bumpCount 还在用 href 前缀匹配：`#g-news` 会连坐 `#g-news2`，"+
+			t.Errorf("计数还在用 href 前缀匹配：`#g-news` 会连坐 `#g-news2`，"+
 				"搬一条进 news 时屏上 news2 的计数也 +1（而盘上没动它）\n%.400s", bc)
 		}
 		if !strings.Contains(bc, "a[href^=\"#\"]") {
-			t.Errorf("bumpCount 不再遍历导航锚点了：组计数会停在一个都不改\n%.300s", bc)
+			t.Errorf("计数不再遍历导航锚点了：组计数会停在一个都不改\n%.300s", bc)
+		}
+		// 反向证人：改数的那一处与读数的那一处**都走这一份**。
+		if !strings.Contains(js, "for (const n of countNodes(gid)) bump(n);") {
+			t.Error("bumpCount 没有走 countNodes：改的那一处与读的那一处会不是同一份判据")
 		}
 	})
 

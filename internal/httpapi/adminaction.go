@@ -65,6 +65,23 @@ func redirectAdminPinErr(w http.ResponseWriter, id, code string) {
 	w.WriteHeader(http.StatusSeeOther)
 }
 
+// redirectAdminDeleteErr 回**删档确认页**并带一把提示键（2026-10-23）。
+//
+// 为什么回确认页而不是管理页：这一族里"密码不对"是**最容易重来的一个错**
+// ——人已经在这一页上、只是钥匙没输对，回到确认页改一格就能再按一次；
+// 回管理页的话，那张表与后果说明都得重新点一遍。
+//
+// **id 必须是合法 slug**：调用点先判过形状（model.ValidSlug），而 slug 里没有
+// 能逃出 URL 的字符——它不是一段用户原文，是这一族端点自己的判据。
+//
+// **键是参数，调用点传的是字面量**（"badkey"）：`Test提示键只发白名单里有的`
+// 那道 AST 闸要求"键的来源看得见"——从变量转发（`redirectAdminErr(w, code)`）
+// 会让它当场红，而这里只有一把键，本就不该再转一手。
+func redirectAdminDeleteErr(w http.ResponseWriter, id, code string) {
+	w.Header().Set("Location", "/admin/delete?profile="+id+"&err="+code)
+	w.WriteHeader(http.StatusSeeOther)
+}
+
 // statusRowOf 拿一行聚合（§8.8 那张表的一行）。
 //
 // 复用 statusRows 而不是自己再遍历一遍 profiles/：两份遍历迟早只在一处修，
@@ -143,7 +160,10 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 		// "这一格只收 4 到 6 位"在界面上是两句矛盾的话。数字不在这里写死：
 		// 写死就是与服务端的判据两处各一份。
 		Fields: []render.AdminField{{Name: "new", Label: field, Type: "password", Autofocus: true, Hint: hint,
-			MinLen: auth.PinMinLen, MaxLen: auth.PinMaxLen}},
+			// PIN 那一格要数字键盘（它是 4 到 6 位数字）；inputmode 归字段自己，
+			// 不归模板——管理密钥那一格要的是相反的那一种（见下面那处）。
+			InputMode: "numeric",
+			MinLen:    auth.PinMinLen, MaxLen: auth.PinMaxLen}},
 	}, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
@@ -249,11 +269,27 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 		ID: id, Title: s.t(r, "admin.delete.title"), Heading: s.t(r, "admin.delete.heading", rowLabel(row)),
 		// 页面上不该出现 markdown 的反引号与磁盘文件名：`revert` 与 history.jsonl
 		// 是给读代码的人看的词，家里人在浏览器里看到只会愣一下。
-		Explain: s.t(r, "admin.delete.explain", row.Items, row.Snapshots),
+		//
+		// **id 也要说出来**（2026-10-23）：标题是给人看的，而两份档案可以同名
+		// （派生 id 那时是 home / home-2 两份不同的档案，标题一模一样）——只写
+		// 名字的那一页分不清要删的是哪一份，而删掉找不回来。
+		Explain: s.t(r, "admin.delete.explain", row.ID, row.Items, row.Snapshots),
 		Notice:  s.notice(r, r.URL.Query().Get("err")),
 		Action:  "/admin/delete",
 		Submit:  s.t(r, "admin.delete.submit"),
 		Danger:  true,
+		// **要密码**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：
+		// 这一格填那把机器级密钥（LAUNCHBAY_ADMIN_TOKEN）。它是这台机器上唯一
+		// 不可逆的动作，而管理 cookie 是它的派生值——它进 devtools、进导出、进
+		// 浏览器同步。于是"登着管理页"不再等于"有权删档"。
+		//
+		// 标签复用登录页那一格（admin.login.key）：同一把钥匙，同一套词汇。
+		//
+		// **inputmode 是 text，不是 numeric**（2026-10-23）：那把 key 是一段任意
+		// 文本（默认那把是 launchbay123，用户自己换的那把可以有字母），数字键盘
+		// 会让它在手机上根本没法输。PIN 那一格要的正是相反的那一种。
+		Fields: []render.AdminField{{Name: "key", Label: s.t(r, "admin.login.key"), Type: "password",
+			Autofocus: true, Hint: s.t(r, "admin.delete.keyHint"), InputMode: "text"}},
 	}, s.machineLang(r))
 	if err != nil {
 		writeInternalError(w, err)
@@ -302,8 +338,39 @@ func (s *Server) handleAdminDeleteForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := strings.TrimSpace(r.FormValue("profile"))
+	// 形状先判（它不泄露任何东西：问的是"这个 id 合不合法"，不是"它在不在"）。
 	if !model.ValidSlug(id) {
 		redirectAdminErr(w, "notfound")
+		return
+	}
+	// **密码**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：
+	// 这一条要那把机器级密钥（LAUNCHBAY_ADMIN_TOKEN）。判据只有
+	// auth.AdminToken.Matches 一处——常量时间比较，key 的长度与内容都不进日志。
+	//
+	// 顺序在**存在性**之前：**先验密码，再谈删哪一份**——于是"key 不对"这一支
+	// 的答案与目标无关（不问"这个 id 在不在"），而那正是这一族该有的形状。
+	//
+	// 没填与填错是**同一件事**（"你得把那把钥匙拿出来"），所以一把键 badkey
+	// 就够，不分成两把——多一把只会让其中一半的话是假的。
+	// **密码只从请求体里读**（2026-10-23 修）：`r.FormValue` 是**查询串与表单体
+	// 的合并值**，所以 `POST /admin/delete?profile=kid&key=<那把 key>`（body 空）
+	// 也算数——而那把 key 于是进了 URL：浏览器历史、访问日志、Referer 头都留着它。
+	// 管理 cookie 存在的全部理由正是"原始 key 从不离开那一次 POST"，删档这一条
+	// 更不能反着来。
+	//
+	// `r.PostFormValue` 只看请求体（ParseForm 填的那一份），查询串里的 key 一律
+	// 不认——于是密码格必须真的填在那张表单里。
+	//
+	// 同名多值与 profile 同一族纪律（`/admin/login` 对 key 也是这么拒的）：
+	// "没说要哪一个"不是"取第一个"。
+	if n := len(r.PostForm["key"]); n > 1 {
+		writeFieldErrors(w, http.StatusUnprocessableEntity,
+			[]fieldError{{Kind: apierr.FieldDuplicate, Field: "key", Reason: "同一个字段只能出现一次"}})
+		return
+	}
+	key := strings.TrimSpace(r.PostFormValue("key"))
+	if !s.deps.AdminToken.Matches(key) {
+		redirectAdminDeleteErr(w, id, "badkey")
 		return
 	}
 	row, ok := s.statusRowOf(id)

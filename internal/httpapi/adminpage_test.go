@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -437,20 +438,39 @@ func TestAdmin_非管理员与无会话都不写盘(t *testing.T) {
 }
 
 // 字段错与形状错是两种长相（spec §6.1）：没填对 → 303 带键；读不出形状 → 422 JSON。
+// 键之外还带着**刚输入的名字**：失败一次就清空名字，人得从头再打一遍；PIN 错的那一发
+// 更会顺手变成 noname，白跑两趟（2026-10-24）。
 func TestAdmin_字段错回带键的303(t *testing.T) {
 	_, h := setupBatch(t)
-	for body, want := range map[string]string{
-		"title=&pin=1234": "noname",
-		"title=dad&pin=1": "badpin",
-		"title=&pin=":     "noname", // 两格都没填对：先说名字那一格
-		"title=%E7%88%B8": "badpin", // 没给 pin
+	for _, tc := range []struct{ body, want, title string }{
+		{"title=&pin=1234", "noname", ""},
+		{"title=dad&pin=1", "badpin", "dad"},
+		{"title=&pin=", "noname", ""},      // 两格都没填对：先说名字那一格
+		{"title=%E7%88%B8", "badpin", "爸"}, // 没给 pin
 	} {
-		rec := postForm(h, "/admin", body, adminOnlyCookie(t))
+		rec := postForm(h, "/admin", tc.body, adminOnlyCookie(t))
 		if rec.Code != http.StatusSeeOther {
-			t.Fatalf("%q 要 303，得到 %d", body, rec.Code)
+			t.Fatalf("%q 要 303，得到 %d", tc.body, rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/admin?err="+want {
-			t.Errorf("%q 的 Location = %q，要 /admin?err=%s", body, loc, want)
+		loc := rec.Header().Get("Location")
+		u, err := url.Parse(loc)
+		if err != nil {
+			t.Fatalf("%q 的 Location 解析不了：%q", tc.body, loc)
+		}
+		if got := u.Query().Get("err"); got != tc.want {
+			t.Errorf("%q 的 err = %q，要 %q", tc.body, got, tc.want)
+		}
+		if got := u.Query().Get("title"); got != tc.title {
+			t.Errorf("%q 回填的 title = %q，要 %q", tc.body, got, tc.title)
+		}
+		// 回填要真的落在那一格上，不只是 URL 里有。
+		page := get(h, loc, adminOnlyCookie(t))
+		if tc.title != "" && !strings.Contains(page.Body.String(), `value="`+tc.title+`"`) {
+			t.Errorf("%q 重画的管理页没有把名字填回表单:\n%.400s", tc.body, page.Body.String())
+		}
+		// PIN 绝不回填（URL 里都不许出现）。
+		if u.Query().Get("pin") != "" {
+			t.Errorf("%q 把 PIN 带进了 URL：%q", tc.body, loc)
 		}
 	}
 }
@@ -542,9 +562,10 @@ func TestAdmin_并发同名不吐500(t *testing.T) {
 		if codes[i] != http.StatusSeeOther {
 			t.Fatalf("第 %d 次提交得到 %d（要 303；409 落成 500 就是这一条要抓的）", i, codes[i])
 		}
-		switch locs[i] {
-		case "/admin":
-		case "/admin?err=nametaken":
+		u, _ := url.Parse(locs[i])
+		switch {
+		case locs[i] == "/admin":
+		case u != nil && u.Query().Get("err") == "nametaken":
 			taken++
 		default:
 			t.Errorf("第 %d 次的 Location = %q，只能是成功或 nametaken 两种", i, locs[i])
