@@ -347,7 +347,7 @@
   "import.rep.recOK": "**All three checks passed** — what they answer is “did everything that should come in, come in”. They do **not** answer “was anything turned away”, so “all checks passed” and “some bookmarks were left out” can both be true: that list is the “What did not come in” section below.\n\n",
   "import.rep.recFail": "**Not imported cleanly.** Where the checks failed:\n\n",
   "import.rep.groupsH": "Group names and ids",
-  "import.rep.slugFallback": "- Group titles with no ASCII: %d — their ids fell back to `group-N` (%s). Renaming a title can produce an ASCII id, and the id follows it — **changing an id leaves other people's saved links pointing at nothing**. If you do rename, read this section again afterwards: the new ids are in the list above.\n",
+  "import.rep.slugFallback": "- Group titles with no ASCII: %d — their ids fell back to `group-N` (%s). To get readable ASCII ids, rename the titles in the **source file** and preview again; renaming after the import does **not** change the ids (ids are the addressing key — changing one leaves other people's saved links pointing at nothing).\n",
   "import.rep.slugCollide": "- id `%s` collided with “%s”; one of them was renamed.\n",
   "import.rep.dupTitle": "- Same name in %d groups: “%s” — merged into one.\n",
   "import.rep.detailH": "One by one",

@@ -347,7 +347,7 @@
   "import.rep.recOK": "**三条核对全过**——它答的是「该进的有没有进」，**不答**「有没有该拦住的被拦住了」。所以「核对全过」与「有几条没进来」两句话可以同时成立：后者的逐条清单在下面「没能进来的」那一节。\n\n",
   "import.rep.recFail": "**没导干净**。对账不过的地方：\n\n",
   "import.rep.groupsH": "分组名与 id",
-  "import.rep.slugFallback": "- %d 个分组标题取不到 ASCII，id 退化成 `group-N`（%s）。改标题能改成 ASCII，id 就跟着变——**改 id 会让别人存过的链接指空**。要改的话，改完把这一节再看一遍，新 id 写在上面那份名单里。\n",
+  "import.rep.slugFallback": "- %d 个分组标题取不到 ASCII，id 退化成 `group-N`（%s）。想让 id 变成可读的 ASCII，要在**源文件里**把标题改成英文或数字再重新预览；导入之后在设置里改名**不会**动 id（id 是寻址键，改了会让别人存过的链接指空）。\n",
   "import.rep.slugCollide": "- id `%s` 与「%s」撞了，已经给其中一个换了名。\n",
   "import.rep.dupTitle": "- 有 %d 个分组同名「%s」，已合并成一个。\n",
   "import.rep.detailH": "逐条明细",
