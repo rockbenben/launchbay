@@ -12,6 +12,7 @@
 // 数据目录要**空**：脚本自己用 API 建档并铺一份固定的分组（大卡/磁贴/单列/空组 +
 // 两种点不动的外部地址）。
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 
 const PORT = process.argv[2] || '';
@@ -29,6 +30,19 @@ if (!ADM || !WRT) {
 const stats = { ran: 0, fails: 0 };
 const say = (s) => process.stdout.write(s + '\n');
 const disk = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
+
+// 一台只给这道闸用的小站：resolve 读标题、同 IP:端口不同路径、快速保存都要一个
+// **真能读回 <title>** 的地址。假域名（sweep.example.com）在 resolve 这一层读不到，
+// 于是那些判据在闸里会变成空转。
+const pageSrv = http.createServer((req, res) => {
+  const p = (req.url || '/').split('?')[0];
+  const title = p.endsWith('/two') ? '本地二页' : p.endsWith('/fast') ? '闸门标题' : '本地一页';
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(`<!doctype html><meta charset="utf-8"><title>${title}</title><h1>${title}</h1>`);
+});
+await new Promise((resolve) => pageSrv.listen(0, '127.0.0.1', resolve));
+pageSrv.unref();
+const PAGE = `http://127.0.0.1:${pageSrv.address().port}`;
 
 // ── 铺一份固定的分组（与第二道横扫共用 harness 里的那一份）─────────────────
 await seedFixture(SRV, ADM, WRT);
@@ -98,7 +112,7 @@ await run(`fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-ww
 await send('Page.navigate', { url: SRV + '/' }); await sleep(1400);
 await run(`(()=>{localStorage.removeItem('lb-queue-dad');return 1})()`);
 
-const addSheet = async (url, title, desc, gid, newGroup) => {
+const addSheet = async (url, title, desc, gid, newGroup, keepOpen) => {
   await ev(`document.getElementById('lb-add').click()`); await sleep(300);
   await ev(`const u=document.getElementById('lb-url'); u.value=${JSON.stringify(url)};
     u.dispatchEvent(new Event('input',{bubbles:true})); u.dispatchEvent(new Event('blur',{bubbles:true}))`);
@@ -115,7 +129,7 @@ const addSheet = async (url, title, desc, gid, newGroup) => {
       g.dispatchEvent(new Event('change',{bubbles:true}));`);
   }
   await sleep(200);
-  return ev(`document.querySelector('#lb-sheet button[type=submit]').click(); return 'submitted'`);
+  return ev(`document.querySelector('#lb-sheet ${keepOpen ? 'button.more' : 'button[type=submit]'}').click(); return 'submitted'`);
 };
 // 编辑模态是 `<form class="sheet inline-edit">`（**没有 id**，只有里面的 h2 有），
 // 三个输入按 name 定位：name / desc / url。
@@ -180,6 +194,130 @@ await step('添加浮层 → 关掉再打开是空表单', async () => {
     }
     return [];
   } });
+
+// 2026-10-26：同一 IP:端口的不同路径 / 保存并继续的列表同步 / 快速保存的标题 /
+// 书签栏预填保存后不重开。四条都是"保存成功了，屏上却说没成"那一家族。
+const localOne = PAGE + '/one';
+const localTwo = PAGE + '/two';
+
+await step('添加浮层 → 同一 IP:端口的不同路径都能存', async () => {
+  await addSheet(localOne, '本地一页', '', 'tiles-1');
+  await sleep(1700);
+  await addSheet(localTwo, '本地二页', '', 'tiles-1');
+  return 'added';
+}, { wait: 2600, outcome: (inv, d) => {
+  const items = d.groups.find((g) => g.id === 'tiles-1').items;
+  const missing = [localOne, localTwo].filter((u) => !items.some((i) => i.url === u));
+  return missing.length ? [`少存了：${missing.join(', ')}`] : [];
+} });
+
+await step('添加浮层 → 已经有的地址不写第二次', async () => {
+  return ev(`document.getElementById('lb-add').click();
+    const u=document.getElementById('lb-url'); u.value=${JSON.stringify(localOne)};
+    u.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('#lb-sheet button[type=submit]').click();
+    return document.querySelector('#lb-sheet form > .sheet-status')?.textContent || ''`);
+}, { wait: 800, outcome: (inv, d, res, before) => {
+  if (!String(res).includes('已经在这份里')) return [`没给重复提示：${res}`];
+  const n = (dd) => dd.groups.find((g) => g.id === 'tiles-1').items.filter((i) => i.url === localOne).length;
+  return n(d) === n(before) ? [] : [`重复地址又多存了一条：${n(before)} → ${n(d)}`];
+} });
+
+await step('添加浮层 → 搜索过滤时旧地址也查得到', async () => {
+  await send('Page.navigate', { url: SRV + '/?q=' + encodeURIComponent('戊') });
+  await sleep(1200);
+  // 前置：localOne 所在的 tiles-1 必须被这次搜索藏掉，否则量的是 DOM 那条路。
+  const visible = await ev(`return [...document.querySelectorAll('li[data-item] a[href]')].some((a) => a.getAttribute('href') === ${JSON.stringify(localOne)})`);
+  await ev(`document.getElementById('lb-add').click();
+    const u=document.getElementById('lb-url'); u.value=${JSON.stringify(localOne)};
+    u.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('#lb-sheet button[type=submit]').click(); return 'clicked'`);
+  let status = '';
+  for (let i = 0; i < 25 && !status; i++) {
+    await sleep(200);
+    status = await ev(`return document.querySelector('#lb-sheet form > .sheet-status')?.textContent || ''`);
+  }
+  await send('Page.navigate', { url: SRV + '/' });
+  await sleep(1200);
+  return { visible, status };
+}, { wait: 600, outcome: (inv, d, res, before) => {
+  if (!res || res.visible) return ['前置不成立：被搜的地址仍画在 DOM 里'];
+  if (!String(res.status).includes('已经在这份里')) return [`过滤页没认出已有地址：${JSON.stringify(res.status)}`];
+  const n = (dd) => dd.groups.find((g) => g.id === 'tiles-1').items.filter((i) => i.url === localOne).length;
+  return n(d) === n(before) ? [] : [`重复地址又多存了一条：${n(before)} → ${n(d)}`];
+} });
+
+await step('添加浮层 → Esc 只关最上面那一层', async () => {
+  await ev(`document.getElementById('lb-add').click()`);
+  await sleep(200);
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}))`);
+  await sleep(400);
+  const state = await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    return JSON.stringify({sheet:document.getElementById('lb-sheet').hidden,
+      cmdk:document.querySelector('.cmdk')?.hidden})`);
+  await ev(`document.querySelector('#lb-sheet button.close')?.click()`);
+  return state;
+}, { wait: 500, outcome: (inv, d, res) => {
+  const st = JSON.parse(res || '{}');
+  if (st.sheet !== false) return ['Esc 把下面的添加浮层关掉了'];
+  if (st.cmdk !== true) return ['Esc 没关掉上面的 ⌘K 层'];
+  return [];
+} });
+
+await step('添加浮层 → 失焦后立刻保存也读到页面标题', async () => {
+  await ev(`document.getElementById('lb-add').click()`);
+  await sleep(200);
+  return ev(`const u=document.getElementById('lb-url'); u.value=${JSON.stringify(PAGE + '/blur')};
+    u.dispatchEvent(new Event('input',{bubbles:true}));
+    u.dispatchEvent(new Event('blur',{bubbles:true}));
+    document.querySelector('#lb-sheet button[type=submit]').click(); return 'saved'`);
+}, { wait: 3200, outcome: (inv, d) => {
+  const it = d.groups.flatMap((g) => g.items).find((i) => i.url === PAGE + '/blur');
+  if (!it) return ['没存进去'];
+  return it.name === '本地一页' ? [] : [`名字是 ${JSON.stringify(it.name)}，要「本地一页」`];
+} });
+
+await step('添加浮层 → 保存并继续后关掉，页面跟着更新', async () => {
+  await addSheet(U(), '连着存的第二条', '', 'tiles-1', null, true);
+  await sleep(1700);
+  return ev(`const b=document.querySelector('#lb-sheet button.close'); if(!b) return 'NO-CLOSE'; b.click(); return 'closed'`);
+}, { wait: 2600, outcome: (inv, d, res, before) => {
+  if (res !== 'closed') return [`关闭键没走通：${res}`];
+  const b = before.groups.find((g) => g.id === 'tiles-1').items.length;
+  const a = d.groups.find((g) => g.id === 'tiles-1').items.length;
+  return a === b + 1 ? [] : [`保存并继续没有写入：${b} → ${a}`];
+} });
+
+await step('添加浮层 → 粘贴后立刻保存也读到页面标题', async () => {
+  await ev(`document.getElementById('lb-add').click()`);
+  await sleep(250);
+  return ev(`const u=document.getElementById('lb-url'); u.value=${JSON.stringify(PAGE + '/fast')};
+    u.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('#lb-sheet button[type=submit]').click(); return 'saved'`);
+}, { wait: 3200, outcome: (inv, d) => {
+  const it = d.groups.flatMap((g) => g.items).find((i) => i.url === PAGE + '/fast');
+  if (!it) return ['没存进去'];
+  return it.name === '闸门标题' ? [] : [`名字是 ${JSON.stringify(it.name)}，要「闸门标题」`];
+} });
+
+await step('书签栏预填 → 保存后浮层不重开', async () => {
+  const url = U();
+  await send('Page.navigate', { url: SRV + '/?add=' + encodeURIComponent(url) + '&t=' + encodeURIComponent('书签栏带来的') });
+  await sleep(1200);
+  const clicked = await ev(`const b=document.querySelector('#lb-sheet button[type=submit]'); if(!b) return 'NO-BUTTON'; b.click(); return 'saved'`);
+  await sleep(2600);
+  const state = await ev(`const u=new URL(location.href);
+    return JSON.stringify({hidden:document.getElementById('lb-sheet').hidden, add:u.searchParams.has('add'), t:u.searchParams.has('t')})`);
+  return { clicked, state, url };
+}, { wait: 300, outcome: (inv, d, res) => {
+  if (!res || typeof res !== 'object') return ['读不到保存后的状态：' + JSON.stringify(res)];
+  if (res.clicked !== 'saved') return ['没有点到保存：' + res.clicked];
+  const st = JSON.parse(res.state || '{}');
+  if (!st.hidden) return ['保存成功后浮层又打开了'];
+  if (st.add || st.t) return ['保存后地址栏还带着预填参数'];
+  if (!d.groups.some((g) => g.items.some((i) => i.url === res.url))) return ['这条预填没有写进盘里'];
+  return [];
+} });
 
 // 5-8) 编辑模态
 await step('编辑 → 改名字', async () => {
@@ -381,8 +519,15 @@ await step('设置面板 → 另开新标签页', async () => {
   return [];
 } });
 
+// 页面里的未处理异常也要算红：一条 `Uncaught (in promise)` 可能正是某一步
+// “看起来成功、其实有一个异步动作炸了”。只打印不计数的话，下一次它会被
+// 绿色摘要盖过去（2026-10-26 的 fetchMeta TDZ 就是这样漏过一轮的）。
+const consoleErrs = c.errs.length;
+stats.fails += consoleErrs;
 say('');
 say('控制台异常：' + JSON.stringify(c.errs.slice(0, 5)));
+if (consoleErrs) say(`控制台异常单独计 ${consoleErrs} 条红`);
 say(`${stats.ran} 步，${stats.fails} 条红`);
+pageSrv.close();
 await c.close();
 process.exit(stats.fails ? 1 : 0);

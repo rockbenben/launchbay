@@ -134,6 +134,9 @@ func Test两份id派生的基座同形(t *testing.T) {
 // 判据钉**形状**而不是逐字实现：两边都必须有「四段全是数字」那一支，而且都必须
 // 把它变成 `ip-` 开头的哈希。逐字钉会让一次无害的重构变成红线，而这里要防的是
 // 「一边的保护没了」。
+//
+// **2026-10-26 补路径**：只看主机+端口仍然会把同一 NAS 端口下的 `/photo` 与
+// `/music` 撞成一条；两边都要把 pathname / query / hash 一起算进哈希。
 func Test两份id派生对裸IP都走哈希(t *testing.T) {
 	const ipv4Guard = `/^\d{1,3}(\.\d{1,3}){3}$/`
 
@@ -148,13 +151,14 @@ func Test两份id派生对裸IP都走哈希(t *testing.T) {
 			t.Errorf("%s 没有「四段全是数字」那一支：裸 IP 会进可读那条，于是 id 里烘进内网地址与端口，"+
 				"而 GET /api/v1/export 发的是磁盘原字节——导出文件发给别人就等于把这段拓扑一起发出去", src.what)
 		}
-		if !strings.Contains(src.js, `'ip-' + (hash36(host + (u.port || '')) || 'item')`) {
-			t.Errorf("%s 没有把裸 IP 变成 ip-<hash>：同一主机的第二个服务会撞 id，症状是「明明填对了地址却存不进去」", src.what)
+		if !strings.Contains(src.js, `'ip-' + (hash36(host + (u.port || '') + u.pathname + (u.search || '') + (u.hash || '')) || 'item')`) {
+			t.Errorf("%s 没有把裸 IP 变成 ip-<主机+端口+路径>：同一主机的第二个服务（换端口或换路径）会撞 id，症状是「明明填对了地址却存不进去」", src.what)
 		}
 	}
-	// 两边**逐字同形**：不是"都有这一支"就够了——host+port 一起哈希才既不泄漏
-	// 拓扑、又天然区分端口，漏掉端口就会让同一主机的两个服务撞回同一个 id。
-	if !strings.Contains(readExtensionJS(t), `'ip-' + (hash36(host + (u.port || '')) || 'item')`) {
-		t.Error("extension/bg.js 的哈希没带端口：同一 IP 的两个服务会撞回同一个 id")
+	// 两边**逐字同形**：不是"都有这一支"就够了——host+port+path+query+hash 一起哈希
+	// 才既不泄漏拓扑、又分得开同一端口下的不同页面；漏掉路径就会让 `/photo` 与
+	// `/music` 撞回同一个 id。
+	if !strings.Contains(readExtensionJS(t), `'ip-' + (hash36(host + (u.port || '') + u.pathname + (u.search || '') + (u.hash || '')) || 'item')`) {
+		t.Error("extension/bg.js 的哈希没带路径：同一 IP:端口的不同页面会撞回同一个 id")
 	}
 }

@@ -19,8 +19,19 @@ func Test添加浮层_写入的答案不被慢半步的resolve盖掉(t *testing.
 	for _, want := range []string{
 		"let statusSeq = 0;",
 		"const seq = ++statusSeq;",
-		"async function submit(keepOpen) {\n    ++statusSeq;",
-		"if (seq !== statusSeq) return;",
+		// submit 是防重入的壳，真正落库的是 submitOnce；序号必须在它一进场就推。
+		"async function submitOnce(keepOpen) {\n    ++statusSeq;",
+		// bookmarklet 预填在模块初始化时就调 resolveNow；fetchMeta 若写成 const
+		// 会撞 TDZ，异常只在 console 里、页面看上去正常。
+		"function fetchMeta(url) {",
+		// 两发 submit 重叠时第二发必须早退（按钮 disabled 挡不住地址格里按回车）。
+		"if (submitting) return;",
+		// 保存中不许关浮层；关掉会重载，把还在路上的请求/响应一起丢掉。
+		"function closeSheet() {\n    if (submitting) return;",
+		// 等读取时锁住地址格，并防止旧响应写进重开后的新表单。
+		"fUrl.readOnly = true;",
+		"if (gen !== sheetGen || sheet.hidden) return;",
+		"if (seq !== statusSeq || gen !== sheetGen) return;",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("app.js 里少了 %q：写入与 resolve 的状态行竞态又回来了", want)

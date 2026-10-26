@@ -436,6 +436,18 @@ const APP_I18N = {
   // 人看到一句成功、浮层没关，以为保存没生效。序号让**写入的答案**说了算：
   // submit 一进场就 ++，任何比它早出发的 resolve 回来后一个字都不许写。
   let statusSeq = 0;
+  // 同一地址的读取还在路上时，保存可以先等它一下：paste 之后立刻按保存是很常见的
+  // 动作，而名字那一格这时还空着。等的是**响应本身**，不是状态行（submit 会把
+  // statusSeq 加一，任何更早的 resolve 都不许再改屏上的字）。
+  let resolveWait = null;
+  // 「保存并继续」写成功过：关掉浮层时列表还是服务端渲染的旧那一份，要重载一次。
+  let savedKeepOpen = false;
+  // 每次打开浮层都换一代。保存可能在等读取；那一发回来时若人已经关掉/重开了
+  // 这一层，旧响应一个字都不许写进新表单。
+  let sheetGen = 0;
+  // 一次只跑一发写入。按钮 disabled 挡不住在地址格里按回车（表单照样会 submit），
+  // 而快速保存那条路现在会等读取，窗口比从前更长。
+  let submitting = false;
   const say = (msg, kind = 'info', into = null) => {
     const node = into || status;
     if (!msg) {
@@ -529,9 +541,10 @@ const APP_I18N = {
       if (opener && opener.isConnected) opener.focus();
       return true;
     }
-    for (const n of [help, cmdk, sheet]) {
+    for (const n of [help, cmdk]) {
       if (!n.hidden) { n.hidden = true; syncTrap(); return true; }
     }
+    if (!sheet.hidden) { closeSheet(); return true; }
     const banner = $('#lb-banner');
     if (banner) { banner.remove(); return true; }
     return false;
@@ -583,11 +596,27 @@ const APP_I18N = {
   }
 
   function openSheet(reset = false) {
+    sheetGen++;
     sheet.hidden = false;
     if (reset) resetSheetForm();
     syncTrap();
     say('');
     fUrl.focus();
+  }
+
+  // 关掉添加浮层：`×`、Esc、「点外面」都走这里。保存并继续写成功过时，
+  // 列表是服务端渲染的旧一份（那一条只在盘上），所以**关的时候补一次重载**——
+  // 人关掉浮层看到的第一眼必须是盘上的真相，而不是等他手动刷新。
+  // **保存还在路上时不关**：关掉会重载，浏览器可能把这一发请求连同响应一起丢掉，
+  // 而服务端可能已经写了；等这一发结束再关，代价最多是那一小段等待。
+  function closeSheet() {
+    if (submitting) return;
+    sheet.hidden = true;
+    syncTrap();
+    const mustReload = savedKeepOpen;
+    savedKeepOpen = false;
+    if (mustReload) reloadKeepingPlace();
+    else openBtn.focus();
   }
 
   const openBtn = el('button', {
@@ -759,7 +788,7 @@ const APP_I18N = {
       type: 'button', class: 'fld close', text: '×', 'aria-label': T('app.close'),
       // 关掉之后焦点回到打开它的那枚按钮：浮层是从那儿浮起来的，键盘用户
       // 按 Esc 之后该站在原地，而不是掉回页面顶部。
-      on: { click: () => { sheet.hidden = true; syncTrap(); openBtn.focus(); } },
+      on: { click: () => closeSheet() },
     }),
   ]);
   body.append(sheet);
@@ -1883,8 +1912,16 @@ const APP_I18N = {
   // 字符打一次请求会把 resolve 的冷却与限流打满。
   fUrl.addEventListener('blur', resolveNow);
 
+  // 读标题/描述/建议分组/候选图标的那一发。失焦触发与"保存时名字还空着"
+  // 共用这一个出口：后者没有 blur 可等（在地址格里按回车就直接 submit 了）。
+  // **必须是函数声明而不是 const**：bookmarklet 预填会在模块初始化时就调用
+  // resolveNow，const 那一版会撞 TDZ（ReferenceError: Cannot access 'fetchMeta'
+  // before initialization），而那一下只在控制台里，页面上看起来正常。
+  function fetchMeta(url) { return api('/api/v1/resolve', { url, profile }); }
+
   async function resolveNow() {
     const seq = ++statusSeq;
+    const gen = sheetGen;
     const url = fUrl.value.trim();
     if (!url) return;
     if (!parseableAddress(url)) {
@@ -1893,9 +1930,13 @@ const APP_I18N = {
     }
     // 读之前先说"正在读…"——那是**这一次读取的状态**，归底部那条。
     say(T('app.reading'), 'busy');
+    const request = fetchMeta(url);
+    // submit 可能在这一轮回来之前就发生了（paste 之后立刻按保存）。它等的是
+    // 这个**响应本身**；statusSeq 只决定“谁能改屏上的状态字”，不挡取名。
+    resolveWait = { url, promise: request, gen };
     try {
-      const r = await api('/api/v1/resolve', { url, profile });
-      if (seq !== statusSeq) return;
+      const r = await request;
+      if (seq !== statusSeq || gen !== sheetGen) return;
       if (r.detail || r.code) {
         // 屏上说的仍是**这一类**的话：那一格的文本是给脚本对照的协议话，
         // 英文界面里冒出一句中文、还不说这是哪一步，等于让人自己猜。
@@ -1930,8 +1971,9 @@ const APP_I18N = {
       say(r.title ? T('app.readOk') : T('app.readEmpty'), r.title ? 'ok' : 'warn');
     } catch (e) {
       // 这一轮已经被一次写入接手：它的错误说的是"这一次读取"，不该盖掉
-      // "这一条存没存上"——那是人按过保存之后唯一关心的答案。
-      if (seq !== statusSeq) return;
+      // "这一条存没存上"——那是人按过保存之后唯一关心的答案。重开过表单
+      // （sheetGen 变了）也一样：旧地址的读取结果不许写进新表单。
+      if (seq !== statusSeq || gen !== sheetGen) return;
       // **写失败一律显式报错，不静默吞**（§8.7）：一条"正在读取…"永远停在那儿，
       // 用户会以为它在加载。
       //
@@ -1942,6 +1984,8 @@ const APP_I18N = {
       // 前面那句"读不出来："带着上下文才有用。
       say(e && e.status ? e.message : T('app.readErr', e.message), 'bad',
         e && e.status && isURLProblem(e) ? urlErr : null);
+    } finally {
+      if (resolveWait && resolveWait.promise === request) resolveWait = null;
     }
   }
 
@@ -1988,9 +2032,9 @@ const APP_I18N = {
   // `GET /api/v1/export` 发的是磁盘原字节——导出文件发给别人就等于把这段拓扑
   // 一起发出去。两种都坏，坏法不同。
   //
-  // 现在：**主机是裸 IP 就用「主机+端口」的哈希**，既不泄漏拓扑、也天然区分
-  // 端口。带域名的照旧走可读那条（`docs.google.com` → `docs`），而它不含任何
-  // 私密信息。
+  // 现在：**主机是裸 IP 就用「主机+端口+路径+query+hash」的哈希**，既不泄漏
+  // 拓扑、也分得开同一端口上的不同页面。带域名的照旧走可读那条
+  // （`docs.google.com` → `docs`），而它不含任何私密信息。
   function slug(text, fromURL) {
     if (fromURL) {
       let u = null;
@@ -2000,7 +2044,9 @@ const APP_I18N = {
       // **四段全是数字** = 裸 IP（IPv4）。判据是这个而不是「含数字」——
       // `10.0.2.3.example.com` 那种仍走可读那条，而它不含私密信息。
       const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-      if (isIPv4) return 'ip-' + (hash36(host + (u.port || '')) || 'item');
+      if (isIPv4) {
+        return 'ip-' + (hash36(host + (u.port || '') + u.pathname + (u.search || '') + (u.hash || '')) || 'item');
+      }
       // **整条路径 + query + hash**（2026-10-20 与扩展对上）：从前只取末段，
       // 于是 github.com/userA/project 与 github.com/userB/project 派生出同一个
       // id（撞 id = duplicate-id = 422），而两个视频/两篇文章（只有 query 不同）
@@ -2033,8 +2079,42 @@ const APP_I18N = {
     return { gid, ops: [{ op: 'add', path: 'groups', value: { id: gid, title, layout: shape, items: [] } }] };
   }
 
-  async function submit(keepOpen) {
+  // URL 是用户认的那一半。id 现在带路径，旧档案里那些按「主机+端口」落下的
+  // 内网书签仍占着旧 id；重新添加同一条时，服务端只看 id 看不到旧 id，于是会
+  // 再存一条。保存前先按页面上现有的地址查一遍——这是旧 id 与新 id 之间的
+  // 兼容闸，不是第二条判据（同 id 仍然由服务端 duplicate-id 兜底）。
+  // 搜索过滤只把命中的条目画进 DOM；这一档由 pageIsFiltered 再问一次整份数据，
+  // 不等服务端拿新 id 去撞旧 id。
+  function itemURLAlreadySaved(url) {
+    for (const li of document.querySelectorAll('li[data-item]')) {
+      if (itemURL(li) === url) return true;
+    }
+    return false;
+  }
+
+  // 搜索过滤只把命中的条目画进 DOM。旧 IPv4 书签占着旧 id，服务端的同 id 判据
+  // 兜不住“同一个旧地址换了个新 id”，所以这一档要问一次整份数据。
+  // 不筛时上面的 DOM 就是全集，不发请求。
+  function pageIsFiltered() {
+    try { return new URL(location.href).searchParams.has('q'); } catch { return false; }
+  }
+
+  async function itemURLInData(url) {
+    try {
+      const r = await fetch('/api/v1/data?profile=' + encodeURIComponent(profile), {
+        credentials: 'same-origin', headers: { Accept: 'application/json' },
+      });
+      if (!r.ok) return false;
+      const d = await r.json();
+      return (d.data?.groups || []).some((g) => (g.items || []).some((it) => it.url === url));
+    } catch {
+      return false;
+    }
+  }
+
+  async function submitOnce(keepOpen) {
     ++statusSeq; // 这一发写入的答案优先于任何还在路上的 resolve（见 say 上面那段）
+    const gen = sheetGen;
     const url = fUrl.value.trim();
     // 空地址同样归那一格（与 resolve 的地址类失败同一处）：它说的是这一格，
     // 而这一格下面就是它自己。人按了「保存」得到一句飘在五格之外的话，
@@ -2057,7 +2137,63 @@ const APP_I18N = {
       say(T('app.resolveBadUrl'), 'bad', urlErr);
       return;
     }
-    const name = itemName(fTitle.value.trim(), url);
+    let saved = itemURLAlreadySaved(url);
+    if (!saved && pageIsFiltered()) {
+      // 这一发是异步的；锁住地址格，重开后旧结果不许算数。
+      const wasReadOnly = fUrl.readOnly;
+      fUrl.readOnly = true;
+      try {
+        saved = await itemURLInData(url);
+      } finally {
+        fUrl.readOnly = wasReadOnly;
+      }
+      if (gen !== sheetGen || sheet.hidden) return;
+    }
+    if (saved) {
+      // 这一次预填已经用掉了（地址就在这一份里），别让它留在地址栏里等刷新重开。
+      clearAddQuery();
+      say(T('app.opsDuplicate'), 'bad');
+      return;
+    }
+    // 先判一次分组那一格，缺名字不必等读取；等完再取一次，防止人在 1.5 秒里
+    // 把分组改了而保存还写回旧的那一组。
+    const gCheck = groupOpsAndTarget();
+    if (gCheck.err) { say(gCheck.err, 'bad'); return; }
+    // paste 之后立刻按保存：名字那格还空着，而失焦触发的 resolve 已经在路上。
+    // 等它一下（最多 1.5 秒）再用读到的标题，而不是把这一次存成主机名。
+    // 等的是响应本身；submit 已经把 statusSeq 加一，resolve 那边不会再改屏上的字。
+    let name = itemName(fTitle.value.trim(), url);
+    if (!fTitle.value.trim() && navigator.onLine) {
+      // 地址格里按回车不会先 blur，所以这里不能只等 resolveWait；没有在途请求
+      // 就自己发一发，否则“粘贴 + 回车”会静悄悄存成主机名。离线时不发——
+      // 读取必然失败，还会白白把入队拖后 1.5 秒。
+      const reuse = resolveWait && resolveWait.url === url && resolveWait.gen === gen;
+      const request = reuse ? resolveWait.promise : fetchMeta(url);
+      // 等待期间先把落库键按住，并锁住地址格：否则 1.5 秒里连点会起两个
+      // submit，改地址则会让这一发拿旧地址落库（校验与 id 都是旧的那一份）。
+      saveBtn.disabled = moreBtn.disabled = true;
+      const wasReadOnly = fUrl.readOnly;
+      fUrl.readOnly = true;
+      say(T('app.reading'), 'busy');
+      try {
+        const meta = await Promise.race([
+          request.catch(() => null),
+          new Promise((done) => setTimeout(() => done(null), 1500)),
+        ]);
+        // 等的时候人可能已经关掉或重开了这一层：旧响应不许写进新表单。
+        if (gen !== sheetGen || sheet.hidden) return;
+        if (meta && meta.title && !fTitle.value.trim()) {
+          fTitle.value = meta.title;
+        }
+        if (meta && meta.desc && !fDesc.value.trim()) fDesc.value = meta.desc;
+      } finally {
+        fUrl.readOnly = wasReadOnly;
+        saveBtn.disabled = moreBtn.disabled = false;
+      }
+      // 等待期间人可能已经自己敲了名字；用当前这一格重算，不拿等之前的空名字
+      // 去落库（那会把他刚敲的字丢掉）。
+      name = itemName(fTitle.value.trim(), url);
+    }
     const value = { id: slug(url, true), name, url };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
     if (fIcon.value) value.icon = fIcon.value;
@@ -2068,12 +2204,18 @@ const APP_I18N = {
     // 这一支的差别是"什么时候写进去"，不是"写不写"——静默吞掉才是错的。
     if (!navigator.onLine) {
       enqueue({ gid: g.gid, ops: g.ops, value });
+      clearAddQuery();
       say(T('app.offline.queued'), 'warn');
       // **关掉浮层要 syncTrap()**（2026-10-20）：这一支从前只写
       // `sheet.hidden = true`，而 syncTrap 是**唯一**给 body 其余子元素
       // 摘/挂 inert 的地方——于是离线存完一条之后整页永久 inert：点不动、
       // Tab 也进不去，只能刷新。在线那一支（下面）一直记得调它。
-      if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else { sheet.hidden = true; syncTrap(); }
+      if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else {
+        sheet.hidden = true;
+        syncTrap();
+        if (savedKeepOpen) { savedKeepOpen = false; reloadKeepingPlace(); }
+        else openBtn.focus();
+      }
       paintQueue();
       return;
     }
@@ -2086,6 +2228,7 @@ const APP_I18N = {
         ops: [...g.ops, { op: 'add', path: 'groups/' + g.gid + '/items', value }],
       });
       rev = r.rev; // 同一页再存第二条要拿新的 rev，否则下一条必然 409
+      clearAddQuery();
       say(T('app.saved'), 'ok');
       // 刚建出来的那一组**就地进下拉并选中**：连着往同一个新分组里加第二条时，
       // 若下拉还停在「＋ 新分组…」且名字框留着上一次的内容，下一次就会拿同一个
@@ -2101,10 +2244,12 @@ const APP_I18N = {
         syncGroupFields();
       }
       if (keepOpen) {
+        savedKeepOpen = true;
         for (const f of [fUrl, fTitle, fDesc]) f.value = '';
         iconChoices([]);
         fUrl.focus();
       } else {
+        savedKeepOpen = false;
         sheet.hidden = true;
         syncTrap();
         // gid 与条目 id 一起带过重载：列表是服务端渲染的（不重载就看不到刚存的那条），
@@ -2117,10 +2262,14 @@ const APP_I18N = {
       // 就跳过，所以"存了但没收到 200"不会写成第二条，也不会丢掉这次输入。
       if (e.network) {
         enqueue({ gid: g.gid, ops: g.ops, value });
+        clearAddQuery();
         for (const f of [fUrl, fTitle, fDesc]) f.value = '';
         iconChoices([]);
         sheet.hidden = true;
         syncTrap();
+        // 之前“保存并继续”留下的条目只在盘上；这一发又没送出去，重载一次
+        // 让列表回到盘上的真相（待办队列自己会在新页面上画出来）。
+        if (savedKeepOpen) { savedKeepOpen = false; reloadKeepingPlace(); return; }
         showBanner(T('app.netQueued'), 'warn');
         return;
       }
@@ -2134,6 +2283,16 @@ const APP_I18N = {
         e.kind === 'url-incomplete' ? urlErr : null);
     } finally {
       saveBtn.disabled = moreBtn.disabled = false;
+    }
+  }
+
+  async function submit(keepOpen) {
+    if (submitting) return;
+    submitting = true;
+    try {
+      await submitOnce(keepOpen);
+    } finally {
+      submitting = false;
     }
   }
 
@@ -2417,6 +2576,19 @@ const APP_I18N = {
   // 两件都要**活过重载**（2026-10-16）：横幅与动效都是页面里画出来的节点，
   // location.reload 之后连同旧文档一起没了。留 gid/item 而不是留那句话——
   // 组名是服务端渲染的，重载之后才在页面上长出来，照那一刻的 DOM 去读才对。
+  // bookmarklet 带来的 `?add=&t=` 只是**这一次预填**。存进去之后要把它从地址栏
+  // 清掉：保存成功会重载，而带着 add 的 URL 重载会把同一张预填浮层重新打开——
+  // 人看到的是“保存没生效”，再按一次还会撞 duplicate-id。保留 q 与 hash。
+  function clearAddQuery() {
+    try {
+      const u = new URL(location.href);
+      if (!u.searchParams.has('add')) return;
+      u.searchParams.delete('add');
+      u.searchParams.delete('t');
+      history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+    } catch { /* 地址栏读不出来就保持原样 */ }
+  }
+
   function reloadKeepingPlace(after) {
     try { sessionStorage.setItem(SCROLLKEY, String(scrollY)); } catch { /* 存不下就退回最上面 */ }
     try {

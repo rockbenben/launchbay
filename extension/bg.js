@@ -212,9 +212,13 @@ function idFor(url, name) {
     //
     // 判据是「四段全是数字」而不是「含数字」——`10.0.2.3.example.com` 那种仍走
     // 可读那条，而它不含任何私密信息。
+    //
+    // **路径、query、hash 也算进去**（2026-10-26）：从前只哈希主机+端口，于是
+    // 同一个 NAS 端口下的 `/photo` 与 `/music` 派生出同一个 id，第二条被答成
+    // `duplicate-id`（「这一条已经在这份里了」——假话）。与 app.js 同一句判据。
     const host = u.hostname.replace(/^www\./i, '');
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-      return 'ip-' + (hash36(host + (u.port || '')) || 'item');
+      return 'ip-' + (hash36(host + (u.port || '') + u.pathname + (u.search || '') + (u.hash || '')) || 'item');
     }
     // **整条路径，不只末段**（2026-10-20 修）：从前只取末段，于是
     // `github.com/userA/project` 与 `github.com/userB/project` 派生出同一个 id

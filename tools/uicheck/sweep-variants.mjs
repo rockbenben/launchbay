@@ -762,8 +762,12 @@ await step('键盘 → Ctrl+K 开面板，Esc 关掉', async () => {
   await goHome();
 }
 
+// 与 sweep.mjs 同一条：未处理的 Promise 也要计数，不能只打印。
+const consoleErrs = c.errs.length;
+stats.fails += consoleErrs;
 say('');
 say('控制台异常：' + JSON.stringify(c.errs.slice(0, 5)));
+if (consoleErrs) say(`控制台异常单独计 ${consoleErrs} 条红`);
 say(`${stats.ran} 步，${stats.fails} 条红`);
 await c.close();
 process.exit(stats.fails ? 1 : 0);

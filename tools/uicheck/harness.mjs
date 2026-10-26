@@ -98,7 +98,13 @@ export async function connect(cdp) {  const tab = await (await fetch(`${cdp}/jso
   ws.addEventListener('message', (e) => {
     const m = JSON.parse(e.data);
     if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-    if (m.method === 'Runtime.exceptionThrown') errs.push(m.params.exceptionDetails.text);
+    if (m.method === 'Runtime.exceptionThrown') {
+      // `text` 对未处理的 Promise 只剩一句 “Uncaught (in promise)”，真正的
+      // 文件名与行号在 exception.description 的 stack 里。存的必须是后者——
+      // 否则“控制台异常”这行等于只说了一句“有异常”，查不到是哪一处。
+      const d = m.params.exceptionDetails;
+      errs.push(d.exception?.description || d.text);
+    }
   });
   const send = (method, params = {}) => new Promise((r) => {
     const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params }));
@@ -238,12 +244,14 @@ export function makeStep({ c, srv, dataPath, say, stats, login }) {
       return;
     }
     const before = disk();
-    await c.run(`sessionStorage.setItem('__sweep','1')`);
+    // 重载探针用 performance.timeOrigin：sessionStorage 会跨 reload 存活，
+    // 从前那个 `__sweep` 哨兵永远不会被清掉，`inPlace` 断言全是死代码。
+    const t0 = await c.run('performance.timeOrigin');
     let res = null;
     try { res = await act(); } catch (e) { res = 'THREW ' + e.message; }
     await c.sleep(opt.wait || 1300);
-    const reloaded = (await c.run(`sessionStorage.getItem('__sweep')||''`)) === '';
-    await c.run(`sessionStorage.removeItem('__sweep')`);
+    const t1 = await c.run('performance.timeOrigin');
+    const reloaded = String(t0) !== String(t1);
     const raw = await c.run(INV);
     const problems = [];
     if (raw && raw.__exc) problems.push('不变量读不出来：' + raw.__exc);
