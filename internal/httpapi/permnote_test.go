@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -109,8 +110,26 @@ func TestSetup_数据目录不可写说得出出路(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("数据目录不可写要 303 回引导页说人话，得到 %d %.200s", rec.Code, rec.Body.String())
 	}
-	if loc := rec.Header().Get("Location"); loc != "/?err=permission" {
-		t.Fatalf("Location = %q，要 /?err=permission", loc)
+	// **断的是那把键，不是整串**：Location 上还带着刚输入的名字（2026-10-24
+	// 那一族改动：名字用 `?title=` 带回，PIN 一个字不回填）。
+	//
+	// 这一条从"整串逐字相等"改成"读出 err 这把键"，与同族的管理页那条同形
+	// （2026-10-25 那一笔已经这么改了，**漏了本条**）。漏改的代价由 ubuntu
+	// 那格付：NTFS 上 0500 挡不住自己，`chmodNoWrite` 让这条测试在 Windows 上
+	// 整条跳过——于是"只有 Linux 看得见的那条断言"红了两天才被逮到。
+	loc := rec.Header().Get("Location")
+	u, err := url.Parse(loc)
+	if err != nil {
+		t.Fatalf("Location 解析不了：%q", loc)
+	}
+	if got := u.Query().Get("err"); got != "permission" {
+		t.Fatalf("err = %q，要 permission（Location=%q）", got, loc)
+	}
+	// 名字也要一起带回来：这一族失败之后，人是**要去宿主机改完再来一次**的
+	// ——名字被清空就等于让人白打一遍。三张建档表单同一条纪律（另两张见下面
+	// 那条形状证人）。
+	if got := u.Query().Get("title"); got != "爸" {
+		t.Errorf("名字没被带回：title = %q，要 爸（Location=%q）", got, loc)
 	}
 	if cs := rec.Result().Cookies(); len(cs) != 0 {
 		t.Fatalf("建档没成不许发会话 cookie: %v", cs)
@@ -161,6 +180,68 @@ func TestAdmin_数据目录不可写说得出出路(t *testing.T) {
 	if !strings.Contains(page.Body.String(), noticeOf(i18n.Default, "permission")) {
 		t.Errorf("管理页没印出登记的那句话:\n%.500s", page.Body.String())
 	}
+}
+
+// 三张建档表单的**回跳形状**证人：每一张在"宿主数据目录不可写"那一族都把刚
+// 输入的名字用 `?title=` 带回（PIN 一个字都不回填——那是凭证，不该进 URL）。
+//
+// **为什么另立一条不碰磁盘的**：端到端那两条要 chmod 出"目录不可写"这个状态，
+// 而 NTFS 上 0500 挡不住自己——`chmodNoWrite` 自查之后整条跳过。于是"权限那一族
+// 的回跳长什么样"在 Windows 上**一个证人也没有**，而它恰恰是 2026-10-25 那一笔
+// 漏改的那一处（红了两天，是 ubuntu 那格逮到的；windows 那格因为跳过一直绿）。
+// 这一条只断拼出来的那串 Location：每个平台都跑，于是三张表单的形状变了一处
+// 当场红，不必等 CI。
+//
+// **判据是逐字那一串**，不是"里面有 err=permission"：键的**取值**由白名单管
+// （TestSetup_提示只走白名单），而**形状**（名字带不带、带几个键、键的顺序）
+// 只该住在这里一处。
+func Test三张建档表单的权限回跳形状每个平台都钉得住(t *testing.T) {
+	const title = "爸"
+	for _, tc := range []struct {
+		name string
+		call func(w http.ResponseWriter)
+		want string
+	}{
+		{
+			"引导页",
+			func(w http.ResponseWriter) { redirectSetupForm(w, "permission", title, false) },
+			"/?err=permission&title=%E7%88%B8",
+		},
+		{
+			"自建那张（折着的表单要展开）",
+			func(w http.ResponseWriter) { redirectSetupForm(w, "permission", title, true) },
+			"/?err=permission&new=1&title=%E7%88%B8",
+		},
+		{
+			"管理页",
+			func(w http.ResponseWriter) { redirectAdminCreateFail(w, adminFormTitled(title), "permission") },
+			"/admin?err=permission&title=%E7%88%B8",
+		},
+	} {
+		rec := httptest.NewRecorder()
+		tc.call(rec)
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("%s 的回跳要 303，得到 %d", tc.name, rec.Code)
+		}
+		if got := rec.Header().Get("Location"); got != tc.want {
+			t.Errorf("%s 的回跳 = %q，要 %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// adminFormTitled 造一个带着 title 的表单请求——管理页那张回跳是从**请求**里读
+// 名字的（判据在 r.FormValue("title")，不由调用方递进来）。
+func adminFormTitled(title string) *http.Request {
+	r := httptest.NewRequest(http.MethodPost, "/admin",
+		strings.NewReader("title="+url.QueryEscape(title)))
+	// ParseForm 只在 Content-Type 是表单那一种时才读 body——不钉这一行，
+	// r.FormValue("title") 读出来是空串，回跳就少了 &title=，而症状是
+	// "测试红了"，不是"读不出来"：那一格看着像标题没带回去，其实是请求没被解析。
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := r.ParseForm(); err != nil {
+		panic(err)
+	}
+	return r
 }
 
 // API 那条壳（POST /api/v1/profiles）**不许**跟着改成 303：它回给机器，

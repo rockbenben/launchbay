@@ -186,7 +186,7 @@
         },
         "responses": {
           "303": {
-            "description": "成功回 /（不发会话）；字段错回 /?err=noname 或 /?err=badpin；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）；窗口已关回 / 不带键"
+            "description": "成功回 /（不发会话）；字段错回 /?err=noname 或 /?err=badpin；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）；**刚输入的名字用 ?title= 带回（PIN 不回填）**——这一族失败之后人是去宿主机改完再来一次的，名字被清空就等于白打一遍；窗口已关回 / 不带键"
           },
           "422": {
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
@@ -225,7 +225,7 @@
         },
         "responses": {
           "303": {
-            "description": "成功回 /（选单页，不发会话）；字段错回 /?err=noname 或 /?err=badpin；名字撞车回 /?err=nametaken；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）"
+            "description": "成功回 /（选单页，不发会话）；字段错回 /?err=noname 或 /?err=badpin；名字撞车回 /?err=nametaken；数据目录不可写回 /?err=permission（宿主 ./data 不归 uid 65534，去宿主机 chown）；**刚输入的名字用 ?title= 带回（PIN 不回填），并带 new=1 把折叠的表单展开**"
           },
           "422": {
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
@@ -889,7 +889,7 @@
         },
         "responses": {
           "303": {
-            "description": "成功回 /admin；字段没填对回 /admin?err=noname、/admin?err=badpin，派生出的 id 撞上并发提交回 /admin?err=nametaken，数据目录不可写回 /admin?err=permission；**没有管理权**与**带令牌**都回 /（不带 err）"
+            "description": "成功回 /admin；字段没填对回 /admin?err=noname、/admin?err=badpin，派生出的 id 撞上并发提交回 /admin?err=nametaken，数据目录不可写回 /admin?err=permission；**刚输入的名字用 &title= 带回（PIN 不回填）**；**没有管理权**与**带令牌**都回 /（不带 err）"
           },
           "422": {
             "description": "表单读不出来、同名多值：{code, detail（字段级错误时为空串）, errors[{field, reason}]}"
