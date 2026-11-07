@@ -157,7 +157,7 @@ func TestUnknownProfileInCookieFallsBackToPicker(t *testing.T) {
 // 而档案页顶栏那枚「管理」徽标仍按 HasAdmin 画（它是捷径不是门）。
 func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t *testing.T) {
 	h, _ := setupRender(t)
-	const link = `<a class="badge" href="/admin">管理这台机器</a>`
+	const link = `<a class="pick-admin-link" href="/admin">管理</a>`
 
 	// ① 什么 cookie 都没有：入口必须在。
 	rec := httptest.NewRecorder()
@@ -189,6 +189,9 @@ func Test选择页永远给得出管理入口而档案页的徽标仍看会话(t
 	if !strings.Contains(body, "爸爸") {
 		t.Fatalf("这一条要量的是档案页，结果落到了别处：%.200s", body)
 	}
+	// 下面这个整串从前是**空断言**：徽标文案当时是「管理这台机器」，这一串
+	// 永远匹配不上，看着在测、其实什么都没钉住。2026-11-05 文案缩成「管理」
+	// 之后它才真的开始生效；以后再改文案，请连这里一起改。
 	if strings.Contains(body, `<a class="badge" href="/admin">管理</a>`) {
 		t.Fatal("没有管理权的会话不该看见档案页顶栏的「管理」徽标")
 	}

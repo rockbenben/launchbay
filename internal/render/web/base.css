@@ -1662,8 +1662,11 @@ select,input[type=password],input[type=text],input[type=search],input[type=file]
    纯标签只会让它看起来像个按钮。
    2026-10-12 并入 `.chk`（「不设 PIN」那一格勾选）：取景量到它 29px 高、
    勾选框本体 13-20px，而**能点的那一片就是这行 label**——行高不够，手指就点不中。
-   开第 7 条联合规则会把"六族各一条"那条闸数出七个，所以并进这一条。 */
-.gnav a,summary,a.badge,button.badge,.choice label,.chk,.prefs-nav label,.prefs-group-pick label{min-height:44px}
+   开第 7 条联合规则会把"六族各一条"那条闸数出七个，所以并进这一条。
+   2026-11-05 并入 `.pick-admin-link`：选择页那颗管理入口从 a.badge 降成一行
+   小字链接，**摘掉的是 badge 那张脸，不是 44px 的触摸目标**——它仍是可点的
+   导航目标，跟着这一族走，同样不新开第八条。 */
+.gnav a,summary,a.badge,button.badge,.choice label,.chk,.prefs-nav label,.prefs-group-pick label,.pick-admin-link{min-height:44px}
 .chk{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;min-width:0}
 /* 上面那条对 inline 元素无效，而 .badge 在 <p>／<td> 这类非 flex 容器里正是
    inline 的。所以可点的那几个要显式变成 inline-flex 才吃得到 44px。
@@ -2079,11 +2082,22 @@ ol.rep-list{list-style:decimal}
    宽度与上面那张卡**同一个 460 并居中**——按 `.chooser` 那一档（760）居中的话，
    一个人孤零零挂在卡片旁边而不是底下，而它是这一页唯一的退路。 */
 .login-back{max-width:460px;margin:14px auto 0;display:flex;justify-content:center}
-/* 选择页那颗「管理这台机器」：**与登录页那个回链同一张脸**（2026-10-20）。
-   它从前是一行裸的左对齐段落，挂在 h1 底下、卡片之前——一台机器级的动作压在
-   「这一份是谁」上面，读起来像这一页的正事。现在它挪到卡片**之后**、居中一行。
-   宽度同 `.login-back`（460 并居中）：它是这一页的退路，不该跟档案卡抢宽度。 */
+/* 选择页那颗「管理」：**页脚一行小字，不是按钮**（2026-11-05 改判）。
+   它一直戴着 `a.badge` 那张脸（13px、描边、卡片底、居中独占一行），于是在
+   「选你是谁」这一屏上，一台机器级的动作和档案卡同层站着；而家里绝大多数人
+   手里没有那把 key，点进去只是一张登录页。现在它是**一行小字链接**：可达性
+   一分不丢（2026-10-15 那条「无 cookie 时也必须画着」的判据不动），只是不再
+   是「这一页的正事」。
+   位置仍是卡片**之后**、居中一行，宽度同 `.login-back`（460 并居中）——
+   2026-10-20 那一改挪对了地方，这里只减重量，不搬位置。
+   `min-height:44px` **不写在这里**：44 由导航族那条联合规则给（它已经收了
+   .pick-admin-link），另写一条就会被 TestCSS_搜索控件的44px由哪条规则保证
+   数成第八族。这里只管"它看起来是文字、点起来仍够大"：inline-flex 让
+   min-height 生效（inline 元素吃不到），padding 给手指左右一点余量。 */
 .pick-admin{max-width:460px;margin:16px auto 0;display:flex;justify-content:center}
+.pick-admin-link{display:inline-flex;align-items:center;padding:0 10px;
+  font-size:12px;color:var(--ink2);text-decoration:underline;text-underline-offset:3px}
+.pick-admin-link:hover{color:var(--accent)}
 /* 选择页那枚「新建自己的一份」（2026-10-23）：**折叠起来**的建档表单。
    折叠是因为这一页的正事是「选你是谁」，建档是另一件事；展开它，这一页就
    变成一个表单页了。宽度与居中照抄 `.pick-admin` 那一档（460 并居中）——

@@ -465,10 +465,13 @@ func TestAdminEntryOnlyForAdmin(t *testing.T) {
 	r := renderer(t, s)
 	dadPage, _ := r.ProfilePage(PageRequest{ID: "dad", HasAdmin: true})
 	momPage, _ := r.ProfilePage(PageRequest{ID: "mom"})
-	if !strings.Contains(string(dadPage.Body), ">管理这台机器<") {
+	// 用**整枚标签**钉，不用 `>管理<` 那种裸文案：后者在文案是「管理这台机器」时
+	// 永远匹配不上，看着在测、其实一条都没钉住（2026-11-05 随文案缩短一并修掉）。
+	const adminBadge = `<a class="badge" href="/admin">管理</a>`
+	if !strings.Contains(string(dadPage.Body), adminBadge) {
 		t.Fatal("带着管理权的那次请求要能看到管理标记")
 	}
-	if strings.Contains(string(momPage.Body), ">管理这台机器<") {
+	if strings.Contains(string(momPage.Body), adminBadge) {
 		t.Fatal("没带管理权就不该有管理标记")
 	}
 	// 同一份档案、同一批书签，HasAdmin 一翻就该翻面——钉的是"判据在这一格"，
@@ -477,7 +480,7 @@ func TestAdminEntryOnlyForAdmin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(dadNoAdmin.Body), ">管理<") {
+	if strings.Contains(string(dadNoAdmin.Body), adminBadge) {
 		t.Fatal("同一份档案不带管理权时也不该有管理标记：判据是这次请求，不是档案的属性")
 	}
 	if !strings.Contains(string(dadPage.Body), `href="/admin"`) {
@@ -1297,8 +1300,10 @@ func TestPickerPage_三形状(t *testing.T) {
 	// 「≥2 的形状逐字不动」要有字节级的证人：{{if}}/{{else}} 包一层时，if 的 end
 	// 前那段缩进会漏进输出（评审 F6 实测多 3 个字节），而卡片数、h1 全都照旧。
 	// `</ul>\n  <p class="pick-admin">` 这条接缝就是包 wrapper 之后 HEAD 的输出
-	// 形状，{{- end}} 收的就是它。**2026-10-20**：「管理这台机器」那颗徽标从卡片
+	// 形状，{{- end}} 收的就是它。**2026-10-20**：「管理」那颗徽标从卡片
 	// **之前**挪到了**之后**（它原本压在「这一份是谁」上面），于是接缝多了那一行。
+	// **2026-11-05**：它从 a.badge 降成一行小字链接，但 `<p class="pick-admin">`
+	// 这个壳没动——所以下面这条接缝也不用动，改的只是标签里面那一层。
 	// **2026-10-23**：卡片与那颗徽标之间多了一个折叠块（「新建自己的一份」，
 	// 自建档的入口），于是接缝从 `</ul>` 挪到 `</details>`——**见证的还是同一件事**
 	// （包 wrapper 的缩进不许漏进输出），只是末尾那一块换了形状。

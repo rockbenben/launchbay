@@ -196,7 +196,7 @@ sudo chown -R 65534:65534 ./data
 |---|---|
 | 调整页面外观、视图、导航模式、背景图、分组排法与「点书签时」 | 顶栏「设置」，或 `POST /prefs`、`POST /prefs/background`、`POST /prefs/group` 与 `POST /prefs/tabs` |
 | 改自己这一份的 PIN | 自己设置面板的「我的 PIN」，或 `POST /prefs/pin` / `POST /api/v1/profiles/self/pin`（这一份本来有 PIN 时才要旧 PIN） |
-| 建档、删档、给别人设 PIN、停用某个人 | 选择页上的「管理这台机器」（一直显示）或直接打开 `/admin`；档案页顶栏只在管理员登录后才有这颗链接。机器通路用 `POST /api/v1/profiles`（`{"id","title","nopass":true}` 建出不设 PIN 的一份）；命令行是 `launchbay profile create --id <slug> --title <名字>`（要管理员 key）。**删档要再输一次那把机器级密钥**（页面上的 `key` 字段，命令行那条只认 `Authorization: Bearer <LAUNCHBAY_ADMIN_TOKEN>`） |
+| 建档、删档、给别人设 PIN、停用某个人 | 选择页底部的「管理」（一直显示，是页脚一行小字，不是按钮）或直接打开 `/admin`；档案页顶栏只在管理员登录后才有这颗「管理」徽标。机器通路用 `POST /api/v1/profiles`（`{"id","title","nopass":true}` 建出不设 PIN 的一份）；命令行是 `launchbay profile create --id <slug> --title <名字>`（要管理员 key）。**删档要再输一次那把机器级密钥**（页面上的 `key` 字段，命令行那条只认 `Authorization: Bearer <LAUNCHBAY_ADMIN_TOKEN>`） |
 | 给自己再建一份（不用找管理员） | 选择页上折叠着的「新建自己的一份」，或 `POST /api/v1/profiles/new`（免凭证；id 由名字派生，不接受申报） |
 | 收拾那些「名字就是地址」的条目 | `launchbay profile fix-names --profile <id>`（先加 `--dry-run` 看要改哪些）。它按规则批量改名字，所以是命令行动作，不是一颗键 |
 | 让 AI 或脚本改书签 | `POST /api/v1/batch`，带 `expectedRev` 防覆盖 |
