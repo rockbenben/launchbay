@@ -235,7 +235,7 @@ func pickerShape(t *testing.T) []byte {
 // `immutable` 意味着它只在指纹变时被重新下载一次，所以它的预算量级与 HTML 不同：
 // HTML 每次翻页都要传，JS 常常整个会话只传一次）。
 func TestBudget_appJS在预算内(t *testing.T) {
-	// spec §7.3 那一条（docs/superpowers/specs/2026-10-05-launchbay-design.md）在
+	// AGENTS.md「字节闸」里的契约预算在
 	// 2026-10-16 由用户拍板从 60KB 改成 128KB：当天三件合法的新东西（拖入并就地
 	// 落位、那套动效、图标库的起始格）把实测顶到线上，而原线只剩几十字节。
 	// 那边是契约（外层硬顶），下面是操作线（先响的那一声）——**两档各判一次**，

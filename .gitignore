@@ -17,3 +17,5 @@ dist/
 /leakguard
 /flare-sample/
 design-preview/
+.claude/
+.workbuddy/
