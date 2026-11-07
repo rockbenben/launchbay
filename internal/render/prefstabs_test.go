@@ -89,7 +89,7 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 	r := New(s, ix, fc)
 
 	for _, tab := range []string{"look", "out", "groups"} {
-		page, err := r.PrefsPage("dad", tab, i18n.Zh)
+		page, err := r.PrefsPage("dad", tab, i18n.Zh, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -135,7 +135,7 @@ func TestPrefsTabs_停在哪一节由tab说了算且表单带着它(t *testing.T
 	}
 	// 不认识的值与空串都落回第一颗——那是"三颗都没按"的反面（空屏）。
 	for _, bad := range []string{"", "nope", "look&x"} {
-		page, err := r.PrefsPage("dad", bad, i18n.Zh)
+		page, err := r.PrefsPage("dad", bad, i18n.Zh, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -151,7 +151,7 @@ func prefsPanelHTML(t *testing.T, tab string) string {
 	t.Helper()
 	ix, fc, s := assets(t)
 	saveBookmarks(t, s, "dad", withIcons(2))
-	page, err := New(s, ix, fc).PrefsPage("dad", tab, i18n.Zh)
+	page, err := New(s, ix, fc).PrefsPage("dad", tab, i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -62,7 +62,8 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	addr, hasAddr := r.Form["addrLevel"]
 	lang, hasLang := r.Form["language"]
 	link, hasLink := r.Form["linkMode"]
-	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr && !hasLang && !hasLink {
+	hasProfilePrefs := hasTheme || hasLayout || hasTitle || hasView || hasAddr || hasLang
+	if !hasProfilePrefs && !hasLink {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
 		why := "要带 theme、layout、view、addrLevel、language、linkMode 或 title 至少一个"
@@ -166,10 +167,9 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 			// 默认语言本身：跟着默认的人，管理员改默认时要跟着变。
 			p.Language = strings.TrimSpace(lang[0])
 		}
-		if hasLink {
-			p.LinkMode = model.LinkMode(link[0])
+		if hasProfilePrefs {
+			saveErr = s.deps.Store.SaveProfile(p)
 		}
-		saveErr = s.deps.Store.SaveProfile(p)
 		return nil
 	})
 	if err != nil {
@@ -180,6 +180,9 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	if saveErr != nil {
 		writeInternalError(w, saveErr)
 		return
+	}
+	if hasLink {
+		setBrowserLinkMode(w, r, id, link[0])
 	}
 	// 成功与拒都回 `/`：字节相同，语义不同（拒是"你没资格动这条路"，成功是
 	// "改完了，回首页看新主题"）。判据在 require 那一份里，外壳在这一句里。
@@ -222,7 +225,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 		s.renderPrefsNoticeOK(w, r, id, s.trFor(r, id).t("backup.ok.imported"))
 		return
 	}
-	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id), browserLinkMode(r, id))
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -237,7 +240,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 // **为什么不在 /prefs 里一起办**：那几个字段落在 bookmarks.json 的分组上，
 // 属于书签数据——快照、审计线、rev 三道闸一道都不能少，所以它走
 // `applyBatch`（与 POST /api/v1/batch 同一个落点，`/import/apply` 也是这么走的）。
-// `/prefs` 只写 profile.json 的台面偏好，混进来的话它那句"七格至少给一个"
+// `/prefs` 保存档案或浏览器的台面偏好，混进来的话它那句"七格至少给一个"
 // 就会开始管到不属于它的东西，而 422 的字段名也就再也不能当"这一格写错"读。
 //
 // **档案不接受申报**：与 /revert、/history、/prefs 同一族，档案从会话推导。
@@ -641,7 +644,7 @@ func (s *Server) renderPrefsNoticeOK(w http.ResponseWriter, r *http.Request, id,
 }
 
 func (s *Server) renderPrefsNoticeClass(w http.ResponseWriter, r *http.Request, id, notice, class string) {
-	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id))
+	page, err := s.deps.Render.PrefsPage(id, prefsTab(r), s.langOf(r, id), browserLinkMode(r, id))
 	if err != nil {
 		s.handleError(w, err)
 		return

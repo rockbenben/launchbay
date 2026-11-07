@@ -80,7 +80,7 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 
 **At home and away**
 
-- **Two addresses, one bookmark**: set the primary address and an optional WAN address in Add or Edit. Auto chooses from the address you use to open Launchbay; Settings → Bookmark addresses lets you choose LAN or WAN yourself. This also works with JavaScript off. If you use the same public domain at home and away, choose manually. Search and copy use the active address; bookmarks without a WAN address keep using their primary address.
+- **Two addresses, one bookmark**: set the primary address and an optional WAN address in Add or Edit. Auto chooses from the address you use to open Launchbay; Settings → Bookmark addresses lets you choose LAN or WAN yourself. This also works with JavaScript off. The browser remembers your choice for this host and profile. If you use the same public domain at home and away, switch manually when needed. Configure your reverse proxy to preserve the original Host. Search and copy use the active address; bookmarks without a WAN address keep using their primary address.
 
 **The page itself**
 

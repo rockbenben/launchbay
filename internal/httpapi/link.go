@@ -2,25 +2,35 @@ package httpapi
 
 import (
 	"net/http"
-	"net/netip"
 
 	"github.com/rockbenben/launchbay/internal/model"
 )
 
-func (s *Server) linkShapeOf(r *http.Request, p *model.Profile, hosts, cidrs []string) model.LANShape {
-	if p != nil && (p.LinkMode == model.LinkLAN || p.LinkMode == model.LinkWAN) {
-		return model.LANShape{Mode: p.LinkMode, Rule: "manual"}
+func browserLinkMode(r *http.Request, id string) model.LinkMode {
+	c, err := r.Cookie("lb_link_" + id)
+	if err != nil || !model.ValidLinkMode(c.Value) {
+		return ""
 	}
-	shape := model.LANShapeOf(r.Host, hosts)
-	if shape.Rule != "fallback" {
-		return shape
+	return model.LinkMode(c.Value)
+}
+
+func setBrowserLinkMode(w http.ResponseWriter, r *http.Request, id, mode string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: "lb_link_" + id, Value: mode, Path: "/", MaxAge: 365 * 24 * 60 * 60,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil,
+	})
+}
+
+func linkShapeOf(r *http.Request, p *model.Profile, hosts []string) model.LANShape {
+	if p == nil {
+		return model.LANShapeOf(r.Host, hosts)
 	}
-	if addr, err := netip.ParseAddrPort(r.RemoteAddr); err == nil {
-		for _, raw := range cidrs {
-			if prefix, err := netip.ParsePrefix(raw); err == nil && prefix.Contains(addr.Addr()) {
-				return model.LANShape{Mode: model.LinkLAN, Rule: "lan-cidr"}
-			}
+	browser := browserLinkMode(r, p.ID)
+	if mode := p.PreferredLinkMode(browser); mode != model.LinkAuto {
+		if browser == "" {
+			return model.LANShape{Mode: mode, Rule: "profile-default"}
 		}
+		return model.LANShape{Mode: mode, Rule: "manual"}
 	}
-	return shape
+	return model.LANShapeOf(r.Host, hosts)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/rockbenben/launchbay/internal/apierr"
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
 )
 
@@ -81,8 +82,8 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	notice := s.notice(r, r.URL.Query().Get("err"))
 	opts := s.adminOptions()
 	opts.Host, opts.RemoteAddr = r.Host, r.RemoteAddr
-	opts.LANHosts, opts.LANCIDRs = s.deps.Store.LANRules()
-	shape := s.linkShapeOf(r, nil, opts.LANHosts, opts.LANCIDRs)
+	opts.LANHosts = s.deps.Store.LANHosts()
+	shape := model.LANShapeOf(r.Host, opts.LANHosts)
 	opts.LinkMode, opts.LinkRule = shape.Mode, shape.Rule
 	// 字段错重画时把刚输入的名字带回来（2026-10-24，与 /setup、/new 同一处置）：
 	// 建档失败一次就清空名字，人得从头再打一遍；PIN 错的那一发更会顺手变成

@@ -372,7 +372,7 @@ func TestLegacyManagingCookieIsClearedNotRendered(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("want 200 选择页, got %d", rec.Code)
 	}
-	if got := rec.Header().Get("X-LB-Profile"); got != "picker" {
+	if got := rec.Header().Get("X-LB-Profile"); got != "-picker" {
 		t.Fatalf("旧代管 cookie 给了 %q 页, want picker", got)
 	}
 	if strings.Contains(rec.Body.String(), "发射台") {
@@ -589,7 +589,7 @@ func TestThirdShapeClearedAtRoot(t *testing.T) {
 			if rec.Code != 200 {
 				t.Fatalf("want 200 选择页, got %d", rec.Code)
 			}
-			if got := rec.Header().Get("X-LB-Profile"); got != "picker" {
+			if got := rec.Header().Get("X-LB-Profile"); got != "-picker" {
 				t.Fatalf("非法形态给了 %q 页, want picker", got)
 			}
 			if strings.Contains(rec.Body.String(), "发射台") {

@@ -1,13 +1,13 @@
 // sw.js —— P1-⑥ 的 Service Worker。
 //
 // **它读不到 cookie**（fetch 事件里 request.headers 不含 Cookie），所以它自己
-// 选不出档案。服务端因此在每个 HTML 响应上带 `X-LB-Profile: <id|picker|-admin>`
+// 选不出档案。服务端因此在每个 HTML 响应上带 `X-LB-Profile: <id|-picker|-admin>`
 // （§7.1），SW 拿那个头决定**存进哪个桶**。三个值的处置各不相同，而它们的差别
 // 就是本文件最重要的一段逻辑：
 //
-//   html-<id>     某个人的档案页 —— 存。它是离线时唯一真正有用的东西。
-//   html-<id>-<mode> 档案首页额外存一份，先按上一次成功连接的模式回退。
-//   html-picker   档案选择页 —— 存。它本来就只列档案名字（§8.0：陌生人打开
+//   lb-html:<id>     某个人的档案页。
+//   lb-html:<id>:<mode> 档案首页额外存一份，先按上一次成功连接的模式回退。
+//   lb-html:-picker   档案选择页 —— 存。它本来就只列档案名字（§8.0：陌生人打开
 //                 首页看到的就是那些名字），所以离线时能回退到它不比在线时多
 //                 泄露什么；反过来，"连当前档案都不知道"的机器上，它是唯一
 //                 还能把人送进某个档案的入口。
@@ -22,8 +22,7 @@
 //
 // **不静默 skipWaiting**（§7.1）：检测到新版本时不抢占，等页面自己决定。
 
-const VERSION = 'lb-sw-3';
-// v3 adds html-<id>-<mode>; existing html-<id> and html-picker remain fallbacks.
+const VERSION = 'lb-sw-4';
 // 代次从 1 跳到 2 的原因（2026-10-15）：上面那条「面板 fetch 不进资产缓存」是
 // 这一次才补的，而**已经被钉住的那一份还在 lb-sw-1 里**。按 §7.1 的规矩，sw.js
 // 变了就得换代次——activate 那一支只清 assets-<别的代次>，于是旧桶连同那份
@@ -56,7 +55,7 @@ async function kvGet(k) {
       t.onsuccess = () => res(t.result);
       t.onerror = () => rej(t.error);
     });
-  } catch { return undefined; } // 拿不到就当没有：回退到 html-picker
+  } catch { return undefined; } // 拿不到就回退到选择页
 }
 
 async function kvSet(k, v) {
@@ -85,11 +84,32 @@ async function precache(urls) {
 }
 
 // ── activate ──────────────────────────────────────────────────────────────
-// **只清 assets- 的旧版本，不清 html- 的桶**：那些桶是用户正在离线看着的东西，
-// "删掉一个离线副本"比"多留一个"更让人意外。而 html- 的桶名里**本来就没有版本号**
-// （`html-<profileId>`），所以"跨版本残留"这件事对它们根本不成立。
+// v3 的 html-dad-lan 既可能是 dad 的内网页，也可能是 dad-lan 的普通页。
+// 逐条按服务端响应头迁移。旧 picker 与同名档案都用 "picker"，
+// 没有模式头时不能确定归属，只能等下次在线访问重新缓存。
+const pickerID = '-picker';
+const isMode = mode => mode === 'lan' || mode === 'wan';
+const htmlCache = (id, mode) => 'lb-html:' + id + (mode ? ':' + mode : '');
+
+async function migrateHTML(name) {
+  const old = await caches.open(name);
+  for (const req of await old.keys()) {
+    const res = await old.match(req);
+    if (!res) continue;
+    const id = res.headers.get('X-LB-Profile');
+    const mode = res.headers.get('X-LB-Link-Mode');
+    if (!id || id === '-admin') continue;
+    let target;
+    if (name === 'html-' + id) target = htmlCache(id);
+    else if (isMode(mode) && name === 'html-' + id + '-' + mode) target = htmlCache(id, mode);
+    if (!target) continue;
+    if (id !== 'picker' || isMode(mode)) await (await caches.open(target)).put(req, res);
+    await old.delete(req);
+  }
+  if (!(await old.keys()).length) await caches.delete(name);
+}
 //
-// 一条**已知边界**（spec §15 记着）：某个档案被删掉之后，它的 `html-<id>` 桶会留在
+// 一条**已知边界**（spec §15 记着）：某个档案被删掉之后，它的 HTML 缓存会留在
 // 设备上。清它需要"这台机器现在还有哪些档案"这份清单，而这份清单只有选择页拿得到
 // ——选择页是零 JavaScript 的（§8.1），给它挂脚本只为发一条清单不划算；档案页自己
 // 则只知道它是谁。所以这个清理现在没有干净的落点。
@@ -101,6 +121,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     for (const k of await caches.keys()) {
       if (k.startsWith('assets-') && k !== ASSET_CACHE) await caches.delete(k);
+      if (k.startsWith('html-')) await migrateHTML(k);
     }
     // 刻意不调 skipWaiting：§7.1 要求"检测到 rev 变化不静默更新，顶栏出提示"，
     // 而静默更新的开关就在这一行。
@@ -119,10 +140,8 @@ self.addEventListener('message', (e) => {
   // 只清缓存会让离线回退找不到任何东西。
   if (d && d.type === 'switch' && d.from) {
     e.waitUntil((async () => {
-      if (d.to) await kvSet('currentProfile', d.to);
-      await caches.delete('html-' + d.from);
-      await caches.delete('html-' + d.from + '-lan');
-      await caches.delete('html-' + d.from + '-wan');
+      await kvSet('currentProfile', d.to || pickerID);
+      for (const mode of ['', 'lan', 'wan']) await caches.delete(htmlCache(d.from, mode));
     })());
   }
 });
@@ -179,14 +198,19 @@ async function htmlFirst(req) {
     // 网络不通**或**超时：回退缓存。这不是"错误"，是离线态——所以不报错，
     // 只把缓存里那份交出去（离线时页面顶端会显示"离线·只读"，§8.7）。
     const current = await kvGet('currentProfile');
-    const id = typeof current === 'string' ? current : current?.id;
+    const id = typeof current === 'string' ? (current === 'picker' ? pickerID : current) : current?.id;
     const mode = typeof current === 'object' ? current?.mode : '';
-    const specific = id && (mode === 'lan' || mode === 'wan') ? id + '-' + mode : '';
-    for (const key of [specific, id, 'picker']) {
-      if (!key) continue;
-      const hit = await (await caches.open('html-' + key)).match(req);
-      if (hit) return hit;
+    if (id && id !== pickerID) {
+      for (const bucketMode of isMode(mode) ? [mode, ''] : ['']) {
+        const hit = await caches.match(req, { cacheName: htmlCache(id, bucketMode) });
+        if (hit?.headers.get('X-LB-Profile') !== id) continue;
+        const savedMode = hit.headers.get('X-LB-Link-Mode');
+        if (isMode(mode) && savedMode !== mode && new URL(req.url).pathname === '/') continue;
+        return hit;
+      }
     }
+    const picker = await caches.match(req, { cacheName: htmlCache(pickerID) });
+    if (picker?.headers.get('X-LB-Profile') === pickerID) return picker;
     // 连当前档案都没有（本设备从没在线成功过）→ 选择页，这正是 spec §7.1
     // 点名的那一档。
     throw new Error('offline and nothing cached');
@@ -200,13 +224,13 @@ async function storeHTML(req, res) {
   if (!id || id === '-admin') return;
   const mode = res.headers.get('X-LB-Link-Mode') || '';
   const current = await kvGet('currentProfile');
-  if (mode === 'lan' || mode === 'wan') {
+  if (isMode(mode)) {
     await kvSet('currentProfile', { id, mode });
-    await (await caches.open('html-' + id + '-' + mode)).put(req, res.clone());
+    await (await caches.open(htmlCache(id, mode))).put(req, res.clone());
   } else if (current?.id !== id) {
-    await kvSet('currentProfile', id);
+    await kvSet('currentProfile', { id, mode: '' });
   }
-  await (await caches.open('html-' + id)).put(req, res);
+  await (await caches.open(htmlCache(id))).put(req, res);
 }
 
 async function cacheFirst(req) {

@@ -313,7 +313,7 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Body: body, ETag: makeETag("picker", body), Profile: "picker", NoStore: true}, nil
+	return Page{Body: body, ETag: makeETag("picker", body), Profile: "-picker", NoStore: true}, nil
 }
 
 // BrokenPage 渲染坏档案的解释页：只有档案 id 与 store 给的人话原因
@@ -394,10 +394,10 @@ type AdminRow struct {
 // 机器现在用的还是不是它"——前者是公开知识，印出来不泄露任何东西；后者
 // 只在**已经进了管理页**的人眼前才有意义。
 type AdminOptions struct {
-	Host, RemoteAddr   string
-	LinkMode           model.LinkMode
-	LinkRule           string
-	LANHosts, LANCIDRs []string
+	Host, RemoteAddr string
+	LinkMode         model.LinkMode
+	LinkRule         string
+	LANHosts         []string
 	// DefaultAdminKey 是那个公开的默认密钥的字面值。
 	DefaultAdminKey string
 	// UsingDefaultAdminKey 为真 = 这台机器现在用的就是它（该换掉了）。
@@ -716,7 +716,7 @@ func firstChar(s string) string {
 //
 // 不进渲染缓存：这一页每个字段都是台面偏好（改一个就换一个 profile 指纹），
 // 而它是"出了事去找设置"的落点，不该是浏览器缓存里的旧值。
-func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang) (Page, error) {
+func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang, browserMode model.LinkMode) (Page, error) {
 	prof, _, err := r.s.LoadProfileWithFingerprint(id)
 	if err != nil {
 		return Page{}, err
@@ -731,7 +731,7 @@ func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang) (Page, error) {
 	// openInNewTab）：两次读之间文件被人换掉的话，屏上那两个格子会来自同一份
 	// 读数——而它们都只是显示，写入侧仍在锁内重读（applyBatch）。
 	gs, broken, openNewTab := r.prefsGroups(id, cat)
-	body, err := r.tmpl.prefsPage(prof, hasSnaps, gs, broken, openNewTab, cat, tab)
+	body, err := r.tmpl.prefsPage(prof, prof.PreferredLinkMode(browserMode), hasSnaps, gs, broken, openNewTab, cat, tab)
 	if err != nil {
 		return Page{}, err
 	}

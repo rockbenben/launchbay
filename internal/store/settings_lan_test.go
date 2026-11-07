@@ -16,9 +16,9 @@ func TestLanguagePreservesLANRules(t *testing.T) {
 		if err := write(); err != nil {
 			t.Fatal(err)
 		}
-		h, c := s.LANRules()
-		if strings.Join(h, ",") != "nas.example.com" || strings.Join(c, ",") != "10.0.0.0/8" {
-			t.Fatal(h, c)
+		st, err := s.readSettings()
+		if err != nil || strings.Join(s.LANHosts(), ",") != "nas.example.com" || strings.Join(st.LANCIDRs, ",") != "10.0.0.0/8" {
+			t.Fatal(st, err)
 		}
 	}
 	broken := []byte(`{"language":`)

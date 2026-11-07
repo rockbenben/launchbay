@@ -1523,7 +1523,7 @@ func TestPrefsPage_主题三颗键各交自己那一档(t *testing.T) {
 		if err := s.SaveProfile(p); err != nil {
 			t.Fatal(err)
 		}
-		page, err := renderer(t, s).PrefsPage("dad", "", i18n.Zh)
+		page, err := renderer(t, s).PrefsPage("dad", "", i18n.Zh, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1933,7 +1933,7 @@ func mustRender(t *testing.T, s *store.Store, id string) []byte {
 // "画得出来"的测试都要走它。
 func mustPrefs(t *testing.T, s *store.Store, id string) []byte {
 	t.Helper()
-	p, err := renderer(t, s).PrefsPage(id, "", i18n.Zh)
+	p, err := renderer(t, s).PrefsPage(id, "", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

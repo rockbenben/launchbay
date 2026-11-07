@@ -29,8 +29,8 @@ func TestSW_哨兵值决定什么能被缓存(t *testing.T) {
 
 	t.Run("选择页是 picker", func(t *testing.T) {
 		rec := get(h, "/", "")
-		if got := rec.Header().Get("X-LB-Profile"); got != "picker" {
-			t.Errorf("选择页 X-LB-Profile = %q，要 \"picker\"", got)
+		if got := rec.Header().Get("X-LB-Profile"); got != "-picker" {
+			t.Errorf("选择页 X-LB-Profile = %q，要 \"-picker\"", got)
 		}
 	})
 
@@ -79,8 +79,8 @@ func TestSW_静态端点的头(t *testing.T) {
 func TestSW_关键约定在字节里(t *testing.T) {
 	src := string(render.SWJS())
 	for _, want := range []struct{ what, needle string }{
-		{"缓存名按档案分桶", "'html-' + id"},
-		{"回退的终点是选择页", "'picker'"},
+		{"缓存名按档案分桶", "'lb-html:' + id"},
+		{"回退的终点是选择页", "htmlCache(pickerID)"},
 		{"管理页一律不存", "id === '-admin'"},
 		{"HTML 超时 1.5 秒（spec §7.1 的数）", "HTML_TIMEOUT_MS = 1500"},
 		{"不静默抢占", "刻意不调 skipWaiting"},

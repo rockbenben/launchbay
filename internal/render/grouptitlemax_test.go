@@ -60,7 +60,7 @@ func Test浮层里新分组名那一格也有上限(t *testing.T) {
 func Test面板那两格与浮层那一个上限是同一个数(t *testing.T) {
 	ix, fc, s := assets(t)
 	saveBookmarks(t, s, "dad", withIcons(1))
-	page, err := New(s, ix, fc).PrefsPage("dad", "", i18n.Zh)
+	page, err := New(s, ix, fc).PrefsPage("dad", "", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

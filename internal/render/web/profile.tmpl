@@ -579,9 +579,9 @@
       <span class="prefs-label" id="link-mode-label">{{.T "prefs.linkMode"}}</span>
       <p class="prefs-hint" id="link-mode-hint">{{.T "prefs.linkMode.hint"}}</p>
       <div class="prefs-keys" role="group" aria-labelledby="link-mode-label" aria-describedby="link-mode-hint">
-        <button type="submit" name="linkMode" value="auto" aria-pressed="{{if eq .Profile.LinkMode "lan"}}false{{else if eq .Profile.LinkMode "wan"}}false{{else}}true{{end}}">{{.T "link.mode.auto"}}</button>
-        <button type="submit" name="linkMode" value="lan" aria-pressed="{{if eq .Profile.LinkMode "lan"}}true{{else}}false{{end}}">{{.T "link.mode.lan"}}</button>
-        <button type="submit" name="linkMode" value="wan" aria-pressed="{{if eq .Profile.LinkMode "wan"}}true{{else}}false{{end}}">{{.T "link.mode.wan"}}</button>
+        <button type="submit" name="linkMode" value="auto" aria-pressed="{{eq .SelectedLinkMode "auto"}}">{{.T "link.mode.auto"}}</button>
+        <button type="submit" name="linkMode" value="lan" aria-pressed="{{eq .SelectedLinkMode "lan"}}">{{.T "link.mode.lan"}}</button>
+        <button type="submit" name="linkMode" value="wan" aria-pressed="{{eq .SelectedLinkMode "wan"}}">{{.T "link.mode.wan"}}</button>
       </div>
     </div>
   </form>

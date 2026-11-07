@@ -23,6 +23,18 @@ func ValidLinkMode(s string) bool {
 	return s == "" || slices.Contains(LinkModeValues, s)
 }
 
+// PreferredLinkMode keeps existing profile and backup defaults for browsers
+// which have never chosen a mode. An explicit Auto also overrides that default.
+func (p *Profile) PreferredLinkMode(browser LinkMode) LinkMode {
+	if browser != "" && ValidLinkMode(string(browser)) {
+		return browser
+	}
+	if p.LinkMode == LinkLAN || p.LinkMode == LinkWAN {
+		return p.LinkMode
+	}
+	return LinkAuto
+}
+
 func CheckWanURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
@@ -105,14 +117,13 @@ func LANShapeOf(raw string, lanHosts []string) LANShape {
 		return LANShape{LinkLAN, "fallback"}
 	}
 	for _, h := range lanHosts {
-		if host == strings.ToLower(strings.TrimSuffix(h, ".")) {
+		if strings.EqualFold(host, strings.TrimSuffix(HostOnly(strings.TrimSpace(h)), ".")) {
 			return LANShape{LinkLAN, "lan-host"}
 		}
 	}
 	if ip, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
+		ip = ip.Unmap()
 		switch {
-		case ip.Is4In6():
-			return LANShape{LinkWAN, "wan-domain"}
 		case ip.IsLoopback():
 			return LANShape{LinkLAN, "loopback"}
 		case ip.IsLinkLocalUnicast():
@@ -128,7 +139,7 @@ func LANShapeOf(raw string, lanHosts []string) LANShape {
 	if !strings.Contains(host, ".") {
 		return LANShape{LinkLAN, "bare-host"}
 	}
-	if strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".home.arpa") {
+	if host == "home.arpa" || strings.HasSuffix(host, ".home.arpa") || strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".localhost") {
 		return LANShape{LinkLAN, "local-domain"}
 	}
 	return LANShape{LinkWAN, "wan-domain"}

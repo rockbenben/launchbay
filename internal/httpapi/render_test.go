@@ -70,7 +70,7 @@ func TestPickerHasItsOwnProfileHeader(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Accept-Language", "zh") // 这一族夹具是"一个说中文的浏览器"（见 handlers_test 的说明）
 	h.ServeHTTP(rec, req)
-	if got := rec.Header().Get("X-LB-Profile"); got != "picker" {
+	if got := rec.Header().Get("X-LB-Profile"); got != "-picker" {
 		t.Fatalf("选择页的 X-LB-Profile = %q", got)
 	}
 	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
@@ -146,7 +146,7 @@ func TestUnknownProfileInCookieFallsBackToPicker(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: auth.CookieHome, Value: "ghost"})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Header().Get("X-LB-Profile") != "picker" {
+	if rec.Header().Get("X-LB-Profile") != "-picker" {
 		t.Fatalf("指向不存在的档案要回选择页, got %q", rec.Header().Get("X-LB-Profile"))
 	}
 }

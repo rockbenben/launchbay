@@ -2,32 +2,37 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/rockbenben/launchbay/internal/model"
+	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/rockbenben/launchbay/internal/model"
 )
 
 func TestLinkShapeManualAndHostPriority(t *testing.T) {
-	s := &Server{}
 	r := httptest.NewRequest("GET", "http://nas.example.com/", nil)
 	r.RemoteAddr = "10.0.0.7:54321"
-	p := &model.Profile{LinkMode: model.LinkLAN}
-	if got := s.linkShapeOf(r, p, nil, nil); got.Rule != "manual" || got.Mode != model.LinkLAN {
-		t.Fatal(got)
-	}
-	p.LinkMode = model.LinkAuto
-	if got := s.linkShapeOf(r, p, nil, []string{"10.0.0.0/8"}); got.Mode != model.LinkWAN {
-		t.Fatal("CIDR overrode Host", got)
-	}
-	r.Host = ""
-	if got := s.linkShapeOf(r, p, nil, nil); got.Rule != "fallback" {
-		t.Fatal(got)
-	}
-	if got := s.linkShapeOf(r, p, nil, []string{"broken", "10.0.0.0/8"}); got.Rule != "lan-cidr" {
-		t.Fatal(got)
+	r.Header.Set("X-Forwarded-Host", "nas.local")
+	r.Header.Set("X-Forwarded-For", "10.0.0.9")
+	for _, tc := range []struct {
+		id, saved, browser, want, rule string
+	}{
+		{"dad", "", "", "wan", "wan-domain"},
+		{"dad", "lan", "", "lan", "profile-default"},
+		{"dad", "lan", "auto", "wan", "wan-domain"},
+		{"dad", "", "lan", "lan", "manual"},
+		{"dad", "wan", "bad", "wan", "profile-default"},
+		{"kid", "", "lan", "wan", "wan-domain"},
+	} {
+		r.Header.Del("Cookie")
+		r.AddCookie(&http.Cookie{Name: "lb_link_dad", Value: tc.browser})
+		p := &model.Profile{ID: tc.id, LinkMode: model.LinkMode(tc.saved)}
+		if got := linkShapeOf(r, p, nil); string(got.Mode) != tc.want || got.Rule != tc.rule {
+			t.Errorf("%+v: got %+v", tc, got)
+		}
 	}
 }
 
@@ -73,9 +78,15 @@ func TestDualURLRequestRenderingSearchCacheAndBackup(t *testing.T) {
 		t.Fatal("search missed active URL")
 	}
 	before, _ := s.LoadBookmarks("dad")
-	if rec := postForm(h, "/prefs", "linkMode=wan", cookie); rec.Code != 303 {
-		t.Fatal(rec.Code, rec.Body)
+	res := postForm(h, "/prefs", "linkMode=wan", cookie)
+	cc := res.Result().Cookies()
+	if res.Code != 303 || len(cc) != 1 || cc[0].Name != "lb_link_dad" || cc[0].Value != "wan" {
+		t.Fatal(res.Code, cc)
 	}
+	if rec := read("10.0.0.5:7600", "/"); rec.Header().Get("X-LB-Link-Mode") != "lan" {
+		t.Fatal("another browser using this profile changed mode")
+	}
+	cookie += "; " + cc[0].Name + "=" + cc[0].Value
 	if rec := read("10.0.0.5:7600", "/"); rec.Header().Get("X-LB-Link-Mode") != "wan" {
 		t.Fatal(rec.Header())
 	}
@@ -84,7 +95,7 @@ func TestDualURLRequestRenderingSearchCacheAndBackup(t *testing.T) {
 		t.Fatal("preference wrote bookmark rev")
 	}
 	pkg := backupOf(t, h, "/api/v1/backup?profile=dad", cookie)
-	if pkg["settings"].(map[string]any)["linkMode"] != "wan" {
+	if pkg["settings"].(map[string]any)["linkMode"] != "" {
 		t.Fatal(pkg["settings"])
 	}
 	if rec := post(h, "/api/v1/restore", `{"kind":"launchbay-backup","version":1,"settings":{"linkMode":"lan"}}`, cookie, ""); rec.Code != 200 {
@@ -93,6 +104,17 @@ func TestDualURLRequestRenderingSearchCacheAndBackup(t *testing.T) {
 	p, _ := s.LoadProfile("dad")
 	if p.LinkMode != model.LinkLAN {
 		t.Fatal(p.LinkMode)
+	}
+	if got := read("nas.example.com", "/").Header().Get("X-LB-Link-Mode"); got != "wan" {
+		t.Fatal("restoring a profile default overrode the browser", got)
+	}
+	auto := postForm(h, "/prefs", "linkMode=auto", cookie)
+	if auto.Code != 303 || len(auto.Result().Cookies()) != 1 || auto.Result().Cookies()[0].Value != "auto" {
+		t.Fatal("explicit Auto must override a restored profile default", auto.Header())
+	}
+	cookie = loginCookie(t, h, "dad", "1234") + "; lb_link_dad=auto"
+	if got := read("nas.example.com", "/").Header().Get("X-LB-Link-Mode"); got != "wan" {
+		t.Fatal("explicit Auto did not follow Host", got)
 	}
 	if rec := post(h, "/api/v1/restore", `{"kind":"launchbay-backup","version":1,"settings":{"linkMode":"proxy"}}`, cookie, ""); rec.Code != 422 {
 		t.Fatal(rec.Code, rec.Body)
@@ -118,7 +140,7 @@ func TestLinkDiagnosticsAndAuxiliaryHeaders(t *testing.T) {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, r)
 		body := rec.Body.String()
-		if rec.Code != 200 || !strings.Contains(body, host) || !strings.Contains(body, r.RemoteAddr) || !strings.Contains(body, "lanCIDRs") || strings.Contains(body, testAdminKey) {
+		if rec.Code != 200 || !strings.Contains(body, host) || !strings.Contains(body, r.RemoteAddr) || !strings.Contains(body, "lanHosts") || strings.Contains(body, "lanCIDRs") || strings.Contains(body, testAdminKey) {
 			t.Fatalf("diagnostics missing facts or exposed key for %s", host)
 		}
 		if rec.Header().Get("X-LB-Link-Mode") != "" {
@@ -183,7 +205,7 @@ func TestBackupDualURLRestoresBothAddressesIntoAnotherProfile(t *testing.T) {
 		t.Fatal(it)
 	}
 	p, err := s.LoadProfile("kid")
-	if err != nil || p.LinkMode != model.LinkWAN {
+	if err != nil || p.LinkMode != "" {
 		t.Fatal(p, err)
 	}
 }

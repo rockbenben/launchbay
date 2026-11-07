@@ -125,7 +125,7 @@ func TestPrefsPage_空组照画并带着那颗删键(t *testing.T) {
 	saveBookmarks(t, s, "dad", emptyGroupFixture())
 	r := New(s, ix, fc)
 
-	page, err := r.PrefsPage("dad", "", i18n.Zh)
+	page, err := r.PrefsPage("dad", "", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

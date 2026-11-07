@@ -335,7 +335,7 @@ func TestPickerPageListsNamesOnly(t *testing.T) {
 			t.Fatalf("选择页泄露了 %q:\n%s", forbidden, body)
 		}
 	}
-	if p.Profile != "picker" {
+	if p.Profile != "-picker" {
 		t.Fatalf("Profile = %q", p.Profile)
 	}
 	if !p.NoStore {

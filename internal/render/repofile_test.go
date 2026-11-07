@@ -55,7 +55,7 @@ func Test设置面板带着仓库链接(t *testing.T) {
 	save(t, s, "dad", "爸爸的台", "dsm")
 	r := renderer(t, s)
 
-	page, err := r.PrefsPage("dad", "", i18n.Zh)
+	page, err := r.PrefsPage("dad", "", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

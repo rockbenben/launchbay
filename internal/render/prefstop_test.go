@@ -14,7 +14,7 @@ import (
 // `section.prefs`，如果把它放进面板 define，浮层里会与 × 重复。
 func TestPrefsPage_独立页有顶部出口且不进浮层面板(t *testing.T) {
 	s := seeded(t)
-	page, err := renderer(t, s).PrefsPage("dad", "", i18n.Zh)
+	page, err := renderer(t, s).PrefsPage("dad", "", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

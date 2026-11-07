@@ -367,8 +367,9 @@ type profileData struct {
 }
 
 type profileView struct {
-	LinkMode model.LinkMode
-	LinkRule string
+	SelectedLinkMode model.LinkMode // The pressed mode in the settings panel.
+	LinkMode         model.LinkMode
+	LinkRule         string
 	i18nView
 	Profile *model.Profile
 	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标 + 一行字**：
@@ -1240,8 +1241,8 @@ const (
 // 各写一遍 `switch` 就会有一处忘了改，所以名单在这里、判据由它出去。
 var PrefTabValues = []string{PrefTabLook, PrefTabGroups, PrefTabOut, PrefTabPin}
 
-func (e *executor) prefsPage(p *model.Profile, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
+func (e *executor) prefsPage(p *model.Profile, selected model.LinkMode, hasSnaps bool, gs []groupView, broken string, openNewTab bool, cat *i18n.Catalog, tab string) ([]byte, error) {
+	v := profileView{SelectedLinkMode: selected, Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasSnapshots: hasSnaps, HasPin: auth.HasPin(p.PIN),
 		PrefGroups: gs, PrefGroupsBroken: broken,
 		// 那一枚 GitHub 猫头**住在这张页**上（面板最下面那一行，2026-10-21 从档案页

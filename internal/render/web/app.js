@@ -3959,15 +3959,7 @@ const APP_I18N = {
       });
     }).catch(() => { /* 没有 SW：在线功能一点不受影响 */ });
 
-    // 切档时告诉 SW：清掉上一个档案的 HTML 桶。**两个动作原本是同批做的**
-    // （改写"当前档案" + 清旧桶），只改记录会留下旧档案的缓存（下次离线回退
-    // 打错人），只清缓存会让离线回退找不到任何东西。
-    // 2026-10-10 代管态下线之后 `/switch` 只剩 `to=picker` 一条，于是这里把
-    // picker **转成空串**发过去：`sw.js` 那支 `if (d.to)` 不成立，只删桶、不改
-    // `currentProfile`。留着那个指针无害——它指向的桶刚被删掉，回退查不到就落到
-    // `html-picker`；而下一次有人真的进了一个档案页，`storeHTML` 会把指针改回来。
-    // 这里挂在 /switch 的表单提交上：那是全站唯一改 lb_profile 的动作，
-    // 别处再埋一份就会漏。
+    // 切回选择页时用空目标通知 SW，同时重置离线档案记录并清理本档案的缓存。
     for (const f of document.querySelectorAll('form[action="/switch"]')) {
       f.addEventListener('submit', () => {
         const to = f.querySelector('input[name=to]')?.value || '';

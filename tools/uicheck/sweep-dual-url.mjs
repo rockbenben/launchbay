@@ -28,7 +28,8 @@ const saveEdit = async () => {
 const setMode = async mode => {
   assert.equal(await c.run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'linkMode=${mode}'}).then(r=>r.status)`), 200);
   await go();
-  assert.equal(profile().linkMode, mode);
+  assert.equal(profile().linkMode || 'auto', 'auto');
+  assert.equal(await c.run(`fetch('/prefs', {headers: {Accept: 'text/html'}}).then(r => r.text()).then(html => new DOMParser().parseFromString(html, 'text/html').querySelector('button[name=linkMode][aria-pressed=true]').value)`), mode);
 };
 
 try {

@@ -98,7 +98,7 @@ func TestPIN的每一格都印着同一份上下限(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 台面面板第四颗 tab「我的 PIN」——那一格有两格（现在 / 新的）。
-	prefs, err := r.PrefsPage("dad", "pin", i18n.Zh)
+	prefs, err := r.PrefsPage("dad", "pin", i18n.Zh, "")
 	if err != nil {
 		t.Fatal(err)
 	}

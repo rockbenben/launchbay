@@ -36,7 +36,7 @@ type Settings struct {
 	// 现有界面。零值 i18n.Lang("") 经 ParseLang 落回默认。
 	Language i18n.Lang `json:"language"`
 	LANHosts []string  `json:"lanHosts,omitempty"`
-	LANCIDRs []string  `json:"lanCIDRs,omitempty"`
+	LANCIDRs []string  `json:"lanCIDRs,omitempty"` // Preserve old settings on a language change.
 }
 
 // SettingsPath 是站级设置的落盘位置。data/ 根下，与 profiles/ 平级——
@@ -149,12 +149,12 @@ func (s *Store) readSettings() (Settings, error) {
 	return st, err
 }
 
-func (s *Store) LANRules() ([]string, []string) {
+func (s *Store) LANHosts() []string {
 	st, err := s.readSettings()
 	if err != nil {
-		return nil, nil
+		return nil
 	}
-	return st.LANHosts, st.LANCIDRs
+	return st.LANHosts
 }
 
 func (s *Store) writeLanguage(lang i18n.Lang) error {

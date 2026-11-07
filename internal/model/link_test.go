@@ -18,7 +18,12 @@ func TestLANShapeOf_HostAndIPv6(t *testing.T) {
 		{"[fe80::5]:7600", "lan", "link-local"},
 		{netip.AddrFrom4([4]byte{169, 254, 0, 1}).String(), "lan", "link-local"},
 		{"[2001:db8::5]:7600", "wan", "wan-domain"},
-		{"[::ffff:10.0.0.5]:7600", "wan", "wan-domain"},
+		{"[::ffff:10.0.0.5]:7600", "lan", "private-ipv4"},
+		{"[::ffff:127.0.0.1]", "lan", "loopback"},
+		{"[::ffff:cb00:7109]", "wan", "wan-domain"},
+		{"[::ffff:a9fe:1]", "lan", "link-local"},
+		{"nas.localhost", "lan", "local-domain"},
+		{"home.arpa", "lan", "local-domain"},
 		{"nas", "lan", "bare-host"},
 		{"NAS.LOCAL.:7600", "lan", "local-domain"},
 		{"nas.home.arpa", "lan", "local-domain"},
@@ -38,7 +43,7 @@ func TestLANShapeOf_HostAndIPv6(t *testing.T) {
 			}
 		})
 	}
-	if got := model.LANShapeOf("NAS.EXAMPLE.COM:7600", []string{"nas.example.com"}); got.Rule != "lan-host" {
+	if got := model.LANShapeOf("NAS.EXAMPLE.COM:7600", []string{" Nas.Example.COM.:7600 "}); got.Rule != "lan-host" {
 		t.Fatal(got)
 	}
 }
