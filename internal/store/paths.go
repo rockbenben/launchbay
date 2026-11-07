@@ -17,7 +17,8 @@ var (
 )
 
 type Store struct {
-	root string
+	settingsMu sync.Mutex
+	root       string
 
 	bmu    sync.Mutex
 	broken map[string]map[string]string // id → 来源(profile/bookmarks) → 原因

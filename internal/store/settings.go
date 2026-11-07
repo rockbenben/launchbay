@@ -35,6 +35,8 @@ type Settings struct {
 	// 缺字段 = 中文（i18n.Default），于是升级到带多语言的版本不改变任何一个人的
 	// 现有界面。零值 i18n.Lang("") 经 ParseLang 落回默认。
 	Language i18n.Lang `json:"language"`
+	LANHosts []string  `json:"lanHosts,omitempty"`
+	LANCIDRs []string  `json:"lanCIDRs,omitempty"`
 }
 
 // SettingsPath 是站级设置的落盘位置。data/ 根下，与 profiles/ 平级——
@@ -110,7 +112,7 @@ func (s *Store) SetLanguage(l i18n.Lang) error {
 	if !l.Valid() {
 		l = i18n.Default
 	}
-	if err := s.WriteFileJSON(s.SettingsPath(), Settings{Language: l}); err != nil {
+	if err := s.writeLanguage(l); err != nil {
 		return errors.Join(ErrInvalid, err)
 	}
 	return nil
@@ -128,8 +130,41 @@ func (s *Store) SetLanguage(l i18n.Lang) error {
 // 而读侧（DefaultLanguage）本来就把"不认识的值"与"文件不存在"一样当成"没设过"
 // （DefaultLanguage 那一格）——所以这一格不需要新的读法。
 func (s *Store) ClearLanguage() error {
-	if err := s.WriteFileJSON(s.SettingsPath(), Settings{}); err != nil {
+	if err := s.writeLanguage(""); err != nil {
 		return errors.Join(ErrInvalid, err)
 	}
 	return nil
+}
+
+func (s *Store) readSettings() (Settings, error) {
+	raw, err := os.ReadFile(s.SettingsPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return Settings{}, nil
+	}
+	if err != nil {
+		return Settings{}, err
+	}
+	var st Settings
+	err = json.Unmarshal(raw, &st)
+	return st, err
+}
+
+func (s *Store) LANRules() ([]string, []string) {
+	st, err := s.readSettings()
+	if err != nil {
+		return nil, nil
+	}
+	return st.LANHosts, st.LANCIDRs
+}
+
+func (s *Store) writeLanguage(lang i18n.Lang) error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	st, err := s.readSettings()
+	// A corrupt existing file must not be silently replaced with partial settings.
+	if err != nil {
+		return err
+	}
+	st.Language = lang
+	return s.WriteFileJSON(s.SettingsPath(), st)
 }
