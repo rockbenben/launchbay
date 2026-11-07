@@ -68,7 +68,7 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 - **Drag to reorder**: a new position inside a group, across groups, or onto a group title to append to the end. Long press or a keyboard shortcut enters multi-select, then one action tags, moves or deletes a batch
 - **See it, save it on the spot**: drag the bookmarklet into your bookmarks bar; one click on any site brings the address back here; you still press save once before it is really written
 - **Brought in from your browser**: upload the bookmarks file Chrome / Edge / Firefox exported; you get a reconciliation report — which entry got in, which did not, and why, every one named. It opens with a plain-language summary (which groups get what, which entries were skipped), with the full report below. **The web page's main button imports right away and skips that screen** ("Import now"); pick "Show what this would import" to read the report first. The command line prints the report and writes in the same run — `--dry-run` stops at the report
-- **Take a whole profile with you**: export one file with the bookmarks **and** how that page looks (theme, layout, view, second line, page name, language), then import it back on another machine.
+- **Take a whole profile with you**: export one file with the bookmarks **and** how that page looks (theme, layout, view, second line, page name, language, address mode), then import it back on another machine.
 
   The PIN, the profile's identity and the background image stay out of it — a door key, an identity and a file that lives on that one machine are not yours to hand over. The same from the command line: `launchbay backup --profile <id> --out <file>` / `launchbay restore --profile <id> <file>`
 
@@ -77,6 +77,10 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 - **Grouped properly, quick to search**: bookmarks are filed under groups, and the top bar searches names, addresses, notes and tags directly — type and press Enter and results are there (no JavaScript at any point); with scripts on, press `/` to jump to the search box, or use the `⌘/Ctrl K` panel
 - **Featured bookmark banners**: promote frequently visited groups into an enlarged top banner ("feature"), displaying prominent cards with large icons and clean hostnames
 - **10,000+ icons, offline**: Tabler and Simple Icons are gzipped into the binary, so search and preview work with no network; a site's favicon is fetched once when you add it, then served from the local cache
+
+**At home and away**
+
+- **Two addresses, one bookmark**: set the primary address and an optional WAN address in Add or Edit. Auto chooses from the address you use to open Launchbay; Settings → Bookmark addresses lets you choose LAN or WAN yourself. This also works with JavaScript off. If you use the same public domain at home and away, choose manually. Search and copy use the active address; bookmarks without a WAN address keep using their primary address.
 
 **The page itself**
 
@@ -201,7 +205,7 @@ Don't get around it with `sudo docker run` or `--user root` (that is the same as
 | See what every change actually was | `GET /api/v1/history` (records actions and paths only, never content) |
 | Export or import a whole profile — bookmarks **and** how the page looks | `GET /api/v1/backup` / `POST /api/v1/restore`, `launchbay backup --profile <id> --out <file>` / `launchbay restore --profile <id> <file>`, or "Backup & history" in the Settings panel |
 
-**Export and import** take one whole profile — the bookmarks plus how that page looks (theme, layout, view, second line, page name, language) — into a single file, and read it back. Three things are deliberately **not** in that file: the **PIN** (exporting it would be printing the key on paper), the profile's **identity** (its id, title and created date belong to the machine it lives on), and the **background image** (that one is a file on the machine, not a string — a backup carrying it would restore a picture that is not there). A backup that carries bookmarks only goes into an **empty** profile, because importing is "bring this one in", not "add on top of what is already there"; a backup that carries only settings can be imported any time. Settings written this way do not move the revision counter and do not appear in "Revert": they are desk preferences, not bookmark data, exactly like the Settings panel.
+**Export and import** take one whole profile — the bookmarks plus how that page looks (theme, layout, view, second line, page name, language, address mode) — into a single file, and read it back. Three things are deliberately **not** in that file: the **PIN** (exporting it would be printing the key on paper), the profile's **identity** (its id, title and created date belong to the machine it lives on), and the **background image** (that one is a file on the machine, not a string — a backup carrying it would restore a picture that is not there). A backup that carries bookmarks only goes into an **empty** profile, because importing is "bring this one in", not "add on top of what is already there"; a backup that carries only settings can be imported any time. Settings written this way do not move the revision counter and do not appear in "Revert": they are desk preferences, not bookmark data, exactly like the Settings panel.
 
 **The complete endpoint list, request body shapes and error codes are in [AGENTS.md](AGENTS.md)** — that is the authoritative contract written for AI, every field name checked against the route table one by one, so changing one makes a test go red; which is why there is no second copy of it here in the README.
 

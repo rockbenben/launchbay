@@ -75,6 +75,14 @@ func stopBrowser(cmd *exec.Cmd) {
 }
 
 func Test档案页交互横扫(t *testing.T) {
+	runBrowserSweeps(t, "sweep.mjs", "sweep-variants.mjs")
+}
+
+func TestDualURLInteraction(t *testing.T) {
+	runBrowserSweeps(t, "sweep-dual-url.mjs")
+}
+
+func runBrowserSweeps(t *testing.T, scripts ...string) {
 	if !enabled() {
 		t.Skip("跳过界面横扫：设 LB_UI=1 才跑（要 node 与一个无头浏览器；" +
 			"浏览器找不到时可以用 LB_CDP 指向一个已经开着的调试口）")
@@ -112,8 +120,21 @@ func Test档案页交互横扫(t *testing.T) {
 	//
 	// 第二道排在第一道之后：它会把视图与导航位置改掉（那是全机器的偏好），反过来
 	// 跑会让第一道读到一份不是它自己铺出来的版面。
-	for _, script := range []string{"sweep.mjs", "sweep-variants.mjs"} {
+	for _, script := range scripts {
 		runSweep(t, node, repo, script, port, data, cdp)
+	}
+}
+
+func TestSWModeBuckets(t *testing.T) {
+	if !enabled() {
+		t.Skip("设 LB_UI=1 执行 Node Service Worker 行为测试")
+	}
+	cmd := exec.Command("node", "--test", "tools/uicheck/sw-link.test.mjs")
+	cmd.Dir = repoRoot(t)
+	out, err := cmd.CombinedOutput()
+	t.Log(string(out))
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

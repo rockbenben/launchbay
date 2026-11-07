@@ -30,6 +30,9 @@ const APP_I18N = {
     "app.field.desc": "描述",
     "app.field.group": "分组",
     "app.field.newGroup": "新分组名",
+    "app.group.new": "＋ 新分组…",
+    "app.group.count": "%s（%d 条）",
+    "app.group.shape": "这一组的排法",
     "app.field.icon": "图标",
     "app.ph.title": "网站标题，可改",
     "app.ph.desc": "一句话说明，可不填",
@@ -81,13 +84,11 @@ const APP_I18N = {
     "app.saved": "已保存。",
     "app.conflict": "这一份已经被改过了（可能另一边也动了）。刷新之后再试一次。",
     "app.cmdk.placeholder": "搜书签，或做点什么",
-    "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
     "app.cmdk.aria": "命令面板",
     "app.cmdk.clipboard": "把剪贴板里的网址存进来",
-    "app.cmdk.history": "看这一份的改动历史",
-    "app.cmdk.multi": "多选书签（一次改好几条）",
     "app.cmdk.kind": "动作",
     "app.cmdk.external": "需手动打开",
+    "app.cmdk.more": "在整页里搜「%s」· 一共 %d 条命中",
     "app.cmdk.none": "没有对得上「%s」的书签，也没有对得上的动作。",
     "app.cmdk.empty": "这里还没有可列的东西。",
     "app.clip.denied": "这个浏览器不给读剪贴板，手动贴一下地址。",
@@ -99,9 +100,6 @@ const APP_I18N = {
     "app.edit.aria": "改「%s」",
     "app.edit.fallbackName": "这一条",
     "app.layout.tiles": "磁贴",
-  "app.group.new": "＋ 新分组…",
-  "app.group.count": "%s（%d 条）",
-  "app.group.shape": "这一组的排法",
     "app.layout.rows": "单列",
     "app.layout.feature": "大卡",
     "app.layout.featureTitle": "挪到页面顶部那块放大的区域：卡更大、名字下面是主机名。几个分组都设成「大卡」会并进同一块，这一块会一直往下长",
@@ -140,10 +138,10 @@ const APP_I18N = {
     "app.ops.item": "这一条",
     "app.ops.move": "移动",
     "app.ops.layout": "这一组的排法",
-  "app.ops.group": "这一组的改动",
-  "app.ops.tabs": "点书签的方式",
-  "app.ops.prefs": "这一格设置",
-  "app.ops.bg": "背景图",
+    "app.ops.group": "这一组的改动",
+    "app.ops.tabs": "点书签的方式",
+    "app.ops.prefs": "这一格设置",
+    "app.ops.bg": "背景图",
     "app.ops.bulkMove": "批量移动",
     "app.ops.bulkTags": "批量打标签",
     "app.ops.delete": "删除",
@@ -171,7 +169,11 @@ const APP_I18N = {
     "app.opsGone": "这一页的登录已经过期。点右上角的档案名，重新进一次就好。",
     "app.sep": "、",
     "app.keys.mod": "⌘ 或 Ctrl",
-    "app.keys.longpress": "长按卡片"
+    "app.keys.longpress": "长按卡片",
+    "app.cmdk.history": "看这一份的改动历史",
+    "app.cmdk.multi": "多选书签（一次改好几条）",
+    "app.field.wan": "外网地址（选填）",
+    "app.wan.hint": "只知道一条地址时填上面的「地址」即可；外网地址只接受 http/https。两格可以相同，清空外网地址即可取消。"
   },
   "en": {
     "app.add": "+ Add",
@@ -182,6 +184,9 @@ const APP_I18N = {
     "app.field.desc": "Description",
     "app.field.group": "Group",
     "app.field.newGroup": "New group name",
+    "app.group.new": "+ New group…",
+    "app.group.count": "%s (%d)",
+    "app.group.shape": "Arrange it as",
     "app.field.icon": "Icon",
     "app.ph.title": "Page title, editable",
     "app.ph.desc": "One-line note, optional",
@@ -233,13 +238,11 @@ const APP_I18N = {
     "app.saved": "Saved.",
     "app.conflict": "This profile changed underneath you (something else may have edited it). Refresh and try again.",
     "app.cmdk.placeholder": "Search bookmarks, or do something",
-    "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
     "app.cmdk.aria": "Command palette",
     "app.cmdk.clipboard": "Save the address on the clipboard",
-    "app.cmdk.history": "See this profile's change history",
-    "app.cmdk.multi": "Multi-select bookmarks (change several at once)",
     "app.cmdk.kind": "action",
     "app.cmdk.external": "Open manually",
+    "app.cmdk.more": "Search the whole page for “%s” · %d matches in total",
     "app.cmdk.none": "Nothing matches “%s” — no bookmark, and no action either.",
     "app.cmdk.empty": "There is nothing to list yet.",
     "app.clip.denied": "This browser will not let the page read the clipboard. Paste the address yourself.",
@@ -251,9 +254,6 @@ const APP_I18N = {
     "app.edit.aria": "Edit “%s”",
     "app.edit.fallbackName": "this bookmark",
     "app.layout.tiles": "Tiles",
-  "app.group.new": "+ New group…",
-  "app.group.count": "%s (%d)",
-  "app.group.shape": "Arrange it as",
     "app.layout.rows": "Single column",
     "app.layout.feature": "Big card",
     "app.layout.featureTitle": "moves into the enlarged area at the top: bigger cards with the host under the name. Groups set to this join the same area, which keeps growing",
@@ -292,10 +292,10 @@ const APP_I18N = {
     "app.ops.item": "That bookmark",
     "app.ops.move": "The move",
     "app.ops.layout": "The group's layout switch",
-  "app.ops.group": "That group's change",
-  "app.ops.tabs": "How bookmarks open",
-  "app.ops.prefs": "That setting",
-  "app.ops.bg": "The background",
+    "app.ops.group": "That group's change",
+    "app.ops.tabs": "How bookmarks open",
+    "app.ops.prefs": "That setting",
+    "app.ops.bg": "The background",
     "app.ops.bulkMove": "The bulk move",
     "app.ops.bulkTags": "The bulk tagging",
     "app.ops.delete": "The deletion",
@@ -323,7 +323,11 @@ const APP_I18N = {
     "app.opsGone": "This page is no longer signed in. Click your profile name at the top right to sign in again.",
     "app.sep": ", ",
     "app.keys.mod": "⌘ or Ctrl",
-    "app.keys.longpress": "Long-press a card"
+    "app.keys.longpress": "Long-press a card",
+    "app.cmdk.history": "See this profile's change history",
+    "app.cmdk.multi": "Multi-select bookmarks (change several at once)",
+    "app.field.wan": "WAN address (optional)",
+    "app.wan.hint": "If you only know one address, fill in Address above. The optional WAN address accepts http/https only. Both can be the same; clear WAN address to remove it."
   }
 };
 // END APP_I18N
@@ -583,6 +587,7 @@ const APP_I18N = {
   // URL/名字/说明并保留分组与图标。
   function resetSheetForm() {
     fUrl.value = '';
+    fWan.value = '';
     fTitle.value = '';
     fDesc.value = '';
     fNewGroup.value = '';
@@ -652,6 +657,7 @@ const APP_I18N = {
   // 根本没跑，产品那句「这个地址还不完整…」也就到不了。所以下面这张表单带
   // `novalidate`：留下 type=url 的键盘与 autofill，把判据交回 submit() 自己。
   const fUrl = el('input', { type: 'url', id: 'lb-url', class: 'fld', placeholder: 'https://', 'aria-required': 'true', autocomplete: 'off' });
+  const fWan = el('input', { type: 'url', id: 'lb-wan', name: 'urls/wan', class: 'fld', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'lb-wan-hint' });
   const fTitle = el('input', { type: 'text', id: 'lb-title', class: 'fld', placeholder: T('app.ph.title'), autocomplete: 'off' });
   const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
@@ -755,6 +761,8 @@ const APP_I18N = {
     el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [fUrl]), urlErr]),
     // 字段名与就地编辑统一成「名称」（数据里就是 name）。这里从前叫「标题」、
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
+    el('label', { text: T('app.field.wan') }, [fWan]),
+    el('p', { id: 'lb-wan-hint', class: 'prefs-hint', text: T('app.wan.hint') }),
     el('label', { text: T('app.field.title') }, [fTitle]),
     el('label', { text: T('app.field.desc') }, [fDesc]),
     // **这一格从前没有标签**（2026-10-14 实拍修掉）：`el('label', {}, [...])` 里
@@ -2195,6 +2203,7 @@ const APP_I18N = {
       name = itemName(fTitle.value.trim(), url);
     }
     const value = { id: slug(url, true), name, url };
+    if (fWan.value.trim()) value.urls = { wan: fWan.value.trim() };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
     if (fIcon.value) value.icon = fIcon.value;
     const g = groupOpsAndTarget();
@@ -2210,7 +2219,7 @@ const APP_I18N = {
       // `sheet.hidden = true`，而 syncTrap 是**唯一**给 body 其余子元素
       // 摘/挂 inert 的地方——于是离线存完一条之后整页永久 inert：点不动、
       // Tab 也进不去，只能刷新。在线那一支（下面）一直记得调它。
-      if (keepOpen) { for (const f of [fUrl, fTitle, fDesc]) f.value = ''; } else {
+      if (keepOpen) { for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = ''; } else {
         sheet.hidden = true;
         syncTrap();
         if (savedKeepOpen) { savedKeepOpen = false; reloadKeepingPlace(); }
@@ -2245,7 +2254,7 @@ const APP_I18N = {
       }
       if (keepOpen) {
         savedKeepOpen = true;
-        for (const f of [fUrl, fTitle, fDesc]) f.value = '';
+        for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = '';
         iconChoices([]);
         fUrl.focus();
       } else {
@@ -2263,7 +2272,7 @@ const APP_I18N = {
       if (e.network) {
         enqueue({ gid: g.gid, ops: g.ops, value });
         clearAddQuery();
-        for (const f of [fUrl, fTitle, fDesc]) f.value = '';
+        for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = '';
         iconChoices([]);
         sheet.hidden = true;
         syncTrap();
@@ -3400,7 +3409,8 @@ const APP_I18N = {
     // 地址从**这一行本来显示它的那个元素**上读，三种形态各有一个载体，判据只有
     // `itemURL` 一处（大卡带里点不动的外部地址那一行屏上不印地址，模板写在 data-addr 上——
     // 从前这里按 href 读，读成空串就会照发一条 `set …/url=""`，整批 422）。
-    const url = itemURL(li);
+    const url = li.dataset.addrLan ?? itemURL(li);
+    const wan = li.dataset.addrWan || "";
     // 说明从 `data-desc` 读，**不读 `<i>`**（2026-10-24 修）：没有说明的卡片
     // 那一格印的是主机名（`<i class="host">`），拿它当说明会在下一次保存时把
     // example.com 写进空说明里——用户会在历史里看到一条自己没做过的"改说明"。
@@ -3408,7 +3418,10 @@ const APP_I18N = {
     const group = groupOf(li);
     const gid = group?.dataset.gid || '';
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
-    const n = f('name', name), d = f('desc', desc), u = f('url', url);
+    const n = f('name', name), d = f('desc', desc), u = f('url', url), w = f('urls/wan', wan);
+    w.id = 'lb-edit-wan';
+    w.setAttribute('aria-describedby', 'lb-edit-wan-hint');
+    for (const input of [u, w]) { input.setAttribute('autocorrect', 'off'); input.setAttribute('autocapitalize', 'off'); input.setAttribute('spellcheck', 'false'); }
     // 图标这一格从前只在「＋ 添加」那一层有——于是"给一条已经在库里的书签换个图标"
     // 在界面上没有任何出口：能改内容的那一层没有图标，能选图标的那一层只用于新增。
     // 导入报告因此只能说"导完之后用 POST /api/v1/batch 逐条设 icon"，把家里人指去
@@ -3488,7 +3501,8 @@ const APP_I18N = {
           const nextName = n.value.trim() || name;
           if (nextName !== name) fields.name = nextName;
           if (d.value !== desc) fields.desc = d.value;
-          if (u.value.trim() !== url) fields.url = u.value.trim();
+          if (u.value !== url && u.value.trim() !== url) fields.url = u.value.trim();
+          if (w.value !== wan && w.value.trim() !== wan) fields['urls/wan'] = w.value.trim();
           if (ic.value !== curIcon) fields.icon = ic.value;
           const ops = opsFor(li, fields);
           // 挪组排在改字段**之后**：那些 set 走的是现在这一组的路径，先挪就把
@@ -3519,6 +3533,8 @@ const APP_I18N = {
       },
     }, [el('h2', { id: 'lb-edit-h', text: T('app.edit.aria', name || T('app.edit.fallbackName')) }),
         el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
+        el('label', { text: T('app.field.wan') }, [w]),
+        el('p', { id: 'lb-edit-wan-hint', class: 'prefs-hint', text: T('app.wan.hint') }),
         el('label', { text: T('app.field.group') }, [gs]),
         el('label', { text: T('app.field.icon') }, [ic]),
         el('p', { class: 'edit-icon-row' }, [lookIcon, iconLibraryButton(ic)]),

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"fmt"
 	"github.com/rockbenben/launchbay/internal/apierr"
+	"github.com/rockbenben/launchbay/internal/model"
 	"net/http"
 	"strings"
 
@@ -144,34 +145,4 @@ func hostPortOf(hostport string) string {
 // 于是即便上面那处不剥端口，带冒号的整条地址也会被它拒成 400——那正是"修一半"
 // 的形状（IPv4 通、IPv6 反而挂）。所以端口单独一段判：**只能是数字**，
 // 不放行任何别的形状，冒号本身也不许出现第二次（`a:b:c` 不是 host:port）。
-func validHostShape(h string) bool {
-	host, port := h, ""
-	if strings.HasPrefix(h, "[") { // IPv6 的冒号在方括号里，不能按冒号切
-		if i := strings.Index(h, "]"); i >= 0 {
-			host, port = h[:i+1], strings.TrimPrefix(h[i+1:], ":")
-		}
-	} else if i := strings.LastIndex(h, ":"); i > 0 {
-		host, port = h[:i], h[i+1:]
-	}
-	if port != "" {
-		for _, r := range port {
-			if r < '0' || r > '9' {
-				return false
-			}
-		}
-	}
-	if strings.HasPrefix(host, "[") {
-		return strings.HasSuffix(host, "]") && !strings.ContainsAny(host, `"'<>`+"`"+`\`)
-	}
-	if host == "" || strings.ContainsAny(host, `"'<>`+"`"+`\/ \`) {
-		return false
-	}
-	for _, r := range host {
-		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_'
-		if !ok {
-			return false
-		}
-	}
-	return true
-}
+func validHostShape(h string) bool { return model.HostOnly(h) != "" }

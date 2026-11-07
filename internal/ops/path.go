@@ -15,13 +15,14 @@ import (
 type kind int
 
 const (
-	kindGroups     kind = iota + 1 // groups —— 组表本身（add 组用）
-	kindGroup                      // groups/<gid>
-	kindGroupField                 // groups/<gid>/<field>
-	kindItems                      // groups/<gid>/items —— 条目表（add 条目用）
-	kindItem                       // groups/<gid>/items/<iid>
-	kindItemField                  // groups/<gid>/items/<iid>/<field>
-	kindDocField                   // <field> —— 文档自己的标量字段（set 用，见 docFields）
+	kindGroups      kind = iota + 1 // groups —— 组表本身（add 组用）
+	kindGroup                       // groups/<gid>
+	kindGroupField                  // groups/<gid>/<field>
+	kindItems                       // groups/<gid>/items —— 条目表（add 条目用）
+	kindItem                        // groups/<gid>/items/<iid>
+	kindItemField                   // groups/<gid>/items/<iid>/<field>
+	kindItemURLsWAN                 // groups/<gid>/items/<iid>/urls/wan
+	kindDocField                    // <field> —— 文档自己的标量字段（set 用，见 docFields）
 )
 
 type target struct {
@@ -132,6 +133,14 @@ func ParsePath(path string) (target, error) {
 			return target{}, err
 		}
 		return target{kind: kindItem, groupID: parts[1], itemID: parts[3]}, nil
+	case 6:
+		if _, err := ParsePath(strings.Join(parts[:4], "/")); err != nil {
+			return target{}, err
+		}
+		if parts[4] != "urls" || parts[5] != "wan" {
+			return target{}, fmt.Errorf("条目只支持 urls/wan；主地址在 url 上，没有 lan 槽位")
+		}
+		return target{kind: kindItemURLsWAN, groupID: parts[1], itemID: parts[3], field: "urls/wan"}, nil
 	case 5:
 		if err := idErr(parts[1]); err != nil {
 			return target{}, err
@@ -167,12 +176,13 @@ type Shape struct {
 }
 
 const (
-	ShapeGroups     = "Groups"     // groups —— 组表本身
-	ShapeGroup      = "Group"      // groups/<gid>
-	ShapeGroupField = "GroupField" // groups/<gid>/<field>
-	ShapeItems      = "Items"      // groups/<gid>/items
-	ShapeItem       = "Item"       // groups/<gid>/items/<iid>
-	ShapeItemField  = "ItemField"  // groups/<gid>/items/<iid>/<field>
+	ShapeGroups      = "Groups"     // groups —— 组表本身
+	ShapeGroup       = "Group"      // groups/<gid>
+	ShapeGroupField  = "GroupField" // groups/<gid>/<field>
+	ShapeItems       = "Items"      // groups/<gid>/items
+	ShapeItem        = "Item"       // groups/<gid>/items/<iid>
+	ShapeItemURLsWAN = "ItemURLsWAN"
+	ShapeItemField   = "ItemField" // groups/<gid>/items/<iid>/<field>
 	// ShapeUnknown 是"这条路径不在文法里"。历史行里真会出现它：账号类动作
 	// 记的是 profile/pin、profile/rebuild、snapshots/<rev>（§4.6），它们动的不是
 	// 书签树，本来就不归这套文法管。
@@ -199,6 +209,8 @@ func ShapeOf(path string) Shape {
 		k = ShapeItems
 	case kindItem:
 		k = ShapeItem
+	case kindItemURLsWAN:
+		k = ShapeItemURLsWAN
 	case kindItemField:
 		k = ShapeItemField
 	}

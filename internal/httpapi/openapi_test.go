@@ -166,7 +166,7 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	}
 	form := doc.Paths["/prefs"]["post"].RequestBody.Content["application/x-www-form-urlencoded"]
 	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues,
-		"view": model.ViewValues, "addrLevel": model.AddrValues}
+		"view": model.ViewValues, "addrLevel": model.AddrValues, "linkMode": model.LinkModeValues}
 	// 解析器不许空转：带 enum 的四个字段都得真的带出 enum，否则下面的循环一次都不跑。
 	// 2026-10-12 起 /prefs 有三个字段（多出来的 `title` 是页面名，无枚举、只有
 	// maxLength），2026-10-13 起四个（`view` = 整页排法），2026-10-19 起五个
@@ -181,8 +181,8 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	//
 	// **2026-10-20 补上 language**：同一族的同一件事——面板上有了「界面语言」
 	// 那一格，schema 里也得有它（空串 = 跟随默认，所以它的 enum 里带一个空串）。
-	if len(form.Schema.Properties) != 6 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 6 个（theme/layout/view/addrLevel/title/language）：形状变了这条正在空转",
+	if len(form.Schema.Properties) != 7 {
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 7 个（theme/layout/view/addrLevel/title/language）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {

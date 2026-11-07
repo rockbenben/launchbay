@@ -34,7 +34,7 @@ func TestMatches_六个字段都算命中(t *testing.T) {
 		{"无命中", "不存在的词", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			fb, hits, total := matches(tc.q, book())
+			fb, hits, total := matches(tc.q, book(), model.LinkLAN)
 			var got []string
 			for _, g := range fb.Groups {
 				for _, it := range g.Items {
@@ -58,10 +58,10 @@ func TestMatches_六个字段都算命中(t *testing.T) {
 
 // 空 query 与"没命中"必须是两个不同答案：模板要靠它说两句不同的话。
 func TestMatches_空query与无命中是两个状态(t *testing.T) {
-	if fb, hits, total := matches("", book()); hits != total || len(fb.Groups) != 2 {
+	if fb, hits, total := matches("", book(), model.LinkLAN); hits != total || len(fb.Groups) != 2 {
 		t.Errorf("空 query 该原样全给：hits=%d total=%d groups=%d", hits, total, len(fb.Groups))
 	}
-	if _, hits, _ := matches("zzz", book()); hits != 0 {
+	if _, hits, _ := matches("zzz", book(), model.LinkLAN); hits != 0 {
 		t.Errorf("无命中 hits=%d，要 0", hits)
 	}
 }
@@ -73,7 +73,7 @@ func TestMatches_不改入参且不吃掉别的字段(t *testing.T) {
 	b.Clock = true
 	b.OpenInNewTab = true
 	b.Rev = 7
-	fb, _, _ := matches("群晖", b)
+	fb, _, _ := matches("群晖", b, model.LinkLAN)
 	if len(b.Groups[0].Items) != 2 {
 		t.Errorf("入参被改了：nas 组剩 %d 条", len(b.Groups[0].Items))
 	}

@@ -154,6 +154,7 @@ type executor struct {
 }
 
 type itemView struct {
+	URLLan, URLWan      string
 	ID, Name, URL, Desc string
 	// Icon 是盘上那串图标名（tabler:box / simple-icons:x / auto / 空）。屏上它只是
 	// 一个小图形，DOM 里没有一处写着这串字——编辑那一格要说"现在用的是哪一个"，
@@ -366,6 +367,8 @@ type profileData struct {
 }
 
 type profileView struct {
+	LinkMode model.LinkMode
+	LinkRule string
 	i18nView
 	Profile *model.Profile
 	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标 + 一行字**：
@@ -1053,9 +1056,9 @@ func sameDay(a, b time.Time) bool {
 // 现在这里唯一的身份格是 hasAdmin：顶栏那枚「管理」徽标画不画由它决定，
 // 判据在 httpapi（本次请求有没有一把真的管理权），进缓存键的理由见 cacheKey。
 // 权限判断不在这里、更不在模板。
-func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, cat *i18n.Catalog) ([]byte, error) {
-	fb, hits, total := matches(query, b)
-	v := profileView{Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
+func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, addTitle string, hasSnaps, hasAdmin bool, mode model.LinkMode, rule string, cat *i18n.Catalog) ([]byte, error) {
+	fb, hits, total := matches(query, b, mode)
+	v := profileView{LinkMode: mode, LinkRule: rule, Profile: p, Theme: themeAttr(p.Theme), Compact: compactView(p.View), AddrLevel: addrLevelOf(p.AddrLevel), CSS: e.cssT,
 		i18nView: newI18nView(cat), HasAdmin: hasAdmin,
 		Query: strings.TrimSpace(query), Hits: hits, Total: total, Add: add, AddTitle: addTitle,
 		Background: paintedBackground(p), BackgroundFile: backgroundFile(p),
@@ -1078,12 +1081,17 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 		gv.Depth = strings.Count(g.Title, pathSep)
 		for _, it := range g.Items {
 			p := pieceFor(it, e.ix, e.fc)
+			effective := model.EffectiveURL(it, mode)
+			wan := ""
+			if it.URLs != nil {
+				wan = it.URLs.WAN
+			}
 			gv.Items = append(gv.Items, itemView{
-				ID: it.ID, Name: it.Name, URL: it.URL, Desc: it.Desc, Icon: it.Icon,
+				ID: it.ID, Name: it.Name, URL: effective, URLLan: it.URL, URLWan: wan, Desc: it.Desc, Icon: it.Icon,
 				Alias: it.Alias, Tags: it.Tags,
 				// 协议判据只有一个来源：model.ExternalScheme。字符串前缀
 				// 各写一份，校验与渲染就会在某天分家。
-				External: model.ExternalScheme(it.URL),
+				External: model.ExternalScheme(effective),
 				SVG:      p.SVG, Img: p.Img, Missing: p.Missing,
 				Letter: p.Letter, ChipHue: p.ChipHue,
 			})

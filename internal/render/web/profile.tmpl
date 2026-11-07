@@ -23,6 +23,7 @@
        同名，进门之后认不出自己在谁的台上。今天档案名挪到了右上角那颗常驻的
        徽标上（见下面 profmenu 那段），"认人"这一维没有丢，只是不再占用标题那一格。 */}}
   <h1 title="{{.PageTitle}}">{{.PageTitle}}</h1>
+  {{if .LinkMode}}<span class="badge link-mode" title="{{.T "link.basis"}} · {{.T (printf "link.rule.%s" .LinkRule)}}">{{.T (printf "link.mode.%s" .LinkMode)}}</span>{{end}}
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
     {{if .Query}}<a href="/" aria-label="{{.T "profile.nomatch.all"}}" title="{{.T "profile.nomatch.all"}}">✕</a>{{end}}
@@ -178,7 +179,7 @@
   <h2 class="feat-g" id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span><span class="feat-n" aria-label="{{$.T "profile.featured.count" (len .Items)}}">{{len .Items}}</span></h2>
   <ul class="feat-row" data-gid="{{.ID}}">
   {{range .Items}}
-    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
+    <li data-item="{{.ID}}"{{if .URLWan}} data-addr-lan="{{.URLLan}}" data-addr-wan="{{.URLWan}}"{{end}}{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
         {{/* **地址既不在 `href` 上、也不在 `<code>` 里**（2026-10-19 改判）：可点的那支
              在 href 上、正文里点不动的外部地址在 <code> 里，唯独大卡带里点不动的
@@ -248,7 +249,7 @@
          Go 的 html/template 把 `icon` 当 URL 属性，`data-icon` 的后缀撞上它，
          值会被换成 #ZgotmplZ（实测，复现见 .superpowers/tmp/dp9/tmplattr）。
          带 `-name` 后缀就不在名单里，值原样出去。 */}}
-    <li data-item="{{.ID}}"{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}} data-icon-name="{{.Icon}}">
+    <li data-item="{{.ID}}"{{if .URLWan}} data-addr-lan="{{.URLLan}}" data-addr-wan="{{.URLWan}}"{{end}}{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
         <span class="plain">
           {{template "icon" .}}
@@ -569,6 +570,18 @@
         <button type="submit" name="view" value="groups" aria-pressed="{{if eq .Profile.View "wall"}}false{{else if eq .Profile.View "dense"}}false{{else}}true{{end}}" title="{{.T "profile.view.groups.title"}}">{{.T "profile.view.groups.label"}}</button>
         <button type="submit" name="view" value="wall" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{.T "profile.view.wall.title"}}">{{.T "profile.view.wall.label"}}</button>
         <button type="submit" name="view" value="dense" aria-pressed="{{if eq .Profile.View "dense"}}true{{else}}false{{end}}" title="{{.T "profile.view.dense.title"}}">{{.T "profile.view.dense.label"}}</button>
+      </div>
+    </div>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label" id="link-mode-label">{{.T "prefs.linkMode"}}</span>
+      <p class="prefs-hint" id="link-mode-hint">{{.T "prefs.linkMode.hint"}}</p>
+      <div class="prefs-keys" role="group" aria-labelledby="link-mode-label" aria-describedby="link-mode-hint">
+        <button type="submit" name="linkMode" value="auto" aria-pressed="{{if eq .Profile.LinkMode "lan"}}false{{else if eq .Profile.LinkMode "wan"}}false{{else}}true{{end}}">{{.T "link.mode.auto"}}</button>
+        <button type="submit" name="linkMode" value="lan" aria-pressed="{{if eq .Profile.LinkMode "lan"}}true{{else}}false{{end}}">{{.T "link.mode.lan"}}</button>
+        <button type="submit" name="linkMode" value="wan" aria-pressed="{{if eq .Profile.LinkMode "wan"}}true{{else}}false{{end}}">{{.T "link.mode.wan"}}</button>
       </div>
     </div>
   </form>

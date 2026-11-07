@@ -6,6 +6,7 @@
 // 就是本文件最重要的一段逻辑：
 //
 //   html-<id>     某个人的档案页 —— 存。它是离线时唯一真正有用的东西。
+//   html-<id>-<mode> 档案首页额外存一份，先按上一次成功连接的模式回退。
 //   html-picker   档案选择页 —— 存。它本来就只列档案名字（§8.0：陌生人打开
 //                 首页看到的就是那些名字），所以离线时能回退到它不比在线时多
 //                 泄露什么；反过来，"连当前档案都不知道"的机器上，它是唯一
@@ -21,7 +22,8 @@
 //
 // **不静默 skipWaiting**（§7.1）：检测到新版本时不抢占，等页面自己决定。
 
-const VERSION = 'lb-sw-2';
+const VERSION = 'lb-sw-3';
+// v3 adds html-<id>-<mode>; existing html-<id> and html-picker remain fallbacks.
 // 代次从 1 跳到 2 的原因（2026-10-15）：上面那条「面板 fetch 不进资产缓存」是
 // 这一次才补的，而**已经被钉住的那一份还在 lb-sw-1 里**。按 §7.1 的规矩，sw.js
 // 变了就得换代次——activate 那一支只清 assets-<别的代次>，于是旧桶连同那份
@@ -119,6 +121,8 @@ self.addEventListener('message', (e) => {
     e.waitUntil((async () => {
       if (d.to) await kvSet('currentProfile', d.to);
       await caches.delete('html-' + d.from);
+      await caches.delete('html-' + d.from + '-lan');
+      await caches.delete('html-' + d.from + '-wan');
     })());
   }
 });
@@ -174,7 +178,11 @@ async function htmlFirst(req) {
   } catch {
     // 网络不通**或**超时：回退缓存。这不是"错误"，是离线态——所以不报错，
     // 只把缓存里那份交出去（离线时页面顶端会显示"离线·只读"，§8.7）。
-    for (const key of [await kvGet('currentProfile'), 'picker']) {
+    const current = await kvGet('currentProfile');
+    const id = typeof current === 'string' ? current : current?.id;
+    const mode = typeof current === 'object' ? current?.mode : '';
+    const specific = id && (mode === 'lan' || mode === 'wan') ? id + '-' + mode : '';
+    for (const key of [specific, id, 'picker']) {
       if (!key) continue;
       const hit = await (await caches.open('html-' + key)).match(req);
       if (hit) return hit;
@@ -190,7 +198,14 @@ async function storeHTML(req, res) {
   // 哨兵 -admin 一律不存（见文件头）。空头也不存：不知道是哪一份的页面放进
   // 哪个桶，就是下一次离线回退打错人的那条路。
   if (!id || id === '-admin') return;
-  await kvSet('currentProfile', id);
+  const mode = res.headers.get('X-LB-Link-Mode') || '';
+  const current = await kvGet('currentProfile');
+  if (mode === 'lan' || mode === 'wan') {
+    await kvSet('currentProfile', { id, mode });
+    await (await caches.open('html-' + id + '-' + mode)).put(req, res.clone());
+  } else if (current?.id !== id) {
+    await kvSet('currentProfile', id);
+  }
   await (await caches.open('html-' + id)).put(req, res);
 }
 

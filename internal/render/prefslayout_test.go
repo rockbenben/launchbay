@@ -70,8 +70,8 @@ func Test面板每行是说明在上控件在下(t *testing.T) {
 	// 2026-10-20 从 5 变 6：多了「界面语言」那一格（`language`）——每一份档案
 	// 自己记一份语言，管理员在管理页设的那一个只是**默认**。它同样是
 	// `POST /prefs` 的一个字段、同样按下即改。
-	if n := strings.Count(tmpl, `action="/prefs" class="prefs-row"`); n != 6 {
-		t.Errorf("改台面偏好的独立表单是 %d 个，要恰好 6（改名/怎么看/第二行/导航/主题/语言）", n)
+	if n := strings.Count(tmpl, `action="/prefs" class="prefs-row"`); n != 7 {
+		t.Errorf("改台面偏好的独立表单是 %d 个，要恰好 7（改名/怎么看/第二行/导航/主题/语言）", n)
 	}
 	if n := strings.Count(tmpl, `action="/prefs/tabs" class="prefs-row"`); n != 1 {
 		t.Errorf("「点开书签」那一行是 %d 个，要恰好 1", n)

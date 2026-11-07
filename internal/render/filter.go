@@ -17,7 +17,7 @@ import (
 // 空 query 等于不过滤，复制一整台书签只为得到同一份内容是白花一次）；有 query 时
 // 每个分组拿到的是新建切片。两种情况下调用方都只读——这与 Page.Body 那条"缓存切片
 // 不许原地改"是同一条纪律。
-func matches(q string, b *model.Bookmarks) (*model.Bookmarks, int, int) {
+func matches(q string, b *model.Bookmarks, mode model.LinkMode) (*model.Bookmarks, int, int) {
 	needle := strings.ToLower(strings.TrimSpace(q))
 	// 整体复制再换掉 Groups：逐字段抄一份的话，model.Bookmarks 以后加的字段
 	// （Clock 就是这么差点被吃掉）会在搜索结果里静默消失——那不是过滤，是丢功能。
@@ -35,7 +35,9 @@ func matches(q string, b *model.Bookmarks) (*model.Bookmarks, int, int) {
 		ng := g
 		ng.Items = nil
 		for _, it := range g.Items {
-			if groupHit || matchItem(needle, it) {
+			candidate := it
+			candidate.URL = model.EffectiveURL(it, mode)
+			if groupHit || matchItem(needle, candidate) {
 				ng.Items = append(ng.Items, it)
 				hits++
 			}

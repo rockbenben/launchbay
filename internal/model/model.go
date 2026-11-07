@@ -29,11 +29,12 @@ const (
 // Item 是一条书签。数组顺序即显示顺序，所以没有 order 字段：
 // 两个真相迟早会打架（spec §4.3）。
 type Item struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	URL  string `json:"url"`
-	Icon string `json:"icon,omitempty"`
-	Desc string `json:"desc,omitempty"`
+	ID   string    `json:"id"`
+	Name string    `json:"name"`
+	URL  string    `json:"url"`
+	URLs *ItemURLs `json:"urls,omitempty"`
+	Icon string    `json:"icon,omitempty"`
+	Desc string    `json:"desc,omitempty"`
 	// Alias 与 Tags 带 `omitempty`（2026-10-14）：**空集合不落盘**。
 	//
 	// 实测（用户真实数据 8 组 41 条）：`alias: []` 与 `tags: []` **41/41 全空**，
@@ -50,6 +51,11 @@ type Item struct {
 	Alias  []string `json:"alias,omitempty"`
 	Tags   []string `json:"tags,omitempty"`
 	AINote string   `json:"aiNote,omitempty"`
+}
+
+// ItemURLs holds an optional WAN override; URL remains the primary address.
+type ItemURLs struct {
+	WAN string `json:"wan,omitempty"`
 }
 
 type Group struct {
@@ -193,5 +199,6 @@ type Profile struct {
 	// **不在 Validate 里卡**（与 icon 名、背景同一纪律）：写侧严格（prefs 表单
 	// 拒不认识的值），读侧净化（不认识的值落默认）。把档案判成坏档的代价是
 	// 那个人再也进不去，而这一格写坏最多是"他看到的是默认语言"。
-	Language string `json:"language"`
+	Language string   `json:"language"`
+	LinkMode LinkMode `json:"linkMode"`
 }

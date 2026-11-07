@@ -74,6 +74,7 @@ type backupSettings struct {
 	AddrLevel *string `json:"addrLevel,omitempty"`
 	PageTitle *string `json:"pageTitle,omitempty"`
 	Language  *string `json:"language,omitempty"`
+	LinkMode  *string `json:"linkMode,omitempty"`
 }
 
 // backupMarks 是**书签文档**那一段。
@@ -164,13 +165,14 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 
 // settingsOf 把 profile.json 里那几格台面偏好取出来。
 //
-// **六格全给**（连空串也写进去）：空串是"没选过"，是**值**而不是"没有这一格"。
+// **七格全给**（连空串也写进去）：空串是"没选过"，是**值**而不是"没有这一格"。
 // 少了它，恢复到另一台机器时那一格会留在原样——于是"没选过"与"选了默认"
 // 在盘上分不开（model.Profile 那一族形状纪律）。
 func settingsOf(p *model.Profile) *backupSettings {
 	theme, layout := p.Theme, p.Layout
 	view, addr := p.View, p.AddrLevel
 	title, lang := p.PageTitle, p.Language
+	link := string(p.LinkMode)
 	return &backupSettings{
 		Theme:     &theme,
 		Layout:    &layout,
@@ -178,6 +180,7 @@ func settingsOf(p *model.Profile) *backupSettings {
 		AddrLevel: &addr,
 		PageTitle: &title,
 		Language:  &lang,
+		LinkMode:  &link,
 	}
 }
 
@@ -437,6 +440,9 @@ func (s *Server) restoreInto(id, actor string, pkg *backupPackage, by string) (r
 // + 语言那一份名单），只**多认一个空串**：备份里的空串是"没选过"，它是盘上真实
 // 存在的值；而表单那一格要清回默认，该送显式的默认值而不是空串。
 func checkBackupSettings(st *backupSettings) *backupError {
+	if st.LinkMode != nil && !model.ValidLinkMode(*st.LinkMode) {
+		return backupErr(http.StatusUnprocessableEntity, apierr.FieldInvalid, "backup.err.settings", "linkMode 只能是 auto|lan|wan 或空串")
+	}
 	if st.Theme != nil && !model.ValidTheme(*st.Theme) {
 		return backupErr(http.StatusUnprocessableEntity, apierr.FieldInvalid, "backup.err.settings",
 			"主题只能是 "+strings.Join(model.ThemeValues, "|"))
@@ -477,6 +483,10 @@ func (s *Server) applyBackupSettings(id string, st *backupSettings) ([]string, e
 		p, err := s.deps.Store.LoadProfile(id)
 		if err != nil {
 			return err
+		}
+		if st.LinkMode != nil {
+			p.LinkMode = model.LinkMode(*st.LinkMode)
+			written = append(written, "linkMode")
 		}
 		if st.Theme != nil {
 			p.Theme = *st.Theme

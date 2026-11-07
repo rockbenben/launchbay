@@ -47,7 +47,8 @@ const (
 // `history.op.item.field` 那一条带原字段名的兜底话——说得出动了哪一格，
 // 只是没给它起名字。
 var itemFieldKeys = map[string]string{
-	"name": "history.op.item.name", "url": "history.op.item.url",
+	"urls/wan": "history.op.item.urlsWan",
+	"name":     "history.op.item.name", "url": "history.op.item.url",
 	"icon": "history.op.item.icon", "desc": "history.op.item.desc",
 	"alias": "history.op.item.alias", "tags": "history.op.item.tags",
 	"aiNote": "history.op.item.aiNote",
@@ -253,7 +254,7 @@ func (s *Server) opPhrase(op store.HistoryOp, dict *historyDict) string {
 			return dict.tr.t("history.op.item.move", label)
 		}
 		return dict.tr.t("history.op.item.remove", label)
-	case ops.ShapeItemField:
+	case ops.ShapeItemField, ops.ShapeItemURLsWAN:
 		label := dict.itemName(sh.GroupID, sh.ItemID)
 		if key, ok := itemFieldKeys[sh.Field]; ok {
 			return dict.tr.t(key, label)

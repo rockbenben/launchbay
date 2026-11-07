@@ -80,6 +80,10 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	// 判据由 httpapi 算，渲染器只印）。
 	notice := s.notice(r, r.URL.Query().Get("err"))
 	opts := s.adminOptions()
+	opts.Host, opts.RemoteAddr = r.Host, r.RemoteAddr
+	opts.LANHosts, opts.LANCIDRs = s.deps.Store.LANRules()
+	shape := s.linkShapeOf(r, nil, opts.LANHosts, opts.LANCIDRs)
+	opts.LinkMode, opts.LinkRule = shape.Mode, shape.Rule
 	// 字段错重画时把刚输入的名字带回来（2026-10-24，与 /setup、/new 同一处置）：
 	// 建档失败一次就清空名字，人得从头再打一遍；PIN 错的那一发更会顺手变成
 	// noname，白跑两趟。PIN 一个字都不回填——它是这一页的凭证。

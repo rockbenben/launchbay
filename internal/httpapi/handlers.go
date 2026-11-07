@@ -414,7 +414,10 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	// 升级前的代管 cookie）。到这里 `lb_profile` 就是全部，渲染侧不再需要
 	// "是不是代管"与"别人是谁"这两个输入——2026-10-10 改判把 `/switch to=<id>`
 	// 删了之后，它们永远不会有人传。
+	hosts, cidrs := s.deps.Store.LANRules()
+	shape := s.linkShapeOf(r, prof, hosts, cidrs)
 	req := render.PageRequest{
+		LinkMode: shape.Mode, LinkRule: shape.Rule,
 		ID: sess.Active, Query: r.URL.Query().Get("q"),
 		Add: keepAdd, AddTitle: r.URL.Query().Get("t"),
 		HasAdmin: s.hasAdminCookie(r),
@@ -448,6 +451,9 @@ func (s *Server) onlyProfileTitle(r *http.Request) string {
 func (s *Server) writePage(w http.ResponseWriter, r *http.Request, p render.Page) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-LB-Profile", p.Profile)
+	if p.LinkMode != "" {
+		w.Header().Set("X-LB-Link-Mode", string(p.LinkMode))
+	}
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'")
 	if p.NoStore {

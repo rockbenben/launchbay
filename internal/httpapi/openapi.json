@@ -34,7 +34,19 @@
         "description": "公开。无合法会话 → 档案选择页（只有名字，零条目零 URL）；有会话 → 该档案首屏 HTML（X-LB-Profile 头标明渲染的是哪个档案，串号防线）。档案的 bookmarks.json 坏了也回 200，内容是给人看的解释页而不是书签数据。",
         "responses": {
           "200": {
-            "description": "HTML：选择页、档案首屏，或坏档案的解释页"
+            "description": "HTML：选择页、档案首屏，或坏档案的解释页",
+            "headers": {
+              "X-LB-Link-Mode": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "lan",
+                    "wan"
+                  ]
+                },
+                "description": "只在已登录档案首页（含搜索结果）提供当前生效模式；选择页、管理页、面板、历史与坏档页不带。"
+              }
+            }
           },
           "304": {
             "description": "If-None-Match 命中 ETag"
@@ -79,7 +91,7 @@
         }
       }
     },
-    "/app.519ed6fc1004.js": {
+    "/app.d1fe3f7319c0.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -323,7 +335,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall|dense、addrLevel ∈ host|full|none、title（页面名，无枚举、≤60 字，空串 = 清除）、language ∈ |zh|en（空串 = 跟随站级默认），六个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图，dense = 密集视图），2026-10-20 多了 language 这一格（这一份自己的界面语言：空串 = 跟随站级默认，管理员在管理页设的那一个）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**唯一发出这些字段的界面是台面面板**（`GET /prefs` 那张独立页与档案页里页内嵌的浮层，同一个 define）：六件事此前是顶栏六颗散着的控件，2026-10-13 收进一屏，于是**界面形状也统一了**——排法三颗、档案形态两颗、主题三颗、第二行三颗，**每一颗都是标签稳定的 pressed 单选钮**（`aria-pressed`），不再有\"主题是一颗说\"当前是哪一档\"的循环键。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json）。面板上发这些字段的是**六张独立的表单**（页面名字/排列方式/第二行/分组列表的位置/主题/界面语言），一次按一下只改一件事，所以没有\"提交\"这一步，也就没有\"忘了提交\"。",
+        "description": "浏览器表单通路，AI 不走这条。体是 application/x-www-form-urlencoded：theme ∈ auto|dark|light、layout ∈ sidebar|topbar、view ∈ groups|wall|dense、addrLevel ∈ host|full|none、title（页面名，无枚举、≤60 字，空串 = 清除）、language ∈ |zh|en（空串 = 跟随站级默认），七个至少给一个，值集与 model 的校验同源（不在 httpapi 里再抄一份枚举）。改的永远是 lb_profile 当前档案——管理员同时登着自己那份时按主题，改的也是自己那份的偏好。成功 303 回 /；不产生 rev、不写历史行，与改自己 PIN 同类。\n\n权限类拒绝（没带会话、令牌打这条路）也答 303 回 /，不吐 401/403 页面：这条路只由页面表单走进来，没人在消费一段 JSON 错误。形状错才走 JSON 外壳：一个字段都不给、值不在枚举里、同名多值 → 422，errors 点名是哪个字段；profile.json 读不了 → 503（detail 点名文件与位置）。读档分诊与 PIN 端点是同一条：档案已不存在回 404、真 I/O 故障回 500。\n\n2026-10-12 多了 title 这一格（页面名），2026-10-13 多了 view 这一格（整页排法：groups = 一组一节，wall = 全局视图，dense = 密集视图），2026-10-20 多了 language 这一格（这一份自己的界面语言：空串 = 跟随站级默认，管理员在管理页设的那一个）。一个字段都不给才 422；给了 view 而没给 theme/layout 是合法的一半。**view 不吃空串**：清回默认要送 groups，而盘上\"没有这个键\"是升级前那份档案的形状，读侧照旧合法。\n\n**唯一发出这些字段的界面是台面面板**（`GET /prefs` 那张独立页与档案页里页内嵌的浮层，同一个 define）：六件事此前是顶栏六颗散着的控件，2026-10-13 收进一屏，于是**界面形状也统一了**——排法三颗、档案形态两颗、主题三颗、第二行三颗，**每一颗都是标签稳定的 pressed 单选钮**（`aria-pressed`），不再有\"主题是一颗说\"当前是哪一档\"的循环键。`layout` 这一格在 2026-10-13 之前没有任何入口（只有 CSS 与模板属性，改它只能手改 profile.json）。面板上发这些字段的是**七张独立的表单**（页面名字/排列方式/第二行/分组列表的位置/主题/界面语言/书签地址模式），一次按一下只改一件事，所以没有\"提交\"这一步，也就没有\"忘了提交\"。\n\nlinkMode ∈ auto|lan|wan 为第七格；自动按访问 Host 判断，手动模式优先。X-LB-Link-Mode 只在档案首页返回当前 lan/wan 模式，复制和两路搜索只使用生效地址。",
         "requestBody": {
           "required": true,
           "content": {
@@ -378,6 +390,15 @@
                       "en"
                     ],
                     "description": "**这一份自己的界面语言**（2026-10-20 加），落 profile.json 的 language，与 theme/layout 同族（台面偏好：不产生 rev、不写快照）。空串 = **跟随默认**——也就是管理员在管理页设的那一个（站级默认，data/settings.json）。判据只有一处：i18n.ProfileLang。**它只改这一份**：别人的档案语言谁也改不了（管理员改的是默认，不是别人的那一份）。写侧严（不认识的值 → 422 点名 language）、读侧宽（盘上写坏的值落默认，不把档案判成坏档）。"
+                  },
+                  "linkMode": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "lan",
+                      "wan"
+                    ],
+                    "description": "档案自己的地址模式。自动按 Host 判断（并非探测设备网络），手动模式优先；只写 profile.json，不产生 rev。"
                   }
                 }
               }
@@ -1487,7 +1508,7 @@
                   },
                   "settings": {
                     "type": "object",
-                    "description": "台面偏好六格。**键不存在 = 不动它**；键在而值是空串 = 「没选过」（一个值）。"
+                    "description": "台面偏好七格（含 linkMode：自动 / 内网 / 外网）。**键不存在 = 不动它**；键在而值是空串 = 「没选过」（一个值）。"
                   },
                   "bookmarks": {
                     "type": "object",
@@ -3648,7 +3669,7 @@
           },
           "path": {
             "type": "string",
-            "description": "路径文法：groups/<gid>[/items[/<iid>]][/<field>]，**或**根级标量 <field>（只认 title/footer/openInNewTab/clock）。可 set 的字段是三张白名单：分组 title/layout/accent；条目 name/url/icon/desc/alias/tags/aiNote；根级 title/footer/openInNewTab/clock。rev（并发判据本身）/groups（整表替换）/search、weather（对象且页面不渲染）一律拒，每种拒法有自己的理由"
+            "description": "路径文法：groups/<gid>[/items[/<iid>]][/<field>]，**或**根级标量 <field>（只认 title/footer/openInNewTab/clock）。可 set 的字段是三张白名单：分组 title/layout/accent；条目 name/url/icon/desc/alias/tags/aiNote；根级 title/footer/openInNewTab/clock。rev（并发判据本身）/groups（整表替换）/search、weather（对象且页面不渲染）一律拒，每种拒法有自己的理由 支持第六段 groups/<gid>/items/<iid>/urls/wan：仅 set，字符串 http/https 外网覆盖地址；空串移除 urls；urls/lan 不存在，主地址在 url。add 的条目可带 urls:{wan:\"https://...\"}，同样校验。"
           },
           "value": {
             "description": "任意 JSON（add/set 用：新条目对象或新字段值）。openInNewTab 与 clock 必须是**真布尔**：写成字符串 \"true\" 会被拒（页面只认真布尔，字符串会被静默当假，而那一发 op 是绿的）",

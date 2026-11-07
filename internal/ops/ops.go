@@ -229,7 +229,11 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		}
 		// 整组一次带进来的每条图标都要过闸：陌生名字埋在十几条里时，理由必须
 		// 点名是哪一条（it.ID），否则调用方只能整组重猜。
-		for _, it := range g.Items {
+		for i := range g.Items {
+			it := &g.Items[i]
+			if err := checkItemWAN(it); err != nil {
+				return nil, err
+			}
 			if err := checkIconName(icons, it.ID, it.Icon); err != nil {
 				return nil, err
 			}
@@ -263,6 +267,9 @@ func add(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 		}
 		if dupItem(b, it.ID) {
 			return nil, kerr(apierr.DuplicateID, fmt.Errorf("条目 id %q 在本档案里已用过（跨分组也不行）", it.ID))
+		}
+		if err := checkItemWAN(&it); err != nil {
+			return nil, err
 		}
 		if err := checkIconName(icons, it.ID, it.Icon); err != nil {
 			return nil, err
@@ -346,7 +353,7 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 			g.Accent = s
 		}
 		return warn, nil
-	case kindItemField:
+	case kindItemField, kindItemURLsWAN:
 		g, err := findGroup(b, t.groupID)
 		if err != nil {
 			return nil, err
@@ -414,6 +421,28 @@ func setDocField(b *model.Bookmarks, field string, raw json.RawMessage) ([]strin
 
 func setItemField(it *model.Item, field string, raw json.RawMessage, icons IconSet) ([]string, error) {
 	switch field {
+	case "urls/wan":
+		var value *string
+		if err := decode(raw, &value); err != nil {
+			return nil, err
+		}
+		if value == nil {
+			return nil, fmt.Errorf("urls/wan 必须是字符串，清空请给空串")
+		}
+		if *value != "" {
+			if err := model.CheckWanURL(*value); err != nil {
+				return nil, err
+			}
+		}
+		old := ""
+		if it.URLs != nil {
+			old = it.URLs.WAN
+		}
+		it.URLs = nil
+		if *value != "" {
+			it.URLs = &model.ItemURLs{WAN: *value}
+		}
+		return changed(old == *value), nil
 	case "name", "url", "icon", "desc", "aiNote":
 		var s string
 		if err := decode(raw, &s); err != nil {
@@ -604,4 +633,19 @@ func Describe(in []Op) []Brief {
 		out = append(out, Brief{Op: o.Op, Path: o.Path})
 	}
 	return out
+}
+
+// Empty optional objects disappear on write; malformed nonempty overrides are rejected.
+func checkItemWAN(it *model.Item) error {
+	if it.URLs == nil {
+		return nil
+	}
+	if it.URLs.WAN == "" {
+		it.URLs = nil
+		return nil
+	}
+	if err := model.CheckWanURL(it.URLs.WAN); err != nil {
+		return fieldErr{"urls/wan", err}
+	}
+	return nil
 }

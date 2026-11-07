@@ -245,6 +245,17 @@
       </section>
     </div>
   </section>
+  <section class="adm-sec">
+    <h2>{{.T "admin.link.title"}}</h2>
+    <div class="prefs-hint">{{.T "prefs.linkMode.hint"}}</div>
+    <dl>
+      <dt>Host</dt><dd>{{.Key.Host}}</dd>
+      <dt>RemoteAddr</dt><dd>{{.Key.RemoteAddr}}</dd>
+      <dt>{{.T "admin.link.result"}}</dt><dd>{{if .Key.LinkMode}}{{.T (printf "link.mode.%s" .Key.LinkMode)}} · {{.Key.LinkRule}}{{end}}</dd>
+      <dt>lanHosts</dt><dd>{{range .Key.LANHosts}}<div>{{.}}</div>{{else}}—{{end}}</dd>
+      <dt>lanCIDRs</dt><dd>{{range .Key.LANCIDRs}}<div>{{.}}</div>{{else}}—{{end}}</dd>
+    </dl>
+  </section>
 </main>
 </body>
 </html>{{end}}

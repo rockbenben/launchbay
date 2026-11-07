@@ -11,10 +11,12 @@ import (
 	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/icons"
+	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
 type Page struct {
+	LinkMode model.LinkMode
 	// Body 是缓存切片：同一 (档案, rev, bookmarks.mtime, profile 指纹, iconGen)
 	// 的后续请求拿到的是同一份底层数组，调用方不许原地改；确实要改就先复制一份。
 	Body []byte
@@ -40,6 +42,8 @@ type Page struct {
 const RepoURL = "https://github.com/rockbenben/launchbay"
 
 type cacheKey struct {
+	linkMode model.LinkMode
+	linkRule string
 	profile  string
 	rev      int64
 	modified time.Time // bookmarks.json：外部改盘也失效
@@ -65,8 +69,10 @@ type cacheKey struct {
 // ProfilePage(id, home, query) 里三个同类型参数被调用方写反是编译器抓不到的，
 // 而写反的后果（把别人的缓存条目当成自己的）正是本设计最贵的那类 bug。
 type PageRequest struct {
-	ID    string // 渲染哪个档案（权限已由调用方判过）
-	Query string // ?q=，空 = 不过滤
+	LinkMode model.LinkMode
+	LinkRule string
+	ID       string // 渲染哪个档案（权限已由调用方判过）
+	Query    string // ?q=，空 = 不过滤
 	// Add / AddTitle 是 bookmarklet 带来的那一条（§6.3 的 `?add=` 与 `?t=`），
 	// 形状与 Query 同一族：它会随每个请求变化（每条书签的地址都不一样），
 	// 所以**同样不进渲染缓存**——见下面那个 `if`。理由比 ?q= 更硬：?q= 漏进去
@@ -149,7 +155,7 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	lang := req.Lang
 	key := cacheKey{profile: req.ID, rev: snap.Rev,
 		modified: snap.Modified, profFp: profFp, iconGen: r.fc.Generation(), lang: lang,
-		hasAdmin: req.HasAdmin}
+		hasAdmin: req.HasAdmin, linkMode: req.LinkMode, linkRule: req.LinkRule}
 	if req.Query == "" && req.Add == "" {
 		r.mu.Lock()
 		if p, ok := r.cache[key]; ok {
@@ -171,11 +177,11 @@ func (r *Renderer) ProfilePage(req PageRequest) (Page, error) {
 	}
 	hasSnaps := err != nil || len(snaps) > 0
 
-	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps, req.HasAdmin, i18n.Load(lang))
+	body, err := r.tmpl.profile(prof, snap.B, req.Query, req.Add, req.AddTitle, hasSnaps, req.HasAdmin, req.LinkMode, req.LinkRule, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err
 	}
-	page := Page{Body: body, ETag: makeETag(req.ID, body), Profile: req.ID, Rev: snap.Rev}
+	page := Page{Body: body, ETag: makeETag(req.ID, body), Profile: req.ID, Rev: snap.Rev, LinkMode: req.LinkMode}
 
 	// **写缓存的条件必须与读缓存的那一个字面相同**（req.Query == "" && req.Add == ""）。
 	// 之前读侧加了 Add、写侧没加，于是带 ?add= 的那一页被写进缓存，下一个普通首屏
@@ -388,6 +394,10 @@ type AdminRow struct {
 // 机器现在用的还是不是它"——前者是公开知识，印出来不泄露任何东西；后者
 // 只在**已经进了管理页**的人眼前才有意义。
 type AdminOptions struct {
+	Host, RemoteAddr   string
+	LinkMode           model.LinkMode
+	LinkRule           string
+	LANHosts, LANCIDRs []string
 	// DefaultAdminKey 是那个公开的默认密钥的字面值。
 	DefaultAdminKey string
 	// UsingDefaultAdminKey 为真 = 这台机器现在用的就是它（该换掉了）。

@@ -287,7 +287,7 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 // 于是它们那两段文档里的档位清单**没有人对着 model 校**——而它们恰恰是 2026-10-19
 // 才加的两格（加进去的那一轮只补了服务端与界面，文档这一侧漏了）。`view` 与
 // `layout` 的值集都只有一份（`view` 没有分组内部那一版），所以不需要限定词。
-var prefsEnumRE = regexp.MustCompile("`(theme|layout|view|addrLevel)`(?:（(组|页)）)? ∈ ((?:`[^`]+`、?)+)")
+var prefsEnumRE = regexp.MustCompile("`(theme|layout|view|addrLevel|linkMode)`(?:（(组|页)）)? ∈ ((?:`[^`]+`、?)+)")
 
 // 文档里的值集也必须与 model 那张表同集，两个方向都核：少一档是 AI 写不出
 // 那一档（它不知道有），多一档是 AI 照着文档写出去吃 422。422 的拒绝语已经
@@ -305,6 +305,7 @@ func TestAgentsMD枚举与model同集(t *testing.T) {
 		"layout/组":  model.GroupLayoutValues,
 		"view":      model.ViewValues,
 		"addrLevel": model.AddrValues,
+		"linkMode":  model.LinkModeValues,
 	}
 	matches := prefsEnumRE.FindAllStringSubmatch(text, -1)
 	// 解析器不能空转：五段都必须出现（theme、页 layout、组 layout、view、addrLevel），

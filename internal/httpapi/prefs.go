@@ -61,10 +61,11 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	view, hasView := r.Form["view"]
 	addr, hasAddr := r.Form["addrLevel"]
 	lang, hasLang := r.Form["language"]
-	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr && !hasLang {
+	link, hasLink := r.Form["linkMode"]
+	if !hasTheme && !hasLayout && !hasTitle && !hasView && !hasAddr && !hasLang && !hasLink {
 		// "没说要改什么"不是"什么都不做然后成功"：那会让一个拼错的字段名
 		// 静默返回 303，而调用方以为改成了。
-		why := "要带 theme、layout、view、addrLevel、language 或 title 至少一个"
+		why := "要带 theme、layout、view、addrLevel、language、linkMode 或 title 至少一个"
 		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{
 			{Kind: apierr.FieldInvalid, Field: "theme", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "layout", Reason: why},
@@ -72,6 +73,7 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 			{Kind: apierr.FieldInvalid, Field: "view", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "addrLevel", Reason: why},
 			{Kind: apierr.FieldInvalid, Field: "language", Reason: why},
+			{Kind: apierr.FieldInvalid, Field: "linkMode", Reason: why},
 		})
 		return
 	}
@@ -129,6 +131,10 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if hasLink && (len(link) != 1 || link[0] == "" || !model.ValidLinkMode(link[0])) {
+		writeFieldErrors(w, http.StatusUnprocessableEntity, []fieldError{{Kind: apierr.FieldInvalid, Field: "linkMode", Reason: "只能是 " + strings.Join(model.LinkModeValues, "|")}})
+		return
+	}
 	var saveErr error
 	id := sess.Active
 	// 读→改→验→写整段进锁，与 handleSelfPin 同形（评审 Important 1 的教训：
@@ -159,6 +165,9 @@ func (s *Server) handlePrefs(w http.ResponseWriter, r *http.Request) {
 			// 空串 = 跟随默认（这一份没自己选语言）。写下去的是**空串**而不是
 			// 默认语言本身：跟着默认的人，管理员改默认时要跟着变。
 			p.Language = strings.TrimSpace(lang[0])
+		}
+		if hasLink {
+			p.LinkMode = model.LinkMode(link[0])
 		}
 		saveErr = s.deps.Store.SaveProfile(p)
 		return nil
@@ -228,7 +237,7 @@ func (s *Server) handlePrefsPage(w http.ResponseWriter, r *http.Request) {
 // **为什么不在 /prefs 里一起办**：那几个字段落在 bookmarks.json 的分组上，
 // 属于书签数据——快照、审计线、rev 三道闸一道都不能少，所以它走
 // `applyBatch`（与 POST /api/v1/batch 同一个落点，`/import/apply` 也是这么走的）。
-// `/prefs` 只写 profile.json 的台面偏好，混进来的话它那句"六格至少给一个"
+// `/prefs` 只写 profile.json 的台面偏好，混进来的话它那句"七格至少给一个"
 // 就会开始管到不属于它的东西，而 422 的字段名也就再也不能当"这一格写错"读。
 //
 // **档案不接受申报**：与 /revert、/history、/prefs 同一族，档案从会话推导。
@@ -535,7 +544,7 @@ func prefsTab(r *http.Request) string {
 // **为什么不并进 `POST /prefs` 的字段名单**：那一条是 urlencoded 的台面偏好表单，
 // 落点是 profile.json（改完不产生 rev、不做快照）；而 `openInNewTab` 住在**书签文档**
 // 里——它跟着导出走，改它要过 rev 与快照，能在「回退」里退回来。两族落点不同，
-// 混在一处会让那句「六格至少给一个」开始管到不属于它的东西。
+// 混在一处会让那句「七格至少给一个」开始管到不属于它的东西。
 func (s *Server) applyPrefsOps(w http.ResponseWriter, r *http.Request, id string, opList []ops.Op) {
 	out, err := s.applyBatch(id, id, "web", nil, opList)
 	if err != nil {

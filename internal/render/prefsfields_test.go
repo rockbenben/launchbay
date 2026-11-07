@@ -32,9 +32,9 @@ func Test面板里每一张prefs表单恰好一个字段名(t *testing.T) {
 	html := string(mustPrefs(t, s, "dad"))
 
 	forms := prefsFormRE.FindAllStringSubmatch(html, -1)
-	// 六张：页面名字/排列方式/第二行/分组列表的位置/主题/界面语言。少一张就是有一格在面板上画不出来。
-	if len(forms) != 6 {
-		t.Fatalf("面板里有 %d 张 POST /prefs 的表单，要 6 张（页面名字/排列方式/第二行/分组列表的位置/主题/界面语言）", len(forms))
+	// 七张：页面名字/排列方式/第二行/分组列表的位置/主题/界面语言。少一张就是有一格在面板上画不出来。
+	if len(forms) != 7 {
+		t.Fatalf("面板里有 %d 张 POST /prefs 的表单，要 7 张（页面名字/排列方式/第二行/分组列表的位置/主题/界面语言）", len(forms))
 	}
 	for i, f := range forms {
 		set := map[string]bool{}

@@ -95,9 +95,9 @@ func TestBackup_导出的是这一份的完整状态(t *testing.T) {
 	if !ok {
 		t.Fatalf("settings 那一段不是一个对象: %#v", pkg["settings"])
 	}
-	// **六格全在**：少了哪一格，恢复到另一台机器上它就留在原样——于是"没选过"
+	// **七格全在**：少了哪一格，恢复到另一台机器上它就留在原样——于是"没选过"
 	// 与"选了默认"在盘上分不开。
-	for _, k := range []string{"theme", "layout", "view", "addrLevel", "pageTitle", "language"} {
+	for _, k := range []string{"theme", "layout", "view", "addrLevel", "pageTitle", "language", "linkMode"} {
 		if _, has := settings[k]; !has {
 			t.Errorf("settings 里没有 %s 那一格", k)
 		}
