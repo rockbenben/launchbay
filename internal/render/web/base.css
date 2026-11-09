@@ -562,7 +562,9 @@ a.badge,button.badge{font-size:13px;padding:8px 12px;border-radius:9px;border:1p
 a.badge:hover,button.badge:hover{background:var(--card-hi);border-color:var(--accent)}
 a.badge.danger,button.badge.danger{border-color:var(--bad);color:var(--bad)}
 a.badge.danger:hover,button.badge.danger:hover{background:rgba(255,122,122,.14);border-color:var(--bad)}
-.tag{border:1px solid var(--line);color:var(--ink2)}
+.tag{border:1px solid transparent;color:var(--ink2);background:var(--card-hi)}
+.empty-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0}
+.empty-actions [data-add-first]{border-color:var(--accent)}
 .tags-row{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
 /* 需手动打开那条：整串 URL 是纯文本，让它换到自己那一行，名字与徽标各保一行。
    `order:2` 是为**排在地址后面的那些东西**说的（把手、复制键、「图标未匹配」徽标、

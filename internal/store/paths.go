@@ -77,8 +77,8 @@ func (s *Store) IconIndexPath() string { return filepath.Join(s.IconsDir(), "ind
 // 之后 B 的背景跟着消失，而"还有谁在用"这个问题的答案会变）。
 //
 // 与 IconsDir 的差别：图标缓存是**站级**的（按 origin 共享，谁都可能命中同一张），
-// 背景是**按档案**的（§11：各人一份，别人看不见）。删档时也不动这里——
-// blob 挂在 `backgrounds/<id>/` 下，而目录连同 profiles/<id>/ 一起没了。
+// 背景是**按档案**的（§11：各人一份，别人看不见）。DeleteProfile 显式删除
+// `backgrounds/<id>/`；它不在 profiles/<id>/ 内，不能靠删档案目录顺带清掉。
 func (s *Store) BackgroundsDir() string { return filepath.Join(s.root, "backgrounds") }
 
 // BackgroundDir 是**一个档案**的背景目录。id 走的是 model.ValidSlug 那一档

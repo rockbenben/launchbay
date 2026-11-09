@@ -164,6 +164,11 @@ func (s *Store) DeleteProfile(id string) error {
 			// 其它 I/O 错按"删不下去"原样上报（仍点名路径），不粉饰成 nil。
 			return fmt.Errorf("stat %s: %w", dir, err)
 		}
+		// id was checked above. Backgrounds live outside profiles/<id>, so they
+		// need explicit cleanup. Keep the profile present if this cleanup fails.
+		if err := os.RemoveAll(s.BackgroundDir(id)); err != nil {
+			return fmt.Errorf("删档案背景: %w", err)
+		}
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("删 %s: %w", dir, err)
 		}

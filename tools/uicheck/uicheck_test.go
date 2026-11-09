@@ -82,6 +82,10 @@ func TestDualURLInteraction(t *testing.T) {
 	runBrowserSweeps(t, "sweep-dual-url.mjs")
 }
 
+func TestUsabilityInteraction(t *testing.T) {
+	runBrowserSweeps(t, "sweep-usability.mjs")
+}
+
 func runBrowserSweeps(t *testing.T, scripts ...string) {
 	if !enabled() {
 		t.Skip("跳过界面横扫：设 LB_UI=1 才跑（要 node 与一个无头浏览器；" +

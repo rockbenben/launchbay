@@ -267,7 +267,7 @@ func (s *Server) directImport(w http.ResponseWriter, r *http.Request, profile, f
 		return
 	}
 	switch {
-	case out.missing, out.broken != "", len(out.verrs) > 0, out.snapErr != nil:
+	case out.missing, out.broken != "", out.conflict != nil, len(out.verrs) > 0, out.snapErr != nil:
 		// 写入没成：把结论说清楚，绝不跳回一个"什么都没变"的首页。
 		s.renderImport(w, r, render.ImportView{
 			Mode: "pick", Heading: tr.t("import.heading"),
@@ -321,7 +321,7 @@ func (s *Server) handleImportApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tr := s.trFor(r, profile)
-	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" {
+	if len(out.verrs) > 0 || out.snapErr != nil || out.missing || out.broken != "" || out.conflict != nil {
 		// 写入没成：把结论说清楚，别 303 回一个"什么都没变"的首页。
 		// **meta.bookmarks 让这一条路也能点名**（2026-10-24）：apply 时重新解析过
 		// 一次，传进来就能把"第 N 条 op 失败"翻成那条书签的名字；从前这里传 nil，
@@ -754,7 +754,8 @@ func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, im
 	if err != nil {
 		return batchOutcome{}, meta, err
 	}
-	out, err := s.applyBatch(profile, actor, by, nil, opList)
+	// The empty-target check and the commit must refer to the same revision.
+	out, err := s.applyBatch(profile, actor, by, &snap.Rev, opList)
 	return out, meta, err
 }
 

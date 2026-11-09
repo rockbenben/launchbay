@@ -51,6 +51,26 @@ func TestDeleteProfileKeepsHistory(t *testing.T) {
 	}
 }
 
+func TestDeleteProfileRemovesOnlyItsOwnBackgrounds(t *testing.T) {
+	s := New(t.TempDir())
+	for _, id := range []string{"dad", "kid"} {
+		bgProfile(t, s, id)
+		if _, err := s.SaveBackground(id, onePixelPNG(t), "png"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DeleteProfile("dad"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(s.BackgroundDir("dad")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("deleted profile left private backgrounds behind: %v", err)
+	}
+	files, err := os.ReadDir(s.BackgroundDir("kid"))
+	if err != nil || len(files) != 1 {
+		t.Errorf("another profile's background must survive: files=%v err=%v", files, err)
+	}
+}
+
 // 删不存在的档案要**同时**被 errors.Is(err, os.ErrNotExist)（端点据此 404）
 // 与 errors.Is(err, ErrNotFound)（调用方的存在性判据）认出：只满足其一，
 // 另一头的判据就会假阴性。原来的 !os.IsNotExist(err) && err == nil 是

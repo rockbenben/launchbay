@@ -157,7 +157,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	// 与 view 那一格同一形状（读侧空串 = 默认，写侧表单要清回默认送 "host"）。
 	want := []string{
 		"按分组=true", "并排=false", "紧凑=false",
-		"主机名=true", "完整地址=false", "不显示=false",
+		"说明或主机名=true", "完整地址=false", "不显示=false",
 		"侧栏=true", "顶栏=false",
 		"跟随系统=true", "暗色=false", "亮色=false",
 		"当前页=true", "另开一页=false",
@@ -170,7 +170,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	if rec := postForm(h, "/prefs", "view=wall", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("view=wall 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,说明或主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("开完全局视图：%v", got)
 	}
 	// 开顶栏导航：两维互不干涉（view 还开着，dense 那颗仍是 false）
@@ -178,7 +178,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 		t.Fatalf("layout=topbar 要 303，得到 %d", rec.Code)
 	}
 	got = panel()
-	if strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,说明或主机名=true,完整地址=false,不显示=false,侧栏=false,顶栏=true,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("两维都开：%v", got)
 	}
 	page := get(h, "/", dadFormCookie).Body.String()
@@ -196,7 +196,7 @@ func TestPrefs_开关的标签稳定而状态走aria(t *testing.T) {
 	if rec := postForm(h, "/prefs", "layout=sidebar", dadFormCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("切回 sidebar 要 303，得到 %d", rec.Code)
 	}
-	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
+	if got = panel(); strings.Join(got, ",") != "按分组=false,并排=true,紧凑=false,说明或主机名=true,完整地址=false,不显示=false,侧栏=true,顶栏=false,跟随系统=true,暗色=false,亮色=false,当前页=true,另开一页=false" {
 		t.Errorf("关掉顶栏导航：%v", got)
 	}
 }

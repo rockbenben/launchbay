@@ -2,9 +2,42 @@ package store
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestReadHistoryLimitedTailWrapsAfterFiltering(t *testing.T) {
+	s := New(t.TempDir())
+	for i := range 31 {
+		profile := "dad"
+		if i%3 == 0 {
+			profile = "kid"
+		}
+		if err := s.AppendHistory(HistoryEntry{Profile: profile, Rev: int64(i)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, profile := range []string{"", "dad", "kid", "missing"} {
+		all, err := s.ReadHistory(profile, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, limit := range []int{1, 3, 7, 31, 40, -1} {
+			got, err := s.ReadHistory(profile, limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := all
+			if limit > 0 && len(want) > limit {
+				want = want[:limit]
+			}
+			if !slices.EqualFunc(got, want, func(a, b HistoryEntry) bool { return a.Rev == b.Rev && a.Profile == b.Profile }) {
+				t.Errorf("profile=%q limit=%d: got %+v, want %+v", profile, limit, got, want)
+			}
+		}
+	}
+}
 
 func TestAppendHistoryWritesOneLinePerEntry(t *testing.T) {
 	s := New(t.TempDir())

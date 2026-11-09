@@ -69,12 +69,14 @@ func VerifyPIN(stored, pin string) bool {
 	if err != nil {
 		return false
 	}
-	if !ValidPinFormat(pin) {
-		// 仍然算一次，免得"格式错"成一个能用耗时量出来的早退分支。
+	valid := ValidPinFormat(pin)
+	if !valid {
+		// 仍然算一次，但不能让占位值 0000 变成通行凭证。
 		pin = "0000"
 	}
 	sum := sha256.Sum256(append(salt, pin...))
-	return subtle.ConstantTimeCompare(sum[:], want) == 1
+	matched := subtle.ConstantTimeCompare(sum[:], want) == 1
+	return valid && matched
 }
 
 // HasPin 回答"这一份设了 PIN 吗"（2026-10-12）。

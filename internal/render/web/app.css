@@ -72,6 +72,15 @@
   background:var(--bg);border:1px solid var(--line);border-radius:16px;
   box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .sheet[hidden],.cmdk[hidden]{display:none}
+.sheet{overscroll-behavior:contain;scroll-padding-block:16px}
+.usage-hint{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;color:var(--ink2);font-size:13px}
+.usage-hint button{flex-shrink:0}
+.usage-touch{display:none}
+@media (hover:none), (pointer:coarse){
+  .usage-desktop{display:none}
+  .usage-touch{display:inline}
+}
+
 /* 台面面板那一层要**比别的浮层宽两档**，理由是一个数：宽屏上**一个分组要占一行**
    （2026-10-14 实拍后改判，算术在 base.css 那一段），而那一行是
    色板 512 + 排法三颗 212 + 名字下限 96 + 两个 gap 16 = **836**。
@@ -735,4 +744,9 @@ html[data-restore] .card,html[data-restore] .plain,html[data-restore] .feat-card
      "减弱动效"的人悬停大卡仍然抬 3px、图标仍然放大 1.08。 */
   a.feat-card:hover{transform:none}
   a.feat-card:hover .ic-svg,a.feat-card:hover .ic-img,a.feat-card:hover .ic{transform:none}
+}
+
+@media (max-width:520px) and (pointer:coarse){
+  .sheet,#lb-prefs.sheet{top:calc(var(--lb-vtop,0px) + 12px);transform:translateX(-50%);
+    min-height:0;max-height:calc(var(--lb-vh,100vh) - 24px);padding-bottom:max(22px,env(safe-area-inset-bottom))}
 }

@@ -1447,7 +1447,7 @@ func TestPickerPage_引导页把后果说在页面上(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(setup.Body)
-	for _, want := range []string{"管理密钥", "管理页", "建完这一次它就关掉"} {
+	for _, want := range []string{"管理密钥", "管理页", "选择自己的档案", "输入 PIN"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("引导页缺 %q（它得把后果说清）:\n%.500s", want, body)
 		}

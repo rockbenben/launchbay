@@ -153,7 +153,19 @@ func main() {
 	// 丢的是"这一批到底成没成"这句话：调用方只看到连接重置。
 	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
+	if err := serveUntilStopped(ctx, srv, stopSignals); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// serveUntilStopped waits for Shutdown as well as the listener. Closing the
+// listener returns ErrServerClosed before active requests have finished.
+func serveUntilStopped(ctx context.Context, srv *http.Server, stopSignals context.CancelFunc) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		// 摘掉信号处理再退：第二次 Ctrl+C 恢复默认行为。人等得不耐烦时
 		// 按两下就能硬退，不用干等这 10 秒。
@@ -165,13 +177,13 @@ func main() {
 		}
 	}()
 
-	// 这里是全案最后一处曾被漏掉的坑：Shutdown 正常完成时 ListenAndServe
-	// 返回的是 http.ErrServerClosed，那**不是**故障。原来这里直接 log.Fatal，
-	// 于是一次干净的停机会在日志里留下一条 "http: Server closed" 再退 1，
-	// 长得跟崩溃一模一样——而按 spec 的纪律，"把正常说成失败"比失败更贵。
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
+	err := srv.ListenAndServe()
+	cancel()
+	<-shutdownDone
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
 	}
+	return err
 }
 
 // serveNeedsAdmin 是"这台机器要能管"那一道闸：管理员 key 缺失对**服务端**是启动错误

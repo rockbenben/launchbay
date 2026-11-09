@@ -84,17 +84,16 @@ async function tellOK(text) {
 // 不只是"出事了"——"这一窗本来就没有新东西"也归它管。
 // `where` 是"点这条通知该落到哪儿"（'page' | 'settings'，判据见 i18n.js 的
 // NOTE_TARGET）。不传就当 settings——那是一句说不清出路的失败该有的默认。
-let lastNoteWhere = 'settings';
-
 async function tellNote(title, message, profile, where) {
-  lastNoteWhere = where === 'page' ? 'page' : 'settings';
   await chrome.action.setBadgeText({ text: '!' });
   await chrome.action.setBadgeBackgroundColor({ color: '#b3261e' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 6000);
   const body = profile ? `${message}\n${t('failProfile', profile)}` : message;
   try {
-    await chrome.notifications.notify({
-      id: 'lb-fail',
+    // The worker may restart before the notification is clicked.
+    await chrome.storage.local.set({ 'lb-note-target': where === 'page' ? 'page' : 'settings' });
+    await chrome.notifications.create('lb-fail', {
+      type: 'basic',
       title,
       message: body,
       iconUrl: 'icons/32.png',
@@ -112,7 +111,8 @@ async function tellNote(title, message, profile, where) {
 // 同时指两个地方**。设置类失败照旧开设置页，那才是它的出路。
 chrome.notifications?.onClicked?.addListener(async (id) => {
   if (id !== 'lb-fail') return;
-  if (lastNoteWhere !== 'page') {
+  const saved = await chrome.storage.local.get('lb-note-target');
+  if (saved['lb-note-target'] !== 'page') {
     await chrome.runtime.openOptionsPage();
     return;
   }

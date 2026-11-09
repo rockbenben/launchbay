@@ -222,3 +222,10 @@ func TestAdminToken派生值随key而变(t *testing.T) {
 		t.Fatal("一把 key 该认不出另一把的派生值")
 	}
 }
+
+func TestUnconfiguredAdminRejectsDerivedCookie(t *testing.T) {
+	var token AdminToken
+	if token.MatchesCookie(token.DeriveCookie()) {
+		t.Fatal("an unconfigured admin must not accept the publicly computable empty-key HMAC")
+	}
+}

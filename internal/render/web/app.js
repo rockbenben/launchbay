@@ -173,7 +173,10 @@ const APP_I18N = {
     "app.cmdk.history": "看这一份的改动历史",
     "app.cmdk.multi": "多选书签（一次改好几条）",
     "app.field.wan": "外网地址（选填）",
-    "app.wan.hint": "只知道一条地址时填上面的「地址」即可；外网地址只接受 http/https。两格可以相同，清空外网地址即可取消。"
+    "app.wan.hint": "只知道一条地址时填上面的「地址」即可；外网地址只接受 http/https。两格可以相同，清空外网地址即可取消。",
+    "app.usage.desktop": "悬停在书签上可编辑；长按卡片可多选。",
+    "app.usage.touch": "点书签旁的铅笔可编辑；长按卡片可多选，滑动浏览。",
+    "app.usage.dismiss": "知道了"
   },
   "en": {
     "app.add": "+ Add",
@@ -327,7 +330,10 @@ const APP_I18N = {
     "app.cmdk.history": "See this profile's change history",
     "app.cmdk.multi": "Multi-select bookmarks (change several at once)",
     "app.field.wan": "WAN address (optional)",
-    "app.wan.hint": "If you only know one address, fill in Address above. The optional WAN address accepts http/https only. Both can be the same; clear WAN address to remove it."
+    "app.wan.hint": "If you only know one address, fill in Address above. The optional WAN address accepts http/https only. Both can be the same; clear WAN address to remove it.",
+    "app.usage.desktop": "Hover over a bookmark to edit it. Long-press a card to select several.",
+    "app.usage.touch": "Tap the pencil to edit. Long-press to select several; swipe to scroll.",
+    "app.usage.dismiss": "Got it"
   }
 };
 // END APP_I18N
@@ -635,6 +641,23 @@ const APP_I18N = {
   // 跟着标题与搜索框排同一行，不再独占一行拉成一条横带（1440 上实测 980×44）。
   const searchForm = $('header .search');
   header.insertBefore(openBtn, searchForm ? searchForm.nextSibling : header.firstChild);
+
+  const firstAdd = $('[data-add-first]');
+  if (firstAdd) {
+    firstAdd.hidden = false;
+    firstAdd.addEventListener('click', () => openSheet(true));
+  }
+  // Keep touch dialogs inside the visible area when the keyboard opens.
+  if (window.visualViewport) {
+    const viewport = window.visualViewport;
+    const fitViewport = () => {
+      document.documentElement.style.setProperty('--lb-vh', viewport.height + 'px');
+      document.documentElement.style.setProperty('--lb-vtop', viewport.offsetTop + 'px');
+    };
+    viewport.addEventListener('resize', fitViewport);
+    viewport.addEventListener('scroll', fitViewport);
+    fitViewport();
+  }
 
   // ── 浮层 ──────────────────────────────────────────────────────────────────
   // **地址那一格不加 `required`**（2026-10-22 改）：原生表单校验会**抢在产品
@@ -1841,9 +1864,8 @@ const APP_I18N = {
     const name = itemName(meta && meta.title, url);
     const value = { id: slug(url, true), name, url };
     if (meta && meta.desc) value.desc = meta.desc;
-    // 分组优先取 resolve 建议的那一组（它只从**这一份现有分组**里挑，绝不凭空
-    // 造一个），否则就用拖到的那一组。
-    const gid = (meta && meta.suggestedGroup && meta.suggestedGroup.id) || targetGid;
+    // An explicit drop target wins over metadata suggestions.
+    const gid = targetGid;
     const ops = [{ op: 'add', path: 'groups/' + gid + '/items', value }];
     // 离线时进待办队列而不是报错：与添加浮层那一条同一个去处（§8.7）。
     if (!navigator.onLine) {
@@ -3277,6 +3299,23 @@ const APP_I18N = {
   }
   for (const li of document.querySelectorAll('li[data-item]')) bindItem(li);
 
+  const hintKey = 'lb-usage-hint-v1-' + profile;
+  let hintDismissed = false;
+  try { hintDismissed = localStorage.getItem(hintKey) === '1'; } catch { /* Optional hint. */ }
+  if (!hintDismissed && document.querySelector('li[data-item]')) {
+    const hint = el('div', { class: 'usage-hint', role: 'note' }, [
+      el('span', { class: 'usage-desktop', text: T('app.usage.desktop') }),
+      el('span', { class: 'usage-touch', text: T('app.usage.touch') }),
+    ]);
+    hint.append(el('button', { type: 'button', class: 'badge', text: T('app.usage.dismiss'), on: {
+      click: () => {
+        try { localStorage.setItem(hintKey, '1'); } catch { /* Dismiss still works. */ }
+        hint.remove();
+      },
+    } }));
+    $('main')?.prepend(hint);
+  }
+
   // ── 拖放：四种落点，一个委托块（2026-10-16）────────────────────────────
   // 从前是「每一行挂五个（dragstart/dragend/dragover/dragleave/drop）+ 每个组
   // 标题挂三个」，而它们做的事全都只取决于**事件落在谁身上**。四百条的书签页
@@ -3660,15 +3699,19 @@ const APP_I18N = {
     if (li.dataset.lbMultiBound) return;
     li.dataset.lbMultiBound = '1';
     const id = li.dataset.item;
+    let held = false;
     li.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
-      holdTimer = setTimeout(() => { holdTimer = null; enterMulti(id); }, HOLD_MS);
+      held = false;
+      holdTimer = setTimeout(() => { holdTimer = null; held = true; enterMulti(id); }, HOLD_MS);
     });
     const cancel = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
     li.addEventListener('pointerup', cancel);
     li.addEventListener('pointercancel', cancel);
     li.addEventListener('pointermove', cancel);
     li.addEventListener('click', (e) => {
+      // Releasing the hold also produces a click; keep the first card selected.
+      if (held) { held = false; e.preventDefault(); e.stopPropagation(); return; }
       if (multi.on) { e.preventDefault(); e.stopPropagation(); togglePick(id); }
       // 不在多选里就让它照常打开链接——这里什么都不做正是要的形状。
     });

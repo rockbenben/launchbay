@@ -215,6 +215,9 @@ func (t AdminToken) DeriveCookie() string {
 // MatchesCookie 比对 cookie 里那个派生值。长度不等先挡掉——ConstantTimeCompare
 // 遇到长度不同直接返回 0，不构成问题，但先判一次省得每次都进 HMAC 的分支。
 func (t AdminToken) MatchesCookie(value string) bool {
+	if t.secret == "" || value == "" {
+		return false
+	}
 	want := t.DeriveCookie()
 	if len(want) != len(value) {
 		return false

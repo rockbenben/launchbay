@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -116,7 +115,8 @@ type backupError struct {
 	kind   string
 	detail string
 	// key 是网页那一路的句子（空 = 用那句通用的）。
-	key string
+	key        string
+	currentRev *int64
 }
 
 func (e *backupError) Error() string { return e.detail }
@@ -312,8 +312,7 @@ func (s *Server) restoreTarget(w http.ResponseWriter, r *http.Request) (string, 
 	}
 	sess := auth.ReadSession(r)
 	if !sess.Valid() {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{
-			Code: 401, Kind: apierr.CredentialMissing, Detail: "需要令牌或会话"})
+		s.writeAuthFailure(w, r)
 		return "", "", false
 	}
 	if _, _, ok := s.require(r, credScoped, sess.Active); !ok {
@@ -329,9 +328,7 @@ func (s *Server) restoreTarget(w http.ResponseWriter, r *http.Request) (string, 
 // 报"未知字段"比悄悄导进一个空页面名有用。
 func parseBackup(raw []byte) (*backupPackage, *backupError) {
 	var pkg backupPackage
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&pkg); err != nil {
+	if err := store.DecodeJSON(raw, &pkg); err != nil {
 		return nil, backupErr(http.StatusUnprocessableEntity, apierr.BodyUnreadable, "backup.err.unreadable",
 			"这份文件读不成一份备份（要的是 GET /api/v1/backup 导出的那份 JSON）")
 	}
@@ -361,7 +358,7 @@ func (s *Server) restoreInto(id, actor string, pkg *backupPackage, by string) (r
 			return restoreResponse{}, berr
 		}
 	}
-	out := restoreResponse{Profile: id}
+	out := restoreResponse{Profile: id, Settings: []string{}, Warnings: []string{}}
 	// 书签那一段的门槛：**目标档案必须一条书签都没有**（与 importGuard 同一份
 	// 判据）。导入的语义是"把这一份搬进来"，不是"往现有档案上叠加"——对着
 	// 一个已经装了几十条书签的档案跑一遍，那几十条会无声消失。
@@ -390,6 +387,12 @@ func (s *Server) restoreInto(id, actor string, pkg *backupPackage, by string) (r
 		if err != nil {
 			return restoreResponse{}, backupErr(http.StatusInternalServerError, apierr.InternalError, "backup.err.write",
 				"写盘失败")
+		}
+		if outcome.conflict != nil {
+			berr := backupErr(http.StatusConflict, apierr.RevConflict, "import.outcome.conflict",
+				"rev 已变，请重读后重试")
+			berr.currentRev = outcome.conflict
+			return restoreResponse{}, berr
 		}
 		if len(outcome.verrs) > 0 {
 			// **书签那一段没通过校验**：这不是设置的事，所以不说"设置有一格不认"
@@ -478,7 +481,7 @@ func checkBackupSettings(st *backupSettings) *backupError {
 //
 // **没给的字段不碰**：只导了主题就不该把排法顺手归位。
 func (s *Server) applyBackupSettings(id string, st *backupSettings) ([]string, error) {
-	var written []string
+	written := []string{}
 	err := s.deps.Store.WithProfileLock(id, func() error {
 		p, err := s.deps.Store.LoadProfile(id)
 		if err != nil {
@@ -552,7 +555,8 @@ func (s *Server) applyBackupMarks(id, actor, by string, cur *model.Bookmarks, m 
 	for _, g := range m.Groups {
 		opList = append(opList, ops.Op{Op: "add", Path: "groups", Value: backupValue(g)})
 	}
-	return s.applyBatch(id, actor, by, nil, opList)
+	// Every removal was planned from cur. A later write must survive this import.
+	return s.applyBatch(id, actor, by, &cur.Rev, opList)
 }
 
 // backupValue 把一个值变成 op 的 value。
@@ -569,5 +573,5 @@ func backupValue(v any) json.RawMessage {
 
 // writeBackupError 把这一族的错按机器那一路的形状答出去。
 func (s *Server) writeBackupError(w http.ResponseWriter, berr *backupError) {
-	writeJSON(w, berr.code, errorResponse{Code: berr.code, Kind: berr.kind, Detail: berr.detail})
+	writeJSON(w, berr.code, errorResponse{Code: berr.code, Kind: berr.kind, Detail: berr.detail, CurrentRev: berr.currentRev})
 }

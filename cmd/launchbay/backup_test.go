@@ -3,11 +3,36 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestCLIBackupPreservesResponseLargerThanFourMiB(t *testing.T) {
+	adminKeyEnv(t)
+	body := `{"kind":"launchbay-backup","version":1,"bookmarks":{"footer":"` + strings.Repeat("x", 5<<20) + `","groups":[]}}` + "\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	path := filepath.Join(t.TempDir(), "backup.json")
+	var out, errBuf bytes.Buffer
+	code := runCLI([]string{"backup", "--profile", "dad", "--out", path}, cliCfg(t, srv), &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("backup failed: code=%d error=%s", code, &errBuf)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != body || !json.Valid(raw) {
+		t.Fatalf("successful backup was truncated: got %d bytes, want %d", len(raw), len(body))
+	}
+}
 
 // 这一对子命令只是两条端点的壳：读写都走 REST，目标档案从令牌作用域推导。
 // 这里的用例跑**真的 runCLI → 真的 handler → 真的 store**，所以"只经 REST"

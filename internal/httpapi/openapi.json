@@ -91,7 +91,7 @@
         }
       }
     },
-    "/app.a27a405290a3.js": {
+    "/app.1a01c6da119a.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -104,7 +104,7 @@
         }
       }
     },
-    "/app.86f6b8252787.css": {
+    "/app.435ff856de24.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -1562,6 +1562,16 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "空档检查后 rev 已变，整份导入取消，设置也不写（kind: `rev-conflict`，带 currentRev）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevConflict"
+                }
+              }
+            }
           },
           "413": {
             "description": "请求体超过 8 MB"

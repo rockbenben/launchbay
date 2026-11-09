@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -86,6 +87,7 @@ func (s *Store) ReadHistory(profile string, limit int) ([]HistoryEntry, error) {
 	defer f.Close()
 
 	var out []HistoryEntry
+	oldest := 0
 	// 用 bufio.Reader 而不是 Scanner：Scanner 有行长上限，超限是
 	// ErrTooLong **且不可恢复**——一条超长行就让整档历史读不出来，
 	// 正是"坏一行不许坏全家"反着来的方向（评审 Important #2）。
@@ -97,7 +99,13 @@ func (s *Store) ReadHistory(profile string, limit int) ([]HistoryEntry, error) {
 			var e HistoryEntry
 			// 解不开就丢这一行，继续读后面的。
 			if json.Unmarshal([]byte(trimmed), &e) == nil && (profile == "" || e.Profile == profile) {
-				out = append(out, e)
+				// Keep only the requested tail, even after years of audit entries.
+				if limit > 0 && len(out) == limit {
+					out[oldest] = e
+					oldest = (oldest + 1) % limit
+				} else {
+					out = append(out, e)
+				}
 			}
 		}
 		if readErr != nil {
@@ -107,11 +115,8 @@ func (s *Store) ReadHistory(profile string, limit int) ([]HistoryEntry, error) {
 			return nil, fmt.Errorf("扫历史: %w", readErr)
 		}
 	}
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
-	}
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
+	// The ring's newest entry precedes oldest; reverse both spans in place.
+	slices.Reverse(out[:oldest])
+	slices.Reverse(out[oldest:])
 	return out, nil
 }

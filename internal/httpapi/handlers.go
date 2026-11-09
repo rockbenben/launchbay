@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/rockbenben/launchbay/internal/apierr"
@@ -14,7 +12,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/rockbenben/launchbay/internal/auth"
 	"github.com/rockbenben/launchbay/internal/i18n"
@@ -744,14 +741,7 @@ func decodeBody(r *http.Request, v any) error {
 	if len(body) > maxBodyBytes {
 		return fmt.Errorf("请求体超过 %d 字节上限", maxBodyBytes)
 	}
-	// encoding/json 会把非法 UTF-8 静默替换成 U+FFFD 再交给我们存盘：
-	// 一次编码不端的调用就永久改掉一个书签的名字。宁可拒掉。
-	if !utf8.Valid(body) {
-		return fmt.Errorf("请求体不是合法 UTF-8")
-	}
-	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.DisallowUnknownFields()
-	return dec.Decode(v)
+	return store.DecodeJSON(body, v)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

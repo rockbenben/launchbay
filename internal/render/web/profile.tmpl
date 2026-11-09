@@ -147,7 +147,10 @@
 
        它与 httpapi 的 importGuard（"非空档案不许导"）是同一条判据的两头：
        看得见这个入口的时候，它一定进得去。 */}}
-  <p><a class="badge" href="/import">{{.T "profile.import.link"}}</a></p>
+  <div class="empty-actions">
+    <button type="button" class="badge" data-add-first hidden>{{.T "profile.empty.add"}}</button>
+    <a class="badge" href="/import">{{.T "profile.import.link"}}</a>
+  </div>
   <p class="hint">{{.T "profile.import.hint"}}</p>
 {{end}}
 {{/* ── 大卡带（2026-10-14 建，2026-10-15 扩）───────────────────────────────

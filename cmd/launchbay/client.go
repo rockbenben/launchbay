@@ -83,7 +83,9 @@ func (c *client) do(method, path string, body []byte, hdr map[string]string) ([]
 		return nil, 0, fmt.Errorf("连不上 %s%s（服务起了吗）: %w", c.base, path, err)
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	// Responses come from our local service. A successful backup must contain
+	// every byte; LimitReader used to report success with a truncated JSON file.
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("读响应: %w", err)
 	}

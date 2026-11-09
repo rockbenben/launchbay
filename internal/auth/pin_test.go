@@ -106,3 +106,18 @@ func TestEntryVersusVerify(t *testing.T) {
 		t.Error("自己的 PIN 反而进不去")
 	}
 }
+
+func TestZeroPINRejectsMalformedInput(t *testing.T) {
+	h, err := HashPIN("0000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pin := range []string{"", "0", "000", "0000000", "abcd", "００００"} {
+		if VerifyPIN(h, pin) || VerifyEntry(h, pin) {
+			t.Errorf("PIN 0000 must reject malformed input %q", pin)
+		}
+	}
+	if !VerifyPIN(h, "0000") {
+		t.Fatal("0000 is still a valid PIN")
+	}
+}

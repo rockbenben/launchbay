@@ -227,9 +227,7 @@ func normalize(b *model.Bookmarks) {
 // DecodeBookmarks 拒未知键、把语法错误翻成行号、统一归到 ErrCorrupt。
 func DecodeBookmarks(path string, data []byte) (*model.Bookmarks, error) {
 	var b model.Bookmarks
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&b); err != nil {
+	if err := DecodeJSON(data, &b); err != nil {
 		return nil, describeJSONErr(path, data, err)
 	}
 	normalize(&b)
@@ -258,9 +256,7 @@ type profileJSON struct {
 
 func decodeProfile(path string, data []byte) (*model.Profile, error) {
 	var raw profileJSON
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&raw); err != nil {
+	if err := DecodeJSON(data, &raw); err != nil {
 		return nil, describeJSONErr(path, data, err)
 	}
 	p := raw.Profile
