@@ -99,7 +99,9 @@ func (s *Store) ReadHistory(profile string, limit int) ([]HistoryEntry, error) {
 			var e HistoryEntry
 			// 解不开就丢这一行，继续读后面的。
 			if json.Unmarshal([]byte(trimmed), &e) == nil && (profile == "" || e.Profile == profile) {
-				// Keep only the requested tail, even after years of audit entries.
+				// 环形缓冲区仅保留最新的 limit 条记录（2026-11-09 优化）：
+				// 审计线日积月累会长达数万行，即便只查最近 100 条，也避免把全部匹配记录
+				// 保留在内存中到最后才截取，将内存占用严格限定在请求条数。
 				if limit > 0 && len(out) == limit {
 					out[oldest] = e
 					oldest = (oldest + 1) % limit
@@ -115,7 +117,7 @@ func (s *Store) ReadHistory(profile string, limit int) ([]HistoryEntry, error) {
 			return nil, fmt.Errorf("扫历史: %w", readErr)
 		}
 	}
-	// The ring's newest entry precedes oldest; reverse both spans in place.
+	// 环形缓冲区中最新的条目位于 oldest 之前，原地翻转两段切片使输出保持“最新在前”。
 	slices.Reverse(out[:oldest])
 	slices.Reverse(out[oldest:])
 	return out, nil

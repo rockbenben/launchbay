@@ -367,7 +367,7 @@ type profileData struct {
 }
 
 type profileView struct {
-	SelectedLinkMode model.LinkMode // The pressed mode in the settings panel.
+	SelectedLinkMode model.LinkMode // 台面面板设置中当前浏览器被按下的模式（2026-11-08）。
 	LinkMode         model.LinkMode
 	LinkRule         string
 	i18nView

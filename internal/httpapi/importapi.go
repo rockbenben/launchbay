@@ -754,7 +754,7 @@ func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, im
 	if err != nil {
 		return batchOutcome{}, meta, err
 	}
-	// The empty-target check and the commit must refer to the same revision.
+	// 锁外空档检查与最终写入必须对齐同一版本号（&snap.Rev），并发写入时触发 rev-conflict（2026-11-09）。
 	out, err := s.applyBatch(profile, actor, by, &snap.Rev, opList)
 	return out, meta, err
 }

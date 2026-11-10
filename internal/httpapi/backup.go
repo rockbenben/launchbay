@@ -555,7 +555,7 @@ func (s *Server) applyBackupMarks(id, actor, by string, cur *model.Bookmarks, m 
 	for _, g := range m.Groups {
 		opList = append(opList, ops.Op{Op: "add", Path: "groups", Value: backupValue(g)})
 	}
-	// Every removal was planned from cur. A later write must survive this import.
+	// 恢复规划基于当前的 cur；提交时必须核对版本（&cur.Rev），防止并发覆盖新书签（2026-11-09）。
 	return s.applyBatch(id, actor, by, &cur.Rev, opList)
 }
 

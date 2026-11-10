@@ -6,7 +6,7 @@
 <title>{{.T "notfound.title"}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body>
+<body class="entry-page error-page">
 {{/* 浏览器导航到一条不存在的路径时的那一页（2026-10-15）。
      这一族过去只有一屏裸 JSON：`{"code":404,"kind":"route-not-found",
      "detail":"not found"}`。那个答法对调用方是对的（机器读 kind 选句子），

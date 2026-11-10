@@ -13,6 +13,7 @@
 <style>{{.CSS}}</style>
 </head>
 <body data-profile-layout="{{.Profile.Layout}}"{{with .Profile.View}} data-profile-view="{{.}}"{{end}}{{with .AddrLevel}} data-addr-level="{{.}}"{{end}} data-profile="{{.Profile.ID}}" data-rev="{{.Rev}}" data-max-group-title="{{.MaxGroupTitleRunes}}"{{with .Add}} data-add="{{.}}" data-add-title="{{$.AddTitle}}"{{end}}>
+<a class="skip-link" href="#main-content">{{.T "common.skip"}}</a>
 <header>
   {{/* 顶栏这行大字是**这一页叫什么**（Profile.PageTitle，可在「页面名字」那一格里改），
        空则按界面语言给通用默认。它和"这是谁的那一份"是两件事，浏览器标签页把两件
@@ -135,7 +136,7 @@
     </details>
   </aside>{{end}}
 {{end}}
-<main role="main">
+<main role="main" id="main-content" tabindex="-1">
 {{if .Query}}
   {{if not .Bookmarks.Groups}}<p class="nomatch">{{.T "profile.nomatch" .Query}} <a href="/">{{.T "profile.nomatch.all"}}</a></p>{{end}}
 {{else if .Empty}}
@@ -1112,12 +1113,13 @@
 {{with .AppCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
 <body>
+<a class="skip-link" href="#main-content">{{.T "common.skip"}}</a>
 {{/* 这一张独立页从前**没有 main**：其它四张一级页（选择页、历史、回退、导入、管理）
      都带 role="main"，只有它把面板直接挂在 body 上。读屏软件按地标跳页，
      而「设置」恰恰是这一站里控件最密的一屏——没有 main 就等于那一屏不在地图上。
      顺带第二个后果：base.css 里"说明句一行不许超过 42 字"那条判据写的是
      `main .hint`，没有 main 的这张页正好躲过它（实测那句 75 字）。 */}}
-<main role="main">
+<main role="main" id="main-content" tabindex="-1">
 {{/* 独立页的顶栏出口（2026-10-24）：这一页在手机上能长到近 1800px，底部的
      「回我的页面」要滚到底才够得着；零 JS / PWA 独立窗口又没有浏览器返回键。
      这条只在**独立页**有，浮层那张不取它（浮层只取 section.prefs，× 是出口）。

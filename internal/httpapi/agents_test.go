@@ -38,36 +38,13 @@ func knownAPIPath(s *Server, p string) bool {
 	return false
 }
 
-// 静态资产的指纹路径在**三处**同时出现：路由表、openapi.json、AGENTS.md。
-// 改了 app.js 之后指纹就变，而漏改任何一处的症状分别是：路由 404、契约闸报
-// "文档里有、路由表里没有"、或者——最难发现的那一种——**文档与路由一起指向一个
-// 已经不存在的旧路径**，而 CI 全绿（因为两边一致地错着）。
-//
-// 这一条闸把第三种形状变成当场红，并顺手报出该填的那个路径。**js 与 css 两条
-// 都查**：它们是两个独立的内容哈希，改了样式忘了改文档，与改了脚本忘了改文档
-// 是同一种错，而两者都在同一段文字里。
-//
-// ── 为什么不写泛指（`/app.<hash>.js`）────────────────────────────────────
-// 泛指会让这道闸**彻底失效**，而且正好失效在它要防的那一种上：文档与路由
-// **一致地**指向一个具体值才是最难发现的那种漂移，泛指把它变成默认状态。
-// 泛指还让照抄的人必然 404——而脚本本来就该从页面 HTML 的 `<script src>` 读那个
-// 路径，不该硬编码它。所以**这里记具体值**：它今天有用（能被照抄、能被校验），
-// 代价是每改一次前端要同步两处——而那份重复由 LB_SYNC_FINGERPRINT 消掉，
-// 不用拿契约的有效性去换省事。
-//
-// ── LB_SYNC_FINGERPRINT=1：让测试自己把两处改对 ────────────────────────
-// 一次改前端本来要手改两个文档，而**两处都是机械替换**——而机械替换正是最该由
-// 机器做、最容易被人做漏的那一类（漏一处，闸在下一轮才红，而那轮可能隔了几天）。
-// 于是 `LB_SYNC_FINGERPRINT=1 go test ./...` 把两份文档同步成当前字节算出的
-// 那一个，然后**继续跑同一条校验**——所以这条命令既是"改"也是"验"，不会变成
-// 一个只会写不读的开关。
-//
-// **为什么用环境变量而不是 `-update` 这类 flag**：flag 是每个包各自注册的，
-// `go test ./... -update.fingerprint` 会让**没定义它的那些包**因未知 flag 而失败。
-// 环境变量没有这个问题，全量跑一遍即可，而全量跑正是这个动作该被执行的场合。
+// 真实指纹由资源字节生成，路由与 OpenAPI 必须使用当前具体路径。
+// AGENTS.md 只记录稳定模式，避免每次修改资源都改操作说明；只对当前这两条
+// 已注册资源归一化，不能把任意带指纹的路径当作豁免。
+// LB_SYNC_FINGERPRINT=1 自动同步 OpenAPI，之后继续执行同一套校验。
 var syncFingerprint = os.Getenv("LB_SYNC_FINGERPRINT") != ""
 
-func Test静态资产指纹三处一致(t *testing.T) {
+func Test静态资产指纹契约一致(t *testing.T) {
 	if syncFingerprint {
 		syncAssetFingerprints(t)
 	}
@@ -91,72 +68,61 @@ func Test静态资产指纹三处一致(t *testing.T) {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("openapi.json 里没有 %s", want)
 		}
-		if !strings.Contains(string(doc), want) {
-			t.Errorf("AGENTS.md 里没有 %s", want)
+		if !strings.Contains(string(doc), agentsDocPath(want)) {
+			t.Errorf("AGENTS.md 里没有 %s", agentsDocPath(want))
 		}
 	}
 
-	// 文档里不许残留别的指纹——那是最阴的一种：两份都指向一个旧路径。
+	// 操作说明不再维护具体值，连当前指纹也不应被同步器写回。
 	for _, m := range regexp.MustCompile(`/app\.[0-9a-f]{12}\.(js|css)`).FindAllString(string(doc), -1) {
-		if m != render.AppJSPath && m != render.AppCSSPath {
-			t.Errorf("AGENTS.md 里还残留 %s——它已经不是任何一条静态资产的路径了", m)
+		t.Errorf("AGENTS.md 不应写死静态资产指纹 %s，请使用 <hash> 模式", m)
+	}
+}
+
+// agentsDocPath 只归一当前已注册的两个资源，其余路径原样校验。
+func agentsDocPath(path string) string {
+	switch path {
+	case render.AppJSPath:
+		return "/app.<hash>.js"
+	case render.AppCSSPath:
+		return "/app.<hash>.css"
+	default:
+		return path
+	}
+}
+
+func TestAgentsDocPath只归一已注册静态资产(t *testing.T) {
+	for _, tc := range []struct{ path, want string }{
+		{render.AppJSPath, "/app.<hash>.js"},
+		{render.AppCSSPath, "/app.<hash>.css"},
+		{"/app.000000000000.js", "/app.000000000000.js"},
+		{"/app.000000000000.css", "/app.000000000000.css"},
+		{"/other.000000000000.css", "/other.000000000000.css"},
+		{"/api/v1/data", "/api/v1/data"},
+		{"/sw.js", "/sw.js"},
+	} {
+		if got := agentsDocPath(tc.path); got != tc.want {
+			t.Errorf("agentsDocPath(%q) = %q, want %q", tc.path, got, tc.want)
 		}
 	}
 }
 
-// syncAssetFingerprints 把两份文档里的静态资产指纹换成当前字节算出的那一个。
-//
-// **按后缀分派**（`.js` → AppJSPath、`.css` → AppCSSPath）而不是按"当前值反推
-// 旧值"：后者要求先知道旧的是什么，而"文档里残留着上一个指纹"正是这道闸要抓的
-// 那种漂移——按位置抓，它一次能收干净（文档里可能同时有当前值与更旧的值）。
-//
-// 只在**两份文档**上动手，路由表不用改（它是算出来的）。
+// syncAssetFingerprints 只维护 OpenAPI；AGENTS.md 的模式不随内容变化。
 func syncAssetFingerprints(t *testing.T) {
 	t.Helper()
-	// 两条各自一条：字符类里的 12 是"恰好十二位"，而结尾的 (js|css) 是这一条只管
-	// 自己那一种——**不能把 js 换成 css**，而一个不带分 alternation 的正则会。
-	pairs := []struct {
-		file string
-		re   *regexp.Regexp
-		want string
-	}{
-		{"../../AGENTS.md", regexp.MustCompile(`/app\.[0-9a-f]{12}\.js`), render.AppJSPath},
-		{"../../AGENTS.md", regexp.MustCompile(`/app\.[0-9a-f]{12}\.css`), render.AppCSSPath},
-		{"openapi.json", regexp.MustCompile(`/app\.[0-9a-f]{12}\.js`), render.AppJSPath},
-		{"openapi.json", regexp.MustCompile(`/app\.[0-9a-f]{12}\.css`), render.AppCSSPath},
+	raw, err := os.ReadFile("openapi.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	// 同一份文件可能被两条正则各改一次，所以先读完再一次性写回。
-	byFile := map[string]*strings.Builder{}
-	order := []string{}
-	for _, p := range pairs {
-		b, ok := byFile[p.file]
-		if !ok {
-			raw, err := os.ReadFile(p.file)
-			if err != nil {
-				t.Fatalf("读 %s: %v", p.file, err)
-			}
-			b = &strings.Builder{}
-			b.Write(raw)
-			byFile[p.file] = b
-			order = append(order, p.file)
-		}
-		before := b.String()
-		after := p.re.ReplaceAllString(before, p.want)
-		if after == before {
-			t.Logf("%s 里没有 %s 要替换的（已经是 %s）", p.file, p.re, p.want)
-			continue
-		}
-		n := len(p.re.FindAllString(before, -1))
-		t.Logf("%s：把 %d 处 %s 换成 %s", p.file, n, p.re, p.want)
-		b.Reset()
-		b.WriteString(after)
+	body := string(raw)
+	// 按后缀分别替换，不把脚本与样式互换。
+	body = regexp.MustCompile(`/app\.[0-9a-f]{12}\.js`).ReplaceAllString(body, render.AppJSPath)
+	body = regexp.MustCompile(`/app\.[0-9a-f]{12}\.css`).ReplaceAllString(body, render.AppCSSPath)
+	if body == string(raw) {
+		return
 	}
-	for _, file := range order {
-		// 无 BOM 的 UTF-8：这两份文件本来就没有 BOM（.gitattributes 管着 eol），
-		// 而加一个 BOM 会让 openapi.json 在某些解析器里多出一个键。
-		if err := os.WriteFile(file, []byte(byFile[file].String()), 0o644); err != nil {
-			t.Fatalf("写 %s: %v", file, err)
-		}
+	if err := os.WriteFile("openapi.json", []byte(body), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -176,7 +142,7 @@ func TestAgentsMDMatchesRoutes(t *testing.T) {
 		if rt.Pattern == "/" || rt.Pattern == "/pin" || rt.Pattern == "/healthz" {
 			continue // 浏览器通路，AI 契约里不必逐条点名
 		}
-		if !strings.Contains(text, rt.Pattern) {
+		if !strings.Contains(text, agentsDocPath(rt.Pattern)) {
 			t.Errorf("路由表里有 %s，AGENTS.md 没提", rt.Pattern)
 		}
 	}
@@ -235,7 +201,7 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 
 	registered := map[[2]string]bool{}
 	for _, rt := range s.routes() {
-		registered[[2]string{rt.Method, rt.Pattern}] = true
+		registered[[2]string{rt.Method, agentsDocPath(rt.Pattern)}] = true
 	}
 	// 正向：表里每一行都必须是真路由。文档编出一条 POST /api/v1/data，
 	// 就是给 AI 发了一张不存在的门牌。
@@ -253,7 +219,7 @@ func TestAgentsMDMethodColumn(t *testing.T) {
 		if rt.Pattern == "/" || rt.Pattern == "/pin" || rt.Pattern == "/healthz" {
 			continue
 		}
-		if !seen[[2]string{rt.Method, rt.Pattern}] {
+		if !seen[[2]string{rt.Method, agentsDocPath(rt.Pattern)}] {
 			t.Errorf("路由表里有 %s %s，AGENTS.md 的表里没有带这个方法的行", rt.Method, rt.Pattern)
 		}
 	}

@@ -42,6 +42,9 @@ type Page struct {
 const RepoURL = "https://github.com/rockbenben/launchbay"
 
 type cacheKey struct {
+	// linkMode / linkRule 是生效的地址模式及其匹配规则（2026-11-08 加）：
+	// 模式决定页面卡片渲染出的 href（主地址 vs 外网覆盖地址），规则决定徽标提示，
+	// 进键避免内外网模式相互污染首屏缓存。
 	linkMode model.LinkMode
 	linkRule string
 	profile  string

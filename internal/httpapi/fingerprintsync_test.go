@@ -10,12 +10,7 @@ import (
 	"github.com/rockbenben/launchbay/internal/render"
 )
 
-// LB_SYNC_FINGERPRINT：每改一次前端就要手改两份文档，而那两份改动**都是机械替换**
-// ——机械替换正是最该由机器做、也最容易被手滑漏掉的一类（漏一处要等下一轮 CI
-// 才红，而那轮可能隔了几天）。这一族钉的是那道同步命令的**判据**，不是它的存在。
-//
-// 它最要紧的形状是：**同步完必须继续跑同一条校验**，所以它既是「改」也是「验」。
-// 一个只会写不读的开关，写坏了当场没人知道。
+// LB_SYNC_FINGERPRINT 只更新 OpenAPI 的具体路径，写完仍须继续校验。
 func Test指纹同步写完仍要过同一条校验(t *testing.T) {
 	src := readTestFile(t, "agents_test.go")
 

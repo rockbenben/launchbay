@@ -67,12 +67,12 @@
    `box-shadow: 0 0 0 100vmax` 造，零 DOM 改动（模板那边"除档案页外零脚本"的
    判据名单因此一个字都不用动）。 */
 .sheet{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(560px,calc(100vw - 28px));max-height:calc(100vh - 32px);overflow:auto;
+  width:min(560px,calc(100vw - 28px));max-height:calc(100vh - 32px);overflow:auto;max-height:calc(100dvh - 32px);
   display:flex;flex-direction:column;gap:12px;padding:22px;z-index:50;
   background:var(--bg);border:1px solid var(--line);border-radius:16px;
   box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .sheet[hidden],.cmdk[hidden]{display:none}
-.sheet{overscroll-behavior:contain;scroll-padding-block:16px}
+.sheet{overscroll-behavior:contain;scroll-padding-block:24px}
 .usage-hint{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;color:var(--ink2);font-size:13px}
 .usage-hint button{flex-shrink:0}
 .usage-touch{display:none}
@@ -158,7 +158,7 @@
 /* ⌘K 面板是**叠加**不是另一个页面（§8.6）：浮在上层，页面照常可点。
    与 .sheet 同一套面板语言（居中 + 背板），只是贴在上方 10vh 处、更宽一档。 */
 .cmdk{position:fixed;top:10vh;left:50%;transform:translateX(-50%);
-  width:min(680px,calc(100vw - 28px));max-height:78vh;overflow:auto;
+  width:min(680px,calc(100vw - 28px));max-height:78vh;max-height:78dvh;overflow:auto;
   padding:16px;z-index:60;background:var(--bg);border:1px solid var(--line);
   border-radius:16px;box-shadow:0 0 0 100vmax rgba(4,6,10,.66),0 18px 44px rgba(0,0,0,.4)}
 .cmdk .fld{max-width:none;margin:0;font-size:17px}

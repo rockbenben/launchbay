@@ -158,8 +158,11 @@ func main() {
 	}
 }
 
-// serveUntilStopped waits for Shutdown as well as the listener. Closing the
-// listener returns ErrServerClosed before active requests have finished.
+// serveUntilStopped 协调优雅停机与监听器关闭（2026-11-09 补）：
+// 关闭监听器会使 ListenAndServe 立即返回 http.ErrServerClosed，如果主流程
+// 抢先退出，在途的写请求（如 batch 事务、备份导出）就会被直接掐断。
+// 这里必须等待 Shutdown 协程彻底把在途请求收干净（或达到 10 秒超时）、
+// 关闭 shutdownDone 后，才允许退出。
 func serveUntilStopped(ctx context.Context, srv *http.Server, stopSignals context.CancelFunc) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

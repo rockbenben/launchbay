@@ -36,7 +36,7 @@ type Settings struct {
 	// 现有界面。零值 i18n.Lang("") 经 ParseLang 落回默认。
 	Language i18n.Lang `json:"language"`
 	LANHosts []string  `json:"lanHosts,omitempty"`
-	LANCIDRs []string  `json:"lanCIDRs,omitempty"` // Preserve old settings on a language change.
+	LANCIDRs []string  `json:"lanCIDRs,omitempty"` // 保留旧版可能存在的网段设置，管理员修改语言时不丢失已有配置（2026-11-08）。
 }
 
 // SettingsPath 是站级设置的落盘位置。data/ 根下，与 profiles/ 平级——

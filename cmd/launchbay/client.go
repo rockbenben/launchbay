@@ -83,8 +83,9 @@ func (c *client) do(method, path string, body []byte, hdr map[string]string) ([]
 		return nil, 0, fmt.Errorf("连不上 %s%s（服务起了吗）: %w", c.base, path, err)
 	}
 	defer resp.Body.Close()
-	// Responses come from our local service. A successful backup must contain
-	// every byte; LimitReader used to report success with a truncated JSON file.
+	// 完整读取本机服务的响应（2026-11-09 修）：备份与全量导出容易超过
+	// 4 MiB。从前用 LimitReader 封顶读取，在备份超过 4 MiB 时会静默截断
+	// 并返回成功，落盘成无法解析的半截 JSON；改用 io.ReadAll 确保字节完整。
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("读响应: %w", err)

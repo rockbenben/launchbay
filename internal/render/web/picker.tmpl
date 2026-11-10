@@ -12,7 +12,7 @@
 <title>{{.Heading}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body>
+<body class="entry-page">
 <main role="main" class="chooser">
   {{/* 一张卡都没有时，标题就是那句事实，不是一句问话（判据见 pickerView.NoWayIn）。 */}}
   <h1>{{if .NoWayIn}}{{.T "picker.empty"}}{{else}}{{.Heading}}{{end}}</h1>

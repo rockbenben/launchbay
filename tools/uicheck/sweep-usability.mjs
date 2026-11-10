@@ -34,6 +34,24 @@ try {
   await home();
   assert.equal(await run(`!!document.querySelector('.usage-hint')`), true);
   await screenshot('desktop-hint');
+  // Both settings surfaces share a pane: spacing must separate the actual forms,
+  // not just the outer container that holds the hidden panes.
+  const checkSettingsSpacing = async () => {
+    const gap = await run(`(()=>{const rows=[...document.querySelectorAll('#prefs-pane-look > .prefs-row')];return rows[1].getBoundingClientRect().top-rows[0].getBoundingClientRect().bottom})()`);
+    assert.ok(gap >= 10, `Settings forms touch: gap=${gap}`);
+  };
+  await ev(`document.getElementById('lb-prefs-open').click()`);
+  await waitFor(c, `!!document.querySelector('#lb-prefs #prefs-pane-look > .prefs-row')`, 8000);
+  await checkSettingsSpacing();
+  await send('Page.navigate', { url: srv + '/prefs' });
+  await waitFor(c, `!!document.querySelector('#prefs-pane-look > .prefs-row')`, 8000);
+  await checkSettingsSpacing();
+  await home();
+  await ev(`document.querySelector('.skip-link').focus()`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  assert.equal(await run(`document.activeElement===document.querySelector('main')`), true);
+  console.log('PASS settings forms remain separate in both surfaces; keyboard skip reaches main');
   await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'theme=light'}).then(r=>r.status)`);
   await home();
   await screenshot('desktop-light');

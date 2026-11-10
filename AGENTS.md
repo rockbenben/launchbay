@@ -118,7 +118,9 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 ## 端点清单
 
 除 `/`、`/pin`、`/healthz` 三条浏览器通路外，每一条都要列在这里。方法、要哪
-种凭证、成功响应都对照 `openapi.json`。
+种凭证、成功响应都对照 `openapi.json`。静态资产的 `<hash>` 是内容指纹占位符，
+**不是可直接请求的地址**：实际 JS/CSS 地址从页面 HTML 的 `<script src>` /
+`<link rel="stylesheet" href>` 获取，不要硬编码；OpenAPI 保留当前具体路径。
 
 **`/admin`、`/setup`、`/new`、`/prefs`、`/switch`、`/revert` 与 `/history` 是浏览器表单/导航通路，AI 不走这些**（表单与导航通路不止这七条：面板那几族 `/prefs/group`、`/prefs/tabs`、`/prefs/pin`、`/prefs/background`，导入那四族 `/import`、`/import/apply`、`/import/backup`，管理页那几族 `/admin/pin`、`/admin/delete`、`/admin/disable`、`/admin/language` 同样只由页面表单走进来）：其中 `/setup`、`/new`、`/prefs`、`/switch`、`/revert`
 与 `POST /admin` 只由页面里的 `<form method=post>` 走进来，收 `application/x-www-form-urlencoded`，没有 JSON 版，
@@ -197,22 +199,22 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 
 | 方法 | 路径 | 凭证 | 成功响应 | 说明 |
 |---|---|---|---|---|
-| GET | `/app.1a01c6da119a.js` | 无（公开） | 200 脚本字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤ 的应用脚本：顶栏「＋ 添加」浮层、⌘K 面板、多选、拖入与站内排序的动效。**它一整套交互规格不在这张表里**（这一格早先塞着 15 个互不相干的主题，表格结构让它们既读不下去、也改不动）——逐条判据见下面「`app.js`：档案页那套交互」一节。路径里那 12 位是内容指纹（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变，指纹由 `internal/render/assets.go` 在启动时从 embed 的字节算出，**不需要构建步骤** |
+| GET | `/app.<hash>.js` | 无（公开） | 200 脚本字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤ 的应用脚本：顶栏「＋ 添加」浮层、⌘K 面板、多选、拖入与站内排序的动效。**它一整套交互规格不在这张表里**（这一格早先塞着 15 个互不相干的主题，表格结构让它们既读不下去、也改不动）——逐条判据见下面「`app.js`：档案页那套交互」一节。路径里那 12 位是内容指纹（sha256 前 12 位），只在 `internal/render/web/app.js` 改动时变，指纹由 `internal/render/assets.go` 在启动时从 embed 的字节算出，**不需要构建步骤** |
 | GET | `/sw.js` | 无（公开） | 200 脚本字节 + `Cache-Control: no-cache` | P1-⑥ 的 Service Worker，**路径不带指纹**（浏览器自己按注册处比字节决定更新）。**必须在根路径**：SW 的作用域是所在目录，挪到 `/assets/` 下就管不到首页。HTML 走 network-first + 1.5 秒超时回退缓存；按响应头 `X-LB-Profile` 分开缓存档案与选择页（`-picker`），管理页（`-admin`）与空头跳过。离线首页按最近一次在线的档案和地址模式取，缺页时回退选择页。切回选择页时清理原档案缓存并重置离线记录。 |
 | GET | `/manifest.webmanifest` | 无（公开） | 200 manifest JSON + `Cache-Control: public, max-age=86400` | P1-⑥ 的 Web App Manifest：平板/手机「添加到主屏幕」即成独立全屏应用（§6.3） |
-| GET | `/app.435ff856de24.css` | 无（公开） | 200 样式表字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤/⑥ 的**交互**样式（浮层、⌘K 面板、编辑模态、拖拽把手）。走**外部**指纹文件而不内联：首屏骨架在 `base.css` 里内联，而这部分只有档案页用得到——内联等于让选择页/引导页/管理页/坏档页各白带一份，而且会把内联 CSS 顶出 §7.3 的操作线。**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变 |
+| GET | `/app.<hash>.css` | 无（公开） | 200 样式表字节 + `Cache-Control: public, max-age=31536000, immutable` | P1-⑤/⑥ 的**交互**样式（浮层、⌘K 面板、编辑模态、拖拽把手）。走**外部**指纹文件而不内联：首屏骨架在 `base.css` 里内联，而这部分只有档案页用得到——内联等于让选择页/引导页/管理页/坏档页各白带一份，而且会把内联 CSS 顶出 §7.3 的操作线。**路径里那 12 位是内容指纹**，只在 `internal/render/web/app.css` 改动时变 |
 | GET | `/bookmarklet` | 无（公开） | 200 JS 源码（no-store） | P1-⑥ 的 bookmarklet：拖进书签栏，在任何网站上一点就把当前地址带回这台机器。**里面绝不会有令牌**——Chrome 书签会云同步，写进 bookmarklet 的令牌等于明文外发；它只做一件事，导航到 `/?add=<当前URL>&t=<标题>`，写走会话 cookie（§6.3）。**它自己从 Host 头算这台机器的地址**，不让人填（填错的那种错要等到用时才发现）。**端口必须原样带出去**（2026-10-19 修）：原先那一段把 Host 里的端口剥掉了，而本案默认端口是 7600（compose `7600:7600`，spec §6.3 写的就是 `http://<NAS_IP>:7600/?add=`）——照默认配置装好、配好拖进书签栏之后，按它跳的是 80 端口，那台机器上什么都没有，症状是「点了打不开」，而这条按钮唯一的卖点恰恰是"配一次就永远对"；只有反代到 80 的人会看起来是好的，而 §11 明写不挂反代。判据：`hostPortOf` **几乎什么都不做**，唯一加工是去掉一个空的尾随冒号（`nas:` → `nas`）；切点问题因此不存在——**IPv6 的方括号里自己带冒号，按「最后一个冒号」切会把 `[fd00::5]` 腰斩成 `[fd00`，所以别再引入那个切法**。`validHostShape` 跟着一起改成两段判（host 按标签数字点 / IPv6 方括号，**port 只许是数字**，冒号不许出现第二次），两处分开是刻意的：混在一处会造出「修一半」——地址被拼成 `10.0.0.5port`（一个**合法**主机名），连 400 都不给，直接把坏地址写进书签栏。**这条测试钉整条地址，不钉子串**（`TestBookmarklet_地址保留端口`）：原先只断言 `javascript:`、`/?add=`，改坏的那一处一个断言都没碰，它一路绿灯活到今天。未登录时 `?add=` 穿过 PIN 步骤不丢；登录后 ⑤ 的浮层自动打开预填，**要人再按一次保存才落库** |
 | GET | `/api/v1/openapi.json` | 无（公开） | 200 内嵌契约原字节 | 机器可读契约，无个人信息 |
 | GET | `/api/v1/data` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, modified, data}` | 单档案全量数据 + rev，`?profile=<id>` 必填；**管理员令牌与管理员 cookie 都 403**（管理员看不见别人的书签） |
 | GET | `/api/v1/export` | **档案作用域**令牌/本人会话 | 200 磁盘原字节 + attachment | 导出不重编码，可直接喂 batch 对照；同样只给本人（管理员 403） |
 | GET | `/api/v1/backup` | **档案作用域**令牌/本人会话 | 200 备份 JSON + attachment | 导出**这一份的完整状态**（书签 + 台面偏好），`?profile=<id>` 必填。**与上一条不是一回事**：那一条导的是 `bookmarks.json` 的**原字节**（契约是「可直接喂 batch 对照」，改它的形状就是毁掉那条契约），这一条导的是搬家用的整份。边界（门闩/身份/背景图都不在里头、两段各自缺省时各写各的）见下面「整份备份那一族」一节。**被停用的档案一律 403**（kind `profile-disabled`，与那六条同判据） |
-| POST | `/api/v1/restore` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, applied, settings, warnings}` | 导入一份备份（体就是 `GET /api/v1/backup` 导出的那一份）。**目标档案从凭证推导、不接受申报**（令牌取作用域、会话取自己那一份）——与 `/api/v1/import` 同一族纪律。**两段都可缺省**：带 `bookmarks` 的那份要求目标档案一条书签都没有（`import-target-not-empty`），带 `settings` 的那份与档案空不空无关。**写入顺序是书签先、设置后**：设置那几格不认时在写任何东西之前就 422（半份成功比全败难收拾）。设置只改 profile.json，**不产生 rev、不做快照**。**被停用的档案一律 403**（kind `profile-disabled`） |
+| POST | `/api/v1/restore` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, applied, settings, warnings}` | 导入一份备份（体就是 `GET /api/v1/backup` 导出的那一份）。**目标档案从凭证推导、不接受申报**（令牌取作用域、会话取自己那一份）——与 `/api/v1/import` 同一族纪律。**两段都可缺省**：带 `bookmarks` 的那份要求目标档案一条书签都没有（`import-target-not-empty`），带 `settings` 的那份与档案空不空无关。**写入顺序是书签先、设置后**：设置那几格不认时在写任何东西之前就 422（半份成功比全败难收拾）。空档检查后若并发导致 rev 变动，返回 409（`rev-conflict`，带 `currentRev`），整份取消且不写设置；成功响应中空 settings/warnings 统一序列化为 `[]` 而非 `null`。设置只改 profile.json，**不产生 rev、不做快照**。**被停用的档案一律 403**（kind `profile-disabled`） |
 | GET | `/api/v1/history` | 令牌/会话 | 200 `{entries:[{at,profile,actor,by,rev,ops}]}` | 审计线，ops 只有动作与路径无 value；省略 `profile` = 全家庭聚合，**仅管理员**（档案作用域令牌 403）；账号类动作的 `actor` 记 `admin` |
 | GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名 + `auto` 且缓存无图，空 `icon` 不算缺，口径见 openapi 的 `/status`）。**每行没有 `admin` 字段**（2026-10-12，档案不再是管理员） |
 | GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles:[{id,title,createdAt}]}` | 档案元信息列表，零条目零 URL；**同样没有 `admin` 字段** |
 | POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 201 `{id,title}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409。**「已存在」按档案目录判，不按 `profile.json` 判**（2026-10-19 修）：原先那道闸问的是 `profile.json` 在不在，于是「目录在、profile.json 缺」这一个形状（手删、rsync 半途、坏档被登记过）会穿过它，紧接着把盘上那份 `bookmarks.json` 覆盖成空文档——实测 469 字节含一条书签变成 244 字节空文档，**无快照、无审计行、返回 201**，书签就这么没了。判据收在 `store.idTaken`，与 `NextProfileID` 派生 id、`RebuildProfile` 是**同一个**「这个 id 占了没有」；三处各问一次就会各答一次，于是重名字的坏档从缝里漏过去。**连带**：`rollbackDir` 是 `RemoveAll(整目录)`，只在「目录里只有刚建的东西」时成立——所以闸挡住时**不许**删目录（那目录里可能装着别人的书签）。**请求体没有 `admin` 那一格**（2026-10-12）——送来是 422 且点名该字段，脚本作者据此知道该删哪一行。**PIN 选填**：`{"id","title","nopass":true}` 建出一份**不设防**的档案（局域网里谁都能进）；`pin` 为空且**没给** `nopass` 照旧 422 点名 `pin`。**名字最多 60 个字**（`model.MaxProfileTitleRunes`，2026-10-23 加）：超了 422 点名 `title`、码 `field-too-long`——那一条判据在**写侧**（不进 `Profile.Validate`：在读路径上判长度等于把"名字超长"升级成"坏档"，而那个人从此进不去），与三张建档表单上那个 `maxlength` 是同一个数 |
 | POST | `/api/v1/profiles/new` | 无（公开） | 201 `{id,title}` | **非管理员自己建一份档案**（2026-10-23，用户拍板：「非管理员用户有个 new 接口，可以自己建档案」）。与上面那条管理员建档的差别只有两处：**id 由名字派生**（**不接受申报**——不接受 `id` 字段，送来是 422 且点名该字段；不接受它就没人能建一份 id 叫 `dad` 的档案顶替别人的那一格）与**没有 `admin` 那一格**。**免凭证是刻意的**：§11 明写不防局域网内冒充，而建出来的那一份是**空的**、只属于它自己的 PIN，不授予任何读取别人书签的权限；反过来"要管理员才能建"意味着这台机器上第一个想用的人得等家长回来开一次管理页。**代价明写**：局域网里任何设备都能建档，选单页上会多出一张卡（管理员随时能删掉它），档案总数没有上限。体是 `{title, pin, nopass?}`；`pin` 为空且没给 `nopass` 照旧 422 点名 `pin`，两个都给是 422 点名 `nopass`。**名字最多 60 个字**（`model.MaxProfileTitleRunes`）：超了 422 点名 `title`、码 `field-too-long`——**免凭证的那一条尤其要它**：那个上限原先只存在于表单的 `maxlength`（浏览器认、curl 与扩展不认），于是局域网里任何设备都能写进一个几 KB 的名字，而选单页（**全家人每次打开都要拉的那一页**）从此每次都带着它（实测一个 5000 字的标题让那一页从 4.8 万字节涨到 5.3 万）。成功**不发会话**（建完照样要输 PIN 才进门，与 `/setup` 同一条纪律） |
-| DELETE | `/api/v1/profiles` | **要那把机器级 key 本身**（`Authorization: Bearer <LAUNCHBAY_ADMIN_TOKEN>`；**只带 `lb_admin` cookie 一律 403**） | 200 `{deleted}` | 删档连 `snapshots/`，历史保留，`?profile=<id>`。**这一条与其它管理员端点不同档**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：删档是这台机器上唯一**不可逆**的动作（快照跟着档案一起没了，`revert` 救不了它），而 `lb_admin` 是那把 key 的派生值——它进 devtools、进导出、进浏览器同步。于是**登着管理页不再等于有权删档**：这一条只认那把 key 本身。浏览器那一条（`POST /admin/delete`）是**页面上再输一次那把 key**。**顺序是凭证 → 形状 → 存在性**（2026-10-23 修，与同族的 `POST /api/v1/profiles/pin` 同一纪律）：没带凭证的人问"这个 id 合不合法"，答案不该随载荷变——从前是 400（形状错），带对了凭证时同一个请求却是 401 |
+| DELETE | `/api/v1/profiles` | **要那把机器级 key 本身**（`Authorization: Bearer <LAUNCHBAY_ADMIN_TOKEN>`；**只带 `lb_admin` cookie 一律 403**） | 200 `{deleted}` | 删档连 `snapshots/` 与 `backgrounds/<id>/`（私有背景目录在锁内同步清理，清理失败保留档案以供重试），历史保留，`?profile=<id>`。**这一条与其它管理员端点不同档**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：删档是这台机器上唯一**不可逆**的动作（快照跟着档案一起没了，`revert` 救不了它），而 `lb_admin` 是那把 key 的派生值——它进 devtools、进导出、进浏览器同步。于是**登着管理页不再等于有权删档**：这一条只认那把 key 本身。浏览器那一条（`POST /admin/delete`）是**页面上再输一次那把 key**。**顺序是凭证 → 形状 → 存在性**（2026-10-23 修，与同族的 `POST /api/v1/profiles/pin` 同一纪律）：没带凭证的人问"这个 id 合不合法"，答案不该随载荷变——从前是 400（形状错），带对了凭证时同一个请求却是 401 |
 | POST | `/api/v1/profiles/pin` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profile,pinChanged}` | 给任意档案设 PIN（不要旧 PIN），进目标档案历史 `rev:0`。**`new` 留空 = 取消这一份的 PIN**（2026-10-12）——管理员是唯一能给别人去/留这道门的人：一个都不锁的家族里，他得能把门重新锁上；非空但格式错仍 422 点名 `new`。**`new` 缺席 = 没填对 → 422 点名 `new`**（2026-10-20 修，缺席与空串是两件事：前者是"漏了字段"，后者是"明确取消"，而从前它们同形，漏字段会**静悄悄拆掉一道门**并答 200）。**鉴权排在参数校验之前**（2026-10-20 修）：无凭证答 401、档案作用域令牌答 403，都排在格式与 slug 校验之前——同一族端点曾给出三种顺序，于是"你没这个权限"这件事的答案随载荷变（格式错时答 422，等于给没资格问的人开了一个小 oracle）。`pinChanged` **真算**（2026-10-20）：它答"有效的 PIN 变了没有"（设上 / 撤下 / 换成另一个），不是恒 true |
 | POST | `/api/v1/profiles/rebuild` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{id,title}` | **坏档的唯一出路**：某档案 `profile.json` 读不动时只重写这一个文件，书签、快照、历史已有内容**逐字节不碰**。体 `{profile,title,pin,nopass}`，**没有 `admin`**（2026-10-12 随档案属性一起删除；送来是 422 且点名该字段）。`nopass:true` 重建出一份**不设防**的档案——rebuild 必须能造出这个形状，它是唯一能整份重写 profile.json 的动作。判据全在 store 锁内：**读得动 → 409**（改 PIN 走 `/api/v1/profiles/pin`，这条不是改档用的）；**目录不在 → 404**（它不建目录，建档仍只有 `POST /api/v1/profiles`）；只有"内容错"与"文件不在"才允许覆盖，权限/磁盘那一类读失败原样上报不许盖。`theme`/`layout`/`pageTitle`/`view`/`language`/`createdAt` 按默认重建（读不出来就没有"保留"这个选项；
 `pageTitle`、`view` 与 `language` 从前没列在这里，是文档漏了三格而不是它们不被重置——
@@ -531,8 +533,8 @@ ES module（`background.type: "module"`）——MV3 的 service worker **没有
 3. **app.js 里那一份是拷贝，由测试守住**（`appi18n_test.go`）。它跑在浏览器里，
    够不到服务端的 catalog，所以 `app.*` 前缀的文案在那儿另有一份。加一条 app 文案
    的动作是：**只在语言包里加**，然后跑 `go test ./internal/render`；改 app.js 之后
-   **必须同步 `openapi.json` 与本文档里的 12 位指纹**（`Test静态资产指纹三处一致`
-   会当场指出该填哪个）。
+   **必须同步 `openapi.json` 的具体指纹路径**（`Test静态资产指纹契约一致`
+   会当场指出该填哪个）；本文档使用 `<hash>` 占位符，不随资源内容更新。
 
 **翻的与不翻的**：界面 chrome 翻（模板、`?err=` 提示、确认页与导入页的整段说明、
 app.js 的浮层与命令面板）。**不翻**的是给脚本读的那些——`/api/v1/*` 的错误 detail、
@@ -757,7 +759,7 @@ WCAG 1.4.11 的 3:1（图标型控件，非文本那一档）；现在这一档�
 刚选中的第一条；滑动取消尚未触发的长按。窄屏触屏浮层跟随 visualViewport 的可用高度，
 键盘打开后仍可滚动到保存按钮。卡片标签使用弱底色，保留原文字对比度。
 
-端点表里 `GET /app.<指纹>.js` 那一格只留摘要，**细节全在这一节**。从那里搬过来
+端点表里 `GET /app.<hash>.js` 那一格只留摘要，**细节全在这一节**。从那里搬过来
 是有原因的：那一格一度塞着 15 个互不相干的主题（添加浮层、图标库、
 拖入、拖放委托、动效、提示、⌘K、组容器、指纹……）。表格结构让它们既读不下去、
 改的时候也容易只改一半——而它们之间其实只共享"都在这一个文件里"这一件事。
@@ -1060,27 +1062,36 @@ dragstart 就把全页量一遍）。
   不会自己折行，实测窄屏视口 486、整页 `scrollWidth` 1593，那一句与「看全部」都被推到屏幕外
   （390 档由第二道横扫的步骤钉住）。`anywhere` 只在放不下时断，正常句子一个像素都不动。
   第二道横扫里有一条对应的步骤（无空格长查询 → 不许横向溢出）。
+- **跳到正文跳链与主内容区地标**（2026-11-10 加）：档案页与偏好独立页顶栏前内建 `<a class="skip-link" href="#main-content">`，
+  默认 `transform: translateY(-200%)` 藏出视口，键盘聚焦时唤出到 `top: 12px; left: 20px` 并带高对比轮廓，
+  回车直接跳转到 `<main role="main" id="main-content" tabindex="-1">`，满足键盘导航绕过重复顶栏的无障碍要求。
+- **设置面板表单行间距**（2026-11-10 加）：浮层面板（`#lb-prefs`）与独立页（`main`）中相连的 `<form class="prefs-row">`
+  之间通过 `.prefs-row + .prefs-row { margin-top: 28px; }` 明确拉开间距，保证各表单行不贴合，实测间距 ≥ 10px
+  （`sweep-usability.mjs` 测试钉住）。
+- **页面级层级与视口节奏**（2026-11-10 加）：
+  - `.entry-page`：选单页、建档页、管理登录页与未登录管理页居中收束，`margin-top: clamp(24px, 7vh, 80px)`，卡片间距 16px，大字号流式缩放，避免首屏空旷或移动端贴顶。
+  - `.utility-page`：偏好独立页、导入页、改动历史页与管理页采用 840px 居中阅读轴，并配有下划线分隔的顶栏与面包屑。
+  - `.action-page`：两步二次确认页（删档、设 PIN、停用）统一操作块视觉层级，危险操作配有左红边警告框。
+  - 移动端输入框 `font-size: 1rem!important`：700px 以下触屏设备禁止将文本输入框缩小至 16px 以下，避免 iOS Safari 在点击聚焦时强制缩放视口导致排版失焦。
 
 ### 路径里那 12 位是内容指纹
 
-sha256 前 12 位，只在 `internal/render/web/app.js` 改动时变——指纹由
-`internal/render/assets.go` 在启动时从 embed 的字节算出，**不需要构建步骤**。改那个
-文件后端点表里那行路径要一起更新——**但不要手改**：`LB_SYNC_FINGERPRINT=1 go test ./...`
-会把本文件与 `openapi.json` 两处的指纹同步成当前字节算出的那一个（它写完立刻跑同一条
-校验，所以它既是「改」也是「验」）。手改的那份重复正是最容易漏的一类，而漏了要等下一轮
-CI 才红。
+JS 与 CSS 各取自身内容 sha256 的前 12 位；只在对应的 `app.js` / `app.css`
+改动时变化。指纹由 `internal/render/assets.go` 在启动时从 embed 字节算出，
+**不需要构建步骤**。
 
-**用环境变量而不是 `-update` flag**（`LB_SYNC_FINGERPRINT`），是因为 flag 每个包各自注册，
-`go test ./... -update` 会让没定义它的那些包直接失败——理由记在
-`internal/httpapi/agents_test.go` 顶上那段。
+本文件只记录 `/app.<hash>.js` 与 `/app.<hash>.css` 这两个模式，不维护具体指纹。
+实际地址从页面 HTML 的资源引用读取；**不要把占位符当成 URL 请求，也不要硬编码指纹**。
+`openapi.json` 仍列当前实际路径，供机器契约与路由逐条核对。
 
-**那条校验是常驻的，不只是同步时才跑**（2026-10-20 撞到，写在这里免得下一个人再撞）：
-`Test静态资产指纹三处一致` 在**每一次** `go test ./...` 里都比对——`AGENTS.md` 与
-`openapi.json` 里那 12 位必须等于当前 `app.js` 字节算出来的那一个。于是有一条
-**提交顺序**的纪律：**改了 `app.js` 的那一笔提交，必须同时带上两处指纹的更新**，
-否则中间那笔提交自己是红的（文档指着旧指纹，而字节已经是新的）。所以顺序是：
-先把不碰 `app.js` 的那些提交做完，最后把 `app.js` 的改动与两处指纹放进同一笔。
-只改 `app.css` 时同理（它的指纹在这两处也各有一份）。
+改静态资源后用 `LB_SYNC_FINGERPRINT=1 go test ./...` 自动同步 OpenAPI 中的指纹，
+然后再次运行 `go test ./...`，让重新编译后的内嵌契约也通过校验。
+同步不会改本文件。使用环境变量而不是 `-update` flag，是因为后者会让没注册该
+flag 的其他包失败。
+
+`Test静态资产指纹契约一致` 始终核对真实资源、路由与 OpenAPI 的具体路径；
+AGENTS.md 的路由覆盖与方法检查只把这两条已注册的静态资产归一为 `<hash>` 模式，
+其余路由仍逐条精确匹配。改资源的提交需同时包含 OpenAPI 指纹更新。
 
 ### 它还兼管两件不在浮层里的事
 

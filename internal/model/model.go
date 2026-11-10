@@ -53,7 +53,9 @@ type Item struct {
 	AINote string   `json:"aiNote,omitempty"`
 }
 
-// ItemURLs holds an optional WAN override; URL remains the primary address.
+// ItemURLs 存放书签的可选外网覆盖地址。主地址恒为 Item.URL，
+// 没有独立 urls.lan 槽位（主地址即局域网主入口，避免多重真相与结构断层）。
+// 空或未设置时不落盘（omitempty）。
 type ItemURLs struct {
 	WAN string `json:"wan,omitempty"`
 }
@@ -199,6 +201,12 @@ type Profile struct {
 	// **不在 Validate 里卡**（与 icon 名、背景同一纪律）：写侧严格（prefs 表单
 	// 拒不认识的值），读侧净化（不认识的值落默认）。把档案判成坏档的代价是
 	// 那个人再也进不去，而这一格写坏最多是"他看到的是默认语言"。
-	Language string   `json:"language"`
+	Language string `json:"language"`
+	// LinkMode 是**档案级默认的地址模式**（2026-11-08 加）：
+	// "" / "auto" = 自动（按访问入口 Host 判断）、"lan" = 强制主地址、"wan" = 强制外网覆盖地址。
+	//
+	// 各浏览器可通过 POST /prefs 将偏好单独保存在本机的 lb_link_<id> cookie 中（实现单机单选）；
+	// 当浏览器未选择时，沿用这里的档案默认值。
+	// 空串表示未显式指定，备份与读侧保持同一口径。
 	LinkMode LinkMode `json:"linkMode"`
 }
