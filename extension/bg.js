@@ -90,7 +90,9 @@ async function tellNote(title, message, profile, where) {
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 6000);
   const body = profile ? `${message}\n${t('failProfile', profile)}` : message;
   try {
-    // The worker may restart before the notification is clicked.
+    // Service Worker 在通知被点击前可能会随时被系统休眠并重启（2026-11-09 修）：
+    // 点击去向持久化保存在 chrome.storage.local 中，重启后不丢失；
+    // 标准 API 是 chrome.notifications.create，而非不存在的 .notify。
     await chrome.storage.local.set({ 'lb-note-target': where === 'page' ? 'page' : 'settings' });
     await chrome.notifications.create('lb-fail', {
       type: 'basic',
