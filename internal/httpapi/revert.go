@@ -78,7 +78,9 @@ type revertOutcome struct {
 // 调用方拿到的是"发生了什么"而不是 HTTP 状态。
 //
 // actor 与 by 都由调用方给：API 那条 actor 是令牌名或会话档案（require 的
-// 返回值），表单那条是会话自己。判据在端点层，落点不猜。
+// 返回值），表单那条是会话自己。判据在端点层，落点不猜——**历史行里的
+// `actor` 就是调用方递进来的这个值**（与 batch / 设 PIN / 停用同一处置：
+// 令牌名要能回答"家里哪把钥匙干的"，写成档案 id 就只剩"本人"那一句）。
 //
 // 它**是一次新写入**：rev 前进、不抹历史（spec §4.6）。回滚成"把 rev 改回旧值"
 // 会让 expectedRev 语义失效，也会让两次 revert 互相覆盖。
@@ -159,7 +161,7 @@ func (s *Server) revertLocked(id, actor string, rev int64, by string) (revertOut
 		// 追加，审计线最新一行就对不上盘上最新 rev。取舍不变：书签已写
 		// 成功 ⇒ 照旧 200，追加失败进 stderr（报 5xx 会诱导重复 revert）。
 		histEntry := store.HistoryEntry{
-			At: time.Now().Format(time.RFC3339), Profile: id, Actor: id,
+			At: time.Now().Format(time.RFC3339), Profile: id, Actor: actor,
 			By: by, Rev: out.NewRev,
 			// revert 不是一条书签 op，历史里自成一式（brief 的 spec 缺口取法）。
 			Ops: historyOps([]ops.Brief{{Op: "revert", Path: "snapshots/" + strconv.FormatInt(rev, 10)}}),
