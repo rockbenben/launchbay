@@ -124,8 +124,8 @@ func skipReason(b nbBookmark) string {
 // convertFolders 把文件夹树转成分组。
 //
 // **嵌套文件夹被拍平成顶层分组**，路径拼进标题（"工具 / 同步"）。理由：
-// §4.3 的分组只有 id/title/layout/items 四样，没有父子关系，而寻址全靠 id
-// （§4.4 不用下标）。硬造一层父子就得在 id 里编码路径，于是改名就成了改 id，
+// §4.3 的分组是 id/title/layout/accent/items 五格（没有父子关系），而寻址全靠
+// id（§4.4 不用下标）。硬造一层父子就得在 id 里编码路径，于是改名就成了改 id，
 // 而 id 变了别人的链接就断了——那正是 slug 要"稳定"的原因。
 // 拍平之后名字里还留着来路，谁都看得出这条原本在哪个文件夹下。
 func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*model.Bookmarks, []remap, *iconGaps) {

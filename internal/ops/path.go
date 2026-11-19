@@ -52,7 +52,10 @@ var itemFields = map[string]bool{
 // "set 能碰的字段必须在表内"——而这本来就是靠白名单实现的机制。
 //
 // 在表内：`title` / `footer`（页脚那一行）、`openInNewTab`（点开一条书签是不是
-// 新标签页）、`clock`——都是**标量，且页面画得出来**。
+// 新标签页）、`clock`——都是**根级标量**。其中 footer / openInNewTab 页面画得出来；
+// title / clock 是升级前就在的保留字段（`bookmarks.title` 不进 `<title>`，那一格
+// 读的是 `Profile.PageTitle`；clock 也没有渲染消费者），能 set 是因为它们属于
+// 书签文档、写它们不会让谁读不动。
 //
 // 不在表内，三条理由各不相同：
 //   - `rev`：**它是并发判据本身**（expectedRev 就跟它比），能 set 它等于让调用方

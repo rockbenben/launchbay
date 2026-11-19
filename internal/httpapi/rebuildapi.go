@@ -18,8 +18,8 @@ import (
 //
 // 这条端点存在的唯一理由是：坏档**原本没有出路**。`bookmarks.json` 坏了能用
 // revert 或快照救回来，而 `profile.json` 坏了——profiles/pin 与 profiles/disable
-// 都要先读它（503）、POST /api/v1/profiles 又会 409（且 CreateProfile 会把那份
-// **还能读的书签**一起覆盖掉）。没有这一条，界面那句"要在这台机器上修好那个文件"
+// 都要先读它（503）、POST /api/v1/profiles 又会 409（"已存在"按档案目录判，
+// 那道闸在写任何东西之前就挡住了）。没有这一条，界面那句"要在这台机器上修好那个文件"
 // 指的就是一条不存在的路，只剩手工改磁盘——而手工路线明令禁止。
 //
 // 三条判据都在 store 的同一次按 id 的临界区里（`RebuildProfile`），handler 一律

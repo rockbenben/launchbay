@@ -1142,8 +1142,8 @@ const APP_I18N = {
         return;
       }
       const notice = doc.querySelector('.prefs-notice .notice');
-      // **成功必须重载**（2026-10-24）：导入的设置里有 theme/layout/view/页面名/
-      // 语言，只换面板不会把它们画到后面的页面上（实拍：面板里「亮色」已按下，
+      // **成功必须重载**（2026-10-24）：导入的设置里有 theme/layout/view/addrLevel/
+      // 页面名/语言/地址模式，只换面板不会把它们画到后面的页面上（实拍：面板里「亮色」已按下，
       // 页面仍旧是暗的）。重载后由 app.backup.imported 横幅补一句成功话。
       if (notice && notice.classList.contains('ok')) {
         try { sessionStorage.setItem(RESTORE_OK, '1'); } catch { /* 存不下就不说 */ }
@@ -1152,10 +1152,11 @@ const APP_I18N = {
       }
       replacePrefsPanel(panel, notice);
     });
-    // 页面名字 / 排列方式 / 第二行 / 分组列表的位置 / 主题 / 界面语言那六张（POST /prefs；
-    // 2026-10-14 补上前几张，2026-10-19 加上第二行，2026-10-20 加上界面语言）。
+    // 页面名字 / 排列方式 / 第二行 / 分组列表的位置 / 主题 / 界面语言 / 书签地址模式那七张
+    // （POST /prefs；2026-10-14 补上前几张，2026-10-19 加上第二行，2026-10-20 加上界面语言，
+    // 2026-11-08 加上书签地址模式）。
     //
-    // **它们不能走 applyOps**：那六格改的是 `profile.json`（台面偏好），不产生
+    // **它们不能走 applyOps**：那七格改的是 `profile.json`（台面偏好），不产生
     // rev、不做快照——而 applyOps 走的是 `/api/v1/batch`（书签文档），那是**另一份
     // 文件**。所以这一族是普通 fetch + 就地改，不假装它是 batch。
     //
@@ -1170,7 +1171,7 @@ const APP_I18N = {
       const btn = e.submitter;
       const data = new FormData(form, btn || undefined);
       // **只交这一张表单要改的那一件事**：字段名**从表单自己读**——那张表单里
-      // **唯一**那个名字就是它要改的那一格（四张单选钮表单里是那几颗键的共同
+      // **唯一**那个名字就是它要改的那一格（六张单选钮表单里是那几颗键的共同
       // 名字，「改名」那一行里是那个输入框）。
       //
       // **为什么不再抄一份名单**（2026-10-19 改判）：抄一份就会漏，而漏掉的那一格

@@ -9,7 +9,8 @@ import (
 	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
-// handleSetup 是引导建档：零档案时任何人建第一个（建成管理员），建完这条通路自己
+// handleSetup 是引导建档：零档案时任何人建第一个（建出来的是第一个人的书签页，
+// 不是管理员——2026-10-12 起管理员是机器级的一把 key），建完这条通路自己
 // 关闭。三条纪律都在代码里，不在注释里：
 //
 //   - handler **不数档案**：判据在 store 的锁内（CreateFirstProfile，Task 1）。数两次
@@ -145,10 +146,11 @@ func redirectSetupForm(w http.ResponseWriter, code, title string, isNew bool) {
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-// setupFieldKey 把 createProfile 的字段错翻成 ?err= 的键。引导表单只有两格，所以
-// 这是一张小表而不是拼接：id 由名字派生（不问），建档也不接受任何"起步带几条"的东西。
-// 名字排在口令前面——两格都没填对时说"要先起个名字"，因为那是这一页的第一格；
-// 出现第三种字段说明判据变了，那种情况下宁可说中性的那句。
+// setupFieldKey 把 createProfile 的字段错翻成 ?err= 的键。引导表单的字段是
+// title / pin / nopass（另有 language，由这一页单独交给 store.SetLanguage），所以这是一张小表
+// 而不是拼接：id 由名字派生（不问），建档也不接受任何"起步带几条"的东西。
+// 名字排在口令前面——名字与口令都没填对时说"要先起个名字"，因为那是这一页的第一格；
+// nopass 与 pin 同给另有一支（pinboth）；认不出的字段宁可说中性的那句。
 func setupFieldKey(errs []fieldError) string {
 	// **名字太长与名字没给是两句话**（2026-10-23 加）：后果不同（一个是"你没起名"，
 	// 一个是"你起得太长"），而 `?err=` 那一格只能印一句。

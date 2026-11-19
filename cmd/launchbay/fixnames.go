@@ -100,10 +100,8 @@ func cmdProfileFixNames(args []string, cfg config, out, errOut io.Writer) int {
 
 // hostNameFor 判"这个名字其实是地址"，并给出该换成的名字。
 //
-// 判据只有两条，都要求**名字与地址指向同一个东西**——
-//
-//	名字以 http:// 或 https:// 开头，且它就是这一条的地址（去掉尾斜杠后逐字相等）；
-//	名字与地址去掉尾斜杠之后逐字相等（人自己把地址粘进名字格，可以不带协议）。
+// 判据只有一条：**名字与地址去掉尾斜杠之后逐字相等**（人自己把地址粘进名字格，
+// 可以不带协议）。只有同一个地址才换名字——"这个名字看起来像 URL"不是判据。
 //
 // 两处刻意的"不改"，因为**多改比少改贵得多**：多改毁的是数据，少改只多几条手动。
 //
@@ -122,7 +120,6 @@ func hostNameFor(name, rawURL string) (string, bool) {
 	if n == "" || u == "" {
 		return "", false
 	}
-	looksLikeURL := strings.HasPrefix(strings.ToLower(n), "http://") || strings.HasPrefix(strings.ToLower(n), "https://")
 	sameThing := strings.EqualFold(strings.TrimRight(n, "/"), strings.TrimRight(u, "/"))
 	if !sameThing {
 		return "", false
@@ -135,6 +132,5 @@ func hostNameFor(name, rawURL string) (string, bool) {
 	if host == "" || host == strings.ToLower(n) || "www."+host == strings.ToLower(n) {
 		return "", false // 已经就是主机名，没有可改的
 	}
-	_ = looksLikeURL // 名字像不像 URL 不参与判定：同一条地址才是（见上面的两条判据）
 	return host, true
 }

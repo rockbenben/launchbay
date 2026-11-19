@@ -146,7 +146,7 @@ func countItems(b *model.Bookmarks) int {
 	return n
 }
 
-// dataResp 是 GET /api/v1/data 的响应，只留本命令关心的四格。
+// dataResp 是 GET /api/v1/data 的响应，只留本命令关心的两格（rev 与 data）。
 //
 // 服务端那份叫 dataResponse 且是私有的，这里另起一个同名形状：**这不是分家**——
 // CLI 是客户端，只需要读它那几格，一致性由 REST 契约（AGENTS.md 那张端点表）

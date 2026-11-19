@@ -288,7 +288,8 @@ func bearer(r *http.Request) string {
 // require 回答"这把凭证能不能动 profileID"，返回要写进 history 的 actor。
 //
 // 2026-10-12 起是**三条互斥的路**，判据只有这一份：
-//   - 管理员令牌（LAUNCHBAY_ADMIN_TOKEN 那把裸 key）→ 只放行 credAdmin；
+//   - 管理员令牌（LAUNCHBAY_ADMIN_TOKEN 那把裸 key）→ 放行 credAdmin 与
+//     credAdminKey（后者是 2026-10-23 为删档单独开的那一档）；
 //   - 档案作用域令牌（name:secret:<id>）→ 只放行 credScoped，档案必须等于它的作用域；
 //   - 档案会话（lb_profile）→ credNone / credScoped / credSession，看当前在用哪一份。
 //

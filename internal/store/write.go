@@ -36,8 +36,9 @@ func (s *Store) profileLock(id string) *sync.Mutex {
 
 func (s *Store) SaveBookmarks(id string, b *model.Bookmarks) error {
 	// 写出契约（spec §4.3「空数组写 [] 不写 null」）在写出入口兜一次底：
-	// 内存里构造的 Bookmarks（P1-② 的 add ops 就是现例）不带 alias/tags
-	// 时是 nil，不归一化就会把 null 烤进磁盘文件。
+	// 内存里构造的 Bookmarks（P1-② 的 add ops 就是现例）可能带 nil 的
+	// groups/items（以及 Search.Engines），不归一化就会把 null 烤进磁盘文件。
+	// alias/tags 不在这一条里：它们 2026-10-14 起带 omitempty，nil 根本不写。
 	normalize(b)
 	if err := b.Validate(); err != nil {
 		// 与读路径（decodeProfile/LoadBookmarks）对称：ErrInvalid 与

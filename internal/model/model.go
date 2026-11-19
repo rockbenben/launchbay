@@ -103,7 +103,7 @@ type Profile struct {
 	// （LAUNCHBAY_ADMIN_TOKEN），不属于任何档案，于是"这个档案是不是管理员"
 	// 这个问题不再有答案，也不该有。
 	//
-	// 升级前落盘的 profile.json 里那个 `"admin": true` **会**被解码器判成坏档——
+	// 升级前落盘的 profile.json 里那个 `"admin": true` **本来会**被解码器判成坏档——
 	// `store.decodeProfile` 对未知键是严格的，而它必须严格（否则坏档再也发现不了，
 	// rebuild 那条通路的判据来源就没了）。`admin` 是**唯一**被放过的那一格，后门在
 	// `store/load.go`，理由与升级兼容的证人都在 `store/upgrade_compat_test.go`：

@@ -384,9 +384,11 @@ details[open]>summary::before{content:"▾"}
 }
 @media (forced-colors:active){.drawer{border:1px solid CanvasText}.gnav a{border:1px solid CanvasText}}
 section{margin:20px 0}
-/* 节的纵向节奏（2026-10-12 从 22px 收到 13px，h2 的下边距 10 → 8）：这份真实
-   数据有 45 个节，于是"节与节之间那 44px"是四十五次 44px。实测节的开销
-   （margin + 标题行 + 标题下边距）从 77px 降到 59px，四十五节省下约 800px。
+/* 节的纵向节奏。2026-10-12 曾从 22px 收到 13px、h2 下边距 10 → 8：那份真实数据
+   有 45 个节，于是"节与节之间那 44px"是四十五次 44px；实测节的开销（margin +
+   标题行 + 标题下边距）从 77px 降到 59px，四十五节省下约 800px。**2026-11-10 又
+   回到 20px / 10px**（分节线与新标题层级要那一口气），当前值以 386 那条 section
+   与 427 那条 h2 为准——下面那段"稀疏分组"的判断没变。
 
    **没有给"稀疏分组"单开一条规则**：那份数据里 2 条以下的分组只有 8 个，
    给它们单开一条最多省 0.7%，而多一条按分组条目数分支的规则就多一处会漂的
@@ -423,7 +425,9 @@ section{content-visibility:auto;contain-intrinsic-size:auto 700px}
    `text-transform:uppercase` 的拉丁大写标题用的呼吸感，界面切到中文之后它变成
    "字与字之间有缝"——实拍里「自建服务」「读与收藏」四个字都是散着的。.04em 给拉丁
    分组名（NAS / Tools）留一点空气，中文读起来又不松。字号 13px 与 --ink2 不动：
-   标题就该比内容弱，它不是要看的东西，是找东西时的路标。 */
+   标题就该比内容弱，它不是要看的东西，是找东西时的路标。
+   **2026-11-10 再改**：14px、字距 0、取消 uppercase（.04em 在 13px 中文下仍显松）。
+   当前值以 427 那条规则为准。 */
 h2{font-size:14px;letter-spacing:0;text-transform:none;color:var(--ink2);margin:0 0 10px;
   display:flex;align-items:center;gap:8px}
 h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--sec-accent,var(--accent));flex:0 0 auto}
@@ -1369,19 +1373,16 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-group-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 [data-theme=light] .prefs-swatch-preview{box-shadow:0 0 0 1px rgba(0,0,0,.18)}
-/* 宽屏上**一个分组占一行**：名字 ｜ 磁贴/单列/用这个颜色 ｜ 十颗色板 + 取色器。
-   这一格以前是 `width:100%`（强制另起一行），那是 560 那一档逼出来的：内容宽 559
-   装不下 836，于是每个分组的色板被推到第二行，八个分组成了十六行，面板 1027 高、
-   要滚一屏半——**"面板太窄"的真症状不是宽度上限难看，是每个分组被折成了两行**。
+/* 每个分组**两行**（2026-10-15 改判）：第一行是名字 ｜ 磁贴/单列/大卡，
+   第二行是十颗色板 + 取色器 + 「用这个」。色板用 `flex:1 0 100%` 明确占满第二行
+   （见 1427 那条），不是靠"装不下"折行——改任何一个宽度都别让版式在"一行/两行"
+   之间悄悄翻面。名字那一格的下限 96px 是它让位的那条线（见 1367）。
 
-   宽度算术（实测，不是估，1440 那一档量出来）：
-   - 色板 10 颗 × 44 + 9 个 gap × 8 = **512**
-   - 排法三颗：磁贴 51 + 单列 50 + 用这个颜色 95 + 两个 gap 16 = **212**
-   - 名字下限 96 + 两个 gap 16
-   - 合计 **836**；面板内容宽 899（浮层 960 − 内衬 44 − 滚动条 17），余下 63 全部
-     由名字吃掉 → 名字那一格实得 159，八行对齐。
-   放不下时 flex-wrap 自己把它折回两行，620 那一档正是这样——**没有媒体查询，
-   断点跟着内容宽自己走**（与这条文件里别处的处置同一条纪律）。
+   宽度算术（2026-10-21 复量，1440）：色板自己 **694**（十颗色点 + 取色器 +
+   「用这个」），排法三颗 **157**，删键 **89**——加起来 940，而分组那一行只有
+   **728**（差 212），一行版式今天连放都放不下。2026-10-15 那一版算的是另一组数
+   （面板内容 899、色板 512、排法 212、名字下限 96），那一版的"836"已经作废；
+   两行之后每组 44 → 161px，代价写在上面。
 
    余量为什么给到 63 而不是贴着 836：排法那三颗是中文按钮，宽度随字体走，212 是
    这一台机器上的数；余量是留给"别的机器上字宽不同"这件事的。
@@ -1891,9 +1892,10 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
    （实测量到：左列 y=690，右卡 y=708）。间距归栅格的 gap 管，卡自己不再带
    顶边距。
 
-   **还有一条全局的 `section{margin:13px 0}`**（base.css 333，原本是档案页
-   分组用的）——管理页这两张卡是 `<section>`，各自带了 13px 顶边距，于是右卡
-   仍比左卡低 13px、也撑不满那一格。卡自己归零，间距归 gap 管。 */
+   **还有一条全局的 `section{margin:13px 0}`**（写下这段时是 13px，2026-11-10
+   起是 20px，见 386 那条；原本是档案页分组用的）——管理页这两张卡是 `<section>`，
+   各自带了那段顶边距，于是右卡仍比左卡低一截、也撑不满那一格。卡自己归零，
+   间距归 gap 管。 */
 .adm.bm{margin:0;padding:12px 14px;background:var(--card);
   border:1px solid var(--line);border-radius:10px}
 /* 这一段的标题 2026-10-16 从 h2 降成 h3（它是「这台机器」那一节**里面**的一块，
@@ -2009,8 +2011,9 @@ ol.rep-list{list-style:decimal}
    才开始——两栏各站一边。给这一页的顶栏挂同一个上限，不动全局那条。 */
 .adm-bar{max-width:1120px}
 /* 分节头。`h2::before` 那枚色点已经全案统一（base.css 367），这里只收这一页
-   的**间距**：全局那条 h2 的 margin 是 6px，而这一页每节下面要放的是一张表或
-   一张表单，6px 贴着它们——节头与内容之间要有 10px 才读成"标题带一块"。 */
+   的**间距**：全局那条 h2 的 margin 现在是 10px（写下这段时是 6px），而这一页
+   每节下面放的是一张表或一张表单——节头与内容之间要有 10px 才读成"标题带一块"。
+   这条与全局同值时仍然显式写着：这一页的间距将来再调，不该被全局那一条连坐。 */
 .adm-page h2{margin:0 0 10px}
 .adm-sec{margin:22px 0 0}
 /* 节内那两块的标题（语言 / 书签栏）走 h3：它们在「这台机器」这一节**里面**，

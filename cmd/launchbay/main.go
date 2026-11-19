@@ -88,7 +88,8 @@ func main() {
 	}
 	// 走到这里就是 serve 那一支：管理员 key 是**服务端**的启动错误（AGENTS.md
 	// 「令牌与鉴权」——缺了它这台机器装完没人能管）。CLI 子命令在上面已经返回了，
-	// 它们要的是档案作用域令牌，所以这条闸不拦它们。
+	// 各自的凭证要求由它们自己判（create/rebuild 要管理员 key，revert/import/
+	// backup/restore 要档案作用域令牌），所以这条闸不拦它们。
 	if err := serveNeedsAdmin(cfg); err != nil {
 		log.Fatalf("配置错误: %v", err)
 	}
@@ -133,16 +134,18 @@ func main() {
 		//
 		// ReadHeaderTimeout 是慢速首部攻击真正的那一道闸：首部在 10 秒内没
 		// 读完就断，请求体都不用开始收。ReadTimeout 给整个请求一个上界；
-		// 本案的请求体都是几百字节的 JSON，没有流式上传，它拦不住任何
-		// 正常请求。
+		// 本案最大的请求体是导入那份 8 MB 与背景图那 4 MiB——都是一次性整份
+		// 上传、没有流式接口，30 秒在局域网里绰绰有余，它拦的是慢速占坑，
+		// 不是正常上传。
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		// IdleTimeout 只管 keep-alive 的空转连接，不碰在途请求。
 		IdleTimeout: 60 * time.Second,
 		// WriteTimeout 必须**远大于** resolve 的出网预算，否则会把一个慢站点
 		// 变成一个半截响应：/api/v1/resolve 出去抓目标页面，每一跳 3 秒
-		// （icons.FetchTimeout），跟着最多 3 跳，再加一次 favicon，最坏约
-		// 12 秒。给 60 秒是五倍余量——它是兜底的安全阀，不是计时器。
+		// （icons.FetchTimeout），循环是 hop <= icons.MaxRedirects（3），也就是
+		// 最多 4 次请求 = 12 秒，再加一次 favicon 3 秒，最坏约 15 秒。给 60 秒
+		// 是四倍余量——它是兜底的安全阀，不是计时器。
 		WriteTimeout: 60 * time.Second,
 	}
 	log.Printf("launchbay listening on :%s (data=%s)", cfg.Port, cfg.DataDir)

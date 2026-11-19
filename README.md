@@ -84,7 +84,7 @@ No account, no third-party script, no telemetry. Apart from fetching a site's fa
 
 **The page itself**
 
-- **Tabbed preference panel**: click **Settings** in the top bar. One sheet holds this page's look and language (theme, page name, view, second line, navigation, background, how a bookmark opens), the group list, backup and history, and **My PIN** — where you lock or unlock **your own** profile, no admin needed.
+- **Tabbed preference panel**: click **Settings** in the top bar. One sheet holds this page's look and language (theme, page name, view, second line, navigation, background, bookmark addresses, how a bookmark opens), the group list, backup and history, and **My PIN** — where you lock or unlock **your own** profile, no admin needed.
 - **Works when the network is down**: the last page you saw is cached in your browser, so a server that is temporarily down does not take the page away with it; bookmarks you add while offline or while the machine cannot be reached go into a queue. When the browser comes back online they replay; if the machine itself was down, press **Send now** in the queue.
 - **Scripts and AI can do it for you**: a REST interface plus profile-scoped tokens, so a browser extension, a command line and automation scripts each get their own key; a token that steps outside its scope and writes somebody else's profile gets a 403, not the write
 

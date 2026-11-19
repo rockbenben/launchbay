@@ -32,8 +32,10 @@ import (
 type Settings struct {
 	// Language 是**站级的默认语言**：谁还没自己选过语言，就用这一个。
 	//
-	// 缺字段 = 中文（i18n.Default），于是升级到带多语言的版本不改变任何一个人的
-	// 现有界面。零值 i18n.Lang("") 经 ParseLang 落回默认。
+	// 缺字段 = **没人设过**（DefaultLanguage 的第二位答 false，链条接着问浏览器
+	// 语言）；只有那个塌掉的 `Language()` 读法会把它折成 i18n.Default（中文）。
+	// 所以升级到带多语言的版本不改变任何一个人的现有界面。零值 i18n.Lang("") 经
+	// ParseLang 落回默认。
 	Language i18n.Lang `json:"language"`
 	LANHosts []string  `json:"lanHosts,omitempty"`
 	LANCIDRs []string  `json:"lanCIDRs,omitempty"` // 保留旧版可能存在的网段设置，管理员修改语言时不丢失已有配置（2026-11-08）。

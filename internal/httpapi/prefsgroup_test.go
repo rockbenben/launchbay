@@ -360,7 +360,7 @@ func TestPrefsGroup_坏档只撤掉分组那一节(t *testing.T) {
 		t.Fatalf("坏档不该挡这一页，得到 %d", rec.Code)
 	}
 	html := rec.Body.String()
-	// **五格台面偏好都在**：theme/layout/view/addrLevel/title——`addrLevel` 是
+	// **台面偏好那几格都在**（这里挑五格做代表）：theme/layout/view/addrLevel/title——`addrLevel` 是
 	// 2026-10-19 加的，它也只写 profile.json，所以同样不该被坏档带走。
 	for _, want := range []string{`name="theme"`, `name="view"`, `name="layout"`, `name="addrLevel"`, `name="title"`} {
 		if !strings.Contains(html, want) {

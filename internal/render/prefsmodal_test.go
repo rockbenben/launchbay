@@ -48,11 +48,11 @@ func Test面板里的表单留在浮层里而不是整页跳走(t *testing.T) {
 		t.Error("markPressed 不在场")
 	}
 
-	// 五：`/prefs` 那四格**不能走 applyOps**——它们改的是 `profile.json`
+	// 五：`/prefs` 那七格**不能走 applyOps**——它们改的是 `profile.json`
 	//（台面偏好，不产生 rev），而 applyOps 打的是 `/api/v1/batch`（书签文档），
 	// 那是**另一份文件**。把两族混成一条就是"改了 A 却在 B 上生效"。
 	if !strings.Contains(js, `form[action="/prefs"]`) {
-		t.Error("改名/视图/导航/主题那四格没有自己的委托")
+		t.Error("改名/视图/导航/主题/第二行/语言/地址模式那七格没有自己的委托")
 	}
 	// 主题要**立刻见效**：这一格屏上原话是"按一下就生效，不产生快照"，
 	// 而不整页重载的话只有 html 上的 data-theme 得自己换。

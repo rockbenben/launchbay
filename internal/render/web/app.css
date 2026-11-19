@@ -234,7 +234,7 @@ li:focus-within .pencil,li:focus-within .copybtn
   li:focus-within .pencil,li:focus-within .copybtn{opacity:1}
 }
 /* 这两枚键的**命中区**在手指上往外撑 6px（§7.5 说的是命中区，不是盒子——
-   `.layoutbtn` 同一族的处置：盒子 32×28，透明 ::before 上下 -8 左右 -6）。
+   `.layoutbtn` 同一族的处置：盒子 32×28，透明 ::before 上下 -9 左右 -7）。
    390 触摸档实测：盒子 32×32，中心命中自己、往上 4px 就不是了。
    扩完之后实测：两枚键各 42×42 与 42×37（CSS 给的是 ±6，第 6 个像素是开区间
    边界所以量到 5；把手贴着行尾，向右那 6px 落在行外，量不到）——比 44 还差
@@ -293,11 +293,12 @@ li:focus-within .pencil,li:focus-within .copybtn
   background:transparent;border:1px solid transparent;border-radius:8px;
   /* §7.5 的 44px 是**命中区**的下限，不是盒子的下限：盒子 32×28（分组标题那行
      因此从 44 回到 28，八组一节省下的正是这一轮要还回去的那 130px），
-     上下各 -8px、左右各 -6px 的透明 ::before 把可点区域撑回 **44×44**。
-     横向只给 -6 不给 -8：再往左就压到分组名那几个字上了——名字是"这一组叫什么"，
-     不该被一颗换排法的键吃掉八个像素的点击。
-     量法见 design-preview batch7：elementFromPoint 在中心上下 ±14、左右 ±16 处
-     都命中这颗键，盒子外 20px 处不命中（扩展区就是那 8/6，没有更多）。
+     上下各 -9px、左右各 -7px 的透明 ::before 把可点区域撑到 **46×46**（44 是
+     命中区下限，多出的 2px 是逐像素量到取整误差之后留的余量）。
+     横向只给 -7 不给 -9：再往左就压到分组名那几个字上了——名字是"这一组叫什么"，
+     不该被一颗换排法的键吃掉更多点击。
+     量法见 design-preview batch7：elementFromPoint 在中心上下/左右那一圈都命中
+     这颗键，盒子外再远就不命中（扩展区就是那 9/7，没有更多）。
      从前这条用"44px 的盒子"满足同一句话，代价是每一节的标题都比内容厚。 */
   cursor:pointer;transition:color .16s ease,border-color .16s ease,background .16s ease}
 .layoutbtn::before{content:"";position:absolute;inset:-9px -7px}

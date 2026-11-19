@@ -7,17 +7,16 @@ import (
 
 // 这个文件是「从一个网址里猜图标名」的判据，**只有一份**。
 //
-// 它原来长在 internal/httpapi 里（resolve 的 iconCandidates）。导入器
-// （tools/import-flare）要做同一件事——浏览器导出的书签里没有图标名，只有
-// favicon，而 favicon 是二进制、不是索引里的名字——于是两处都会写一遍"主机段
-// → 路径段 → 标题词"这套顺序与过滤。那套顺序不是随手排的，它决定候选的优先级，
-// 两处各排一次迟早分家，而分家之后没人知道哪一处才是当初想给谁看的。
+// 它原来长在 internal/httpapi 里（resolve 的 iconCandidates），搬出来是因为
+// "从哪里找到图标"与图标索引本身是同一件事，比放在 HTTP 层更靠得住。
 //
-// 所以搬到这儿：图标的"怎么找到它"和图标索引是同一件事，比放在 HTTP 层更靠得住。
+// **导入那条路刻意不用它**（见 internal/bookimport/aliases.go）：导入要精确命中，
+// 不要把"猜出来的候选"写进书签。这里唯一的生产调用点是 resolve，一次取 5 条
+// 摆进添加浮层的候选格。
 
 // Candidates 按优先级猜图标候选，**品牌层（simple-icons）先于通用层（tabler）**。
-// 上限 limit：给界面选的时候 5 条够用（再多要滚动，反而让人闭眼选第一个）；
-// 导入时只要 1 条。
+// 上限 limit：给界面选的时候 5 条够用（再多要滚动，反而让人闭眼选第一个）——
+// resolve 那条路每次只要这 5 条。
 func Candidates(x *Index, rawURL, title string, limit int) []string {
 	out := []string{}
 	seen := map[string]bool{}

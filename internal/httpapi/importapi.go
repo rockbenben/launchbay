@@ -759,7 +759,7 @@ func (s *Server) applyImport(token, profile, actor, by string) (batchOutcome, im
 	return out, meta, err
 }
 
-// 这四个 sentinel 是**给调用方分诊**用的，不是给用户看的：每个壳按自己的
+// 这几个 sentinel 是**给调用方分诊**用的，不是给用户看的：每个壳按自己的
 // 形状把它翻成页面提示或 JSON detail。
 var (
 	errNothingToImport = errors.New("这个文件里没读出书签")

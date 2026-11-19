@@ -59,9 +59,10 @@ func buildSet(p npmPkg, doc collectionDoc) (entries map[string]json.RawMessage,
 // encodeElements 把实测到的上游元素压成产物写法。ok=false 表示这条图标含产物格式
 // 表达不了的东西（use 引用），调用方整条跳过并报告。
 //
-// 丢掉的属性都是本层默认值：stroke 层的 fill="none"、fill 层的 fill="currentColor"，
-// 以及 stroke / stroke-width / stroke-linecap / stroke-linejoin（那四个由 CSS 全权
-// 负责，§7.5 要磁贴内 2.5 就只改 CSS 一处）。
+// 丢掉属性分两种：**白名单不收**（icons.IsKeptAttr 之外的一律跳过，stroke /
+// stroke-width / stroke-linecap / stroke-linejoin 就在这一类——它们由 CSS 全权
+// 负责，§7.5 要磁贴内 2.5 就只改 CSS 一处），以及**本层默认值**（stroke 层的
+// fill="none"、fill 层的 fill="currentColor"，由 IsLayerDefaultFill 单独判）。
 func encodeElements(p npmPkg, els []svgEl) (json.RawMessage, bool) {
 	if len(els) == 0 {
 		return nil, false

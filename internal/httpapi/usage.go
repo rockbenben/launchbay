@@ -39,8 +39,9 @@ type usageResponse struct {
 //     越界由 require 拒（403）。简报原写法把申报静默改回令牌自己的档案
 //     再送检，?profile=kid+tok-dad 会 200 落进 dad——与简报自己的 403
 //     用例矛盾，是 plan 缺陷（报告已记账）。
-//   - 管理员令牌：?profile= 必填（400 引导）。这是全案唯一"指定要写谁"
-//     的通路，跨档案资格同样由 require 判定（Allows("*")）。
+//   - 管理员令牌：**直接 403**（`credential-scope`）。点击计数是内容、不是账号，
+//     而管理员令牌只管账号——这里必须直说，不能让它落到下面那句含混的 403。
+//     现在也没有 `Allows("*")` 那回事：令牌的档案段写 `*` 是解析错误。
 func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		ItemIDs []string `json:"itemIds"`

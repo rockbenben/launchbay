@@ -166,7 +166,8 @@ func cmdRevert(args []string, cfg config, out, errOut io.Writer) int {
 		return 2
 	}
 	// revert 要写别人的书签，所以用**那一份自己**的令牌（2026-10-10 改判）。
-	// 管理员令牌（*）只管账号层面，这条端点已经不接受它了。
+	// 管理员那把 LAUNCHBAY_ADMIN_TOKEN 只管账号层面（它不属于任何档案），这条端点
+	// 已经不接受它了。
 	c, err := newScopedClient(cfg.Port, cfg.Tokens, *profile)
 	if err != nil {
 		fmt.Fprintf(errOut, "revert 失败: %v\n", err)
@@ -246,8 +247,9 @@ func pinFlags(fs *flag.FlagSet) (pin *string, nopass *bool) {
 //
 //   - 两个都不给 → 服务端回 422 名字段 `pin`、理由「要 4-6 位数字」。对敲命令行的人
 //     来说这句话是误导的：我压根没打 PIN，它却说我打错了格式。
-//   - 两个都给 → 服务端按 `nopass` 走，`--pin` 被静默丢掉。一个旗标被静默吞掉，
-//     下一个人会以为那道门锁上了。
+//   - 两个都给 → 服务端现在也回 422（2026-10-20 起点名 `nopass`，不再按 `nopass`
+//     走），但命令行**自己**能看出来的用法错误不该发出去再翻译回来：一个旗标与
+//     另一个互斥时说清楚，比让人对着一张 JSON 猜是哪一个。
 //
 // 两族话术都是**用法错误**，一律走 errOut、退 2。
 func checkPin(pin string, nopass bool, errOut io.Writer) int {

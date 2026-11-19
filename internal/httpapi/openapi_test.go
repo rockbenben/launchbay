@@ -167,12 +167,13 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	form := doc.Paths["/prefs"]["post"].RequestBody.Content["application/x-www-form-urlencoded"]
 	want := map[string][]string{"theme": model.ThemeValues, "layout": model.LayoutValues,
 		"view": model.ViewValues, "addrLevel": model.AddrValues, "linkMode": model.LinkModeValues}
-	// 解析器不许空转：带 enum 的四个字段都得真的带出 enum，否则下面的循环一次都不跑。
+	// 解析器不许空转：带 enum 的字段都得真的带出 enum，否则下面的循环一次都不跑。
 	// 2026-10-12 起 /prefs 有三个字段（多出来的 `title` 是页面名，无枚举、只有
 	// maxLength），2026-10-13 起四个（`view` = 整页排法），2026-10-19 起五个
 	// （`addrLevel` = 卡片第二行印什么），2026-10-20 起六个（`language` = 这一份
-	// 自己的界面语言）。所以这里数的是"四个带 enum 的 + 一个带 maxLength 的 +
-	// 一个带 enum 的语言"，而不是笼统的 6：形状变了这条要能指出变的是哪一格。
+	// 自己的界面语言），2026-11-08 起七个（`linkMode` = 书签地址模式）。所以这里
+	// 数的是"六个带 enum 的 + 一个带 maxLength 的"，而不是笼统的 7：形状变了这条
+	// 要能指出变的是哪一格。
 	//
 	// **2026-10-19 补上 addrLevel**：这一格此前只在 description 里（"五个至少给
 	// 一个"），schema 的 properties 却还只有四个——而 description 与 schema 说的
@@ -182,7 +183,7 @@ func TestOpenAPI的枚举与model同集(t *testing.T) {
 	// **2026-10-20 补上 language**：同一族的同一件事——面板上有了「界面语言」
 	// 那一格，schema 里也得有它（空串 = 跟随默认，所以它的 enum 里带一个空串）。
 	if len(form.Schema.Properties) != 7 {
-		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 7 个（theme/layout/view/addrLevel/title/language）：形状变了这条正在空转",
+		t.Fatalf("/prefs 的表单 schema 有 %d 个字段，要 7 个（theme/layout/view/addrLevel/title/language/linkMode）：形状变了这条正在空转",
 			len(form.Schema.Properties))
 	}
 	for field, w := range want {

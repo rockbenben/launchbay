@@ -18,7 +18,8 @@ permissions:
   contents: read
 
 jobs:
-  # 四道门禁 + 三个只判一次的检查。ubuntu 与 windows 跑**同样的四道门禁**——
+  # 四道门禁 + 四个只判一次的检查（race / js 语法 / leakguard / depguard）。
+  # ubuntu 与 windows 跑**同样的四道门禁**——
   # 本机是 Windows，而路径正是这块代码的已知痛点（P1-④.6 的计划里专门把绝对
   # 路径换成 git rev-parse，就是目录改过名之后那些命令会静默失效）。store 读写真实
   # 文件、.gitattributes 管着 eol=lf、图标产物按 *.json.gz binary 提交：这些在
@@ -160,8 +161,9 @@ jobs:
   # **node 与 Chrome 都不装**：runner 镜像本来就带着（下面那条 js 语法门禁早就在用
   # runner 自带的 node）。这里要的是「多两个进程」，不是「多一个版本约束」。
   #
-  # 红了的时候读法：go test 会把 54 步逐步打出来，每一行是「屏上与盘上是否一致」的
-  # 结论。日志里出现 `前置：上一步把页面弄走了` 时，红的是上一条——这是那条闸自己
+  # 红了的时候读法：go test 会把 `sweep.mjs` 35 步 + `sweep-variants.mjs` 26 步逐步
+  # 打出来，每一行是「屏上与盘上是否一致」的结论；双地址与可用性那两组横扫另打自己的
+  # PASS 行。日志里出现 `前置：上一步把页面弄走了` 时，红的是上一条——这是那条闸自己
   # 写的话，不是产品行为。
   ui:
     name: ui sweep (界面交互)

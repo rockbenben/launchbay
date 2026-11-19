@@ -7,9 +7,10 @@
 // （§6.3 那条"令牌只发给 AI、扩展与 CLI"，扩展是其中之一，但**云同步过的令牌
 // 等于把 NAS 的写权限放进 Google 的账号里**）。
 //
-// 扩展**不读 cookie、不开标签页到 launchbay**：它直接调 REST（credScoped，令牌
-// 在 Authorization 头里）。走会话 cookie 的话，扩展与那个浏览器档案绑死，
-// 而这台机器上的档案是多个人的。
+// 扩展**不读 cookie、也不靠标签页跟 launchbay 打交道**：它直接调 REST
+// （credScoped，令牌在 Authorization 头里）。走会话 cookie 的话，扩展与那个浏览器
+// 档案绑死，而这台机器上的档案是多个人的。唯一会打开 launchbay 的地方是那条失败
+// 通知：点它按那句话的指引去页面（或设置页），不是日常保存的路径。
 //
 // 它开的 host_permissions 只到 http/https：chrome:// 与 file:// 这类地址
 // 右键收藏得到，但服务端会原样存下来并在界面上标「需手动打开」（§9 特例一）——

@@ -77,7 +77,8 @@
      ——每一格由自己的 placeholder 说清自己是谁（id 框的 placeholder 就是列头那句
      "档案 id"，令牌框本来就写着"这一枚档案作用域的令牌"）。
      断点跟着**内容宽**走：这一行需要 135+8+200+8+92=443 才不难看，而 body 的
-     38em(570) 减掉两侧 padding 之后，520 以下就开始挤。与主站台面面板同一档。 */
+     max-width 是 42em（15px 字号下 630）、两侧各 1.5em 内衬，520 以下就开始挤。
+     与主站台面面板同一档。 */
   @media (max-width:520px){
     body{margin:24px auto;padding:0 16px}
     input[type=url],input[type=password],input[type=text]{font-size:1rem}

@@ -64,7 +64,9 @@ func (s *Server) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
 
 // handleAdminLoginPage 是 `GET /admin` 在**没有管理权**时的那一支。
 //
-// 它与 handleAdminPage 的分界只有一条判据：hasAdminCookie。早先这里是
+// 它与 handleAdminPage 的分界只有一条判据：`require(credAdmin)` 过不过
+// （既要有 `lb_admin`，也可以直接拿管理员那把 key——2026-10-20 之前这里
+// 只问 hasAdminCookie，于是拿 key 的人拿到的是登录页）。早先这里是
 // `redirectPicker(w)`（303 回选择页），那是"权限类拒绝一律 303"那条纪律；
 // 2026-10-12 之后那条形状**不再适用**——升级完没有任何人进得去管理页（档案
 // 不再是管理员，而 key 还没输过），整个账号层面会锁死在一个没有人能开的页面上。

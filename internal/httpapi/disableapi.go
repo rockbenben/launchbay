@@ -39,7 +39,7 @@ type disableResult struct {
 // ——spec §8.8 对设 PIN 与删档都是这么裁定的，adminPin 已经把那坑踩过一次。
 //
 // 判据只有"当前档案在磁盘上是不是已经停用"这一条，目标由调用方决定停还是启用：
-// 幂等（同状态再设一次不进锁、不写盘、不记审计），于是重试是安全的。
+// 幂等（同状态再设一次仍会在档案锁内读一遍，但不写盘、不记审计），于是重试是安全的。
 func (s *Server) adminDisable(r *http.Request, profile string, disabled bool) disableResult {
 	var res disableResult
 	if !model.ValidSlug(profile) {
