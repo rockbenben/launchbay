@@ -1074,7 +1074,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 	}
 	for _, g := range fb.Groups {
 		// 分组色只在这里算一次（唯一真相）：条目身上只带 --chip-h，
-		// 分组色经 --sec-accent 进 CSS，挂载点两处（section 与侧栏色点），
+		// 分组色经 --sec-accent 进 CSS，挂载点三处（大卡组标题、正文 section 与侧栏色点），
 		// 都由同一个 groupView.Accent 喂（Task 10 与 P1-④ §7 的色点消费）。
 		gv := groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
 			Accent: validatedAccent(g.Accent), AccentCSS: CSSAccent(g.Accent)}

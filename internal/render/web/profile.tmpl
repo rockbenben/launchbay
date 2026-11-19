@@ -383,8 +383,8 @@
      第三方字节（缓存 favicon）永远只走 <img>，绝不内联。SVG 由 svgMarkup
      拼好（本案唯一拼 markup 的地方），这里只负责按三取一端出去。
      条目身上只带 --chip-h 这一个数（int，无字符串可逃）；分组色的**判据**只有
-     validatedAccent 一份，挂载点两处——section 的 --sec-accent 与侧栏那枚色点
-     （同一个属性名，没有第三个），条目身上一个都不许有——模板不做判色。
+     validatedAccent 一份，挂载点三处——大卡组标题、正文 section 的 --sec-accent
+     与侧栏那枚色点（同一个属性名），条目身上一个都不许有——模板不做判色。
      这个 define 必须与 "profile" 平级：Go 模板不许嵌套 define。 */}}
 {{define "icon"}}
 {{- if .SVG}}
@@ -400,8 +400,8 @@
      所以带 q 时它天然是命中数——不需要第二个数。
      三件套（分组名 + 计数 + 色点）是设计 §7 与权威源 §8.2 一起列的，少一件
      就是少一件。色点走同一个 --sec-accent 属性名：判色仍只有 validatedAccent
-     一份（exec.go 的 groupView.Accent），只是它现在有两个挂载点（section 与
-     它的侧栏行），条目身上照旧一个都不许有——证人见 icon_test.go。
+     一份（exec.go 的 groupView.Accent），现在有三个挂载点（大卡组标题、正文
+     section 与侧栏行），条目身上照旧一个都不许有——证人见 icon_test.go。
      没有 accent 的分组不发这一格——`{{with}}` 就是"没设色就不画点"。
      这个 define 必须与 "profile" 平级：Go 模板不许嵌套 define（同 "icon" 那条约束）。 */}}
 {{define "grouplist"}}
@@ -1121,7 +1121,7 @@
 </head>
 <body>
 <a class="skip-link" href="#main-content">{{.T "common.skip"}}</a>
-{{/* 这一张独立页从前**没有 main**：其它四张一级页（选择页、历史、回退、导入、管理）
+{{/* 这一张独立页从前**没有 main**：其它五张一级页（选择页、历史、回退、导入、管理）
      都带 role="main"，只有它把面板直接挂在 body 上。读屏软件按地标跳页，
      而「设置」恰恰是这一站里控件最密的一屏——没有 main 就等于那一屏不在地图上。
      顺带第二个后果：base.css 里"说明句一行不许超过 42 字"那条判据写的是

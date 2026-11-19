@@ -132,7 +132,7 @@
           {{/* 卡上那一格也要说清格式（2026-10-20）。**建档那屏**早就有「4 到 6 位数字」
                （picker.setup.pinField），而**第一次给这一份定 PIN 的其实正是这一屏**——
                从前这里只有一个「PIN」，规则只在撞了 `?err=badpin` 之后才出现。
-               卡只有 150–190px 宽（.profiles 那一档），格式塞不进标签里，于是放在
+               卡约 218px 宽（.profiles 那一档，窄屏随视口收），格式塞不进标签里，于是放在
                输入框的 placeholder 上：它是**一直看得见**的那一格（输入框里一敲就没了，
                但那时人已经知道格式了）。minlength/maxlength 仍由浏览器兜着。 */}}
           <label>{{$.T "picker.setup.pin"}} <input name="pin" type="password" inputmode="numeric" autocomplete="off"

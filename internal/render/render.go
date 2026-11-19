@@ -30,8 +30,8 @@ type Page struct {
 
 // RepoURL 是这台机器的**源码仓库**——提需求与报 issue 都去那儿。
 //
-// **为什么写死一处而不是两个模板各写一份**（2026-10-20）：设置面板与进门页
-// 各要画一个指向它的链接，而两处各写一份字面量就会有一处忘了改——
+// **为什么写死一处而不是模板里各写一份**（2026-10-20）：今天只有设置面板画这一枚
+// （进门页那一枚同日撤了），而两处各写一份字面量就会有一处忘了改——
 // 那正是"链接指向别人的仓库"这种错的形状，而它平时完全看不出来
 // （点得开、页面正常，只是去错了地方）。
 //
@@ -297,8 +297,8 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	if heading == "" {
 		heading = "谁来用？"
 	}
-	// 标题与"这一页到底进不进得去"用的是**同一个数**：卡片数。而引导窗口该不该开
-	// 仍然用磁盘上的目录数（那份判据在 httpapi，坏档案占位那条纪律没动）。
+	// 标题是调用方按**磁盘目录数**分档后递进来的（opts.Heading）；"这一页到底进不进
+	// 得去"才用**卡片数 + 坏档数**（NoWayIn）。两件事各用各的判据，别把它们并成一个数。
 	v := pickerView{Entries: views, Blocked: blocked, Heading: heading, Setup: opts.Setup,
 		NoWayIn:   len(views) == 0 && len(blocked) == 0,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
@@ -412,8 +412,9 @@ type AdminOptions struct {
 // AdminSentinel 是管理页在 X-LB-Profile 与 ETag 前缀里的名字。它刻意长成
 // `model.ValidSlug` **拒收**的样子（开头一个 `-`）："admin" 本身是个能建出来的
 // 档案 id，谁真建了它，⑥ 的 SW 就可能把这张跨档案的名单页当成那个档案的页面
-// 存进 `html-admin` 桶。本期这几页是 no-store、SW 还不存在，所以今天不可达，
-// 但形状要在这里定下来，而不是等 ⑥ 去猜"admin"这一档是谁。
+// 存进 `html-admin` 桶。这几页是 no-store，而 `/sw.js` 已启用、对 `-admin` 一律不存
+// （storeHTML 开头那一条），所以今天不可达；形状仍要在这里定下来，而不是让 ⑥ 去猜
+// "admin"这一档是谁。
 const AdminSentinel = "-admin"
 
 // AdminPage 渲染 §8.8 的管理页。NoStore 是硬要求：这一页跨所有档案，缓存起来
@@ -740,8 +741,8 @@ func (r *Renderer) PrefsPage(id, tab string, lang i18n.Lang, browserMode model.L
 // 那一页要为整页渲染标题、条目与导航树，而搜索时只渲染命中的分组——于是"面板里
 // 少了几行"会取决于当时有没有在搜东西，而面板与搜索词毫无关系。
 //
-// 读不出来**不算失败**：把这一节撤掉并说清为什么，「这一页」那几行照常在（今天八行：
-// 界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景图/点书签时）。这与 `/prefs` 的"坏档不挡"是
+// 读不出来**不算失败**：把这一节撤掉并说清为什么，「这一页」那几行照常在（今天九行：
+// 界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景图/点书签时/书签地址模式）。这与 `/prefs` 的"坏档不挡"是
 // 同一条纪律——改台面只写 profile.json，而书签文件读坏了正是最需要改排版看看的时候。
 func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, string, bool) {
 	b, err := r.s.LoadBookmarks(id)
