@@ -143,10 +143,9 @@ export async function connect(cdp) {  const tab = await (await fetch(`${cdp}/jso
 export const INV = `(()=>{const out=[];for(const host of document.querySelectorAll('[data-gid]')){const gid=host.dataset.gid;
 const list=host.tagName==='UL'?host:host.querySelector(':scope > ul');
 const items=list?[...list.querySelectorAll('li[data-item]')].map(n=>n.dataset.item):[];
-const hint=host.tagName==='SECTION'?host.querySelector(':scope > p.grp-empty'):null;
+const hint=list?.nextElementSibling?.matches('p.grp-empty') ? list.nextElementSibling : null;
 out.push({gid,items,hint:hint?hint.hidden:null});}
 const counts={};for(const a of document.querySelectorAll('a[href^="#g-"],a[href^="#f-"]')){const m=/^#([gf])-(.+?)(?:\\?|$)/.exec(a.getAttribute('href'));if(!m)continue;const b=a.querySelector('b.cnt');if(b)counts[m[2]]=Number(b.textContent||0);}
-for(const h of document.querySelectorAll('h2.feat-g[data-group]')){const n=h.querySelector('.feat-n');if(n)counts[h.dataset.group]=Number(n.textContent||0);}
 return JSON.stringify({groups:out,counts,
 bad:[...document.querySelectorAll('#lb-banner.bad')].map(n=>n.textContent.trim()),
 ok:[...document.querySelectorAll('#lb-banner.ok')].map(n=>n.textContent.trim())})})()`;
@@ -207,7 +206,7 @@ export function diffScreen(inv, d) {
     const want = grp.items.map((i) => i.id);
     if (JSON.stringify(scr.items) !== JSON.stringify(want)) bad.push(`${grp.id} 屏上 ${JSON.stringify(scr.items)} ≠ 盘上 ${JSON.stringify(want)}`);
     // 空组那句：有内容就该藏起来（hidden=true），空着就该露出来。
-    if (scr.hint !== null && scr.hint !== (want.length > 0)) bad.push(`${grp.id} 空组那句 hidden=${scr.hint}，盘上 ${want.length} 条`);
+    if (scr.hint !== (want.length > 0)) bad.push(`${grp.id} 空组那句 hidden=${scr.hint}，盘上 ${want.length} 条`);
     if (inv.counts[grp.id] !== undefined && inv.counts[grp.id] !== want.length) bad.push(`${grp.id} 屏上计数 ${inv.counts[grp.id]} ≠ 盘上 ${want.length}`);
   }
   for (const gid of byGid.keys()) if (!d.groups.find((g) => g.id === gid)) bad.push(`屏上多了一组 ${gid}`);

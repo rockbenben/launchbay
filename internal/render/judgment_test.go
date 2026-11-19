@@ -94,8 +94,7 @@ func Test一个判据一个出口(t *testing.T) {
 	})
 
 	t.Run("计数按整段href比而不是前缀", func(t *testing.T) {
-		// **判据住在 countNodes 那一处**（2026-10-22）：组计数在屏上有两处载体
-		// （导航那一格的 b.cnt、大卡带那一行的 .feat-n），而**改**它的是 bumpCount、
+		// **判据住在 countNodes 那一处**：导航里的组计数由 bumpCount 更新，
 		// **读**它的是 groupLabel（同名组要分得开时补的那个数）——两者都该走同一份
 		// 判据，于是那一份被抽成了 countNodes，bumpCount 只剩"加/减"这一件事。
 		bc := between(js, "function countNodes(gid) {", "\n  }")

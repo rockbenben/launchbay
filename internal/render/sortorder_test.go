@@ -106,9 +106,9 @@ func Test空组那一句跟着就地移动变(t *testing.T) {
 
 	se := between(js, "function syncEmpty(list) {", "\n  }")
 	for _, want := range []string{
-		"list.parentElement.tagName !== 'SECTION'", // 大卡带模板没画这一句
-		":scope > p.grp-empty",                     // 只认模板画的那一个
-		"!list.querySelector('li[data-item]')",     // 空 = 那个 ul 里一条都没有
+		"list?.nextElementSibling",             // 列表紧随的提示属于同一个分组
+		"hint?.matches('p.grp-empty')",         // 只认模板画的提示
+		"!list.querySelector('li[data-item]')", // 空 = 那个 ul 里一条都没有
 	} {
 		if !strings.Contains(se, want) {
 			t.Errorf("syncEmpty 缺 %q\n%.400s", want, se)

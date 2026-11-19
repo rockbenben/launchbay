@@ -64,8 +64,10 @@ func Test大卡那一组仍然在分组导航里(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(p.Body), `#g-hot`) {
-		t.Error("大卡那一组从分组导航里消失了：换位置不等于换存在")
+	body := string(p.Body)
+	if !strings.Contains(body, `href="#f-hot" title="每天必点"><span>每天必点</span><b class="cnt">1</b>`) ||
+		!strings.Contains(body, `id="f-hot"`) {
+		t.Error("分组导航应当显示大卡组的计数，并指向该组标题")
 	}
 }
 
@@ -123,6 +125,11 @@ func Test多个大卡分组合进同一块(t *testing.T) {
 	// 分组信息不许被合并掉：块内每一段有自己的标题。
 	if n := strings.Count(body, `class="feat-g"`); n != 2 {
 		t.Errorf("块内只有 %d 个分段标题，要 2 个（每组一个）", n)
+	}
+	for _, name := range []string{"甲", "乙"} {
+		if !strings.Contains(body, `<span class="sec-leaf">`+name+`</span></h2>`) {
+			t.Errorf("大卡组 %s 的标题应该以组名收尾", name)
+		}
 	}
 	if n := strings.Count(body, `class="feat-row"`); n != 2 {
 		t.Errorf("块内只有 %d 个条目行，要 2 个", n)

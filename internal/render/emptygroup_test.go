@@ -50,21 +50,17 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 	// 三个判据缺一不可：节容器、锚点、导航里的那一格。少任何一处，它就成了
 	// 一个"页面上有、却进不去"的分组。
 	for _, want := range []string{`data-gid="gone"`, `id="g-gone"`, `#g-gone`,
-		`data-gid="feat"`, `id="f-feat"`} {
+		`data-gid="feat"`, `id="f-feat"`, `href="#f-feat"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("页面里没有 %q：空组被藏起来了（那会让添加浮层的下拉与拖拽落点一起失效）", want)
 		}
 	}
 	// 而它得说清自己是空的：一个只有标题、正文空着的节读起来像渲染坏了。
-	// **只数正文那两处**：大卡带子里的空组由标题上那枚条目数徽标说（它印「0」），
-	// 那是那一块本来就有的载体，而往带子里塞一句 hint 会掉进它的横向排布里
-	// （它不是一列一列的正文，是一个 section 里连着若干段 h2+ul）。
-	//
 	// **每一组都带那一句，有内容的那一份是 hidden**（2026-10-16 排序复查加的）：
 	// 就地移动不走重载，脚本要能自己把这一句收掉/放回，而它的文字只有模板一处
 	// 来源——所以这里钉的是**哪一份看得见**，不是"有没有这一句"。
-	if n := strings.Count(html, `<p class="hint grp-empty"`); n != 2 {
-		t.Errorf("正文两个组该各带一句「这一组还没有书签」（有内容的那份 hidden），实际 %d 句", n)
+	if n := strings.Count(html, `<p class="hint grp-empty"`); n != 3 {
+		t.Errorf("三个组该各带一句「这一组还没有书签」（有内容的那份 hidden），实际 %d 句", n)
 	}
 	if !strings.Contains(sectionOf(t, html, "gone"), `<p class="hint grp-empty">`) {
 		t.Errorf("那个空组的那一句被藏起来了：它正是靠这句说清自己是空的\n%.600s", sectionOf(t, html, "gone"))
@@ -72,11 +68,14 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 	if !strings.Contains(sectionOf(t, html, "nas"), `grp-empty" hidden`) {
 		t.Errorf("有内容的那一组没有把那句藏起来：页面上会同时出现「这一组还没有书签」与卡片\n%.600s", sectionOf(t, html, "nas"))
 	}
-	// 那枚徽标现在**带一句可及名**（aria-label：读屏念"这组有 0 条书签"，
-	// 而不是把「0」和组名连在一起念成"常用0"）——所以判据按"数字还在、
-	// 且有 aria-label"两件事来钉，不再逐字比整段标记。
-	if !strings.Contains(html, `class="feat-n"`) || !strings.Contains(html, `>0</span>`) {
-		t.Error("大卡那个空组没有条目数徽标：带子里没有正文 hint，它靠那枚「0」说自己是空的")
+	if !strings.Contains(sectionOf(t, html, "feat"), `<p class="hint grp-empty">`) {
+		t.Error("大卡空组应该显示「这一组还没有书签」")
+	}
+	if !strings.Contains(html, `<span class="sec-leaf">空的大卡</span></h2>`) {
+		t.Error("大卡组标题应该以组名收尾")
+	}
+	if !strings.Contains(html, `<span>空的大卡</span><b class="cnt">0</b>`) {
+		t.Error("大卡空组的 0 应该显示在分组导航里")
 	}
 	// 有内容的组不许被牵连。
 	if !strings.Contains(html, `id="g-nas"`) {
@@ -84,7 +83,7 @@ func TestProfilePage_空组照画并说清它是空的(t *testing.T) {
 	}
 }
 
-// sectionOf 取出正文里 `data-gid="<gid>"` 那一节的 HTML（大卡带那一节是 ul，不在这里）。
+// sectionOf 取出从分组容器到所在 section 结束的 HTML。
 func sectionOf(t *testing.T, html, gid string) string {
 	t.Helper()
 	i := strings.Index(html, `data-gid="`+gid+`"`)

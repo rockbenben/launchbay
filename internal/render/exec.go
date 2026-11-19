@@ -337,6 +337,9 @@ func navNodeOf(g groupView, title string, isGroup bool) navNode {
 	node.Parents, node.Leaf = pathSplit(title)
 	if isGroup {
 		node.Href = "#g-" + g.ID
+		if g.Layout == model.LayoutFeature {
+			node.Href = "#f-" + g.ID
+		}
 		node.Count = len(g.Items)
 		node.Accent = g.Accent
 		node.AccentCSS = CSSAccent(g.Accent)

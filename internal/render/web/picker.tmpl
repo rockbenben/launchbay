@@ -12,8 +12,9 @@
 <title>{{.Heading}}</title>
 <style>{{.CSS}}</style>
 </head>
-<body class="entry-page">
+<body class="entry-page picker-page">
 <main role="main" class="chooser">
+  <p class="picker-brand">Launchbay</p>
   {{/* 一张卡都没有时，标题就是那句事实，不是一句问话（判据见 pickerView.NoWayIn）。 */}}
   <h1>{{if .NoWayIn}}{{.T "picker.empty"}}{{else}}{{.Heading}}{{end}}</h1>
   {{/* 提示放在最前：读屏的人不该先听完一屏档案才知道刚才没进去。

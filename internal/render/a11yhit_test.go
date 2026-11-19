@@ -40,11 +40,6 @@ func Test添加浮层的分组选项不漏徽标且同名才带条目数(t *test
 	if !strings.Contains(js, "const n = countNodes(gid)[0];") {
 		t.Error("补上去的条目数不是侧栏那一格的数：两处会不是同一件事")
 	}
-	// 反向证人：那一枚徽标确实在标题里，所以这不是"模板里没有它"的另一种解释。
-	tmpl := readWeb(t, "web/profile.tmpl")
-	if !strings.Contains(tmpl, `class="feat-g"`) || !strings.Contains(tmpl, `class="feat-n"`) {
-		t.Error("模板里找不到带徽标的大卡组标题：这条判据的前提变了")
-	}
 }
 
 // 二、`.layoutbtn` 的命中区上边**被 section 的 paint containment 裁掉**。
