@@ -49,31 +49,6 @@ const (
 	writeToken = "uicheck-write"
 )
 
-// stopBrowser 关掉那个浏览器，**连它的子进程一起收走**（2026-10-20 修）。
-//
-// 只 Kill 父进程的话，Chrome 的子进程（渲染器、网络服务、那个 optimization
-// guide 的模型下载）还活着，于是 Go 的 t.TempDir 清理撞上它们：
-// "The process cannot access the file because it is being used by another
-// process" ——**整支测试判 FAIL**，而那一轮其实全绿。
-//
-// 这是一条"红了但什么也不代表"的失败：它会训练人忽略红色，于是**真的**红的那
-// 次也被一起忽略。横扫本身是这台机器上唯一能看出"屏上与盘上是不是一致"的
-// 东西，它的红必须只由那些步骤说话。
-//
-// Windows 上没有"进程组"那套，用 taskkill /T 连树一起收；别处用 Kill + Wait
-// （Wait 会等进程被收走，错误是 "signal: killed"，那一类正常的死法）。
-func stopBrowser(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
-		return
-	}
-	if runtime.GOOS == "windows" {
-		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
-	} else {
-		_ = cmd.Process.Kill()
-	}
-	_ = cmd.Wait()
-}
-
 func Test档案页交互横扫(t *testing.T) {
 	runBrowserSweeps(t, "sweep.mjs", "sweep-variants.mjs")
 }
@@ -114,8 +89,7 @@ func runBrowserSweeps(t *testing.T, scripts ...string) {
 	// 哪一门语言由机器说了算——见 setMachineLang 那段。
 	setMachineLang(t, port)
 
-	cdp, stop := browser(t, tmp)
-	defer stop()
+	cdp := browser(t, tmp)
 
 	// 两道横扫跑同一台服务、同一份数据：第一道走档案页上那些写盘交互，第二道走
 	// 别的族（离线队列、设置面板其余各格、搜索两路、窄屏、减弱动效、键盘、零 JS
@@ -364,11 +338,11 @@ func setMachineLang(t *testing.T, port int) {
 // browser 拿一个能用的调试口：先看 LB_CDP（已经开着的），再自己起一个无头浏览器。
 // 找不到浏览器就**明说怎么办**，而不是安静地跳过——一条"因为没浏览器所以绿"的闸
 // 与没有这条闸一模一样。
-func browser(t *testing.T, tmp string) (cdp string, stop func()) {
+func browser(t *testing.T, tmp string) string {
 	t.Helper()
 	if v := os.Getenv("LB_CDP"); v != "" {
 		if ok, _ := ping(v); ok {
-			return strings.TrimRight(v, "/"), func() {}
+			return strings.TrimRight(v, "/")
 		}
 		t.Fatalf("LB_CDP=%s 上没有调试口", v)
 	}
@@ -377,12 +351,13 @@ func browser(t *testing.T, tmp string) (cdp string, stop func()) {
 		t.Fatalf("找不到无头浏览器：装一个 Chrome/Edge，或设 LB_CDP 指向一个已经开着的调试口" +
 			"（chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<临时目录>）")
 	}
-	port := freePort(t)
 	profile := filepath.Join(tmp, "chrome-profile")
 	args := []string{
 		"--headless=new",
-		fmt.Sprintf("--remote-debugging-port=%d", port),
+		// 让 Chrome 自己绑定空闲端口，避免先探测再释放造成的抢占窗口。
+		"--remote-debugging-port=0",
 		"--user-data-dir=" + profile,
+		"--enable-logging=stderr",
 		"--no-first-run", "--no-default-browser-check",
 		"--disable-gpu", "--hide-scrollbars",
 		// **指针能力钉成「精确指针 + 能悬停」**（2026-10-22 修）。
@@ -419,25 +394,61 @@ func browser(t *testing.T, tmp string) (cdp string, stop func()) {
 		args = append(args, "--no-sandbox", "--disable-dev-shm-usage")
 	}
 	args = append(args, "about:blank")
+	log, err := os.Create(filepath.Join(tmp, "chrome.log"))
+	if err != nil {
+		t.Fatalf("创建浏览器日志失败：%v", err)
+	}
+	defer log.Close()
 	cmd := exec.Command(exe, args...)
+	cmd.Stderr = log
+	configureBrowserProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("起浏览器失败：%v", err)
 	}
-	base := fmt.Sprintf("http://127.0.0.1:%d", port)
-	deadline := time.Now().Add(25 * time.Second)
-	for time.Now().Before(deadline) {
-		if ok, _ := ping(base); ok {
-			return base, func() {
-				stopBrowser(cmd)
+	done := make(chan struct{})
+	var exitErr error
+	go func() {
+		exitErr = cmd.Wait()
+		close(done)
+	}()
+	// 即使启动失败也回收浏览器，顺序排在 t.TempDir 清理之前。
+	t.Cleanup(func() { stopBrowser(cmd.Process, done) })
+
+	portFile := filepath.Join(profile, "DevToolsActivePort")
+	tick := time.NewTicker(200 * time.Millisecond)
+	defer tick.Stop()
+	timeout := time.NewTimer(25 * time.Second)
+	defer timeout.Stop()
+	for {
+		select {
+		case <-done:
+			out, _ := os.ReadFile(log.Name())
+			t.Fatalf("浏览器在调试口就绪前退出（退出错误：%v）\n%s", exitErr, out)
+		case <-timeout.C:
+			out, _ := os.ReadFile(log.Name())
+			t.Fatalf("浏览器的调试口 25 秒内未就绪\n%s", out)
+		case <-tick.C:
+			if base := browserEndpoint(portFile); base != "" {
+				if ok, _ := ping(base); ok {
+					return base
+				}
 			}
 		}
-		time.Sleep(200 * time.Millisecond)
 	}
-	if cmd.Process != nil {
-		_ = cmd.Process.Kill()
+}
+
+func browserEndpoint(portFile string) string {
+	b, err := os.ReadFile(portFile)
+	if err != nil {
+		return ""
 	}
-	t.Fatalf("浏览器起来了但调试口 %d 没开", port)
-	return "", func() {}
+	// Chrome 在第一行写端口，第二行写浏览器的 WebSocket 路径。
+	line, _, complete := strings.Cut(string(b), "\n")
+	port, err := strconv.ParseUint(strings.TrimSpace(line), 10, 16)
+	if !complete || err != nil || port == 0 {
+		return ""
+	}
+	return fmt.Sprintf("http://127.0.0.1:%d", port)
 }
 
 // findBrowser 按平台各找几处常见位置。**找不到就返回空串**，由调用方决定怎么办
