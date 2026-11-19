@@ -81,7 +81,7 @@ func usage(out io.Writer) {
 	}
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "每个子命令自己的开关：launchbay <子命令> -h")
-	fmt.Fprintln(out, "写子命令只经本机 REST 落盘，用的是**那一份档案自己**的档案作用域令牌。")
+	fmt.Fprintln(out, "写书签的子命令只经本机 REST 落盘，用的是那一份档案自己的令牌；profile create / rebuild 是管理员那条，用 LAUNCHBAY_ADMIN_TOKEN。")
 }
 
 func runCLI(args []string, cfg config, out, errOut io.Writer) int {

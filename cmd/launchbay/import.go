@@ -36,7 +36,7 @@ import (
 func cmdImportBookmarks(args []string, cfg config, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("import-bookmarks", flag.ContinueOnError)
 	profile := fs.String("profile", "", "导入到哪个档案（必填；该档案必须是空的）")
-	by := fs.String("by", "cli", "改动历史里这一趟记成哪个渠道（ai / extension / web / import / cli）")
+	by := fs.String("by", "cli", "改动历史里这一趟记成哪个渠道（ai / extension / web / import / cli / bookmarklet）")
 	overrides := fs.String("overrides", "", "图标覆盖表的 JSON 文件路径（不给就用内置那份，再没有就留空）")
 	dryRun := fs.Bool("dry-run", false, "只打印报告与 ops，不提交")
 	if code, ok := parseFlags(fs, args, out, errOut); !ok {

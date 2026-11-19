@@ -89,7 +89,7 @@ func main() {
 	// 走到这里就是 serve 那一支：管理员 key 是**服务端**的启动错误（AGENTS.md
 	// 「令牌与鉴权」——缺了它这台机器装完没人能管）。CLI 子命令在上面已经返回了，
 	// 各自的凭证要求由它们自己判（create/rebuild 要管理员 key，revert/import/
-	// backup/restore 要档案作用域令牌），所以这条闸不拦它们。
+	// backup/restore/fix-names 要档案作用域令牌），所以这条闸不拦它们。
 	if err := serveNeedsAdmin(cfg); err != nil {
 		log.Fatalf("配置错误: %v", err)
 	}
