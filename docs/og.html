@@ -7,8 +7,13 @@
   会出现在 X / Slack / Discord / 搜索引擎的卡片里——那些地方读的人不一定读得懂
   中文。主句给英文，中文作为副行跟着，**两句说的是同一件事**，不是两套说辞。
 
-  配色与字重抄自 internal/render/web/base.css 的真实值，不是另起一套"品牌色"——
+  配色与字重抄自 internal/render/web/base.css 的当时真实值，不是另起一套"品牌色"——
   卡片要长得像产品本身，而不是像产品的一张海报。
+
+  **2026-11-19 主站改过色板**（--bg / --ink / --line / 极光 / --scrim 都变了），
+  而这张卡没有跟着重做：GitHub 的 Social preview 上传即覆盖、旧图找不回，改它
+  要先明确"就是要换这张图"。所以这份源文件里的颜色是**当时的** base.css，
+  不是今天的——别拿它当主题变量的第二份真相。
 
   重新渲染：
     node {html-shot}/render.mjs docs/og.html docs/og.png
