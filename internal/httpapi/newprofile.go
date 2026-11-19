@@ -124,7 +124,7 @@ func (s *Server) handleNewProfileForm(w http.ResponseWriter, r *http.Request) {
 		redirectSetupForm(w, "nametaken", r.FormValue("title"), true)
 	case res.Permission:
 		// 宿主数据目录对跑服务的那个用户不可写：这一族是唯一说得出出路的
-		// 落盘失败（去宿主机 chown），两张建档表单共用那一句。
+		// 落盘失败（去宿主机 chown），三张建档表单共用那一句。
 		redirectSetupForm(w, "permission", r.FormValue("title"), true)
 	case res.Status != 0:
 		writeInternalError(w, res.Err)

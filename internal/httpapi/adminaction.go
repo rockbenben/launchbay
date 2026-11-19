@@ -25,7 +25,7 @@ import (
 // 直接不出现，而它是**唯一**挡在"手滑删掉一个人"前面的东西——一道在某些设备上
 // 自己不出现的闸等于没有闸。
 
-// adminPageGuard 是这两页共有的准入：令牌一律拒，权限类一律 303 回选择页且
+// adminPageGuard 是这几页共有的准入（设 PIN / 删档 / 停用三族确认页）：令牌一律拒，权限类一律 303 回选择页且
 // **不带提示**（与 handleAdminCreate / prefs / switch 同纪律）。
 //
 // 返回 false 表示已经答完了，调用方直接 return。
@@ -135,7 +135,8 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 	// 给出不同答案——那是真的坏（管理员在 API 上能改、在页面上不能）。
 	//
 	// 仍然拦着的是**删档与停用**：那两件是会话层面的事（删掉自己正在用的那
-	// 一份会把会话悬空），与权限无关，见 deleteBlocked。
+	// 一份会把会话悬空），与权限无关——删档见 deleteBlocked，停用见
+	// disableSelfBlocked（disableapi.go）。
 	title, heading, explain := s.t(r, "admin.pin.title.add"), s.t(r, "admin.pin.heading.add", rowLabel(row)), s.t(r, "admin.pin.explain.add", rowLabel(row))
 	submit, field, hint := s.t(r, "admin.pin.submit.add"), s.t(r, "admin.pin.field.add"), s.t(r, "admin.pin.field.hint.add")
 	if row.PinSet {

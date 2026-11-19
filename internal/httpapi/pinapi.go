@@ -63,7 +63,8 @@ func (s *Server) writeProfileReadFailure(w http.ResponseWriter, id string, err e
 // **没勾也算勾了**，正好是这条判据要防的反面。名字改成它实际回答的问题，
 // 勾选框那一格另有 `nopassFlag`（值是 "1"）。
 //
-// 三处用它（self/pin、admin/pin、建档族的 nopass），所以它住在最小的那个包里；
+// 两处用它（self/pin、admin/pin），所以它住在最小的那个包里；建档族用的是显式的
+// `NoPass` 布尔，不经过这里。
 // 而「这一份档案到底有没有 PIN」是 auth.HasPin。两者别混：**一个是请求，
 // 一个是盘上的档案。**
 func wantsNoPin(newPin string) bool { return newPin == "" }
@@ -72,8 +73,8 @@ func wantsNoPin(newPin string) bool { return newPin == "" }
 // 当没勾：宁可把一个写错的标记当成没勾（于是仍然要 PIN），也不要把它当成一个
 // 明确的选择。
 //
-// **两条建档表单都要走它**（/setup 与 /admin 各一处，2026-10-20 接上）：
-// 从前这两个 handler 各自内联了一句 `r.FormValue("nopass") == "1"`，而这个
+// **三条建档表单都要走它**（/setup、/admin 与 /new 各一处；/new 是 2026-10-23
+// 加的）。从前两个 handler 各自内联了一句 `r.FormValue("nopass") == "1"`，而这个
 // helper 一个调用者也没有——判据于是有**三份**（两份内联 + 一份死的），
 // 改可接受的值要记得改两处代码。
 func nopassFlag(v string) bool { return v == "1" }

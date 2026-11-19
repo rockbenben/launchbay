@@ -163,7 +163,7 @@ func (s *Server) handleIconTiles(w http.ResponseWriter, r *http.Request) {
 	if q == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{
 			Code: 400, Kind: apierr.QueryInvalid,
-			Detail: "要带 ?q=<关键词>：这一条是给人挑图标的，空查询回一张空图而不是全量",
+			Detail: "要带 ?q=<关键词>：这一条是给人挑图标的，空串直接 400，不倒全量",
 		})
 		return
 	}

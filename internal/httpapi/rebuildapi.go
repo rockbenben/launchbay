@@ -85,7 +85,8 @@ func (s *Server) handleRebuildProfile(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		// 这条端点**不建目录**：建档案仍然只有 POST /api/v1/profiles 与 POST /setup。
+		// 这条端点**不建目录**：建档案走 POST /api/v1/profiles、POST /api/v1/profiles/new
+		// 与两张表单（/setup、/new）。
 		// 说清这一点是为了让人别把它当"重建"的第二条路——目录不在就是不在。
 		writeJSON(w, http.StatusNotFound, errorResponse{Code: 404, Kind: apierr.ProfileNotRebuildable, Detail: "档案不存在。这条通路只重写 profile.json，建不出新档案（建档走 POST /api/v1/profiles）"})
 	case errors.Is(err, store.ErrReadable):

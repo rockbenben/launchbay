@@ -99,9 +99,10 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 
 // handleAdminCreate 是管理页的建档表单。判据一条都不新写：权限走现成的
 // require(credAdmin, "")，校验/哈希/落盘走 createProfile（Task 3 抽的唯一落点）。
-// 与引导那条（/setup）共用 DeriveID（两张表单都不问 id），差别只有两处：撞名要说得出话
-// （引导那条撞车等于"窗口已关"，回 / 不带键），以及**没有 admin 那一格**——
-// 档案不再有管理员属性（2026-10-12）。
+// 与引导那条（/setup）共用 DeriveID（都不问 id）。差别在：/setup 只允许零档案
+// （FirstOnly）并带 `language?` 那一格；管理页撞名要说得出话（引导那条撞车等于
+// "窗口已关"，回 / 不带键）。两条都**没有 admin 那一格**——档案不再有管理员属性
+// （2026-10-12）。
 //
 // 浏览器通路不认令牌（/prefs、/switch 同族纪律）：credAdmin 本来会放行管理员令牌，
 // 让令牌走这条路等于同一个动作两个入口、鉴权各写一半；机器建档有 API 那条。
