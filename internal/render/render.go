@@ -230,9 +230,6 @@ type PickerOptions struct {
 	Heading string
 	// Setup 为真时这一页画引导建档表单，而不是档案卡列表。
 	Setup bool
-	// HasAdmin 为真时页面顶端给一个进管理页的口子（2026-10-12）。判据在 httpapi
-	// （本次请求带的是不是一把真的管理权），渲染器不判断。
-	HasAdmin bool
 	// Lang 是**这一页用什么语言**（2026-10-20）：选择页是机器层面的页面，所以它
 	// 用默认语言（管理员设过的那个，没设过就用浏览器说的那一门）。判据在 httpapi。
 	Lang i18n.Lang
@@ -249,9 +246,10 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	}
 	// 选择页只取名字与 id：条目、URL、分组名一个都不进视图。
 	//
-	// **2026-10-12 例外**：视图里多了一张脸（Icon）。判断本身在 icon.go 的
-	// faceOf，而它要问的是"这份档案最常点的是哪个站"——那答案只能从书签里去
-	// 拿。这里**只带一张脸进模板**：一个图标与它藏在哪条书签后面，不泄露一份
+	// **那张脸现在是档案名的首字母色块**（2026-10-17 用户改判；2026-10-12 曾用
+	// "这个人最常用的站点图标"）。判断本身在 icon.go 的 faceOf：它只看
+	// `Profile.Title` 与 `chipHue`，**不再读任何书签**——坏档、空档、读不出来
+	// 的那一份都画得出同一张脸。这里**只带一张脸进模板**：一个字母不泄露一份
 	// 收藏里有什么（这页是给全家都能看到的进门页）。
 	//
 	// **停用的档案不占一张卡**（2026-10-10）：停用是"输对 PIN 也进不去"，给一张
@@ -259,18 +257,12 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 	// httpapi 那一层的判据（目录数），所以引导窗口不会因为停用一个人而重开。
 	// 两个数字不一样是刻意的：目录数判"这台机器装好了没有"，这张表判"谁进得来"。
 	//
-	// 代价：这一页因此要为**每份**档案读一次 bookmarks.json（只读文件，不 stat ——
-	// `Current` 会多读一次 mtime，而这一页要的是书签本身）。
+	// **代价的变迁**：那张服务图标的脸曾让这一页为每份档案读一次 bookmarks.json
+	// （实测两轮 A/B、各 60 次：p50 从 17.0/15.0ms 涨到 21.2/18.4ms）。改首字母之后
+	// 这笔文件读没有了，选择页只剩 `ListProfiles` 那一次目录读。
 	//
-	// **量过**（两轮交错 A/B，各 60 次，免得机器抖动全砸在一边）：本机 3 份档案、
-	// 书签文件都只有几百字节，选择页 p50 从 17.0/15.0ms 变成 21.2/18.4ms——多出
-	// 的是**每份档案一次文件读**的量级（约 1ms/份），不是解析的量级。Windows 的
-	// Docker bind 挂载每次文件操作约 1ms；Linux 本地盘是零点几毫秒，NAS 上取决于
-	// 它的文件系统（SMB 上会明显更贵——这一格要在真 NAS 上重测，本机测不出来）。
-	//
-	// 为什么不给这张脸加缓存：能当键的 rev 或 mtime 都得先读/先 stat 才拿得到，
-	// 省不掉那一次文件操作；而缓存本身会成为"这一份现在几 rev"的第二处真相，
-	// 错了就是一张永远不换的脸。这里选择每次老实读一次。
+	// 这张脸不需要缓存：它是 `Profile.Title` 的两个纯函数（firstChar / chipHue），
+	// 跟书签文件没有关系，也就没有"这份现在几 rev"的第二处真相。
 	//
 	// 档案读不出来（坏档）时那一格走首字母色块——点进去之后才有解释页，不在这一
 	// 页重复。
@@ -311,7 +303,7 @@ func (r *Renderer) PickerPage(opts PickerOptions) (Page, error) {
 		NoWayIn:   len(views) == 0 && len(blocked) == 0,
 		Preselect: opts.Preselect, KeepAdd: opts.KeepAdd, KeepAddTitle: opts.KeepAddTitle,
 		Notice: opts.Notice, FormTitle: opts.FormTitle, NewOpen: opts.NewOpen,
-		HasAdmin: opts.HasAdmin, DefaultLang: opts.DefaultLang}
+		DefaultLang: opts.DefaultLang}
 	body, err := r.tmpl.picker(v, i18n.Load(opts.Lang))
 	if err != nil {
 		return Page{}, err
@@ -760,8 +752,9 @@ func (r *Renderer) prefsGroups(id string, cat *i18n.Catalog) ([]groupView, strin
 	for _, g := range b.Groups {
 		// Count 由**盘上那份**数出来（2026-10-15）：删掉一组的确认句要念出"这一组
 		// 还有几条"，而那一格在面板上没有 Items 可数——这里只带标题/颜色/排法。
-		// 顺带说清这一列**不跟着页面那份过滤走**：页面上空的组不画（exec.go 的
-		// profile），而这里照画，清掉空组的出口正是这一屏。
+		// 顺带说清这一列**不跟着页面上那份搜索过滤走**：正文按 `?q=` 只画命中的
+		// 组（exec.go 的 profile → matches），而这一屏列的是整份组表（含空组）——
+		// 清掉空组的出口正是这一屏。
 		out = append(out, groupView{ID: g.ID, Title: g.Title, Layout: g.Layout,
 			Count:  len(g.Items),
 			Accent: validatedAccent(g.Accent), AccentCSS: CSSAccent(g.Accent)})

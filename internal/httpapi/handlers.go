@@ -374,7 +374,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		// 那一门就是他最像的那一门（判据见 machineLang）。
 		opts := render.PickerOptions{KeepAdd: keepAdd, KeepAddTitle: r.URL.Query().Get("t"), Notice: notice,
 			FormTitle: r.URL.Query().Get("title"), NewOpen: r.URL.Query().Get("new") == "1",
-			HasAdmin: s.hasAdminCookie(r), Lang: s.machineLang(r), DefaultLang: s.rawDefaultLang()}
+			Lang: s.machineLang(r), DefaultLang: s.rawDefaultLang()}
 		switch {
 		case n == 0:
 			opts.Setup, opts.Heading = true, s.t(r, "picker.heading.none")
