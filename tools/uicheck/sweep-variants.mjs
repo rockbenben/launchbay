@@ -588,8 +588,8 @@ await step('紧凑档 → 每条一行（长名字也不许把行撑高）', asy
     a:document.body.dataset.addrLevel||'host'})`);
   const b = JSON.parse(before);
   // **第二行必须是「主机名」这一档**（2026-10-21 改判）：「完整地址」是**用户显式选的**
-  // 那一档，而那一档**按设计**就该在紧凑档里也印出第二行——`prefs.addrLevel.hint`
-  // 明写「选了完整地址之后，密集视图与窄屏磁贴也显示第二行」。
+  // 那一档，而那一档**按设计**就该在紧凑档里也印出第二行。文案（`prefs.addrLevel.hint`）
+  // 只说「选择书签名称下方显示的内容。」，这条设计判据不靠它背书。
   // 拿它当缺陷 = 把用户的显式选择读成 bug（2026-10-21 第一次写这条时正是这么错的：
   // 读到 90px 的行就红了，而那是**横扫自己**把第二行改成完整地址造成的）。
   await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'view=dense&addrLevel=host'})`);

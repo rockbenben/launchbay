@@ -1,4 +1,4 @@
-﻿// 档案页交互横扫（2026-10-16）。**这是仓库里唯一一条会真的点界面的门禁**。
+// 档案页交互横扫（2026-10-16）。**这是仓库里唯一一条会真的点界面的门禁**。
 //
 // 为什么是「不变量」而不是逐条断言：这个项目的 bug 形状几乎都是同一句——
 // **屏上说的与盘上存的分家**（顺序错、存错组、那句话没跟着变、计数没跟着变）。
@@ -341,8 +341,8 @@ await step('编辑 → 从图标库换图标', async () => {
     b.click(); return 'opened'`);
   await sleep(1000);
   await topDialog();
-  // 打开时浮层里是「这一份已经在用的图标」（克隆卡片上的 SVG，零请求），**方格要搜了才有**：
-  // 先在这个输入框里敲一个词，才发那次 /api/v1/icons/tiles。
+  // 打开时浮层先铺「这一份已经在用的图标」（克隆卡片上的 SVG，零请求）与 starter/browse
+  // 两批方格；**搜索结果要搜了才有**：在这个输入框里敲一个词，才发那次 /api/v1/icons/tiles。
   const r2 = await ev(`const d=window.__dlg; if(!d) return 'NO-DIALOG';
     const i=d.querySelector('input[type=search], input'); if(!i) return 'NO-INPUT';
     i.focus(); i.value='git'; i.dispatchEvent(new Event('input',{bubbles:true}));
