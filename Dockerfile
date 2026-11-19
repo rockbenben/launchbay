@@ -14,7 +14,8 @@ COPY . .
 # 门禁在镜像构建里跑一遍：CI 绿不代表这个镜像可用。
 # 跑的是**应用代码**的门禁——tools/ 被 .dockerignore 排除（leakguard 的判据是
 # git ls-files，而这里没有 .git；genicons 要连 registry），所以 `./...` 匹配到的
-# 包比仓库里少一半。仓库级的闸由 .github/workflows/ci.yml 跑，两处别互相冒充。
+# 包比仓库里少 tools/ 那四个（depguard/genicons/leakguard/uicheck，约四分之一）。
+# 仓库级的闸由 .github/workflows/ci.yml 跑，两处别互相冒充。
 #
 # **门禁只在 amd64 上跑**：发布 workflow 用 buildx 同时构建 amd64 与 arm64，arm64
 # 那一路跑在 QEMU 模拟下，同一份测试会慢一个数量级、几分钟后超时。而门禁跑一次
