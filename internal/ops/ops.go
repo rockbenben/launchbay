@@ -376,10 +376,10 @@ func set(b *model.Bookmarks, op Op, icons IconSet) ([]string, error) {
 
 // setDocField 改**文档自己**那一格（白名单见 path.go 的 docFields）。
 //
-// 类型必须在写侧卡住，而不只是"能解析"：`decode` 对 `"true"` 与 `true` 都放行
-// （前者是 JSON 字符串），而页面上的 `{{if .OpenInNewTab}}` 只认真布尔——写进去一个
-// 字符串，屏上就静默变成"还是当前标签页"，而这一发 op 是绿的。所以布尔那两格单独
-// 按 bool 解码，解不出来就说人话。
+// 类型必须在写侧卡住，而不只是"能解析"：布尔那两格如果走通用 decode，JSON 字符串
+// `"true"` 会被 encoding/json 直接拒掉（错误文本是英文的），而页面上的
+// `{{if .OpenInNewTab}}` 只认真布尔——所以布尔那两格单独按 bool 解码，
+// 解不出来就用一句人话说清。
 func setDocField(b *model.Bookmarks, field string, raw json.RawMessage) ([]string, error) {
 	if docBoolFields[field] {
 		// **null 也要拒**（2026-10-20 补上）：json 的 null 对非指针类型是**空操作**，
@@ -390,7 +390,7 @@ func setDocField(b *model.Bookmarks, field string, raw json.RawMessage) ([]strin
 		}
 		var v bool
 		if err := decode(raw, &v); err != nil {
-			return nil, fmt.Errorf("%s 只能是 true 或 false（写成字符串 %q 时页面会静默当假）", field, string(raw))
+			return nil, fmt.Errorf("%s 只能是 true 或 false（写成字符串 %q 会被拒，页面只认真布尔）", field, string(raw))
 		}
 		var warn []string
 		switch field {

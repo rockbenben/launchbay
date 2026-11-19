@@ -105,8 +105,9 @@ func ParsePath(path string) (target, error) {
 	}
 	switch len(parts) {
 	case 1:
-		// 单段 `groups`：**add/remove 走它**（加一个分组、删一个分组），
-		// 而 `set` 会在这条分支之外被拒（见 ops.go 的 setDocField 与那句
+		// 单段 `groups`：**只有 add 走它**（加一个分组）；删一个分组是
+		// `remove path=groups/<gid>`（remove 只认 kindGroup/kindItem），而
+		// `set` 会在这条分支之外被拒（见 ops.go 的 setDocField 与那句
 		// "整表替换"）。所以这里不再按 op 分流——分流的那一半在写侧。
 		return target{kind: kindGroups}, nil
 	case 2:

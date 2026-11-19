@@ -67,7 +67,7 @@ func (s *Store) LoadProfile(id string) (*model.Profile, error) {
 // 落进一次写入，就会把按旧字节渲染出的 body 存到新指纹的键下——"按了主题按钮
 // 没反应"这个病换个地方复发（P1-④ 评审 I-2）。同一次读拿到的两份不可能各说各话，
 // 于是这个形状从构造上消失。这里不留证人：它在单线程测试里观察不到，
-// 伪造一条恒绿断言比不测更糟，担保是"只有一个调用点"。
+// 伪造一条恒绿断言比不测更糟，担保是"两个调用点（档案页与台面面板）都走它"。
 func (s *Store) LoadProfileWithFingerprint(id string) (*model.Profile, string, error) {
 	p, raw, err := s.loadProfile(id)
 	if err != nil {
