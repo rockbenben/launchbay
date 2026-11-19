@@ -62,8 +62,15 @@ type Scopes []Scope
 // 段数不对时（不是三段）更要小心：那时候第二段**可能就是密钥**，也可能是
 // 档案段——分不清，所以**除第一段外全部抹掉**。名字是第一段，它不是秘密，
 // 而它是操作员定位"哪一条写错了"唯一要用的东西。
+//
+// **但只有一段时连第一段也不能留**（2026-11-19）：那一段可能是名字，也可能是
+// 有人只粘了密钥——分不清，所以整段抹掉。否则 `LAUNCHBAY_WRITE_TOKENS=一把密钥`
+// 这条最常见的误配会把密钥原样打进 `docker logs`。
 func redacted(parts []string) string {
 	if len(parts) == 0 {
+		return "***"
+	}
+	if len(parts) == 1 {
 		return "***"
 	}
 	out := []string{parts[0]}
@@ -189,7 +196,7 @@ type AdminToken struct {
 // ErrNoAdminToken 是"这台机器没有管理员 key"这一件事的**唯一一份文本**：
 // 服务端启动要报它（main.go 的 serve 分支），CLI 那一支却**不该**被它拦住
 // （revert 与 import-bookmarks 用的是档案作用域令牌）。
-var ErrNoAdminToken = errors.New("未配置 LAUNCHBAY_ADMIN_TOKEN：这台机器就没有人能建档、删档或给别人设 PIN")
+var ErrNoAdminToken = errors.New("未配置 LAUNCHBAY_ADMIN_TOKEN：这台机器就没有人能删档、给别人设 PIN 或重建坏档（自建档仍可走免凭证的 /new）")
 
 func ParseAdminToken(envValue string) (AdminToken, error) {
 	v := strings.TrimSpace(envValue)

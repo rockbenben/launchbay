@@ -79,6 +79,10 @@ func TestParseScopes空值是合法的(t *testing.T) {
 // 判据是**消息里不含密钥**，且**仍说得出是哪一条**（名字要留着）。
 func TestParseScopes错误消息不回显密钥(t *testing.T) {
 	const secret = "sup3rs3cr3t"
+	// 只有一段时无法判断那是名字还是密钥：整段抹掉，连"名字"也不留。
+	if _, err := ParseScopes(secret); err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("单段令牌应拒且不回显：%v", err)
+	}
 	for _, bad := range []string{
 		"dad:" + secret,          // 少一段
 		"dad:" + secret + ":*",   // 档案段是 *
