@@ -33,7 +33,10 @@ async function cfg() {
 
 function currentProfile(c) {
   const p = c.defaultProfile;
-  return p && c.tokens[p] ? p : Object.keys(c.tokens)[0] || '';
+  // 默认档案明确指定了，就不再拿"第一枚令牌"顶替：多枚令牌时那会把书签
+  // 静默写进别人的档案。缺令牌就让 saveOne 报 noToken 并点名这一份。
+  if (p) return p;
+  return Object.keys(c.tokens)[0] || '';
 }
 
 // send 打这台机器。**每一处失败都要变成人话**：扩展弹一下就没了，报错写在
@@ -74,7 +77,8 @@ async function readData(c, profile) {
 // "这个档案还没有令牌"上屏变成"这个档"，一条 409 变成"HTTP "。
 // 也就是说唯一那条反馈渠道刚好装不下最需要被读到的那种内容。
 // 分法：成功是"按完了，知道了"——角标两个字够用；失败必须**整句读得完**，
-// 所以走系统通知，并且点通知直接打开设置页（报错十有八九是配置问题）。
+// 所以走系统通知，点通知按那句话的出路走：配置类进设置页，页面类进导航页
+// （2026-10-16 起，见下面 onClicked）。
 async function tellOK(text) {
   await chrome.action.setBadgeText({ text });
   await chrome.action.setBadgeBackgroundColor({ color: '#2a63bd' });
@@ -126,6 +130,11 @@ chrome.notifications?.onClicked?.addListener(async (id) => {
   }
   await chrome.tabs.create({ url: c.base });
 });
+
+// 工具栏图标（2026-11-19 补）：manifest 没有 `action` 时 `chrome.action` 不存在，
+// 成功那条角标会在每次保存后抛异常、反被当成失败。点它去设置页，与配置类
+// 失败的出口一致。
+chrome.action?.onClicked?.addListener(() => chrome.runtime.openOptionsPage());
 
 // saveOne 的三种结果：`null` = 存进去了；`{dup:true}` = 这一条本来就在这份里，
 // 一个字都没写；`{why}` = 这一条没存进去，why 是能整句读得完的人话。
@@ -317,7 +326,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!firstErr) {
       // 全是重复的那种"什么都没发生"必须说出来：角标亮一个 0 会被读成坏了，
       // 而它其实是最正常的一种结果（这一窗刚存过）。
-      // 角标只有那么宽：三位以上收在 99+，与主站那一族一致。
+      // 角标只有那么宽：三位以上收在 99+（主站的计数不截断，这里只负责这三个字符的角标）。
       if (ok) { await tellOK(t('badgeSavedN', ok > 99 ? '99+' : ok)); return; }
       await tellNote(t('failTitle'), t('nothingNew', pages.length), profile, 'page');
       return;

@@ -16,8 +16,9 @@ import (
 // 为什么主站的闸管不到它：扩展跑在浏览器里，够不到 Go 的 embed，也够不到
 // `internal/i18n` 那份 catalog——它必须有自己的一份，而"两份手写、没有闸"正是
 // 主站 app.js 那份拷贝曾经踩过的坑（那边靠 appi18n_test.go 钉着）。这一族就是
-// 扩展侧的同一颗钉子，钉的是四件事：两种语言的 key 一一对应、占位符逐位相同、
-// 代码/页面/manifest 里引用的每个 key 都在册、在册的 key 每一个都有人引用。
+// 扩展侧的同一颗钉子，钉的是五件事：两种语言的 key 一一对应、占位符逐位相同、
+// 位置占位符不许紧挨着（Chrome 先把 `$NAME$` 那一遍做完）、代码/页面/manifest
+// 里引用的每个 key 都在册、在册的 key 每一个都有人引用。
 //
 // 为什么这些必须机械化而不是"下次改的时候注意"：漏翻的症状不是编译错，是页面上
 // 一块空白或一个 ⟨key⟩；而**最容易被漏掉的恰好是英文那一半**——写的人自己看中文
@@ -186,6 +187,37 @@ func TestExtension_占位符逐位守恒(t *testing.T) {
 			other := loadExtCatalog(t, l)
 			if got := usedPlaceholders(other[k].Message); !sameStrings(got, want) {
 				t.Errorf("%s：%q 的占位符与 %s 不一致\n  %s = %v\n  %s = %v", l, k, locales[0], locales[0], want, l, got)
+			}
+		}
+	}
+}
+
+// 二·补、位置占位符不许紧挨着（2026-11-19）。
+//
+// Chrome 装载 `_locales` 时**先做命名占位符那一遍**：`$名字$` 换成声明里的
+// content（Chromium 的 `extensions/common/message_bundle.cc`：
+// GetMessageValue → ReplacePlaceholders → ReplaceVariables）。之后
+// `chrome.i18n.getMessage(key, [...args])` 才做 `$1` 这一遍位置替换
+// （`base::ReplaceStringPlaceholders`，只认 1..9 这**一个**数字）。
+//
+// 于是 `$2$3` 在第一步就被读成**名为 "2" 的命名占位符**（声明里正好有 key
+// "2"）加一个字面 `3`，变成 `$23`；第二步只换掉 `$2`，那个 `3` 留在屏幕上。
+// `applied` 那一句因此会把版本号说成 `73`，而警告那一段整段消失——它不崩，
+// 只是说错，而且读起来仍然通顺。
+//
+// 判据是 `$数字$`：本目录的占位符名全是数字，所以这种相邻一定是把下一个
+// 位置占位符的 `$` 当成了命名占位符的结尾。
+var extAdjacentPlaceholders = regexp.MustCompile(`\$\d\$`)
+
+func TestExtension_位置占位符不许紧挨着(t *testing.T) {
+	for _, l := range extLocales(t) {
+		cat := loadExtCatalog(t, l)
+		for _, k := range keysOf(cat) {
+			if extAdjacentPlaceholders.MatchString(cat[k].Message) {
+				t.Errorf("%s：%q 里有两个紧挨着的位置占位符：%q\n"+
+					"  Chrome 会先把 `$名字$` 那一遍做完，`$2$3` 于是变成 `$23`——"+
+					"第二个参数之后多出一个字面数字，第三个参数永远填不进去",
+					l, k, cat[k].Message)
 			}
 		}
 	}

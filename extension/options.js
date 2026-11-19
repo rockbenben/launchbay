@@ -6,7 +6,7 @@
 // 页面上**一句中文都不写**：每一句都住在 `_locales/*/messages.json`，按浏览器
 // 界面语言取（`i18n.js` 的 `t`）。`bg.js` 与这一页共用同一批 key——同一件事在
 // 同一条流水线上不该有两种说法。
-import { t } from './i18n.js';
+import { t, httpErrKey } from './i18n.js';
 import { ensureBookmarksPermission, buildNetscape, askPlan, applyPlan } from './import.js';
 
 const KEY = 'lb-config';
@@ -126,7 +126,14 @@ async function test() {
     // 401/404 这两句与 bg.js 的通知**共用同一批 key**：同一件事在同一条流水线上
     // 不该有两种说法（那儿是"点了没反应"，这儿是"点了，看看答什么"）。
     if (r.ok) return say(t('testOK', id), 'ok');
-    if (r.status === 403) return say(t('test403', id), 'bad');
+    // 403 有三个来源：作用域不符 / 档案被停用 / 填了管理密钥。按同一个 KIND 表
+    // 选句（err403 是"作用域不符"那一句的泛称，这里换成测试页更具体的 test403）。
+    if (r.status === 403) {
+      const body = await r.json().catch(() => ({}));
+      const key = httpErrKey(r, body);
+      if (key === 'err403') return say(t('test403', id), 'bad');
+      return say(t(key, id), 'bad');
+    }
     if (r.status === 401) return say(t('err401'), 'bad');
     if (r.status === 404) return say(t('err404', id), 'bad');
     return say(t('testOther', r.status), 'bad');
