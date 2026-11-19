@@ -60,7 +60,7 @@ func (r reconcileReport) OK() bool {
 func (r reconcileReport) Failures() []string {
 	var out []string
 	if !r.CountOK {
-		out = append(out, fmt.Sprintf("条目数不等：flare %d 条，新库 %d 条", r.CountSrc, r.CountDst))
+		out = append(out, fmt.Sprintf("条目数不等：文件 %d 条，导入结果 %d 条", r.CountSrc, r.CountDst))
 	}
 	for _, m := range r.Missing {
 		out = append(out, "丢了："+m)
@@ -69,7 +69,7 @@ func (r reconcileReport) Failures() []string {
 		out = append(out, "凭空多出："+e)
 	}
 	for _, d := range r.FieldDiffs {
-		out = append(out, fmt.Sprintf("%s 的 %s 不一样：flare 是 %q，新库是 %q",
+		out = append(out, fmt.Sprintf("%s 的 %s 不一样：文件是 %q，导入结果是 %q",
 			d.URL, d.Field, d.Want, d.Got))
 	}
 	return out
@@ -180,7 +180,7 @@ func diffKey(d fieldDiff) string { return d.URL + "\x00" + d.Field + "\x00" + d.
 func remapsFor(s srcItem, d dstItem, wantGroup func(srcItem) string) []remap {
 	var out []remap
 	if d.Icon != s.Icon {
-		reason := "MDI 名经别名表映射到内嵌索引里的名字"
+		reason := "图标由导入器按网址猜出（文件里没有图标名）"
 		if d.Icon == "" {
 			// 空 icon 是"没设"（走首字母兜底），不是"映射失败"，见 §9 的特例二
 			reason = "映射不到且别名表未收，置空走首字母兜底"

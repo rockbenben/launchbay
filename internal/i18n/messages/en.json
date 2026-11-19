@@ -349,7 +349,7 @@
   "import.rep.groupsH": "Group names and ids",
   "import.rep.slugFallback": "- Group titles with no ASCII: %d — their ids fell back to `group-N` (%s). To get readable ASCII ids, rename the titles in the **source file** and preview again; renaming after the import does **not** change the ids (ids are the addressing key — changing one leaves other people's saved links pointing at nothing).\n",
   "import.rep.slugCollide": "- id `%s` collided with “%s”; one of them was renamed.\n",
-  "import.rep.dupTitle": "- Same name in %d groups: “%s” — merged into one.\n",
+  "import.rep.dupTitle": "- Same name in %d groups: “%s” — kept as separate groups.\n",
   "import.rep.detailH": "One by one",
   "import.rep.detailLead": "Icon changes: %d; group moves: %d.\n\n",
   "import.rep.noneBefore": "none before",

@@ -9,8 +9,8 @@ import (
 	"github.com/rockbenben/launchbay/internal/model"
 )
 
-// Options 是一次导入的输入。**只有一个出口函数 Convert**——其余全是内部，
-// 导出面小到没法被误用。
+// Options 是一次导入的输入。**转换只有一个入口 Convert**；ops.go 另导出
+// `Ops` / `CountItems` / `EntryOfOpIndex` 给写路径用，其余全是内部。
 type Options struct {
 	// OverridesPath 是手工图标覆盖表；不存在也没关系（那次导入全靠猜）。
 	OverridesPath string
@@ -43,9 +43,10 @@ func Convert(raw []byte, ix *icons.Index, opt Options) (*Result, error) {
 	tree, parseNotes := parseNetbook(raw)
 	rep := &Report{Parse: parseNotes, IconGaps: newIconGaps()}
 
-	// 文件标题（<TITLE>）当档案标题。浏览器导出里它常是 "Bookmarks" 这种
-	// 什么都没说的默认值——那种情况下留空，让人自己在界面上改，比把
-	// "Bookmarks" 当成一个真标题写进档案好。
+	// 文件标题（<TITLE>）只填进 `Bookmarks.Title`（书签文档自己的标题），
+	// **不会变成档案名或页面名**——那两格是 profile.json 的 Title/PageTitle，
+	// 导入通路不写它们。浏览器导出里它常是 "Bookmarks" 这种什么都没说的默认值，
+	// 那种情况下留空。
 	fileTitle := strings.TrimSpace(treeTitle(raw))
 	if fileTitle == "" || strings.EqualFold(fileTitle, "bookmarks") || strings.EqualFold(fileTitle, "书签") {
 		fileTitle = ""
@@ -169,8 +170,8 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 		// toolbar 一并标上：这些书签按定义就挂在顶层、没有落在任何 <H3> 文件夹下，
 		// 而这个分组是我们**合成**的、名字才叫「书签栏」（spec §9 对这张表的原话：
 		// 「顶层没有文件夹的 <A> 归进一个合成的『书签栏』分组，layout: tiles」）。
-		// 它不是从属性读来的，但位置就是书签栏那一层——不标它，这一组就退成 list，
-		// 而它多半正是用户最常看的那一层。
+		// 它不是从属性读来的，但位置就是书签栏那一层。`toolbar` 这一位今天**没有
+		// 读点**（每组都从磁贴开始，见下面 Layout），留着是记下"这一层是书签栏"。
 		folders = append([]folderRef{{path: "书签栏", items: loose, toolbar: true}}, folders...)
 	}
 	if len(folders) == 0 {
@@ -186,7 +187,8 @@ func convertFolders(tree *nbTree, src []srcItem, g *iconGuesser, rep *Report) (*
 
 	for i, fr := range folders {
 		title := fr.path
-		// 同标题的文件夹合并成一个分组（浏览器导出里"书签栏"可能在多处出现）。
+		// 同标题的文件夹**不合并**，照原名各建一组；这里只记一笔，报告里说清
+		// 有几个重名（浏览器导出里"书签栏"可能在多处出现）。
 		if n := seenTitle[title]; n > 0 {
 			rep.DuplicateTitles = append(rep.DuplicateTitles, dupTitle{title: title, n: n + 1})
 		}

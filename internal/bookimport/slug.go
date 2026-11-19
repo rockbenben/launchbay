@@ -18,7 +18,8 @@ import (
 // `group-N` 的兜底在调用方 slugifyAll 那一层，并把它记进报告——空 id 会让
 // 整个分组无法寻址，那是导入直接失败的原因，不是可以"下次再修"的东西。
 //
-// 已经全是 ASCII 的标题原样小写化，不做别的加工（`NAS` → `nas`）；中文
+// 已经全是 ASCII 的标题小写化后，空白与 `-`/`_`/`.` 折叠成一个连字符、
+// 其余标点丢掉（`My Bookmarks` → `my-bookmarks`，`NAS` → `nas`）；中文
 // （`影音`）不转写——走拼音我们没有词库，硬凑只会产出骗人的 id。
 func slugify(title string) string {
 	var b strings.Builder

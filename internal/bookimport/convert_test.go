@@ -99,7 +99,7 @@ func TestConvert_默认标题不当作档案标题(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res.Bookmarks.Title != "" {
-		t.Errorf("默认标题 \"Bookmarks\" 不该被当成档案标题，实际 %q", res.Bookmarks.Title)
+		t.Errorf("默认标题 \"Bookmarks\" 不该被当成页面名，实际 %q", res.Bookmarks.Title)
 	}
 
 	const realTitle = `<!DOCTYPE NETSCAPE-Bookmark-file-1>

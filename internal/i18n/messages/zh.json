@@ -349,7 +349,7 @@
   "import.rep.groupsH": "分组名与 id",
   "import.rep.slugFallback": "- %d 个分组标题取不到 ASCII，id 退化成 `group-N`（%s）。想让 id 变成可读的 ASCII，要在**源文件里**把标题改成英文或数字再重新预览；导入之后在设置里改名**不会**动 id（id 是寻址键，改了会让别人存过的链接指空）。\n",
   "import.rep.slugCollide": "- id `%s` 与「%s」撞了，已经给其中一个换了名。\n",
-  "import.rep.dupTitle": "- 有 %d 个分组同名「%s」，已合并成一个。\n",
+  "import.rep.dupTitle": "- 有 %d 个分组同名「%s」，已分开建组（不改名、不合并）。\n",
   "import.rep.detailH": "逐条明细",
   "import.rep.detailLead": "图标 %d 条、分组调整 %d 条。\n\n",
   "import.rep.noneBefore": "原来没有",
