@@ -1637,6 +1637,52 @@ func TestCSS_对比度算得过(t *testing.T) {
 	checkChipWhiteText(t, css)
 }
 
+// 分组色板那八颗画在 h2::before 上，而 section 没有自己的底（base.css 只有
+// 那条 `section{margin:20px 0}`），所以底是**页面底**：暗档 --bg、亮档 --bg。
+// 半透明的 --card 不参与这一条——色点不在卡片里。
+//
+// 这条判据原来住在 internal/model/palette_test.go，底色是两枚手抄的十六进制；
+// 2026-11-19 改色板（--bg #0b0e14 → #131b29、#f6f4ef → #f0f4fa）之后那两枚
+// 还停在旧值，闸照绿——它量的是一个屏幕上已经不存在的底。搬到 render 这一侧：
+// 底色从 base.css 现读，两条亮色通路各量一遍，色板值仍只有 model 那一处。
+//
+// 2026-11-19 实测：暗档 4.64–5.13:1，亮档 3.05–3.37:1（亮档离 3:1 只剩一点）。
+func TestCSS_分组色板在两种页面底上都过3比1(t *testing.T) {
+	raw, err := webFS.ReadFile("web/base.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := stripCSSComments(string(raw))
+	dark := cssVars(t, css, ":root{")
+	lightExplicit := cssOverlay(dark, cssVars(t, css, "[data-theme=light]{"))
+	lightMedia := cssOverlay(dark, cssVars(t, css, ":root:not([data-theme]){"))
+	for _, p := range []struct {
+		name string
+		vars map[string]string
+	}{
+		{"暗档 :root", dark},
+		{"亮档 [data-theme=light]", lightExplicit},
+		{"亮档 :root:not([data-theme]) 媒体查询", lightMedia},
+	} {
+		bg, ok := cssColor(t, p.vars["--bg"])
+		if !ok {
+			t.Errorf("%s：读不到 --bg，色板没底可量", p.name)
+			continue
+		}
+		for _, c := range model.GroupAccentPalette {
+			col, ok := cssColor(t, c)
+			if !ok {
+				t.Errorf("%s：色板值 %q 解析不了", p.name, c)
+				continue
+			}
+			if r := wcagContrast(col, bg); r < 3.0 {
+				t.Errorf("%s：色板 %s 压在 --bg %s 上只有 %.2f:1（色点是非文本图形元素，WCAG 1.4.11 要 3:1）",
+					p.name, c, cssHex(bg), r)
+			}
+		}
+	}
+}
+
 // contrastWants：谁压在谁上、要多少、为什么。
 var contrastWants = []struct {
 	what   string
@@ -1687,7 +1733,8 @@ func checkCSSContrasts(t *testing.T, path string, vars map[string]string) {
 
 	// 上面那一族全部按 `--card 压在 --bg 上` 算，而**透明底的东西不是压在卡片上**：
 	// 管理页表格里的 .badge.warn 就在页面本体上，那一格没有 --card 这一层。
-	// 取景按像素量到它压在 `--bg + 极光` 上只有 4.41:1，而按 --card 算是 5.45:1——
+	// 取景按像素量到它压在 `--bg + 极光` 上只有 4.97:1（亮档，最差的一路），而按
+	// --card 算是 6.16:1——
 	// 证人算的是那一格里根本不存在的底。极光那层是 background-image，静态读
 	// background-color 永远看不见，所以这里自己合成一次再量。
 	// 只量 --warn：它是透明底上唯一的**小字**彩色件（11px）；--ring/--accent 落在
