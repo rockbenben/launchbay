@@ -12,20 +12,7 @@ import (
 	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
-// app.js 是**静态资产**：它在浏览器里跑，读不到服务端的 i18n catalog。
-// 所以语言包里的 app.* 那一片在这里另有一份拷贝（APP_I18N 块）。
-//
-// 拷贝就是会漂的东西：改了语言包忘了同步、或直接手改了这一块，两边就对不上。
-// 下面这两条是那个漂移的机械守卫——它们不检查"文案好不好"，只检查
-// **两边是不是同一份**，以及**可执行代码里还有没有漏翻的硬编码**。
-
 const appJSPath = "web/app.js"
-
-var (
-	appI18nBlock = regexp.MustCompile(`(?s)// BEGIN APP_I18N.*?// END APP_I18N\n`)
-	// APP_I18N = {...};  取等号到最后一个分号之间的 JSON。
-	appI18nJSON = regexp.MustCompile(`(?s)const APP_I18N = (\{.*?\});\n`)
-)
 
 func readAppJS(t *testing.T) string {
 	t.Helper()
@@ -36,58 +23,41 @@ func readAppJS(t *testing.T) string {
 	return string(b)
 }
 
-// 守恒①：app.js 里那一份，与语言包的 app.* 切片**逐条相等**（key 与值都要）。
+// 每个版本只发送当前语言。检查实际发送的字节与词典一致，并覆盖脚本字节预算。
 func TestAppI18N_与语言包逐条一致(t *testing.T) {
-	src := readAppJS(t)
-	m := appI18nJSON.FindStringSubmatch(src)
-	if m == nil {
-		t.Fatal("app.js 里找不到 APP_I18N 定义——那一块被删掉了？界面文案会全部变成 ⟨key⟩")
-	}
-	var embedded map[string]map[string]string
-	if err := json.Unmarshal([]byte(m[1]), &embedded); err != nil {
-		t.Fatalf("APP_I18N 不是合法 JSON: %v", err)
-	}
-
 	for _, lang := range i18n.All {
-		want := map[string]string{}
-		for k, v := range i18n.Load(lang).Keys() {
-			_ = k
-			_ = v
-		}
-		// Load 只给 key；值要从 catalog 里查。逐条比：
-		cat := i18n.Load(lang)
-		got := embedded[string(lang)]
-		if got == nil {
-			t.Errorf("APP_I18N 里没有 %s 那一半", lang)
-			continue
-		}
-		// 语言包里 app.* 的条数与内嵌的一致？
-		wantCount := 0
-		for _, k := range cat.Keys() {
-			if strings.HasPrefix(k, "app.") {
-				wantCount++
-				if cv := cat.T(k); got[k] != cv {
-					t.Errorf("%s 的 %q 两边不一致：\n  语言包 %q\n  app.js  %q", lang, k, cv, got[k])
+		t.Run(string(lang), func(t *testing.T) {
+			body := appScripts[lang].body
+			line, _, ok := bytes.Cut(body, []byte(";\n"))
+			if !ok || !bytes.HasPrefix(line, []byte("const MSGS = ")) {
+				t.Fatal("本地化脚本缺少文案")
+			}
+			var got map[string]string
+			if err := json.Unmarshal(bytes.TrimPrefix(line, []byte("const MSGS = ")), &got); err != nil {
+				t.Fatal(err)
+			}
+			cat := i18n.Load(lang)
+			count := 0
+			for _, key := range cat.Keys() {
+				if strings.HasPrefix(key, "app.") {
+					count++
+					if got[key] != cat.T(key) {
+						t.Errorf("%s 缺失或与词典不一致", key)
+					}
 				}
 			}
-		}
-		if wantCount != len(got) {
-			t.Errorf("%s 的条数对不上：语言包 %d 条，app.js %d 条", lang, wantCount, len(got))
-			_ = want
-		}
+			if len(got) != count {
+				t.Errorf("文案条数 = %d，要 %d", len(got), count)
+			}
+			if n := gzipSize(body); n > 125_000 {
+				t.Errorf("本地化脚本 gzip %d B，超出操作线", n)
+			}
+		})
 	}
 }
 
-// 守恒②：**可执行代码里不许再有硬编码中文**。
-//
-// 这是"漏翻"唯一的机械检测。漏翻的形状很隐蔽：页面照常出，少一句提示、
-// 英文界面里冒出一个中文词。上一批 54 处替换就是靠这条清完的。
-//
-// 豁免两种：
-//   - APP_I18N 数据块本身（那是文案表，不是代码）；
-//   - 含 ⟨ 的那一小片——T 的缺 key / 缺参数标记，**故意**要看得见。
 func TestAppI18N_可执行代码里没有漏翻的中文(t *testing.T) {
-	src := appI18nBlock.ReplaceAllString(readAppJS(t), "")
+	src := readAppJS(t)
 
 	var bad []string
 	for i, line := range strings.Split(src, "\n") {
@@ -262,14 +232,12 @@ func TestAppJS_每种错误码都有交代(t *testing.T) {
 	if !strings.Contains(src, "console.warn('lb: request rejected'") {
 		t.Error("原文不进屏，但也不许丢：console.warn 那一行是排查的人与 AI 唯一能看到原话的地方")
 	}
-	// 两张表点名的每个 key 都要在两份语言镜像里各有一份——缺一个，屏上是尖括号。
-	seen := map[string]bool{}
-	for _, m := range regexp.MustCompile(`'(app\.[A-Za-z]+)'`).FindAllStringSubmatch(body, -1) {
-		seen[m[1]] = true
-	}
-	for key := range seen {
-		if n := strings.Count(src, `"`+key+`"`); n < 2 {
-			t.Errorf("%s 在 app.js 的镜像里只出现 %d 次，两份语言各要一份", key, n)
+	// 脚本中的每个文案键必须存在，所有语言的键集合由 i18n 的测试核对。
+	cat := i18n.Load(i18n.Default)
+	for _, match := range regexp.MustCompile(`['"](app\.[A-Za-z][A-Za-z0-9_.]*)['"]`).FindAllStringSubmatch(stripJSComments(src), -1) {
+		key := match[1]
+		if cat.T(key) == "⟨"+key+"⟩" {
+			t.Errorf("脚本引用了未翻译的 %s", key)
 		}
 	}
 	if strings.Contains(src, "需要令牌或会话") {

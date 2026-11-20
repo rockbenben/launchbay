@@ -93,7 +93,7 @@ func Test面板有分节且出口不在设置节里(t *testing.T) {
 	}
 	for _, k := range []string{"prefs.sec.look", "prefs.sec.out"} {
 		if i18n.Load(i18n.Zh).T(k) == "" || i18n.Load(i18n.En).T(k) == "" {
-			t.Errorf("语言包里少了 %q（两种语言都要有）", k)
+			t.Errorf("语言包里少了 %q（各门语言都要有）", k)
 		}
 	}
 

@@ -389,6 +389,7 @@ type AdminRow struct {
 // 机器现在用的还是不是它"——前者是公开知识，印出来不泄露任何东西；后者
 // 只在**已经进了管理页**的人眼前才有意义。
 type AdminOptions struct {
+	Theme            string // 当前会话档案的主题，空值随系统。
 	Host, RemoteAddr string
 	LinkMode         model.LinkMode
 	LinkRule         string
@@ -478,6 +479,7 @@ type AdminChoice struct {
 // 设 PIN 与删档共用它：两者的形状完全一样（针对一个档案 → 说明后果 → 一个
 // 表单），为它们各写一个模板只会多出一份要同步的 CSS 与结构。
 type AdminAction struct {
+	Theme string // 当前会话档案的主题，空值随系统。
 	// ID 是目标档案 id，藏在表单里。**空串就不印那一格**：回退页的目标是
 	// 当前会话自己（不接受申报），表单里多一个由客户端说了算的 profile 就是
 	// 一条可被改写的字段，而这一页的权限判据是会话。
@@ -597,8 +599,6 @@ func (r *Renderer) ImportPage(v ImportView, lang i18n.Lang) (Page, error) {
 }
 
 func (r *Renderer) AdminActionPage(v AdminAction, lang i18n.Lang) (Page, error) {
-	// 这一页念给谁听，由调用方算好递过来（v.Lang）：管理页那三张确认页是**管理员**
-	// 在用 → 站级默认；回退页是**本人**在用 → 那一份自己的语言。
 	body, err := r.tmpl.adminAction(v, i18n.Load(lang))
 	if err != nil {
 		return Page{}, err

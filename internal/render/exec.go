@@ -48,7 +48,7 @@ type LangOption struct {
 	Selected bool
 }
 
-// langOptions 算那一个下拉框的几档。**第一档永远是「跟随浏览器」**，后面才是各门语言。
+// langOptions 先列出回退选项，再列出各门启用的语言。站级跟随浏览器，档案级跟随站级默认。
 //
 // current 是**盘上写着的那个**值（"" = 没人设过），**不是**这一页正在用的那一种
 // 语言——这两件事在"没人设过"时不一样：那一页按**浏览器说的**那一门显示，而盘上
@@ -57,43 +57,14 @@ type LangOption struct {
 // "显式设成英文"——从此整台机器的默认被冻结在他的浏览器语言上。
 //
 // 判据只有一处（i18n.All）：**新增一种语言只有 i18n.All 一处要动**。
-func langOptions(current string, cat *i18n.Catalog) []LangOption {
+func langOptions(current, follow string) []LangOption {
+	if current != "" && !i18n.Lang(current).Valid() {
+		current = ""
+	}
 	out := make([]LangOption, 0, len(i18n.All)+1)
-	out = append(out, LangOption{Value: "", Name: cat.T("lang.follow"), Selected: current == ""})
+	out = append(out, LangOption{Value: "", Name: follow, Selected: current == ""})
 	for _, l := range i18n.All {
 		out = append(out, LangOption{Value: string(l), Name: l.DisplayName(), Selected: current == string(l)})
-	}
-	return out
-}
-
-// PrefLangOption 是台面面板「界面语言」那一行的一档（2026-10-20）。
-//
-// Value 为空串 = **跟随默认**（这一份没自己选语言，跟管理员在管理页设的那一个）。
-// Name 是按钮上印的字：语言名用它自己的语言写（"中文" / "English"），于是
-// 看不懂当前界面的人也认得出自己要那一档。
-type PrefLangOption struct {
-	Value   string
-	Name    string
-	Current bool
-}
-
-// prefLangOptions 算那一行的几档。**第一档永远是"跟随默认"**，后面才是各门语言。
-//
-// Current 判的是"这一份现在是这一档"：这一份自己记了语言 → 那一档；没记 →
-// 跟随默认。与 i18n.ProfileLang 同一件事（一个说"用哪种"，一个说"屏上按亮哪颗"）。
-//
-// **不认识的语言按"没选过"算**（2026-10-20 修）：盘上写坏了这一格（手改、
-// 拷贝来的 `"language":"zh-CN"`）时，从前三颗键**全都不亮**——而这一格的职责
-// 恰恰是显示"现在是哪一档"，一颗都不亮等于这一格坏了。而读侧的口径
-// （i18n.ProfileLang）已经是"不认识的 = 没选过"，于是这里跟着它：亮
-// 「跟随默认」。判据只有一处（i18n.ProfileLang 的口径），不在这儿另判一次。
-func prefLangOptions(current string, cat *i18n.Catalog) []PrefLangOption {
-	if current != "" && !i18n.Lang(current).Valid() {
-		current = "" // 不认识 = 没选过 = 跟随默认
-	}
-	out := []PrefLangOption{{Value: "", Name: cat.T("prefs.lang.follow"), Current: current == ""}}
-	for _, l := range i18n.All {
-		out = append(out, PrefLangOption{Value: string(l), Name: l.DisplayName(), Current: current == string(l)})
 	}
 	return out
 }
@@ -129,7 +100,7 @@ func newI18nView(cat *i18n.Catalog) i18nView {
 	// Langs 只是**占位**：真正用它的两页（管理页与建档页）要显示的是
 	// **盘上写着的那个**值，而不是这一页正在用的那一种语言——那两页在
 	// 各自的执行器里覆盖掉这一份（见 langOptions 的注释）。
-	return i18nView{cat: cat, Lang: cat.HTMLLang(), Dir: dir, Langs: langOptions("", cat)}
+	return i18nView{cat: cat, Lang: cat.HTMLLang(), Dir: dir, Langs: langOptions("", cat.T("lang.follow"))}
 }
 
 type executor struct {
@@ -494,15 +465,8 @@ type profileView struct {
 	// 是 `prefsTab` 那张名单（httpapi 侧收，渲染侧兜空串，见 prefsPage）。
 	// 它要活过一次保存——而**只有它自己知道怎么把这一格留在原地**。
 	PrefTab string
-	// PrefLangs 是台面面板「界面语言」那一行的几档（2026-10-20）。
-	//
-	// 第一档是**跟随默认**（Value 为空串），后面几档是各门语言——语言名用它
-	// 自己的语言写（"中文" / "English"），让看不懂当前界面的人也认得出自己要
-	// 那一档（i18n.DisplayName 的理由，与语言选择器的通用做法同一句）。
-	//
-	// Current 说的是"**这一份现在是这一档**"：这一份自己记了语言就是那一档，
-	// 没记就是"跟随默认"——判据与 i18n.ProfileLang 同一件事的两个说法。
-	PrefLangs []PrefLangOption
+	// PrefLangs 用档案保存的语言预选，空值表示跟随站点默认。
+	PrefLangs []LangOption
 	// MaxGroupTitleRunes 是「分组名」那一格的长度上限，**原样带上 model 那个数**
 	// （不为模板抄一份，也不为它加一个 setter）。模板把它印成那个 maxlength：
 	// 服务端那条通路判的是同一个数，两处不同数时症状是"浏览器拦住了、curl 拦不住"。
@@ -707,6 +671,10 @@ type adminView struct {
 	Key AdminOptions
 }
 
+func (v adminView) ShortTime(s string) string {
+	return ShortTime(v.cat.Lang(), s)
+}
+
 // adminActionView 是 AdminAction 加 CSS 之后的样子。**单独一个类型而不是给
 // AdminAction 加 CSS 字段**：那是给调用方用的结构，而 CSS 由渲染器自己注入——
 // 让 httpapi 那头能填 CSS，就等于允许它塞一段未经 safeCSS 的字符串进来。
@@ -733,7 +701,7 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 	// 印的就是它们：两处各写一个字面量的话，改一处要记得改另一处，而漏掉的那一处
 	// 症状是"界面上限与实际判的对不上"（浏览器拦住了、curl 拦不住）。
 	funcs := template.FuncMap{
-		"shortTime": ShortTime, "clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
+		"clockTime": clockTime, "reportHTML": reportHTML, "hostOf": hostOf,
 		"pinMin": func() int { return auth.PinMinLen }, "pinMax": func() int { return auth.PinMaxLen },
 		// profileTitleMax 是**档案名**的长度上限，直接取 model 那一个数
 		// （model.MaxProfileTitleRunes，与 MaxGroupTitleRunes 同一处纪律）。
@@ -917,36 +885,13 @@ func hostOf(raw string) string {
 	return u.Host
 }
 
-// ShortTime 把 statusRows 的 RFC3339 UTC 原文渲染成这一台机器上的人读得懂的时间// （按服务器时区——它就摆在客厅）。解析不出来**原样返回**：这一格宁可难看，
-// 也不能编一个时间出来。
-//
-// **按语言走形状**：同一个 `01-02 15:04` 在中文读者那里读成"10 月 11 日"，
-// 在英语读者那里分不清是 11 月 10 日还是 10 月 11 日——月在前还是日在前，
-// 两种读法都成立。英文给月份名（`11 Oct, 15:04`），中文（含繁体）把单位也带上
-// （`10月11日 15:04`），两边都不再靠读者猜。
-//
-// **今天只有这两种形状**：阿拉伯语等其余语言落中文那一支——它们还没有自己的
-// 日期格式，这是已知缺口（不是"按语言全都排好了"）。补一门口语要在这里加一支，
-// 别在调用点各写一遍。
-//
-// lang 显式传进来而不是自己去读 store：这一层没有 Server，而"用哪种语言排版"
-// 是渲染侧判据的一部分，调用点看得见比藏起来好（与 Server.t 同一理由）。
-//
-// **它被导出是因为回退页那一格也要用它**（2026-10-21）：那一格从前在 httpapi
-// 侧自己格式化，于是同一个时刻在管理页是「10月11日 15:04」、在回退页是
-// 「10-11 15:04」——而英文页上也是那串分不清月日在前的数字。**时间的写法只有
-// 这一份**（render.go 的 HistoryRow.At 注释同一句），所以这里导出它，而不是在
-// httpapi 那头再写一遍格式。
-func ShortTime(lang, s string) string {
+// ShortTime formats an RFC3339 timestamp in the server's local time and page language.
+func ShortTime(lang i18n.Lang, s string) string {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return s
 	}
-	t = t.Local()
-	if lang == string(i18n.En) {
-		return t.Format("2 Jan, 15:04")
-	}
-	return t.Format("1月2日 15:04")
+	return t.Local().Format(i18n.Load(lang).T("format.dateTime.short"))
 }
 
 // clockTime 只给"几点几分"，不给日期。
@@ -983,7 +928,6 @@ type historyDay struct {
 // 这一页存在的全部意义是"一行都没漏"（与导入报告"## 没能进来"逐条点名、
 // 回退页"另有 N 份快照读不出来"同一条纪律）。
 func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
-	lang := string(cat.Lang())
 	now := time.Now().Local()
 	type bucket struct {
 		day   time.Time // 那一天的零点，只用来排序
@@ -1018,7 +962,7 @@ func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
 		default:
 			// 日期本身就是那一节的标题，不再包一层句子：`10月4日` 与 `4 Oct`
 			// 已经是各门语言各自的样子，而语言包里放一条 `%s` 只会多一处空壳。
-			b.label = dayDate(lang, lt, now.Year())
+			b.label = dayDate(cat, lt, now.Year())
 		}
 		seen[key] = b
 		dated = append(dated, b)
@@ -1034,21 +978,12 @@ func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
 	return out
 }
 
-// dayDate 是一天的标题里那个日期。跨年时要带年份：只写「2 Jan」的人读到
-// 去年的时间那一节，会以为那是今年一月——而"哪一月的哪一天"正是这一节唯一的职责。
-//
-// 与 ShortTime 同一条边界：只有英文与中文两种形状，其余语言落中文那一支。
-func dayDate(lang string, t time.Time, thisYear int) string {
+// dayDate includes the year for history entries outside the current year.
+func dayDate(cat *i18n.Catalog, t time.Time, thisYear int) string {
 	if t.Year() == thisYear {
-		if lang == string(i18n.En) {
-			return t.Format("2 Jan")
-		}
-		return t.Format("1月2日")
+		return t.Format(cat.T("format.date.short"))
 	}
-	if lang == string(i18n.En) {
-		return t.Format("2 Jan 2006")
-	}
-	return t.Format("2006年1月2日")
+	return t.Format(cat.T("format.date.long"))
 }
 
 func sameDay(a, b time.Time) bool {
@@ -1139,7 +1074,7 @@ func (e *executor) profile(p *model.Profile, b *model.Bookmarks, query, add, add
 	// ⑤ 的脚本与 rev 由执行器填，不从视图结构体带进来：指纹路径由内容算出，
 	// 而 rev 就在 b 上（渲染这一页读的就是它）。视图结构体要是能带这两个，
 	// 就会多出"调用方忘了填 → 页面静默没有添加按钮"这种形状。
-	v.AppJS = AppJSPath
+	v.AppJS = AppJSURL(cat.Lang())
 	v.AppCSS = AppCSSPath
 	v.Rev = b.Rev
 	v.Empty = countItems(b) == 0
@@ -1159,7 +1094,7 @@ func (e *executor) picker(v pickerView, cat *i18n.Catalog) ([]byte, error) {
 	v.i18nView = newI18nView(cat)
 	// 那个下拉显示的是**盘上写着的那个**值（没写 = 跟随浏览器），不是这一页
 	// 正在用的那一种语言。
-	v.Langs = langOptions(v.DefaultLang, cat)
+	v.Langs = langOptions(v.DefaultLang, cat.T("lang.follow"))
 	if err := e.pickerT.ExecuteTemplate(&buf, "picker", v); err != nil {
 		return nil, fmt.Errorf("渲染进门页: %w", err)
 	}
@@ -1177,13 +1112,14 @@ func (e *executor) broken(id, reason string, cat *i18n.Catalog) ([]byte, error) 
 }
 
 func (e *executor) admin(rows []AdminRow, notice string, opts AdminOptions, cat *i18n.Catalog) ([]byte, error) {
+	opts.Theme = themeAttr(opts.Theme)
 	var buf bytes.Buffer
 	v := adminView{
 		i18nView: newI18nView(cat),
 		Rows:     rows, Notice: notice, CSS: e.cssT, Count: len(rows), Key: opts}
 	// 那个下拉显示的是**盘上写着的那个**值（没写 = 跟随浏览器），不是这一页
 	// 正在用的那一种语言（那一句在"没人设过"时是浏览器说的那一门）。
-	v.Langs = langOptions(opts.DefaultLang, cat)
+	v.Langs = langOptions(opts.DefaultLang, cat.T("lang.follow"))
 	if err := e.adminT.ExecuteTemplate(&buf, "admin", v); err != nil {
 		return nil, fmt.Errorf("渲染管理页: %w", err)
 	}
@@ -1193,6 +1129,7 @@ func (e *executor) admin(rows []AdminRow, notice string, opts AdminOptions, cat 
 // adminLogin 渲染"输管理 key"那一页。判据只有 Notice 一格（httpapi 白名单给的），
 // 模板不自己判断该不该说失败。
 func (e *executor) adminLogin(notice string, opts AdminOptions, cat *i18n.Catalog) ([]byte, error) {
+	opts.Theme = themeAttr(opts.Theme)
 	var buf bytes.Buffer
 	if err := e.adminLoginT.ExecuteTemplate(&buf, "adminLogin", adminLoginView{
 		i18nView: newI18nView(cat), Notice: notice, CSS: e.cssT, Key: opts}); err != nil {
@@ -1214,6 +1151,7 @@ func (e *executor) notFound(back string, cat *i18n.Catalog) ([]byte, error) {
 
 // adminAction 渲染设 PIN / 删档的确认页。判据全在 AdminAction 里，模板只印。
 func (e *executor) adminAction(v AdminAction, cat *i18n.Catalog) ([]byte, error) {
+	v.Theme = themeAttr(v.Theme)
 	var buf bytes.Buffer
 	if err := e.adminActionT.ExecuteTemplate(&buf, "adminAction", adminActionView{
 		AdminAction: v, CSS: e.cssT, i18nView: newI18nView(cat)}); err != nil {
@@ -1286,7 +1224,7 @@ func (e *executor) prefsPage(p *model.Profile, selected model.LinkMode, hasSnaps
 	v.AppCSS = AppCSSPath
 	// 「界面语言」那一行的几档（2026-10-20）：这一份自己记了语言就是那一档，
 	// 没记就是"跟随默认"。
-	v.PrefLangs = prefLangOptions(p.Language, cat)
+	v.PrefLangs = langOptions(p.Language, cat.T("prefs.lang.follow"))
 	v.PageTitle = strings.TrimSpace(p.PageTitle)
 	if v.PageTitle == "" {
 		v.PageTitle = v.T("profile.title.default")

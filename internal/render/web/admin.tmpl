@@ -1,5 +1,5 @@
 {{define "admin"}}<!doctype html>
-<html lang="{{.Lang}}"{{with .Dir}} dir="{{.}}"{{end}}>
+<html lang="{{.Lang}}"{{with .Dir}} dir="{{.}}"{{end}}{{with .Key.Theme}} data-theme="{{.}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -78,7 +78,7 @@
           {{/* 这一格从前直接印 statusRows 给的 RFC3339 UTC 原文
                （`2026-10-10T09:33:08Z`）：家里人说"什么时候改的"要自己解析 T 与 Z。
                格式化放在渲染侧（shortTime），判据仍只有一份——数据那头不动。 */}}
-          <td data-k="{{$.T "admin.col.modified"}}" class="col-time">{{if .Modified}}{{shortTime $.Lang .Modified}}{{else}}—{{end}}</td>
+          <td data-k="{{$.T "admin.col.modified"}}" class="col-time">{{if .Modified}}{{$.ShortTime .Modified}}{{else}}—{{end}}</td>
           <td data-k="{{$.T "admin.col.snapshots"}}" class="col-metric">{{.Snapshots}}</td>
           <td data-k="{{$.T "admin.col.actions"}}">
             {{if .Broken}}
@@ -205,12 +205,13 @@
         <form method="post" action="/admin/language" class="adm langform">
           <h3>{{.T "admin.lang.h2"}}</h3>
           <p class="hint">{{.T "admin.lang.hint"}}</p>
-          <label>{{.T "lang.pick"}}
-            <select name="language">
+          <label for="lb-admin-language">{{.T "lang.pick"}}</label>
+          <div class="langform-controls">
+            <select id="lb-admin-language" name="language">
               {{range .Langs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
             </select>
-          </label>
-          <button type="submit">{{.T "lang.submit"}}</button>
+            <button type="submit">{{.T "lang.submit"}}</button>
+          </div>
         </form>
         {{/* 管理密钥（2026-10-20）。这一块回答一个装机器的人最先问的问题：
              "我该输什么？"——**默认那把是 compose 里写着的那个公开值**。

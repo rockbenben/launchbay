@@ -1,5 +1,7 @@
 :root{
   color-scheme:dark;
+  scrollbar-color:var(--ink2) var(--bg);
+  scrollbar-color:color-mix(in srgb,var(--ink2) 72%,var(--bg)) var(--bg);
   --bg:#131b29;--ink:#edf2fa;--ink2:#b4c1d5;--line:rgba(207,222,246,.19);
   --card:rgba(194,214,247,.075);--card-hi:rgba(194,214,247,.14);
   --accent:#4c8dff;--ring:#7fa8ff;--warn:#ff9d6c;--bad:#ff7a7a;
@@ -1068,35 +1070,10 @@ select option{background:var(--bg);color:var(--ink)}
    放前面就会被族的 background:var(--card) 静默盖掉（与危险键那一族同一条层叠判据）。 */
 .prefs button[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--card-hi)}
 
-/* 台面面板（2026-10-13 初版；2026-10-14 参考 Flare 那一屏重排）：
-   一列**等宽的行**，每行一个 `.prefs-field`——**说明在上、控件在下**。
-   宽度上限 900px 是照着 `.sheet` 那个数定的（浮层 960 − 内衬 44 − 滚动条 17 = 899，
-   这条 900 接着它）——浮层里那一份与 `GET /prefs`
-   那张整页渲染的是同一个 define，而**降级路径不许长得像另一个产品**，
-   所以骨架必须是同一条规则写在 base.css 里（浮层那份在 app.css 加载之前
-   就要有个能看的样子，而整页那份根本没有 app.css 可依赖）。
-
-   **为什么从「标签在左」改成「说明在上」（2026-10-14）**：从前标签列固定 92px，
-   控件起点对齐成一条竖线，一眼能扫下"哪一行是哪一行"——那是好的。而坏处是
-   **92px 放不下任何解释**，于是每一行的解释只能在悬停 title 里，而屏上真放不下的
-   那句（分组导航"紧凑档不画这一列"）只能另起一行——它与那两颗键**视觉脱节**，
-   读起来像面板底部多了一段不相干的话。Flare 那一屏把每一项做成「小字说明 + 控件」
-   成对，于是说明有地方待、控件拿满整行的宽。
-
-   **代价量过**：一行 44 → 70（说明 18 + gap 8 + 控件 44），六行 324 → 420（+96）。
-   面板可用高约 1100，改后这一段 784，仍在一屏内——**而那一屏从"看得见有哪些设置"
-   变成"看得懂每一格是干什么的"**。
-
-   `prefs-row` 自己已经 `flex-wrap:wrap`，所以窄屏那档由内容自己换行，
-   不再开一条媒体查询把布局搬成另一套——两套排法迟早不同步。 */
-/* `width:min(900px,100%)` 而不是 `max-width:900px`（2026-10-17 实测后改）：
-   块级盒子**缩到内容宽度**，于是同一个面板在三个 tab 下量到三种宽度——
-   外观 525 / 备份与历史 418 / 分组 900——而它 `margin:0 auto` 居中，
-   **整块（连同左边那一列导航）跟着横向乱跳**：导航在 x=458 → 511 → 270。
-   截图上读作"两个分类的导航位置不对"（分组那格恰好撑满 900，看着反而正常）。
-   max-width 只给上限、不给下限；这一列要的是**固定的一栏**。 */
+/* 独立页与浮层共用设置面板。固定宽度上限让分类导航的位置不随内容变化。 */
 .prefs{display:flex;flex-direction:column;gap:14px;width:min(900px,100%);margin:0 auto}
 .prefs h2{margin:0;font-size:18px}
+.prefs h2::before{display:none}
 /* 左侧分类 tab（2026-10-15）。这一屏原本是一条 1900px 的长列，而它自己已经
    分成四节却没一处能跳——手机上要滚到第三屏才看得见「分组」。
 
@@ -1136,7 +1113,8 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-nav input:checked+label::before{background:var(--accent)}
 .prefs-nav label:hover{color:var(--ink);background:var(--card-hi)}
 .prefs-nav input:focus-visible+label{outline:3px solid var(--ring);outline-offset:2px}
-.prefs-panes{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:14px}
+.prefs-panes{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:14px;
+  container:settings / inline-size}
 /* 间距属于 pane 内的设置行；只给外层 panes 加 gap 不会分开这些表单。 */
 .prefs-pane{display:flex;flex-direction:column;gap:14px}
 /* pane 的显隐**默认全开**：只有被 checked 的那颗才把它关掉。于是两条退化路线
@@ -1180,9 +1158,7 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs h3.prefs-sec{margin:6px 0 -4px;font-size:15px;font-weight:650;color:var(--ink);border-top:1px solid var(--line);padding-top:14px}
 .prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;
-  padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;
-  transition:border-color .16s ease,background .16s ease}
-.prefs-row:hover{border-color:var(--line)}
+  padding:10px 0 0;border-top:1px solid var(--line)}
 /* 一格 = 说明 + 控件（列）。`min-width:0` 是承重的：它让这一格在窄屏上能缩到
    父级的窄度，而不是被自己那行说明的 min-content 撑破。 */
 .prefs .prefs-field{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:8px}
@@ -1195,6 +1171,15 @@ select option{background:var(--bg);color:var(--ink)}
 /* 那一行说明。`--ink2` 而非 `--ink`：它是解释不是控件名，**不该与那颗键抢
    读法的优先级**；12px 是它与 13px 标签之间的那半档。 */
 .prefs .prefs-hint{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.5}
+/* 说明与控件共用一行。按实际内容宽度切换，独立页与浮层都能用这套排法。 */
+@container settings (min-width:580px){
+  #prefs-pane-look > .prefs-row .prefs-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,21rem);
+    grid-template-rows:min-content auto;align-items:start;gap:3px 20px}
+  #prefs-pane-look .prefs-hint{grid-column:1;grid-row:2}
+  #prefs-pane-look .prefs-field:not(:has(.prefs-hint)) > .prefs-label{grid-row:1 / 3;align-self:center}
+  #prefs-pane-look .prefs-field > :is(.prefs-keys,.prefs-ctl,.prefs-bg){grid-column:2;grid-row:1 / 3;align-self:center}
+  #prefs-pane-look .prefs-field:has(>.prefs-bg) > .prefs-label{align-self:start}
+}
 /* 改名那一行的控件（输入框 + 保存键）并排，其余各行只有一组键。
    **对齐用底边而不是居中**（2026-10-21 实拍后改）：这一行里有两种形状——
    页面名字那一行是「输入框 + 键」两个**平级**盒子，居中对齐与底边对齐同形；
@@ -1212,36 +1197,18 @@ select option{background:var(--bg);color:var(--ink)}
    谁是"新的"全靠猜（2026-10-20 实拍后改）。 */
 .prefs .prefs-ctl .prefs-pinfield{display:flex;flex-direction:column;gap:4px;flex:1 1 0;min-width:0}
 .prefs .prefs-ctl .prefs-pinfield .fld{width:100%}
-.prefs .prefs-ctl .prefs-pinfield .prefs-label{text-align:left}
+.prefs .prefs-ctl .prefs-pinfield .prefs-label{text-align:start}
 .prefs .prefs-ctl>.fld{flex:1 1 200px;min-width:0;margin-top:0}
+.prefs .prefs-ctl>select.fld{flex-basis:10rem}
 .prefs-keys{display:flex;flex-wrap:wrap;gap:8px}
-/* 分段控制器风格：将并排互斥按钮收拢进具有底轨的胶囊槽内 */
-.prefs-field .prefs-keys{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;
-  background:rgba(0,0,0,.16);border:1px solid var(--line);border-radius:12px}
-[data-theme=light] .prefs-field .prefs-keys{background:rgba(0,0,0,.04)}
-@media (prefers-color-scheme:light){
-  :root:not([data-theme]) .prefs-field .prefs-keys{background:rgba(0,0,0,.04)}
-}
+/* 互斥选项保留各自的触摸目标，选中项使用主题强调色。 */
+.prefs-field .prefs-keys{display:flex;flex-wrap:wrap;gap:4px}
 .prefs-field .prefs-keys button{flex:1 1 auto;min-width:68px;background:transparent;
-  /* 未按下那几颗**要有一圈极淡的边**（2026-10-15 全站取景后改判）。原来是
-     `border:1px solid transparent`：轨道看得见、按下那一颗看得见，中间那几颗
-     就是浮在槽里的字——实拍里「单列」「大卡」「并排」「紧凑」读起来像上一颗按钮的
-     说明文字，而它们每一颗都是要点的地方。分段控件的"这是一排可点的"从来不是
-     靠轨道底色说的，是靠**每一段都有自己的边界**说的。
-     按下态仍然赢：它描主色 + 提亮 + 投影，四项都写在下面那条里。 */
   border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ink2);
   transition:color .14s ease,background .14s ease,border-color .14s ease}
 .prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi)}
-/* 按下态必须把**四项**都写一遍（2026-10-15 batch11 P1）。上面那条 `.prefs button
-   [aria-pressed=true]` 承诺的是"字提亮 + 描边转主色 + 底色"，而它和下面
-   `.prefs-field .prefs-keys button` 权重相同、写在它**前面**——于是台面面板那四排
-   （排列方式 / 分组列表 / 主题 / 点书签时）的按下态被族的 `color:var(--ink2)`
-   `background:transparent` `border:1px solid transparent` 静默吃掉，只剩字重 400→600
-   在说"这一颗是开着的"。分组那一节的排法键不在 `.prefs-field` 里，所以它没事——
-   同一屏因此长出两套词汇。这正是 828 行那条注释警告过的形状，这次是**后面**那条
-   族的规则赢了。 */
 .prefs-field .prefs-keys button[aria-pressed=true]{font-weight:600;color:var(--ink);
-  border-color:var(--accent);background:var(--card-hi);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  border-color:var(--accent);background:var(--accent-tint)}
 /* 这一行**下面**的 hint（分组那一节的长说明、背景那一句约束）。
    它不在 `.prefs-field` 里——背景与分组那两节自己多一层内容，说明留在那一格
    的最下方，横跨整格；`.prefs-field` 里的 `.prefs-hint` 才是"标签与控件之间"
@@ -1270,7 +1237,7 @@ select option{background:var(--bg);color:var(--ink)}
    **`margin-left:auto` 把源码那一枚推到右缘**：这样**浮层那一面**（那枚出口被
    app.js 摘掉了，只剩它一个）它仍然靠右——不靠右的话，两条路的落点会不一样。 */
 .prefs-foot{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-.prefs-foot .repo-link{margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+.prefs-foot .repo-link{margin-inline-start:auto;display:inline-flex;align-items:center;gap:7px;
   color:var(--ink2);font-size:12.5px;line-height:1.5;text-decoration:none;
   transition:color .16s ease}
 .prefs-foot .repo-link:hover{color:var(--accent)}
@@ -1580,24 +1547,13 @@ select option{background:var(--bg);color:var(--ink)}
   .prefs .prefs-label,.prefs .prefs-field,.prefs-group-shape{flex:none}
   .prefs .prefs-group-name{flex-basis:auto}
   .prefs-group-colors{width:100%}
-  /* 左侧那一列在窄屏上翻成**顶部一条**：248px 的内容宽里 150px 的竖列会把
-     色板那一行（512）彻底挤没——而竖列占的那 150 正是面板最贵的一块地。
-     翻成一行时三颗横着排，44px 一颗，正是这一档最需要的那件事（手指）。 */
   .prefs-tabs{flex-direction:column;gap:12px}
-  .prefs-nav{flex:1 1 auto;flex-direction:row;flex-wrap:wrap;gap:4px;padding:4px;
-    background:var(--card);border:1px solid var(--line);border-radius:12px}
-  /* 四颗 tab **按内容宽排**（2026-10-20 改）：从前是 flex:1 1 auto，于是第四颗
-     「我的 PIN」在 320px 上独占一整行、被拉成 238px 的整行大按钮——前三颗只有
-     63/63/104px，一眼看过去是"三颗小的 + 一颗横着的"，读不出它们是同一族。
-     flex:0 1 auto 让四颗各按内容宽排、该换行就换行，每颗仍是一颗 tab 的样子
-     （44px 命中区由 base.css 那条联合规则兜着，不受影响）。 */
-  .prefs-nav label{padding:0 12px;flex:0 1 auto;justify-content:center;text-align:center}
+  .prefs-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:none;
+    gap:4px;padding:4px;z-index:1;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+  .prefs-nav label{padding:0 8px;justify-content:center;text-align:center;overflow-wrap:anywhere}
   .prefs-nav label::before{display:none}
-  /* 那一排 tab 的**容器要铺满整行**（batch11 P7）。`.prefs-tabs` 的
-     `align-items:flex-start` 在翻成 column 之后成了"横着的那一排按内容收缩"，
-     于是灰底盒子只包到 212px（可用 335），右边空一截，看着像这一排没排完。
-     断点跟着内容宽走：这一档之内它都该是整行。 */
   .prefs-tabs{align-items:stretch}
+  .prefs-panes{flex:auto}
   /* 窄屏把一个分组从**五行收到三行**（batch11 P6）。原来竖着叠的是
      名字 / 排法 / 删掉这一组 / 色板(两行) = 299px 高一组，六个分组 1794px，
      整节 2.81 屏。排法与「删掉这一组」本来就都在这一行的右端那一列
@@ -2015,6 +1971,10 @@ ol.rep-list{list-style:decimal}
    改不得；而正文一收窄，1440 上标题就孤零零留在屏幕最左（x=36）、正文从 176
    才开始——两栏各站一边。给这一页的顶栏挂同一个上限，不动全局那条。 */
 .adm-bar{max-width:1120px}
+.adm-bar h1,.adm-bar nav .badge{white-space:normal;overflow-wrap:anywhere}
+.adm-bar nav{flex:1 1 auto;flex-wrap:wrap;min-width:0}
+.adm-bar nav .profmenu{min-width:0}
+.adm-bar nav .badge{max-width:100%}
 /* 分节头。`h2::before` 那枚色点已经全案统一（base.css 367），这里只收这一页
    的**间距**：全局那条 h2 的 margin 现在是 10px（写下这段时是 6px），而这一页
    每节下面放的是一张表或一张表单——节头与内容之间要有 10px 才读成"标题带一块"。
@@ -2050,6 +2010,10 @@ ol.rep-list{list-style:decimal}
    同层的块。此前它是裸表单（无边框），旁边一张带框的卡——两种脸并排。
    2026-10-20：管理密钥那一块用同一张脸（.keycard），于是左栏两块是一对。 */
 .adm-two .langform,.adm-two .keycard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+.adm .langform-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+.adm .langform-controls select{flex:1 1 10rem;min-width:0;background:var(--card)}
+.adm .langform-controls button{background:var(--accent-tint);border-color:var(--accent)}
+.adm .langform-controls button:hover{background:var(--card-hi)}
 /* 这两张卡是 `<section>`，全局那条 `section{margin:20px 0}` 会落到它们身上
    （20px 是档案页分组的间距，与管理页无关）。归零：卡与卡之间的距离归
    栅格的 gap 管，卡自己不再带边距。 */

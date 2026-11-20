@@ -4,7 +4,11 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
 //go:embed web
@@ -32,7 +36,8 @@ const (
 
 var (
 	// appJSBytes 是 ⑤ 的第一段真字节（§8.1 的「＋ 添加」浮层）。
-	appJSBytes = mustWebFile(appJSFile)
+	appScripts, appLocales = localizedAppScripts(mustWebFile(appJSFile))
+	appJSBytes             = appScripts[i18n.Default].body
 	// AppJSPath 是它在页面里该被引用的那个指纹路径（不是函数：它在包初始化时
 	// 就定下来了，路由表要拿它注册一条**具体**路径，函数会让 New 之前取不到）。
 	AppJSPath = fingerprint("/app", ".js", appJSBytes)
@@ -70,6 +75,54 @@ func fingerprint(prefix, ext string, raw []byte) string {
 // AppJS / AppCSS 供静态资产端点原样吐出。
 func AppJS() []byte  { return appJSBytes }
 func AppCSS() []byte { return appCSSBytes }
+
+type appScript struct {
+	locale string
+	body   []byte
+}
+
+// Each script carries only the messages for its page language. The locale query
+// is part of the immutable URL and changes whenever that variant's bytes change.
+func localizedAppScripts(code []byte) (map[i18n.Lang]appScript, map[string][]byte) {
+	scripts := make(map[i18n.Lang]appScript, len(i18n.All))
+	locales := make(map[string][]byte, len(i18n.All))
+	for _, lang := range i18n.All {
+		cat := i18n.Load(lang)
+		msgs := make(map[string]string)
+		for _, key := range cat.Keys() {
+			if strings.HasPrefix(key, "app.") {
+				msgs[key] = cat.T(key)
+			}
+		}
+		data, err := json.Marshal(msgs)
+		if err != nil {
+			panic(err)
+		}
+		body := append(append([]byte("const MSGS = "), data...), ';', '\n')
+		body = append(body, code...)
+		locale := fingerprint(string(lang)+".", "", body)
+		scripts[lang] = appScript{locale: locale, body: body}
+		locales[locale] = body
+	}
+	return scripts, locales
+}
+
+// AppJSURL returns the script for the language used to render the page.
+func AppJSURL(lang i18n.Lang) string {
+	if script, ok := appScripts[lang]; ok && lang != i18n.Default {
+		return AppJSPath + "?locale=" + script.locale
+	}
+	return AppJSPath
+}
+
+// AppJSLocale resolves a versioned locale query. Unknown versions are cache misses.
+func AppJSLocale(locale string) ([]byte, bool) {
+	if locale == "" {
+		return AppJS(), true
+	}
+	body, ok := appLocales[locale]
+	return body, ok
+}
 
 // SWJS 返回 ⑥ 的 Service Worker 字节。
 func SWJS() []byte { return swJSBytes }

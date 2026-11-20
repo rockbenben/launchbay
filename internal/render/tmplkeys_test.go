@@ -79,7 +79,7 @@ func Test模板查的每个key都在语言包里(t *testing.T) {
 // key（`s.t(r, "admin.delete.titel")`）不会有任何测试变红，而页面上直接印
 // `⟨admin.delete.titel⟩`——一个只有人去点开那一页才会发现的漏翻。
 //
-// 与模板那一半同形：两种语言都要查得到。
+// 与模板那一半同形：各门语言都要查得到。
 func TestGo侧查的每个key都在语言包里(t *testing.T) {
 	var missing []string
 	seen := map[string]bool{}

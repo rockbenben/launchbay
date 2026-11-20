@@ -9,6 +9,26 @@ import (
 	"github.com/rockbenben/launchbay/internal/i18n"
 )
 
+func Test日期格式覆盖所有语言(t *testing.T) {
+	when := time.Date(2026, 9, 17, 15, 28, 0, 0, time.Local)
+	for _, lang := range i18n.All {
+		cat := i18n.Load(lang)
+		for _, key := range []string{"format.date.short", "format.date.long", "format.dateTime.short"} {
+			layout := cat.T(key)
+			parsed, err := time.Parse(layout, when.Format(layout))
+			if err != nil || parsed.Month() != when.Month() || parsed.Day() != when.Day() {
+				t.Errorf("%s 的 %s 无法显示正确的月和日：%q", lang, key, layout)
+			}
+			if key == "format.date.long" && parsed.Year() != when.Year() {
+				t.Errorf("%s 的历史日期缺少年份：%q", lang, layout)
+			}
+			if key == "format.dateTime.short" && (parsed.Hour() != when.Hour() || parsed.Minute() != when.Minute()) {
+				t.Errorf("%s 的管理日期缺少时或分：%q", lang, layout)
+			}
+		}
+	}
+}
+
 // 改动历史那一页的**类契约**：模板挂出来的每一个类，内联下发的那份 CSS 里
 // 都要有规则接住它，而 `.ops` 必须挂在 `.plain` **里面**——那条规则是后代
 // 选择器，类挂到别的元素上就匹配不上（`.tech` 那次把类挂到 `<pre>` 自己身上，

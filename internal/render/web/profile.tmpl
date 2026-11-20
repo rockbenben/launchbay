@@ -511,42 +511,7 @@
        页面名字那一行用 `<label for>` 而不是 `<span>` + 内层 `<label>`：可见文字
        **就是**输入框的可及名（WCAG 2.5.3），而且点那五个字会直接把光标送进
        输入框。内层再写一遍「这一页的名字」是同一句话说了两遍。 */}}
-  {{/* ── 这一页长什么样 ──────────────────────────────────────────────────
-       2026-10-14 参考 Flare 那一屏改排版：从「标签在左、控件在右」改成
-       「**说明在上、控件在下**」。改的理由是实测出来的那一处：从前每一行的
-       解释只在**悬停 title** 里，而屏上放不下的那句（分组导航的 sidebarNote）
-       只能另起一行，于是它与那一行的两颗键**视觉脱节**——读起来像面板底部多
-       了一段不相干的话。Flare 那一屏把每一项做成「小字说明 + 控件」成对，
-       于是说明有地方待、控件拿满整行的宽，而它与键自己的 title 不冲突
-       （title 答"这一颗"，说明答"这一格"）。
-
-       **每行仍然是独立的表单、按下即改**：那一层没动。Flare 那个整页一个
-       「保存修改」在这里赢不了——改错了要撤销就得先存一版错的，而
-       「按一下只改一件事」是本面板从一开始就有的那条。 */}}
   <h3 class="prefs-sec">{{.T "prefs.sec.look"}}</h3>
-
-  {{/* ── 界面语言（2026-10-20）：这一份自己的语言 ───────────────────────────
-       第一档「跟随默认」= 这一份没自己选语言，跟管理员在管理页设的那一个；
-       后面几档是各门语言，**语言名用它自己的语言写**（"中文" / "English"），
-       于是看不懂当前界面的人也认得出自己要那一档。
-
-       落点是 `POST /prefs` 的 `language` 一格——与 theme / view / layout 同一族：
-       **只写 profile.json**，不产生 rev、不做快照（它是台面偏好，不是书签数据），
-       也不会碰到别人的那一份（这一格只改自己）。
-
-       按下去之后**这一页立刻用新语言重画**：档案自己记了语言，渲染层就按它
-       查表（i18n.ProfileLang）。所以这一格是"看得见生效"的那一种。 */}}
-  <form method="post" action="/prefs" class="prefs-row">
-    <div class="prefs-field">
-      <span class="prefs-label">{{.T "prefs.lang"}}</span>
-      <p class="prefs-hint">{{.T "prefs.lang.hint"}}</p>
-      <div class="prefs-keys">
-        {{range .PrefLangs}}
-        <button type="submit" name="language" value="{{.Value}}" aria-pressed="{{if .Current}}true{{else}}false{{end}}">{{.Name}}</button>
-        {{end}}
-      </div>
-    </div>
-  </form>
 
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
@@ -561,6 +526,42 @@
     </div>
   </form>
 
+  {{/* ── 界面语言（2026-10-20）：这一份自己的语言 ───────────────────────────
+       第一档「跟随默认」= 这一份没自己选语言，跟管理员在管理页设的那一个；
+       后面几档是各门语言，**语言名用它自己的语言写**（"中文" / "English"），
+       于是看不懂当前界面的人也认得出自己要那一档。
+
+       落点是 `POST /prefs` 的 `language` 一格——与 theme / view / layout 同一族：
+       **只写 profile.json**，不产生 rev、不做快照（它是台面偏好，不是书签数据），
+       也不会碰到别人的那一份（这一格只改自己）。
+
+       按下去之后**这一页立刻用新语言重画**：档案自己记了语言，渲染层就按它
+       查表（i18n.ProfileLang）。所以这一格是"看得见生效"的那一种。 */}}
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
+      <label class="prefs-label" for="lb-prefs-language">{{.T "prefs.lang"}}</label>
+      <p class="prefs-hint" id="lb-prefs-language-hint">{{.T "prefs.lang.hint"}}</p>
+      <div class="prefs-ctl">
+        <select class="fld" id="lb-prefs-language" name="language" aria-describedby="lb-prefs-language-hint">
+          {{range .PrefLangs}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+        <button type="submit" class="primary">{{.T "lang.applyNow"}}</button>
+      </div>
+    </div>
+  </form>
+
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label">{{.T "prefs.theme"}}</span>
+      <p class="prefs-hint">{{.T "prefs.theme.hint"}}</p>
+      <div class="prefs-keys">
+        <button type="submit" name="theme" value="auto" aria-pressed="{{if eq .Profile.Theme "auto"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.auto.title"}}">{{.T "profile.theme.auto"}}</button>
+        <button type="submit" name="theme" value="dark" aria-pressed="{{if eq .Profile.Theme "dark"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.dark.title"}}">{{.T "profile.theme.dark"}}</button>
+        <button type="submit" name="theme" value="light" aria-pressed="{{if eq .Profile.Theme "light"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.light.title"}}">{{.T "profile.theme.light"}}</button>
+      </div>
+    </div>
+  </form>
+
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
       <span class="prefs-label">{{.T "prefs.view"}}</span>
@@ -569,18 +570,6 @@
         <button type="submit" name="view" value="groups" aria-pressed="{{if eq .Profile.View "wall"}}false{{else if eq .Profile.View "dense"}}false{{else}}true{{end}}" title="{{.T "profile.view.groups.title"}}">{{.T "profile.view.groups.label"}}</button>
         <button type="submit" name="view" value="wall" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{.T "profile.view.wall.title"}}">{{.T "profile.view.wall.label"}}</button>
         <button type="submit" name="view" value="dense" aria-pressed="{{if eq .Profile.View "dense"}}true{{else}}false{{end}}" title="{{.T "profile.view.dense.title"}}">{{.T "profile.view.dense.label"}}</button>
-      </div>
-    </div>
-  </form>
-
-  <form method="post" action="/prefs" class="prefs-row">
-    <div class="prefs-field">
-      <span class="prefs-label" id="link-mode-label">{{.T "prefs.linkMode"}}</span>
-      <p class="prefs-hint" id="link-mode-hint">{{.T "prefs.linkMode.hint"}}</p>
-      <div class="prefs-keys" role="group" aria-labelledby="link-mode-label" aria-describedby="link-mode-hint">
-        <button type="submit" name="linkMode" value="auto" aria-pressed="{{eq .SelectedLinkMode "auto"}}">{{.T "link.mode.auto"}}</button>
-        <button type="submit" name="linkMode" value="lan" aria-pressed="{{eq .SelectedLinkMode "lan"}}">{{.T "link.mode.lan"}}</button>
-        <button type="submit" name="linkMode" value="wan" aria-pressed="{{eq .SelectedLinkMode "wan"}}">{{.T "link.mode.wan"}}</button>
       </div>
     </div>
   </form>
@@ -635,18 +624,6 @@
        **判据与它解释的那段 CSS 必须同源**：解释一个条件，却在另一个条件成立时
        出现，那比不解释更坏。 */}}
 
-  </form>
-
-  <form method="post" action="/prefs" class="prefs-row">
-    <div class="prefs-field">
-      <span class="prefs-label">{{.T "prefs.theme"}}</span>
-      <p class="prefs-hint">{{.T "prefs.theme.hint"}}</p>
-      <div class="prefs-keys">
-        <button type="submit" name="theme" value="auto" aria-pressed="{{if eq .Profile.Theme "auto"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.auto.title"}}">{{.T "profile.theme.auto"}}</button>
-        <button type="submit" name="theme" value="dark" aria-pressed="{{if eq .Profile.Theme "dark"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.dark.title"}}">{{.T "profile.theme.dark"}}</button>
-        <button type="submit" name="theme" value="light" aria-pressed="{{if eq .Profile.Theme "light"}}true{{else}}false{{end}}" title="{{.T "prefs.theme.light.title"}}">{{.T "profile.theme.light"}}</button>
-      </div>
-    </div>
   </form>
 
   {{/* ── 背景：这一页自己的那张图 ────────────────────────────────────────────
@@ -729,6 +706,18 @@
        （界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景）之后，而不在它们中间：
        2026-10-14 之前背景那一节落在它下面，于是这屏读成
        「几行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
+  <form method="post" action="/prefs" class="prefs-row">
+    <div class="prefs-field">
+      <span class="prefs-label" id="link-mode-label">{{.T "prefs.linkMode"}}</span>
+      <p class="prefs-hint" id="link-mode-hint">{{.T "prefs.linkMode.hint"}}</p>
+      <div class="prefs-keys" role="group" aria-labelledby="link-mode-label" aria-describedby="link-mode-hint">
+        <button type="submit" name="linkMode" value="auto" aria-pressed="{{eq .SelectedLinkMode "auto"}}">{{.T "link.mode.auto"}}</button>
+        <button type="submit" name="linkMode" value="lan" aria-pressed="{{eq .SelectedLinkMode "lan"}}">{{.T "link.mode.lan"}}</button>
+        <button type="submit" name="linkMode" value="wan" aria-pressed="{{eq .SelectedLinkMode "wan"}}">{{.T "link.mode.wan"}}</button>
+      </div>
+    </div>
+  </form>
+
   {{/* 「点开书签」：**当前标签页 / 新标签页**（openInNewTab）。它排在「分组」那节
        上面而不是上面那几行里，因为它改的是**书签文档**（走 batch：rev + 快照 +
        审计，能在「回退」里退回来），而上面几行改的是台面偏好（只写 profile.json）。

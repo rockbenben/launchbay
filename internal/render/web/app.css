@@ -1,6 +1,6 @@
 /* ── ⑤/⑥ 的输入面（浮层、⌘K、就地编辑）──────────────────────────────
-   三处输入框原本各写了一遍几乎相同的规则，那是 380 B 的重复 + 三条各带
-   min-height 的 44px 规则（而 44px 那条闸只许三族各一条）。收成 .fld：
+   三处输入框原本各写了一遍几乎相同的规则，那是 380 B 的重复 + 各带 min-height
+   的 44px 规则（而 44px 那条闸今天只许七族各一条）。收成 .fld：
    **44px 是 §7.5 的硬数字**（触摸目标），它要保证的是"所有输入面"，不是
    "每处自己记得写一遍"。 */
 .fld{display:block;width:100%;margin-top:4px;padding:8px 10px;
@@ -81,35 +81,27 @@
   .usage-touch{display:inline}
 }
 
-/* 台面面板那一层要**比别的浮层宽两档**，理由是一个数：宽屏上**一个分组要占一行**
-   （2026-10-14 实拍后改判，算术在 base.css 那一段），而那一行是
-   色板 512 + 排法三颗 212 + 名字下限 96 + 两个 gap 16 = **836**。
-   这一层给到 960：减内衬 44、减竖向滚动条那 17，内容 899，余下 63 全给名字
-   （名字那一格实得 159，八行的排法键与色板起点对齐成一条竖线）。里面那块面板仍由
-   base.css 的 `.prefs{max-width:900px}` 收着——两处落地是同一个数
-   （960 − 44 − 17 = 899 ≈ 900）。多出来的余量不是凑整：排法那三颗是中文按钮，
-   宽度随字体走（量到 212 是这一台机器上的数），余量给的是"别的机器上字宽不同"
-   这件事，留 60 就够它变成 272 而不必把名字压到省略号。
-
-   从前的 620 只够放**色板那一行**（559 ≥ 512），于是每个分组被折成两行、八个分组
-   十六行、面板 1027 高要滚一屏半：**"面板太窄"的真症状不是宽度上限本身难看，
-   是每个分组被折成了两行**，加宽就是它的解。放不下 836 的那些视口（620 上下与
-   平板竖屏）由 flex-wrap 自己折回两行，**没有为它开媒体查询**。
-   添加与编辑那两层不动：它们没有一行 836 的东西，加宽只是让字段拉得散。 */
-#lb-prefs.sheet{width:min(960px,calc(100vw - 28px));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  /* **切一节不许整层重排**（2026-10-15 实拍；2026-10-21 重量过一遍）。`.sheet` 的
-     通用形状是"高度随内容 + 居中"，而这一层的内容几档差得极多——2026-10-21 实测
-     （1400 档）：这一页 1147、分组 1100、备份与历史 452、我的 PIN 183。
-     短的那一节会让整层缩一大截、顶边跟着跑：标题与左边那一列 tab 全都跟着挪，
-     人刚要按的下一颗就跑到了别处（2026-10-15 实拍时最极端的一档是「导出与历史」，
-     那时它只有 137——整层缩到 262、顶边从 16 掉到 319；2026-10-21 那一节里多了
-     备份那一对，它长到 452）。
-     顶边钉在 16px（不再 translate 回中间），高度给一个下限：短的那一节不至于塌成
-     一条，长的那两节本来就顶到底，**变的只有下边缘**。 */
-  top:16px;transform:translateX(-50%);min-height:min(520px,calc(100vh - 32px))}
-  /* `transform` 只留横向那一半：通用 `.sheet` 靠 `translate(-50%,-50%)` 同时做
-     水平与垂直居中，写成 `none` 会把**水平**居中一起取消（left:50% 于是变成
-     "左边缘在屏幕中线"，960 宽的面板右半边直接出屏）。这条是实拍抓回来的。 */
+/* 分类与关闭键留在原位，只有设置内容滚动。 */
+#lb-prefs.sheet{width:min(960px,calc(100vw - 28px));height:min(720px,calc(100dvh - 32px));
+  top:16px;transform:translateX(-50%);padding:12px 16px;overflow:hidden}
+#lb-prefs .prefs{flex:1;min-height:0;gap:10px}
+#lb-prefs .prefs h2{display:flex;align-items:center;flex:0 0 44px;padding:0;padding-inline-end:56px}
+#lb-prefs .close{inset-block:12px auto;inset-inline:auto max(16px,calc((100% - 900px)/2));
+  margin:0;padding:0;background:var(--card)}
+#lb-prefs .close:hover{background:var(--card-hi)}
+#lb-prefs .notice{margin:0;max-width:none}
+#lb-prefs .prefs-tabs{flex:1;min-height:0;align-items:stretch;padding-block:6px;
+  border-block:1px solid var(--line)}
+#lb-prefs .prefs-nav{position:relative;top:auto;align-self:start}
+#lb-prefs .prefs-panes{min-height:0;overflow:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-gutter:stable;scroll-padding-block:10px;padding:4px 6px 10px}
+#lb-prefs .prefs-pane{flex-shrink:0}
+@media (max-width:520px){
+  #lb-prefs.sheet{padding-inline:12px}
+  #lb-prefs .close{inset-inline-end:12px}
+  #lb-prefs .prefs-nav{align-self:stretch}
+  #lb-prefs .prefs-panes{flex:1}
+}
 /* `hidden` 属性要盖住**子元素**上已有的 display，否则它就是一句空话。
    浏览器默认的 `[hidden]{display:none}` 权重是 0，而 `.fld{display:block}`
    与 `.sheet label{display:block}` 都是作者规则——作者规则赢，于是
@@ -747,5 +739,6 @@ html[data-restore] .card,html[data-restore] .plain,html[data-restore] .feat-card
 
 @media (max-width:520px) and (pointer:coarse){
   .sheet,#lb-prefs.sheet{top:calc(var(--lb-vtop,0px) + 12px);transform:translateX(-50%);
-    min-height:0;max-height:calc(var(--lb-vh,100vh) - 24px);padding-bottom:max(22px,env(safe-area-inset-bottom))}
+    min-height:0;max-height:calc(var(--lb-vh,100dvh) - 24px);padding-bottom:max(22px,env(safe-area-inset-bottom))}
+  #lb-prefs.sheet{padding-bottom:max(12px,env(safe-area-inset-bottom))}
 }
