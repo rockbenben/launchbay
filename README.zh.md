@@ -6,7 +6,7 @@
 
 [▶ 快速开始](#快速开始) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
 
-> [English](README.md) | 简体中文
+[English](README.md) · **简体中文** · [繁體中文](docs/i18n/README.zh-Hant.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Español](docs/i18n/README.es.md) · [Português](docs/i18n/README.pt.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Italiano](docs/i18n/README.it.md) · [Русский](docs/i18n/README.ru.md) · [العربية](docs/i18n/README.ar.md) · [हिन्दी](docs/i18n/README.hi.md) · [বাংলা](docs/i18n/README.bn.md) · [ไทย](docs/i18n/README.th.md) · [Türkçe](docs/i18n/README.tr.md) · [Tiếng Việt](docs/i18n/README.vi.md) · [Bahasa Indonesia](docs/i18n/README.id.md)
 
 ![launchbay 档案页：顶栏搜索、侧栏分组与磁贴卡片](docs/home-1280.webp)
 
@@ -44,7 +44,7 @@
 | 浏览器 | 任意现代浏览器；关掉 JavaScript，全部书签照样看得见、点得动 |
 | 要装什么 | 只要 Docker：零第三方库、零数据库、构建期不需要 Node |
 | 数据在哪 | 一个普通目录 `data/`，备份就是整目录拷走 |
-| 界面语言 | 中文与英文。装的时候选全机默认；之后每份档案在自己的面板里给自己选 |
+| 界面语言 | 4 门界面语言（简体中文、繁體中文、English、阿拉伯语 RTL）。装的时候选全机默认；之后每份档案在自己的面板里给自己选 |
 
 ## 它能做什么
 
@@ -192,12 +192,12 @@ sudo chown -R 65534:65534 ./data
 - **没有共享清单**：不能把一条书签共享给全家，也不能公开一页。各存各的就是各存各的。
 - **还没在 NAS 真机上验收过。** 三轮验收都跑在 Windows + Docker Desktop；局域网 LCP 目标、真机冷启动、1,000 条书签的滚动帧率、离线缓存命中延迟，都还没测。
 - **不内置天气、时钟这类挂件。** 它们不在这一页的定位里。页脚文字与书签内容都走 `POST /api/v1/batch`；盘上的文件归服务端管。
-- **英文只覆盖界面，不覆盖给脚本读的句子。** API 的 `detail`、字段校验原因、给脚本读的导入报告仍是中文（网页上那一屏跟页面语言走）。调用方要的是稳定可对照的文本；书签标题、分组名、网址是内容，同样不翻。
+- **界面语言只覆盖界面，不覆盖给脚本读的句子。** API 的 `detail`、字段校验原因、给脚本读的导入报告仍是中文（网页上那一屏跟页面语言走）。调用方要的是稳定可对照的文本；书签标题、分组名、网址是内容，同样不翻。
 - **令牌默认空着**，所以扩展与命令行默认不可用，要用了再加；管理员那把 `LAUNCHBAY_ADMIN_TOKEN` 反过来是必填的，缺了服务起不来。
 
 ## 镜像从哪来
 
-compose 只管拉已发布的镜像，构建是 CI 的事。打一个 `v*`（或手动 dispatch），`.github/workflows/docker.yml` 会构建 amd64 与 arm64，推到 Docker Hub 与 GHCR。发布标签是 `<version>`、`<major>.<minor>`、`<major>`（当前 `0.3.2` / `0.3` / `0`），加上 `latest` 与 commit 短 sha；镜像版本只来自 git tag。
+compose 只管拉已发布的镜像，构建是 CI 的事。打一个 `v*`（或手动 dispatch），`.github/workflows/docker.yml` 会构建 amd64 与 arm64，推到 Docker Hub 与 GHCR。发布标签是 `<version>`、`<major>.<minor>`、`<major>`（当前 `0.4.0` / `0.4` / `0`），加上 `latest` 与 commit 短 sha；镜像版本只来自 git tag。
 
 不想 clone 也行，直接拉镜像：
 

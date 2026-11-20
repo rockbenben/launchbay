@@ -6,7 +6,7 @@
 
 [▶ Quick start](#quick-start) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
 
-> English | [简体中文](README.zh.md)
+**English** · [简体中文](README.zh.md) · [繁體中文](docs/i18n/README.zh-Hant.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Español](docs/i18n/README.es.md) · [Português](docs/i18n/README.pt.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Italiano](docs/i18n/README.it.md) · [Русский](docs/i18n/README.ru.md) · [العربية](docs/i18n/README.ar.md) · [हिन्दी](docs/i18n/README.hi.md) · [বাংলা](docs/i18n/README.bn.md) · [ไทย](docs/i18n/README.th.md) · [Türkçe](docs/i18n/README.tr.md) · [Tiếng Việt](docs/i18n/README.vi.md) · [Bahasa Indonesia](docs/i18n/README.id.md)
 
 ![launchbay profile page: top-bar search, sidebar groups and tile cards](docs/home-1280.en.webp)
 
@@ -44,7 +44,7 @@ No account, no third-party script, no telemetry. The only outside requests are f
 | Browsers | Any modern browser; with JavaScript off every bookmark is still visible and clickable |
 | What you install | Docker only: no third-party libraries, no database, no Node at build time |
 | Where the data is | One ordinary directory, `data/`; a backup is copying it |
-| Interface language | Chinese and English; pick the machine default while setting up, then each profile picks its own |
+| Interface language | 4 interface languages (Simplified Chinese, Traditional Chinese, English, Arabic RTL); pick the machine default on setup, then each profile picks its own |
 
 ## What it does
 
@@ -192,12 +192,12 @@ Backups exclude the PIN, the profile's identity and the background image. A back
 - **No shared list**: you cannot share one bookmark with the family or publish a page. Each keeping their own is the point.
 - **Not yet validated on a real NAS.** All acceptance rounds ran on Windows + Docker Desktop; the LAN LCP target, cold-start LCP, 1,000-bookmark scroll frame rate and offline cache-hit latency are still unmeasured.
 - **No weather or clock widgets.** They are outside what this page is for. Footer text and bookmark content go through `POST /api/v1/batch`; the files belong to the server.
-- **English covers the interface, not script-facing text.** API error `detail`, field-validation reasons and the import report as read by a script stay Chinese (the web page's report follows the page language). Callers want stable, comparable text; your own bookmark titles, group names and URLs are content and are not translated either.
+- **The interface languages cover the chrome, not script-facing text.** API error `detail`, field-validation reasons and the import report as read by a script stay Chinese (the web page's report follows the page language). Callers want stable, comparable text; your own bookmark titles, group names and URLs are content and are not translated either.
 - **Tokens are empty by default**, so the extension and CLI are off until you add one; the admin key is the other way round and is required to start.
 
 ## Where the image comes from
 
-compose only pulls a published image; building is CI's job. Tag a `v*` (or dispatch the workflow), and `.github/workflows/docker.yml` builds amd64 and arm64 for Docker Hub and GHCR. Release tags are `<version>`, `<major>.<minor>` and `<major>` (today `0.3.2` / `0.3` / `0`), plus `latest` and the commit sha; the image version comes only from the git tag.
+compose only pulls a published image; building is CI's job. Tag a `v*` (or dispatch the workflow), and `.github/workflows/docker.yml` builds amd64 and arm64 for Docker Hub and GHCR. Release tags are `<version>`, `<major>.<minor>` and `<major>` (today `0.4.0` / `0.4` / `0`), plus `latest` and the commit sha; the image version comes only from the git tag.
 
 To skip the clone, pull the image directly:
 
