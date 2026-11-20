@@ -45,7 +45,7 @@ type IconSet interface {
 // 它们是有语义的取值（"没设"/"抓 favicon"），不是索引成员——
 // 把这两个特例放进 icons.Index.Has 里，索引就得替写校验想事（裁定二）。
 // icons == nil 直接放过：装配点必须传真索引，nil 只允许出现在"这条测试
-// 不关心图标"的场合（Task 5 之前 batch.go 暂时传 nil）。
+// 不关心图标"的场合。
 func checkIconName(icons IconSet, id, icon string) error {
 	if icons == nil || icon == "" || icon == "auto" {
 		return nil

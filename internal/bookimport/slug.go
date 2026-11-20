@@ -85,14 +85,14 @@ func suffixSlug(base string, n int) string {
 	return fmt.Sprintf("item%s", suffix)
 }
 
-// slugify 在一批标题上分配唯一 slug。
+// slugResult 是 slugifyAll 对一条标题的分配结果。
 //
 // **冲突必须显式处理，不许悄悄加后缀**：两个不同分类撞成同一个 id 时，
 // 后者会被寻址到前者的分组上——那不是"名字不好看"，是**书书签进了错误的组**。
 // 而报告里不出现这一条，就没有人会知道发生了什么。所以每次去重都产出一条
 // 记录，连同它顶替掉的是哪个分类。
 type slugResult struct {
-	Slug      string // 空 = 退化成了 group-N
+	Slug      string // 分配完成后一定非空；退化由 FellBack 标记
 	FellBack  bool   // title 里取不到 ASCII，退化
 	Displaced string // 因与谁冲突而被去重，空表示没冲突
 }

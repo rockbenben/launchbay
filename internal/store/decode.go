@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-// DecodeJSON 统一校验并解码全案 JSON（2026-11-09 加）：
+// DecodeJSON 统一校验并解码书签、档案、备份与请求体这几处 JSON（2026-11-09 加）：
 //  1. 必须是合法 UTF-8：encoding/json 会把非法字节静默替换为 U+FFFD 并写盘，造成数据静默损坏；
 //  2. 严格拒绝未知字段（DisallowUnknownFields）：防止调用方拼错字段名时静默失效；
 //  3. 必须恰好是一个完整顶层 JSON 值：标准库 Decoder.Decode 默认只读首个对象、静默忽略尾部

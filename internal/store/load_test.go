@@ -15,12 +15,9 @@ const dadBookmarks = `{"rev":3,"title":"爸爸","groups":[{"id":"nas","title":"N
 // 夹具的 profile.json 是**当前**的落盘形状：2026-10-12 起不再有 admin 键
 // （管理员是机器级的一把 key，不属于任何档案）。
 //
-// 曾经这里是 `"admin":true` / `"admin":false`，而 decodeProfile 开着
-// DisallowUnknownFields（internal/store/load.go:245）——升级前落盘的每一个
-// profile.json 都还带着那一格，于是按 model.go:67-68 写的"当未知字段丢掉、
-// 不需要迁移脚本"并不成立：实际结果是 ErrCorrupt（全家的档案一起变成坏档）。
-// 这是生产代码的缺口、不归这三个测试包修；夹具跟着新形状走，但这件事记在这里，
-// 免得以后有人以为"升级前的老文件天生读得动"、把证人改回去。
+// 升级前落盘的文件仍然带着那一格，而 decodeProfile 开着 DisallowUnknownFields：
+// 后门在 load.go 的 profileJSON——它显式**只**放过 `admin`，别处仍然严格。
+// 证人不是这条夹具，是 `upgrade_compat_test.go` 里那份带 `"admin": true` 的旧文件。
 const dadProfile = `{"id":"dad","title":"爸爸","pin":"sha256$a$b","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
 
 const kidProfile = `{"id":"kid","title":"小满","pin":"sha256$c$d","createdAt":"2026-10-05T12:00:00+08:00","theme":"auto","layout":"sidebar"}`
@@ -85,8 +82,8 @@ func TestLoadBookmarks_陌生图标名不进坏档(t *testing.T) {
 	// 用写通路种数据会让这条测试变成自证循环。
 	// 文件写成形似磁盘的形状（2 空格缩进、一个尾换行、alias/tags 是 []）：
 	// 它验的正是那个解码器，不是随便一段能解析的 JSON。图标名取形状合法
-	// （ASCII slug）、只是本仓库索引里没有的名字——否则会被 checkIcon 以"形状
-	// 非法"拒掉、把这条证人读成坏档（红错原因），证不到"陌生名字不该进坏档"。
+	// （ASCII slug）、只是本仓库索引里没有的名字——读路径**不验图标名**
+	// （model/check.go 末尾那段），陌生名字本来就该原样读得出来。
 	put(t, root, "profiles/dad/bookmarks.json", `{
   "rev": 3,
   "title": "t",
@@ -300,9 +297,9 @@ func TestValidationErrorsNameLocation(t *testing.T) {
 	}
 }
 
-// model.Validate 只在 search.Enabled 为真时检查 default。Enabled:false 配一个
-// 悬空 default 是合法数据（关掉搜索后 default 无人消费），不能当坏档处理。
-// 加这条钉住形状，避免以后有人把它"修"成坏档案。
+// **model 完全不校验 search 那几格**（见 model/check.go 末尾那段：没有渲染
+// 消费者，不拿"一个不生效的字段"换整份档案变坏档）。所以 Enabled:false 配一个
+// 悬空 default 必须读得动；加这条钉住形状，避免以后有人把它"修"成坏档案。
 func TestDisabledSearchWithDanglingDefaultIsValid(t *testing.T) {
 	root := fixtureRoot(t)
 	put(t, root, "profiles/dad/bookmarks.json",

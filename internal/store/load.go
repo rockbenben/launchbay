@@ -198,7 +198,7 @@ func EmptyBookmarks() *model.Bookmarks {
 	}
 }
 
-// normalize 把每一层的 nil 切片换成空切片。§4.3 的写出契约要求空数组
+// normalize 把 groups / items / engines 三处的 nil 切片换成空切片。§4.3 的写出契约要求空数组
 // 写 [] 不写 null，而磁盘上的文件（人或 AI 写的）完全可能出现 "alias": null
 // ——解码成 nil 后原样写回就是 null，稳定 diff 的初衷在一次读→写往返后
 // 破产。归一化在解码入口与写出入口两侧都做：P1-② 的 add ops 构造的 Item

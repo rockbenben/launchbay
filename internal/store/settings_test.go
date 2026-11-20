@@ -47,7 +47,7 @@ func TestLanguage_坏文件与不认识的值都落默认(t *testing.T) {
 
 	for _, body := range []string{
 		`{ 坏了`,              // JSON 语法错
-		`{"language":"fr"}`, // 不受支持的值
+		`{"language":"xx"}`, // 不受支持的值
 		`{"language":"EN"}`, // 大写，不认
 		`{}`,                // 缺字段
 		`null`,              // 整个是 null
@@ -65,7 +65,7 @@ func TestLanguage_坏文件与不认识的值都落默认(t *testing.T) {
 // 所以写入前就归一化：不受支持的值落成默认，**磁盘上不留垃圾**。
 func TestSetLanguage_非法值归一化后再落盘(t *testing.T) {
 	s := New(t.TempDir())
-	if err := s.SetLanguage(i18n.Lang("fr")); err != nil {
+	if err := s.SetLanguage(i18n.Lang("xx")); err != nil {
 		t.Fatalf("写: %v", err)
 	}
 	if got := s.Language(); got != i18n.Default {
@@ -75,7 +75,7 @@ func TestSetLanguage_非法值归一化后再落盘(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读: %v", err)
 	}
-	if strings.Contains(string(raw), "fr") {
+	if strings.Contains(string(raw), "xx") {
 		t.Errorf("磁盘上留下了读不回来的值：%s", raw)
 	}
 }
