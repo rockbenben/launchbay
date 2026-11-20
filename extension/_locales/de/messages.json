@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "In Launchbay speichern"
+  },
+  "extDescription": {
+    "message": "Klicken Sie mit der rechten Maustaste, um die Seite, auf der Sie sich befinden, in Ihrer Startseite zu speichern, die Registerka..."
+  },
+  "menuSave": {
+    "message": "In Launchbay speichern"
+  },
+  "menuSaveWindow": {
+    "message": "Speichern Sie die Registerkarten dieses Fensters"
+  },
+  "badgeSaved": {
+    "message": "Gespeichert"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Nicht in Launchbay gespeichert"
+  },
+  "failProfile": {
+    "message": "(Profil wird gespeichert unter: $1)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "Die Adresse dieses Computers ist noch nicht festgelegt – es handelt sich um das erste Feld auf der Einstellungsseite der Erweiterung."
+  },
+  "noToken": {
+    "message": "Dieses Profil hat noch kein Token."
+  },
+  "noGroup": {
+    "message": "Dieses Profil hat noch keine Gruppen. Erstellen Sie zuerst eines auf der Seite und speichern Sie es dann."
+  },
+  "alreadySaved": {
+    "message": "Diese Seite befindet sich bereits in diesem Profil, daher wurde nichts doppelt gespeichert."
+  },
+  "stoppedAt": {
+    "message": "$1 davon gespeichert und dann gestoppt: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Dieses Fenster hatte $1 Seiten zum Speichern, daher wurden $2 nicht gespeichert.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 waren bereits in diesem Profil.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Alle $1 speicherbaren Seiten in diesem Fenster befanden sich bereits in diesem Profil – nichts Neues zum Speichern.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Diese Maschine erkennt dieses Token nicht – möglicherweise fehlt ihm ein Zeichen oder die Maschine hat es gedreht."
+  },
+  "err403": {
+    "message": "Dieses Token kann „$1“ nicht öffnen: Es gehört zu einem anderen Profil oder diese ID ist ein Tippfehler – diese Maschine antwortet in beiden Fällen auf die gleiche Weise.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Dieser Computer hat kein Profil mit dem Namen „$1“ – es wurde wahrscheinlich gelöscht.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Das ist der Admin-Schlüssel – er öffnet nicht die Lesezeichenseite. Auf der Seite mit den Erweiterungseinstellungen wird das eigene Token dieses Profils benötigt."
+  },
+  "errBadUrl": {
+    "message": "Diese Adresse ist noch nicht vollständig – sie benötigt ein Schema und einen Hostnamen (zum Beispiel http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "Die Datendatei für „$1“ kann nicht gelesen werden, daher wurde keine geschrieben. Die Datei muss auf diesem Computer repariert werden. Ein erneuter Versuch hilft nicht.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "Das Profil „$1“ ist deaktiviert, sodass nichts darauf geschrieben werden kann. Aktivieren Sie es erneut über die Admin-Seite auf diesem Computer.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Dieses Lesezeichen befindet sich bereits in diesem Profil – es wurde kein zweites Mal gespeichert. Um es zu ändern, verwenden Sie die Schaltfläche „Bearbeiten“ auf der Seite."
+  },
+  "errGoneTarget": {
+    "message": "Diese Gruppe oder dieses Lesezeichen ist nicht mehr vorhanden. Möglicherweise hat jemand anderes es geändert. Aktualisieren Sie die Seite und schauen Sie noch einmal nach."
+  },
+  "errIconName": {
+    "message": "Diese Maschine kennt diesen Symbolnamen nicht. Um es zu ändern, verwenden Sie die Schaltfläche „Bearbeiten“ für dieses Lesezeichen auf der Seite."
+  },
+  "errNoBookmarks": {
+    "message": "Von diesem Browser konnten keine Lesezeichen gelesen werden. Stellen Sie sicher, dass sich die von Ihnen gemeinten Lesezeichen in diesem Browser befinden (die Lesezeichen eines anderen Browsers oder eines anderen Computers befinden sich nicht in diesem Browser)."
+  },
+  "errNothingAccepted": {
+    "message": "Keine der Adressen in den Lesezeichen dieses Browsers kann eingegeben werden (normalerweise haben sie keinen Hostnamen, wie z. B. javascript:links). Verwenden Sie diese weiterhin im Browser. Sie können nicht in ein Profil gelangen (lokale Datei://-Links sind die Ausnahme – diese kommen rein)."
+  },
+  "errOpsBatch": {
+    "message": "Dieser Stapel wurde nicht geschrieben – Ihre Lesezeichen bleiben unberührt. Ein erneuter Klick ändert nichts; Dieser muss auf der Seite geändert werden."
+  },
+  "errConflict": {
+    "message": "Dieses Profil hat sich gerade geändert. Klicken Sie noch einmal."
+  },
+  "errPlanGone": {
+    "message": "Dieser Bericht wurde bereits verwendet oder ist abgelaufen. Lesen Sie die Lesezeichen erneut, um ein neues zu erhalten."
+  },
+  "errTargetNotEmpty": {
+    "message": "Dieses Profil verfügt bereits über Lesezeichen. Ein Import ersetzt sie, statt sie zu ergänzen – wählen Sie ein leeres Profil."
+  },
+  "errNoSnap": {
+    "message": "Diese Version konnte nicht gespeichert werden, daher wurde der Speichervorgang abgebrochen – Ihre Lesezeichen bleiben davon unberührt."
+  },
+  "errServer": {
+    "message": "Die Maschine antwortete HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Dieser Computer konnte nicht erreicht werden ( $1 ). Enthält die Adresse den Port, z. B. http://10.0.0.3:7600?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Fügen Sie das Token eines anderen Profils hinzu"
+  },
+  "tokenPlaceholder": {
+    "message": "Das Token dieses Profils (Schreibzugriff)"
+  },
+  "tokenAria": {
+    "message": "Token für $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "dieses Profil"
+  },
+  "deleteRow": {
+    "message": "Entfernen"
+  },
+  "rowRemovedNote": {
+    "message": "Es ist erst wirklich weg, wenn Sie auf „Einstellungen speichern“ klicken."
+  },
+  "saved": {
+    "message": "Gespeichert."
+  },
+  "needBase": {
+    "message": "Geben Sie zuerst die Adresse ein."
+  },
+  "needToken": {
+    "message": "Geben Sie zuerst das eigene Token dieses Profils ein – die ID und sein Token gehören in dieselbe Zeile."
+  },
+  "testOK": {
+    "message": "Verbunden – dieses Token öffnet „$1“.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Verbunden, aber dieses Token kann „$1“ nicht öffnen: Es ist auf ein anderes Profil beschränkt oder die ID ist ein Tippfehler. Verwenden Sie die ID, die zum Token passt, oder verwenden Sie das passende Token.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "Das Gerät hat HTTP $1 geantwortet – die Adresse oder das Profil sind möglicherweise falsch.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Lesen Sie Ihre Lesezeichen…"
+  },
+  "noPerm": {
+    "message": "Ohne die Erlaubnis, Ihre Lesezeichen zu lesen, kann dies nicht ausgeführt werden. Sie können weiterhin den Weg der Site einschlagen: Exportieren Sie selbst eine .html-Datei und laden Sie sie dort hoch."
+  },
+  "missed": {
+    "message": "— $1 hat es nicht geschafft (im Bericht wird aufgeführt, warum)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Lesen Sie $1 Lesezeichen in $2 Gruppen $3. Sehen Sie sich den Bericht unten an; Es wird nichts geschrieben, bis Sie es bestätigen.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Import fehlgeschlagen: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Importierte $1 Lesezeichen. Dieses Profil hat jetzt die Version $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "( $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Es wurde nichts geschrieben: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Nicht importiert – Ihre Lesezeichen bleiben unberührt."
+  },
+  "unnamedFolder": {
+    "message": "Unbenannt"
+  },
+  "noProfileToken": {
+    "message": "Dieses Profil hat noch kein eigenes Token – füllen Sie oben zuerst eines aus."
+  },
+  "pageTitle": {
+    "message": "In Launchbay speichern · Einstellungen"
+  },
+  "lblBase": {
+    "message": "Die Adresse dieser Maschine"
+  },
+  "noteBase": {
+    "message": "Kein abschließender Schrägstrich. Hierhin sendet die Erweiterung."
+  },
+  "lblProf": {
+    "message": "Standardprofil-ID"
+  },
+  "noteProf": {
+    "message": "Durch Klicken mit der rechten Maustaste wird in dieses gespeichert. Es benötigt unten ein Token; Ohne ein solches erhalten Sie die Meldung „Dieses Profil hat kein Token“ und nicht einen stillen Schreibvorgang in ein anderes Profil."
+  },
+  "colId": {
+    "message": "Profil-ID"
+  },
+  "colToken": {
+    "message": "Sein Token (Schreibzugriff)"
+  },
+  "noteToken": {
+    "message": "Das Token ist der <b>Schreibzugriff</b> dieser Maschine. Es bleibt auf <b>diesem Computer</b> – <b>wird nie synchronisiert, nie hochgeladen</b>. Profil ändern, Token ändern; Wenn eines ausläuft, widerrufen Sie nur dieses."
+  },
+  "btnSave": {
+    "message": "Einstellungen speichern"
+  },
+  "btnTest": {
+    "message": "Testen Sie diese Maschine"
+  },
+  "noteTest": {
+    "message": "„Test“ verwendet die Adresse und das Token in der Zeile <b>Standardprofil</b>, um dieses Profil einmal zu lesen (<code>GET /api/v1/data</code>). Es prüft, was tatsächlich gelten muss: Kann dieser Token dieses Profil öffnen? Ein 403 bedeutet nicht immer, dass das Token und das Profil nicht übereinstimmen – ein deaktiviertes Profil oder ein Admin-Schlüssel ergibt ebenfalls 403; Die Nachricht benennt welche über die Art der Antwort."
+  },
+  "bmHeading": {
+    "message": "Importieren Sie Ihre Browser-Lesezeichen"
+  },
+  "noteBookmarks": {
+    "message": "Dies liest den <b>eigenen Lesezeichenbaum dieses Browsers</b> – es gibt keine Datei, die zuerst exportiert werden muss. Beim ersten Drücken der Schaltfläche unten fragt der Browser einmal, ob er Ihre Lesezeichen lesen darf. Das ist sensibel (es handelt sich praktisch um Ihren gesamten Browserverlauf), daher wird <b>bei Bedarf nach der Erlaubnis gefragt</b>: Jemand, der dies nur zum Speichern mit der rechten Maustaste installiert, sieht diese Aufforderung nie."
+  },
+  "btnReadBookmarks": {
+    "message": "Lesen Sie meine Lesezeichen und zeigen Sie, was importiert werden würde"
+  },
+  "btnApply": {
+    "message": "Bestätigen und importieren"
+  },
+  "btnCancel": {
+    "message": "Nicht importieren"
+  }
+}

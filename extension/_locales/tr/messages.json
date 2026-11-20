@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Launchbay'e kaydet"
+  },
+  "extDescription": {
+    "message": "Bulunduğunuz sayfayı ana başlatma alanınıza kaydetmek, tüm pencerenin sekmelerini tek seferde kaydetmek veya yer işaretlerinizi ..."
+  },
+  "menuSave": {
+    "message": "Launchbay'e kaydet"
+  },
+  "menuSaveWindow": {
+    "message": "Bu pencerenin sekmelerini kaydet"
+  },
+  "badgeSaved": {
+    "message": "Kaydedildi"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Launchbay'a kaydedilmedi"
+  },
+  "failProfile": {
+    "message": "(Profil şuraya kaydediliyor: $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "Bu makinenin adresi henüz ayarlanmadı; bu, uzantının ayarlar sayfasındaki ilk kutudur."
+  },
+  "noToken": {
+    "message": "Bu profilin henüz jetonu yok."
+  },
+  "noGroup": {
+    "message": "Bu profilde henüz grup yok. Önce sayfada bir tane oluşturun, ardından kaydedin."
+  },
+  "alreadySaved": {
+    "message": "Bu sayfa zaten bu profilde olduğundan hiçbir şey iki kez kaydedilmedi."
+  },
+  "stoppedAt": {
+    "message": "Bunlardan $1 tanesi kaydedildi, sonra durduruldu: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Bu pencerede kaydedilecek $1 sayfa vardı, dolayısıyla $2 kaydedilmedi.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 zaten bu profildeydi.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Bu penceredeki tüm $1 kaydedilebilir sayfa zaten bu profildeydi; kaydedilecek yeni bir şey yok.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Bu makine bu jetonu tanımıyor; bir karakter eksik olabilir veya makine onu döndürmüş olabilir."
+  },
+  "err403": {
+    "message": "Bu belirteç “$1”ı açamıyor: başka bir profile ait veya bu kimlik bir yazım hatası — bu makine her ikisine de aynı şekilde yanıt veriyor.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Bu makinenin \"$1\" adında bir profili yok; muhtemelen silinmiştir.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Bu yönetici anahtarıdır; yer imleri tarafını açmaz. Uzantı ayarları sayfası bu profilin kendi jetonunu istiyor."
+  },
+  "errBadUrl": {
+    "message": "Bu adres henüz tamamlanmadı; bir şemaya ve ana bilgisayar adına ihtiyacı var (örneğin http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "“$1” veri dosyası okunamıyor, dolayısıyla yazılmamış. Dosyanın o makinede düzeltilmesi gerekiyor; tekrar denemek işe yaramaz.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "“$1” profili devre dışı bırakıldı, dolayısıyla ona hiçbir şey yazılamaz. Söz konusu makinedeki yönetici sayfasından yeniden etkinleştirin.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Bu yer işareti zaten bu profilde bulunuyor; ikinci kez saklanmadı. Değiştirmek için sayfada bulunan düzenle düğmesini kullanın."
+  },
+  "errGoneTarget": {
+    "message": "Bu grup veya yer imi gitti; başka biri onu değiştirmiş olabilir. Sayfayı yenileyip tekrar bakın."
+  },
+  "errIconName": {
+    "message": "Bu makine o simge adını bilmiyor. Bunu değiştirmek için sayfadaki o yer imindeki düzenle düğmesini kullanın."
+  },
+  "errNoBookmarks": {
+    "message": "Bu tarayıcıdan hiçbir yer işareti okunamadı; kast ettiğiniz yer işaretlerinin bu tarayıcıda olduğundan emin olun (başka bir tarayıcının veya başka bir makinenin yer imleri bu tarayıcıda değil)."
+  },
+  "errNothingAccepted": {
+    "message": "Bu tarayıcının yer imlerindeki adreslerin hiçbiri içeri giremez (genellikle javascript: bağlantılar gibi ana bilgisayar adları yoktur). Tarayıcıdakileri kullanmaya devam edin; herhangi bir profile giremezler (yerel dosya:// bağlantıları istisnadır; bunlar gelir)."
+  },
+  "errOpsBatch": {
+    "message": "Bu grup yazılmadı; yer imlerinize dokunulmadı. Tekrar tıklamak onu değiştirmez; bunun sayfada değiştirilmesi gerekiyor."
+  },
+  "errConflict": {
+    "message": "Bu profil şimdi değişti. Bir kez daha tıklayın."
+  },
+  "errPlanGone": {
+    "message": "Bu rapor zaten kullanılmıştı veya süresi dolmuştu. Yeni bir tane için yer imlerini tekrar okuyun."
+  },
+  "errTargetNotEmpty": {
+    "message": "Bu profilde zaten yer işaretleri var. İçe aktarma, bunlara ekleme yapmak yerine bunların yerini alır; boş bir profil seçin."
+  },
+  "errNoSnap": {
+    "message": "Bu sürüm saklanamadığı için kaydetme işlemi iptal edildi; yer işaretlerinize dokunulmadı."
+  },
+  "errServer": {
+    "message": "Makine HTTP $1 yanıtını verdi.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Bu makineye ulaşılamadı ( $1 ). Adres http://10.0.0.3:7600 gibi bağlantı noktasını içeriyor mu?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Başka bir profilin jetonunu ekle"
+  },
+  "tokenPlaceholder": {
+    "message": "Bu profilin jetonu (yazma erişimi)"
+  },
+  "tokenAria": {
+    "message": "$1 için jeton",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "bu profil"
+  },
+  "deleteRow": {
+    "message": "Kaldırmak"
+  },
+  "rowRemovedNote": {
+    "message": "Yalnızca “Ayarları kaydet”e bastığınızda gerçekten kaybolur."
+  },
+  "saved": {
+    "message": "Kaydedildi."
+  },
+  "needBase": {
+    "message": "Önce adresi girin."
+  },
+  "needToken": {
+    "message": "Önce bu profilin kendi belirtecini doldurun; kimlik ve belirteci aynı satıra aittir."
+  },
+  "testOK": {
+    "message": "Bağlandı — bu belirteç “$1”ı açar.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Bağlandı, ancak bu belirteç “$1” dosyasını açamıyor: kapsamı başka bir profile ayarlanmış veya kimlik bir yazım hatası. Belirteçle eşleşen kimliği kullanın veya eşleşen belirteci kullanın.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "Makine HTTP $1 yanıtını verdi — adres veya profil yanlış olabilir.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Yer işaretleriniz okunuyor…"
+  },
+  "noPerm": {
+    "message": "Yer işaretlerinizi okuma izniniz olmadan bu çalışmaz. Yine de sitenin yolunu takip edebilirsiniz: Bir .html dosyasını kendiniz dışa aktarın ve oraya yükleyin."
+  },
+  "missed": {
+    "message": "— $1 başaramadı (raporda bunun nedeni listeleniyor)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "$2 gruptaki $3 $1 yer işaretini okuyun. Aşağıdaki raporu inceleyin; siz onaylayana kadar hiçbir şey yazılmaz.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "İçe aktarma başarısız oldu: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "$1 yer imleri içe aktarıldı. Bu profil artık $2 sürümündedir. $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "( $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Hiçbir şey yazılmadı: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "İçe aktarılmadı — yer imlerinize dokunulmaz."
+  },
+  "unnamedFolder": {
+    "message": "İsimsiz"
+  },
+  "noProfileToken": {
+    "message": "Bu profilin henüz kendine ait bir belirteci yok; önce yukarıdakilerden birini doldurun."
+  },
+  "pageTitle": {
+    "message": "Launchbay'e kaydet · Ayarlar"
+  },
+  "lblBase": {
+    "message": "Bu makinenin adresi"
+  },
+  "noteBase": {
+    "message": "Sonda eğik çizgi yok. Uzantının gönderildiği yer burasıdır."
+  },
+  "lblProf": {
+    "message": "Varsayılan profil kimliği"
+  },
+  "noteProf": {
+    "message": "Sağ tıklamak buna kaydeder. Aşağıda bir jetona ihtiyacı var; biri olmadan, başka bir profile sessizce yazmak yerine \"bu profilin jetonu yok\" ifadesini alırsınız."
+  },
+  "colId": {
+    "message": "Profil kimliği"
+  },
+  "colToken": {
+    "message": "Belirteci (yazma erişimi)"
+  },
+  "noteToken": {
+    "message": "Belirteç, bu makinenin <b>yazma erişimidir</b>. <b>Bu bilgisayarda</b> kalır — <b>asla senkronize edilmez, asla yüklenmez</b>. Profili değiştir, jetonu değiştir; eğer biri sızarsa, sadece onu iptal edin."
+  },
+  "btnSave": {
+    "message": "Ayarları kaydet"
+  },
+  "btnTest": {
+    "message": "Bu makineyi test edin"
+  },
+  "noteTest": {
+    "message": "\"Test\", o profili bir kez okumak için <b>varsayılan profil</b> satırındaki adresi ve jetonu kullanır (<code>GET /api/v1/data</code>). Aslında tutulması gereken şeyi kontrol eder: Bu token bu profili açabilir mi? 403 her zaman belirtecin ve profilin eşleşmediği anlamına gelmez; devre dışı bırakılmış bir profil veya yönetici anahtarı da 403 verir; yanıtın türü aracılığıyla iletinin adı."
+  },
+  "bmHeading": {
+    "message": "Tarayıcı yer işaretlerinizi içe aktarın"
+  },
+  "noteBookmarks": {
+    "message": "Bu, <b>bu tarayıcının kendi</b> yer işareti ağacını okur; önce dışa aktarılacak dosya yoktur. Aşağıdaki düğmeye ilk kez bastığınızda, tarayıcı bir kez yer işaretlerinizi okuyup okuyamayacağını sorar. Bu hassastır (etkili olarak tüm göz atma geçmişinizdir), bu nedenle <b>talep üzerine izin istenir</b>: Bunu yalnızca sağ tıklamayla kaydetmek için yükleyen biri bu istemi asla görmez."
+  },
+  "btnReadBookmarks": {
+    "message": "Yer işaretlerimi oku ve nelerin içe aktarılacağını göster"
+  },
+  "btnApply": {
+    "message": "Onaylayın ve içe aktarın"
+  },
+  "btnCancel": {
+    "message": "İçe aktarma"
+  }
+}

@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "存到 launchbay"
+  },
+  "extDescription": {
+    "message": "右鍵把當前頁面存進家裡的 launchbay，或一次收藏當前視窗的所有標籤頁；也能把瀏覽器書籤樹整個導進來。"
+  },
+  "menuSave": {
+    "message": "存到 launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "把這一窗的標籤頁全存進去"
+  },
+  "badgeSaved": {
+    "message": "已存"
+  },
+  "badgeSavedN": {
+    "message": "已存 $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "沒存進 launchbay"
+  },
+  "failProfile": {
+    "message": "（當前要存的檔案：$1）",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "還沒配這臺機器的地址（擴充套件設定頁第一格）"
+  },
+  "noToken": {
+    "message": "這個檔案還沒有令牌"
+  },
+  "noGroup": {
+    "message": "這個檔案一個分組都沒有，先在頁面上建一個分組再收藏"
+  },
+  "alreadySaved": {
+    "message": "這一條已經在這份裡了，沒有重複存。"
+  },
+  "stoppedAt": {
+    "message": "存進去 $1 條之後停了：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "這一窗有 $1 個能存的網頁，還有 $2 個沒存。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "另有 $1 條本來就在這份裡。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "這一窗 $1 個能存的網頁都已經在這份裡了，沒有新東西要存。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "這臺機器不認這枚令牌：多半是少複製了字元，或者機器那邊換過令牌。"
+  },
+  "err403": {
+    "message": "這枚令牌開不了「$1」這一份：它管的是別的檔案，或者那個 id 打錯了——這兩種這臺機器答的是同一句話。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "這臺機器上沒有叫「$1」的檔案（多半是那份檔案已經被刪了）。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "這枚是管理金鑰，它不開書籤這一面。擴充套件設定頁裡要配的是那一份檔案自己的令牌。"
+  },
+  "errBadUrl": {
+    "message": "這個地址還不完整——要有協議和主機名（例如 http://10.0.0.5:5000/）。"
+  },
+  "errBroken": {
+    "message": "「$1」的資料檔案讀不動，這一條沒寫進去。要在那臺機器上修好那個檔案，重試解決不了。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "「$1」這一份被停用了，寫不進去。要在那臺機器的管理頁重新啟用它。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "這一條已經在這份裡了，沒有存第二遍。要改它，去頁面上在那一條上按編輯。"
+  },
+  "errGoneTarget": {
+    "message": "那一組或那一條已經不在了——可能別人剛改過。重新整理頁面再看一次。"
+  },
+  "errIconName": {
+    "message": "那個圖示名這臺機器查不到。要改它，去頁面上在那一條上按編輯。"
+  },
+  "errNoBookmarks": {
+    "message": "這個瀏覽器裡讀不出書籤——確認你要的那套書籤在這個瀏覽器裡（別的瀏覽器、別的機器上的書籤不在這一份裡）。"
+  },
+  "errNothingAccepted": {
+    "message": "這個瀏覽器的書籤裡，地址一條都進不來（多半是缺主機名那種，例如 javascript: 開頭）。這種請繼續在瀏覽器裡用；它們進不了任何一份檔案（本地檔案 file:// 除外，那類能進）。"
+  },
+  "errOpsBatch": {
+    "message": "這一批沒寫進去，書籤一個字都沒變。再點一次不會不一樣——這一條得在頁面上改。"
+  },
+  "errConflict": {
+    "message": "這一份剛剛被改過，再點一次就好。"
+  },
+  "errPlanGone": {
+    "message": "那份報告已經用過或過期了。再讀一次書籤就有新的一份。"
+  },
+  "errTargetNotEmpty": {
+    "message": "這一份裡已經有書籤了。匯入是把瀏覽器那套整個換進來，不是往上疊加——換一個空檔案吧。"
+  },
+  "errNoSnap": {
+    "message": "這一版存不下，改動已經取消，書籤一個字都沒變。"
+  },
+  "errServer": {
+    "message": "這臺機器答了 HTTP $1。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "連不上這臺機器（$1）。地址裡含埠嗎？例如 http://10.0.0.3:7600",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "＋ 再加一枚（另一個檔案）"
+  },
+  "tokenPlaceholder": {
+    "message": "這一份檔案自己的令牌"
+  },
+  "tokenAria": {
+    "message": "$1 的令牌",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "這個檔案"
+  },
+  "deleteRow": {
+    "message": "刪掉這一枚"
+  },
+  "rowRemovedNote": {
+    "message": "這一枚要在下一次點「存設定」時才真的去掉。"
+  },
+  "saved": {
+    "message": "已儲存。"
+  },
+  "needBase": {
+    "message": "先填地址。"
+  },
+  "needToken": {
+    "message": "先填這一份檔案自己的令牌（id 和令牌要在同一行）。"
+  },
+  "testOK": {
+    "message": "連上了，這枚令牌能開「$1」這一份。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "連上了，但這枚令牌開不了「$1」這一份：它管的是別的檔案，或者那個 id 打錯了。把 id 改成令牌對應的那一份，或換一枚令牌。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "這臺機器答了 HTTP $1，地址或檔案可能不對。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "正在讀書籤…"
+  },
+  "noPerm": {
+    "message": "沒有拿到「讀書籤」這個許可權，導不了。（你可以只走網頁那條路：手動匯出 .html 再上傳。）"
+  },
+  "missed": {
+    "message": "，另有 $1 條沒能進來（報告裡逐條列了原因）",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "讀到 $1 條書籤、$2 個分組$3。先看下面那份報告，確認了才寫進去。",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "沒導成：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "已匯入 $1 條書籤$3，版本號現在是 $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "（$1）",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": "；"
+  },
+  "applyFail": {
+    "message": "沒寫進去：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "沒匯入，書籤一點沒動。"
+  },
+  "unnamedFolder": {
+    "message": "未命名"
+  },
+  "noProfileToken": {
+    "message": "這一份還沒有自己的令牌——先在上面填一枚。"
+  },
+  "pageTitle": {
+    "message": "存到 launchbay · 設定"
+  },
+  "lblBase": {
+    "message": "這臺機器的地址"
+  },
+  "noteBase": {
+    "message": "不帶結尾斜槓。擴充套件打過去的就是這裡。"
+  },
+  "lblProf": {
+    "message": "預設檔案 id"
+  },
+  "noteProf": {
+    "message": "右鍵收藏時預設存進這一份。下面要有一枚屬於它的令牌；沒有就報「這一份還沒有令牌」，不會拿別的檔案頂替。"
+  },
+  "colId": {
+    "message": "檔案 id"
+  },
+  "colToken": {
+    "message": "這一枚令牌（寫許可權）"
+  },
+  "noteToken": {
+    "message": "令牌是這臺機器的<b>寫許可權</b>。它只留在<b>這臺電腦</b>上——不進瀏覽器同步、不上雲；換檔案就換令牌，某一臺洩露了只吊銷那一枚。"
+  },
+  "btnSave": {
+    "message": "存設定"
+  },
+  "btnTest": {
+    "message": "試一下這臺機器"
+  },
+  "noteTest": {
+    "message": "「試一下」用<b>預設檔案</b>那一行的地址與令牌，去讀一次那一份檔案（<code>GET /api/v1/data</code>）。它驗的是你真正要成立的那件事：這枚令牌能不能開啟這個檔案。403 不一定是“令牌與檔案對不上”——被停用的檔案、填了管理金鑰也都是 403；提示會按響應裡的 kind 說清是哪一種。"
+  },
+  "bmHeading": {
+    "message": "把瀏覽器書籤整個導進來"
+  },
+  "noteBookmarks": {
+    "message": "讀的是<b>這臺瀏覽器自己的</b>書籤樹，不用先去別處匯出一份檔案。第一次點下面那枚按鈕時，瀏覽器會問你一次「要讀你的書籤嗎」——讀書籤是一件很敏感的事（它等於你的整個瀏覽興趣圖譜），所以這項許可權我們設成<b>按需申請</b>：只是為「右鍵收藏」裝這個擴充套件的人，永遠不會看到那個提問。"
+  },
+  "btnReadBookmarks": {
+    "message": "讀瀏覽器書籤，看看會匯入什麼"
+  },
+  "btnApply": {
+    "message": "確認匯入"
+  },
+  "btnCancel": {
+    "message": "算了，不導"
+  }
+}

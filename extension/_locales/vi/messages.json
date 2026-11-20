@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Lưu vào launchbay"
+  },
+  "extDescription": {
+    "message": "Nhấp chuột phải để lưu trang bạn đang truy cập vào bảng khởi chạy trang chủ, lưu các tab của toàn bộ cửa sổ cùng một lúc hoặc nh..."
+  },
+  "menuSave": {
+    "message": "Lưu vào launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "Lưu các tab của cửa sổ này"
+  },
+  "badgeSaved": {
+    "message": "Đã lưu"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Chưa lưu vào launchbay"
+  },
+  "failProfile": {
+    "message": "(Hồ sơ đang được lưu vào: $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "Địa chỉ của máy này chưa được đặt — đây là hộp đầu tiên trên trang cài đặt của tiện ích mở rộng."
+  },
+  "noToken": {
+    "message": "Hồ sơ đó chưa có mã thông báo."
+  },
+  "noGroup": {
+    "message": "Hồ sơ này chưa có nhóm nào. Tạo một cái trên trang trước, sau đó lưu lại."
+  },
+  "alreadySaved": {
+    "message": "Trang đó đã có trong hồ sơ này nên không có gì được lưu hai lần."
+  },
+  "stoppedAt": {
+    "message": "Đã lưu $1 trong số đó rồi dừng: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Cửa sổ này có $1 trang cần lưu nên $2 chưa được lưu.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 đã có trong hồ sơ này.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Tất cả các trang có thể lưu $1 trong cửa sổ này đều đã có trong hồ sơ này — không có gì mới để lưu.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Máy này không nhận ra mã thông báo đó — nó có thể thiếu một ký tự hoặc máy đã xoay nó."
+  },
+  "err403": {
+    "message": "Mã thông báo này không thể mở “ $1 ”: nó thuộc về một hồ sơ khác hoặc id đó là lỗi đánh máy — máy này trả lời cả hai theo cùng một cách.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Máy này không có hồ sơ tên là “ $1 ” — có thể nó đã bị xóa.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Đó là khóa quản trị - nó không mở phần dấu trang. Trang cài đặt tiện ích mở rộng muốn có mã thông báo riêng của hồ sơ đó."
+  },
+  "errBadUrl": {
+    "message": "Địa chỉ đó chưa hoàn chỉnh — nó cần một lược đồ và tên máy chủ (ví dụ: http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "Không thể đọc được tệp dữ liệu cho “ $1 ” nên tệp đó không được ghi. Tệp phải được sửa trên máy đó — thử lại cũng không có tác dụng.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "Hồ sơ “ $1 ” bị vô hiệu hóa nên không thể ghi gì vào đó. Kích hoạt lại nó từ trang quản trị trên máy đó.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Dấu trang đó đã có trong hồ sơ này — nó không được lưu lần thứ hai. Để thay đổi nó, hãy sử dụng nút chỉnh sửa trên trang."
+  },
+  "errGoneTarget": {
+    "message": "Nhóm hoặc dấu trang đó đã biến mất — người khác có thể đã thay đổi nó. Làm mới trang và nhìn lại."
+  },
+  "errIconName": {
+    "message": "Máy này không biết tên biểu tượng đó. Để thay đổi nó, hãy sử dụng nút chỉnh sửa trên dấu trang đó trong trang."
+  },
+  "errNoBookmarks": {
+    "message": "Không thể đọc dấu trang nào từ trình duyệt này - hãy đảm bảo rằng dấu trang bạn muốn nói nằm trong trình duyệt này (dấu trang của trình duyệt khác hoặc của máy khác không có trong trình duyệt này)."
+  },
+  "errNothingAccepted": {
+    "message": "Không có địa chỉ nào trong dấu trang của trình duyệt này có thể truy cập được (thường chúng không có tên máy chủ, như các liên kết javascript:). Tiếp tục sử dụng những thứ đó trong trình duyệt; họ không thể truy cập vào bất kỳ hồ sơ nào (các liên kết tệp: // cục bộ là ngoại lệ - những liên kết đó sẽ được đưa vào)."
+  },
+  "errOpsBatch": {
+    "message": "Lô đó chưa được viết — dấu trang của bạn vẫn còn nguyên. Nhấp lại sẽ không thay đổi nó; cái này phải được thay đổi trong trang."
+  },
+  "errConflict": {
+    "message": "Hồ sơ này vừa thay đổi. Bấm vào một lần nữa."
+  },
+  "errPlanGone": {
+    "message": "Báo cáo đó đã được sử dụng hoặc đã hết hạn. Đọc lại dấu trang để tìm dấu trang mới."
+  },
+  "errTargetNotEmpty": {
+    "message": "Hồ sơ này đã có dấu trang. Quá trình nhập sẽ thay thế chúng thay vì thêm vào chúng — hãy chọn một cấu hình trống."
+  },
+  "errNoSnap": {
+    "message": "Phiên bản đó không thể được lưu trữ nên quá trình lưu đã bị hủy — dấu trang của bạn không bị ảnh hưởng."
+  },
+  "errServer": {
+    "message": "Máy trả lời HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Không thể kết nối với máy này ( $1 ). Địa chỉ có bao gồm cổng như http://10.0.0.3:7600 không?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Thêm mã thông báo của hồ sơ khác"
+  },
+  "tokenPlaceholder": {
+    "message": "Mã thông báo của hồ sơ này (quyền truy cập ghi)"
+  },
+  "tokenAria": {
+    "message": "Mã thông báo cho $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "hồ sơ này"
+  },
+  "deleteRow": {
+    "message": "Di dời"
+  },
+  "rowRemovedNote": {
+    "message": "Nó chỉ thực sự biến mất khi bạn nhấn “Lưu cài đặt”."
+  },
+  "saved": {
+    "message": "Đã lưu."
+  },
+  "needBase": {
+    "message": "Điền địa chỉ trước."
+  },
+  "needToken": {
+    "message": "Trước tiên, hãy điền mã thông báo riêng của hồ sơ này — id và mã thông báo của nó thuộc cùng một hàng."
+  },
+  "testOK": {
+    "message": "Đã kết nối - mã thông báo này sẽ mở “ $1 ”.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Đã kết nối nhưng mã thông báo này không thể mở “ $1 ”: nó nằm trong phạm vi hồ sơ khác hoặc id bị lỗi đánh máy. Sử dụng id khớp với mã thông báo hoặc sử dụng mã thông báo khớp.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "Máy trả lời HTTP $1 — địa chỉ hoặc hồ sơ có thể sai.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Đang đọc dấu trang của bạn…"
+  },
+  "noPerm": {
+    "message": "Nếu không được phép đọc dấu trang của bạn thì nó không thể chạy được. Bạn vẫn có thể đi theo lộ trình của trang web: tự xuất tệp .html và tải tệp đó lên đó."
+  },
+  "missed": {
+    "message": "— $1 không vào được (báo cáo liệt kê lý do)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Đọc dấu trang $1 trong $2 nhóm $3 . Kiểm tra báo cáo dưới đây; không có gì được viết cho đến khi bạn xác nhận.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Nhập không thành công: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Đã nhập dấu trang $1. Hồ sơ này hiện là phiên bản $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "( $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Không có gì được viết: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Không được nhập - dấu trang của bạn không bị ảnh hưởng."
+  },
+  "unnamedFolder": {
+    "message": "Vô danh"
+  },
+  "noProfileToken": {
+    "message": "Hồ sơ này chưa có mã thông báo riêng - trước tiên hãy điền mã thông báo ở trên."
+  },
+  "pageTitle": {
+    "message": "Lưu vào launchbay · Cài đặt"
+  },
+  "lblBase": {
+    "message": "Địa chỉ của máy này"
+  },
+  "noteBase": {
+    "message": "Không có dấu gạch chéo. Đây là nơi phần mở rộng gửi."
+  },
+  "lblProf": {
+    "message": "Id hồ sơ mặc định"
+  },
+  "noteProf": {
+    "message": "Nhấp chuột phải lưu vào cái này. Nó cần một mã thông báo bên dưới; không có ai, bạn sẽ nhận được \"hồ sơ này không có mã thông báo\" thay vì viết thầm vào hồ sơ khác."
+  },
+  "colId": {
+    "message": "Mã hồ sơ"
+  },
+  "colToken": {
+    "message": "Mã thông báo của nó (quyền truy cập ghi)"
+  },
+  "noteToken": {
+    "message": "Mã thông báo là <b>quyền truy cập ghi</b> của máy này. Nó vẫn ở trên <b>máy tính này</b> — <b>không bao giờ được đồng bộ hóa, không bao giờ tải lên</b>. Thay đổi hồ sơ, thay đổi mã thông báo; nếu một cái bị rò rỉ, hãy thu hồi cái đó."
+  },
+  "btnSave": {
+    "message": "Lưu cài đặt"
+  },
+  "btnTest": {
+    "message": "Kiểm tra máy này"
+  },
+  "noteTest": {
+    "message": "“Kiểm tra” sử dụng địa chỉ và mã thông báo trên hàng <b>hồ sơ mặc định</b> để đọc hồ sơ đó một lần (<code>GET /api/v1/data</code>). Nó kiểm tra thứ thực sự phải giữ: mã thông báo này có thể mở hồ sơ này không. 403 không phải lúc nào cũng có nghĩa là mã thông báo và hồ sơ không khớp - hồ sơ bị vô hiệu hóa hoặc khóa quản trị viên cũng cho 403; tên tin nhắn thông qua loại phản hồi."
+  },
+  "bmHeading": {
+    "message": "Nhập dấu trang trình duyệt của bạn"
+  },
+  "noteBookmarks": {
+    "message": "Điều này đọc cây dấu trang <b>của chính trình duyệt này</b> — không có tệp nào để xuất trước. Lần đầu tiên bạn nhấn nút bên dưới, trình duyệt sẽ hỏi một lần liệu nó có thể đọc dấu trang của bạn hay không. Điều đó rất nhạy cảm (thực tế là toàn bộ lịch sử duyệt web của bạn), vì vậy quyền <b>được yêu cầu theo yêu cầu</b>: ai đó cài đặt quyền này chỉ để lưu bằng cách nhấp chuột phải sẽ không bao giờ nhìn thấy lời nhắc đó."
+  },
+  "btnReadBookmarks": {
+    "message": "Đọc dấu trang của tôi và hiển thị những gì sẽ được nhập"
+  },
+  "btnApply": {
+    "message": "Xác nhận và nhập"
+  },
+  "btnCancel": {
+    "message": "Không nhập khẩu"
+  }
+}

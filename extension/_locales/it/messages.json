@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Salva su Launchbay"
+  },
+  "extDescription": {
+    "message": "Fai clic con il pulsante destro del mouse per salvare la pagina in cui ti trovi nella launchbay di casa, salvare le schede di un..."
+  },
+  "menuSave": {
+    "message": "Salva su Launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "Salva le schede di questa finestra"
+  },
+  "badgeSaved": {
+    "message": "Salvato"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Non ho salvato su Launchbay"
+  },
+  "failProfile": {
+    "message": "(Profilo salvato in: $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "L'indirizzo di questa macchina non è ancora impostato: è la prima casella nella pagina delle impostazioni dell'estensione."
+  },
+  "noToken": {
+    "message": "Quel profilo non ha ancora alcun token."
+  },
+  "noGroup": {
+    "message": "Questo profilo non ha ancora gruppi. Creane prima uno sulla pagina, quindi salva."
+  },
+  "alreadySaved": {
+    "message": "Quella pagina è già in questo profilo, quindi nulla è stato salvato due volte."
+  },
+  "stoppedAt": {
+    "message": "Salvati $1 di loro, poi interrotti: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Questa finestra aveva $1 pagine da salvare, quindi $2 non sono state salvate.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 erano già in questo profilo.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Tutte le $1 pagine salvabili in questa finestra erano già in questo profilo: niente di nuovo da salvare.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Questa macchina non riconosce quel token: potrebbe mancare un carattere o la macchina lo ha ruotato."
+  },
+  "err403": {
+    "message": "Questo token non può aprire \" $1 \": appartiene a un altro profilo o l'ID è un errore di battitura: questa macchina risponde ad entrambi allo stesso modo.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Questa macchina non ha un profilo chiamato “$1”: probabilmente è stato eliminato.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Questa è la chiave amministratore: non apre il lato dei segnalibri. La pagina delle impostazioni dell'estensione richiede il token di quel profilo."
+  },
+  "errBadUrl": {
+    "message": "L'indirizzo non è ancora completo: necessita di uno schema e di un nome host (ad esempio http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "Il file di dati per \" $1 \" non può essere letto, quindi non è stato scritto. Il file deve essere corretto su quella macchina: riprovare non aiuterà.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "Il profilo \"$1\" è disabilitato, quindi non è possibile scrivervi nulla. Riattivalo dalla pagina di amministrazione su quella macchina.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Quel segnalibro è già in questo profilo: non è stato memorizzato una seconda volta. Per modificarlo, utilizzare il pulsante di modifica su di esso nella pagina."
+  },
+  "errGoneTarget": {
+    "message": "Il gruppo o il segnalibro non è più presente: qualcun altro potrebbe averlo modificato. Aggiorna la pagina e guarda di nuovo."
+  },
+  "errIconName": {
+    "message": "Questa macchina non riconosce il nome dell'icona. Per modificarlo, utilizza il pulsante di modifica su quel segnalibro nella pagina."
+  },
+  "errNoBookmarks": {
+    "message": "Nessun segnalibro può essere letto da questo browser: assicurati che i segnalibri che intendi siano in questo browser (i segnalibri di un altro browser o di un'altra macchina non siano in questo)."
+  },
+  "errNothingAccepted": {
+    "message": "Nessuno degli indirizzi nei segnalibri di questo browser può essere inserito (di solito non hanno un nome host, come javascript: links). Continua a utilizzare quelli nel browser; non possono entrare in nessun profilo (i collegamenti file:// locali sono l'eccezione: quelli entrano)."
+  },
+  "errOpsBatch": {
+    "message": "Quel batch non è stato scritto: i tuoi segnalibri sono intatti. Fare di nuovo clic non lo cambierà; questo deve essere cambiato nella pagina."
+  },
+  "errConflict": {
+    "message": "Questo profilo è cambiato proprio adesso. Fare clic ancora una volta."
+  },
+  "errPlanGone": {
+    "message": "Il rapporto è stato già utilizzato oppure è scaduto. Leggi di nuovo i segnalibri per uno nuovo."
+  },
+  "errTargetNotEmpty": {
+    "message": "Questo profilo ha già dei segnalibri. Un'importazione li sostituisce anziché aggiungerli: scegli un profilo vuoto."
+  },
+  "errNoSnap": {
+    "message": "Non è stato possibile archiviare quella versione, quindi il salvataggio è stato annullato: i tuoi segnalibri non sono stati modificati."
+  },
+  "errServer": {
+    "message": "La macchina ha risposto HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Impossibile raggiungere questa macchina ($1). L'indirizzo include la porta, ad esempio http://10.0.0.3:7600?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Aggiungi il token di un altro profilo"
+  },
+  "tokenPlaceholder": {
+    "message": "Il token di questo profilo (accesso in scrittura)"
+  },
+  "tokenAria": {
+    "message": "Gettone per $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "questo profilo"
+  },
+  "deleteRow": {
+    "message": "Rimuovere"
+  },
+  "rowRemovedNote": {
+    "message": "Scompare davvero solo dopo aver premuto \"Salva impostazioni\"."
+  },
+  "saved": {
+    "message": "Salvato."
+  },
+  "needBase": {
+    "message": "Compila prima l'indirizzo."
+  },
+  "needToken": {
+    "message": "Compila prima il token di questo profilo: l'ID e il relativo token appartengono alla stessa riga."
+  },
+  "testOK": {
+    "message": "Connesso: questo token apre \"$1\".",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Connesso, ma questo token non può aprire \" $1 \": ha come ambito un altro profilo o l'ID è un errore di battitura. Utilizza l'ID che corrisponde al token oppure utilizza il token che corrisponde.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "La macchina ha risposto HTTP $1: l'indirizzo o il profilo potrebbero essere errati.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Leggendo i tuoi segnalibri..."
+  },
+  "noPerm": {
+    "message": "Senza l'autorizzazione per leggere i tuoi segnalibri, questo non può essere eseguito. Puoi comunque seguire il percorso del sito: esporta tu stesso un file .html e caricalo lì."
+  },
+  "missed": {
+    "message": "— $1 non ce l'ha fatta (il rapporto elenca il motivo)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Leggi $1 segnalibri in $2 gruppi $3 . Controlla il rapporto qui sotto; non viene scritto nulla finché non confermi.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Importazione non riuscita: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Segnalibri $1 importati. Questo profilo è ora la versione $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Non è stato scritto nulla: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Non importato: i tuoi segnalibri rimangono intatti."
+  },
+  "unnamedFolder": {
+    "message": "Senza nome"
+  },
+  "noProfileToken": {
+    "message": "Questo profilo non ha ancora un token proprio: compila prima uno sopra."
+  },
+  "pageTitle": {
+    "message": "Salva su launchbay · Impostazioni"
+  },
+  "lblBase": {
+    "message": "L'indirizzo di questa macchina"
+  },
+  "noteBase": {
+    "message": "Nessuna barra finale. Qui è dove invia l'estensione."
+  },
+  "lblProf": {
+    "message": "ID profilo predefinito"
+  },
+  "noteProf": {
+    "message": "Facendo clic con il tasto destro si salva in questo. Ha bisogno di un token qui sotto; senza uno otterrai \"questo profilo non ha token\" anziché una scrittura silenziosa in un altro profilo."
+  },
+  "colId": {
+    "message": "ID profilo"
+  },
+  "colToken": {
+    "message": "Il suo token (accesso in scrittura)"
+  },
+  "noteToken": {
+    "message": "Il token rappresenta l'<b>accesso in scrittura</b> di questa macchina. Rimane su <b>questo computer</b>: <b>mai sincronizzato, mai caricato</b>. Cambia profilo, cambia token; se ne perde uno, revoca solo quello."
+  },
+  "btnSave": {
+    "message": "Salva impostazioni"
+  },
+  "btnTest": {
+    "message": "Prova questa macchina"
+  },
+  "noteTest": {
+    "message": "\"Test\" utilizza l'indirizzo e il token sulla riga <b>profilo predefinito</b> per leggere quel profilo una volta (<code>GET /api/v1/data</code>). Controlla ciò che effettivamente deve contenere: questo token può aprire questo profilo. Un 403 non significa sempre che il token e il profilo non corrispondono: anche un profilo disabilitato o una chiave amministratore danno 403; il messaggio nomina quale tramite il tipo di risposta."
+  },
+  "bmHeading": {
+    "message": "Importa i segnalibri del tuo browser"
+  },
+  "noteBookmarks": {
+    "message": "Questo legge l'albero dei segnalibri <b>proprio</b> di questo browser: nessun file da esportare prima. La prima volta che premi il pulsante in basso, il browser ti chiede se può leggere i tuoi segnalibri. È un dato sensibile (è effettivamente l'intera cronologia di navigazione), quindi l'autorizzazione viene <b>richiesta su richiesta</b>: qualcuno che lo installa solo per salvarlo facendo clic con il pulsante destro del mouse non vede mai quel messaggio."
+  },
+  "btnReadBookmarks": {
+    "message": "Leggi i miei segnalibri e mostra cosa verrebbe importato"
+  },
+  "btnApply": {
+    "message": "Conferma e importa"
+  },
+  "btnCancel": {
+    "message": "Non importare"
+  }
+}

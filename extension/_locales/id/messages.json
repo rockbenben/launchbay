@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Simpan ke ruang peluncuran"
+  },
+  "extDescription": {
+    "message": "Klik kanan untuk menyimpan halaman yang sedang Anda buka ke ruang peluncuran beranda, menyimpan seluruh tab jendela sekaligus, a..."
+  },
+  "menuSave": {
+    "message": "Simpan ke ruang peluncuran"
+  },
+  "menuSaveWindow": {
+    "message": "Simpan tab jendela ini"
+  },
+  "badgeSaved": {
+    "message": "Disimpan"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Tidak menyimpan ke launchbay"
+  },
+  "failProfile": {
+    "message": "(Profil disimpan ke: $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "Alamat mesin ini belum disetel — ini adalah kotak pertama di laman setelan ekstensi."
+  },
+  "noToken": {
+    "message": "Profil itu belum memiliki token."
+  },
+  "noGroup": {
+    "message": "Profil ini belum memiliki grup. Buat satu di halaman terlebih dahulu, lalu simpan."
+  },
+  "alreadySaved": {
+    "message": "Halaman itu sudah ada di profil ini, jadi tidak ada yang disimpan dua kali."
+  },
+  "stoppedAt": {
+    "message": "Menyimpan $1 di antaranya, lalu menghentikannya: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Jendela ini memiliki $1 halaman untuk disimpan, jadi $2 tidak disimpan.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 sudah ada di profil ini.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Semua halaman $1 yang dapat disimpan di jendela ini sudah ada di profil ini — tidak ada hal baru untuk disimpan.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Mesin ini tidak mengenali token tersebut — mungkin ada karakter yang hilang, atau mesin memutarnya."
+  },
+  "err403": {
+    "message": "Token ini tidak dapat membuka “ $1 ”: token milik profil lain, atau id tersebut salah ketik — mesin ini menjawab keduanya dengan cara yang sama.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Mesin ini tidak memiliki profil bernama “ $1 ” — mungkin telah dihapus.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Itu kunci admin — itu tidak membuka sisi bookmark. Halaman pengaturan ekstensi menginginkan token profil itu sendiri."
+  },
+  "errBadUrl": {
+    "message": "Alamat tersebut belum lengkap — memerlukan skema dan nama host (misalnya http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "File data “$1” tidak dapat dibaca, sehingga tidak dapat ditulis. File tersebut harus diperbaiki pada mesin itu — mencoba lagi tidak akan membantu.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "Profil “ $1 ” dinonaktifkan, jadi tidak ada yang dapat ditulis ke dalamnya. Aktifkan kembali dari halaman admin di mesin itu.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Bookmark tersebut sudah ada di profil ini — tidak disimpan untuk kedua kalinya. Untuk mengubahnya, gunakan tombol edit di halaman."
+  },
+  "errGoneTarget": {
+    "message": "Grup atau bookmark tersebut hilang — orang lain mungkin telah mengubahnya. Segarkan halaman dan lihat lagi."
+  },
+  "errIconName": {
+    "message": "Mesin ini tidak mengetahui nama ikon itu. Untuk mengubahnya, gunakan tombol edit pada bookmark di halaman tersebut."
+  },
+  "errNoBookmarks": {
+    "message": "Tidak ada bookmark yang dapat dibaca dari browser ini — pastikan bookmark yang Anda maksud ada di browser ini (bookmark browser lain atau mesin lain tidak ada di browser ini)."
+  },
+  "errNothingAccepted": {
+    "message": "Tidak ada satupun alamat di bookmark browser ini yang bisa masuk (biasanya tidak memiliki nama host, seperti javascript: link). Tetap gunakan yang ada di browser; mereka tidak dapat masuk ke profil mana pun (file lokal: // tautan adalah pengecualian — tautan itu memang masuk)."
+  },
+  "errOpsBatch": {
+    "message": "Kumpulan itu belum ditulis — bookmark Anda tidak tersentuh. Mengklik lagi tidak akan mengubahnya; yang ini harus diubah di halaman."
+  },
+  "errConflict": {
+    "message": "Profil ini baru saja diubah. Klik sekali lagi."
+  },
+  "errPlanGone": {
+    "message": "Laporan itu sudah digunakan, atau sudah habis masa berlakunya. Baca lagi bookmarknya untuk yang baru."
+  },
+  "errTargetNotEmpty": {
+    "message": "Profil ini sudah memiliki bookmark. Impor menggantikannya daripada menambahkannya — pilih profil yang kosong."
+  },
+  "errNoSnap": {
+    "message": "Versi tersebut tidak dapat disimpan, sehingga penyimpanan dibatalkan — bookmark Anda tidak tersentuh."
+  },
+  "errServer": {
+    "message": "Mesin menjawab HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Tidak dapat menjangkau mesin ini ( $1 ). Apakah alamatnya termasuk portnya, seperti http://10.0.0.3:7600?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Tambahkan token profil lain"
+  },
+  "tokenPlaceholder": {
+    "message": "Token profil ini (akses tulis)"
+  },
+  "tokenAria": {
+    "message": "Token untuk $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "profil ini"
+  },
+  "deleteRow": {
+    "message": "Menghapus"
+  },
+  "rowRemovedNote": {
+    "message": "Itu hanya benar-benar hilang setelah Anda menekan \"Simpan pengaturan\"."
+  },
+  "saved": {
+    "message": "Disimpan."
+  },
+  "needBase": {
+    "message": "Isi alamatnya terlebih dahulu."
+  },
+  "needToken": {
+    "message": "Isi token profil ini terlebih dahulu — id dan tokennya ada di baris yang sama."
+  },
+  "testOK": {
+    "message": "Terhubung — token ini membuka “ $1 ”.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Terhubung, tetapi token ini tidak dapat membuka “ $1 ”: token ini dicakup ke profil lain, atau idnya salah ketik. Gunakan id yang cocok dengan token, atau gunakan token yang cocok.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "Mesin menjawab HTTP $1 — alamat atau profil mungkin salah.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Membaca bookmark Anda…"
+  },
+  "noPerm": {
+    "message": "Tanpa izin untuk membaca bookmark Anda, ini tidak dapat berjalan. Anda masih dapat mengambil rute situs: mengekspor sendiri file .html dan mengunggahnya di sana."
+  },
+  "missed": {
+    "message": "— $1 tidak berhasil masuk (laporan mencantumkan alasannya)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Baca $1 bookmark di $2 grup $3 . Periksa laporan di bawah ini; tidak ada yang tertulis sampai Anda mengonfirmasi.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Impor gagal: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Bookmark $1 yang diimpor. Profil ini sekarang menjadi versi $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "( $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Tidak ada yang tertulis: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Tidak diimpor — bookmark Anda tidak tersentuh."
+  },
+  "unnamedFolder": {
+    "message": "Tanpa nama"
+  },
+  "noProfileToken": {
+    "message": "Profil ini belum memiliki tokennya sendiri — isi salah satu di atas terlebih dahulu."
+  },
+  "pageTitle": {
+    "message": "Simpan ke ruang peluncuran · Pengaturan"
+  },
+  "lblBase": {
+    "message": "Alamat mesin ini"
+  },
+  "noteBase": {
+    "message": "Tidak ada garis miring. Di sinilah ekstensi mengirimkan."
+  },
+  "lblProf": {
+    "message": "ID profil default"
+  },
+  "noteProf": {
+    "message": "Mengklik kanan akan menyimpan ke yang ini. Dibutuhkan token di bawah ini; tanpa satu pun Anda akan mendapatkan \"profil ini tidak memiliki token\" daripada menulis diam ke profil lain."
+  },
+  "colId": {
+    "message": "ID profil"
+  },
+  "colToken": {
+    "message": "Tokennya (akses tulis)"
+  },
+  "noteToken": {
+    "message": "Tokennya adalah <b>akses tulis</b> mesin ini. File tersebut tetap ada di <b>komputer ini</b> — <b>tidak pernah disinkronkan, tidak pernah diunggah</b>. Ubah profil, ubah token; kalau ada yang bocor, cabut saja yang itu."
+  },
+  "btnSave": {
+    "message": "Simpan pengaturan"
+  },
+  "btnTest": {
+    "message": "Uji mesin ini"
+  },
+  "noteTest": {
+    "message": "“Test” menggunakan alamat dan token pada baris <b>profil default</b> untuk membaca profil tersebut satu kali (<code>GET /api/v1/data</code>). Ia memeriksa hal yang sebenarnya harus ditahan: dapatkah token ini membuka profil ini. Angka 403 tidak selalu berarti token dan profil tidak cocok — profil yang dinonaktifkan atau kunci admin juga menghasilkan angka 403; nama pesan yang mana melalui jenis tanggapannya."
+  },
+  "bmHeading": {
+    "message": "Impor bookmark browser Anda"
+  },
+  "noteBookmarks": {
+    "message": "Ini berbunyi pohon bookmark <b>milik browser ini</b> — tidak ada file yang perlu diekspor terlebih dahulu. Saat pertama kali Anda menekan tombol di bawah, browser menanyakan satu kali apakah browser boleh membaca bookmark Anda. Itu sensitif (ini sebenarnya seluruh riwayat penjelajahan Anda), jadi izin <b>diminta sesuai permintaan</b>: seseorang yang memasang ini hanya untuk menyimpan klik kanan tidak akan pernah melihat perintah itu."
+  },
+  "btnReadBookmarks": {
+    "message": "Baca bookmark saya dan tunjukkan apa yang akan diimpor"
+  },
+  "btnApply": {
+    "message": "Konfirmasikan dan impor"
+  },
+  "btnCancel": {
+    "message": "Jangan mengimpor"
+  }
+}

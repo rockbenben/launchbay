@@ -102,7 +102,7 @@ export function httpErr(res, body, profile) {
 
 // httpErrKey：那句人话是**按哪个 key 说的**。调用方要它，是因为"点这条通知该
 // 落到哪儿"跟着的是出路而不是那句话的译文——拿译文去比字符串，等于把判据建在
-// 两份语言包的字面上（换一句措辞就悄悄失效）。
+// 各语言包的字面上（换一句措辞就悄悄失效）。
 export function httpErrKey(res, body) {
   return KIND[kindOf(body)] || STATUS[res.status] || 'errServer';
 }

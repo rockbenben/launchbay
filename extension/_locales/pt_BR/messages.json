@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Salvar no launchbay"
+  },
+  "extDescription": {
+    "message": "Clique com o botão direito para salvar a página em que você está na área de lançamento inicial, salve as guias de uma janela int..."
+  },
+  "menuSave": {
+    "message": "Salvar no launchbay"
+  },
+  "menuSaveWindow": {
+    "message": "Salve as guias desta janela"
+  },
+  "badgeSaved": {
+    "message": "Salvo"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Não salvei no launchbay"
+  },
+  "failProfile": {
+    "message": "(Perfil sendo salvo em: $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "O endereço desta máquina ainda não está definido – é a primeira caixa na página de configurações da extensão."
+  },
+  "noToken": {
+    "message": "Esse perfil ainda não tem token."
+  },
+  "noGroup": {
+    "message": "Este perfil ainda não possui grupos. Faça um na página primeiro e depois salve."
+  },
+  "alreadySaved": {
+    "message": "Essa página já está neste perfil, então nada foi salvo duas vezes."
+  },
+  "stoppedAt": {
+    "message": "Salvei $1 deles e parei: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Esta janela tinha $1 páginas para salvar, então $2 não foram salvas.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 já estavam neste perfil.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Todas as $1 páginas salváveis ​​nesta janela já estavam neste perfil — nada de novo para salvar.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Esta máquina não reconhece esse token — pode estar faltando um caractere ou a máquina o girou."
+  },
+  "err403": {
+    "message": "Este token não pode abrir “$1 ”: ele pertence a outro perfil, ou esse id é um erro de digitação — esta máquina responde as duas coisas da mesma maneira.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Esta máquina não tem perfil chamado “$1” — provavelmente foi excluído.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "Essa é a chave de administrador – ela não abre o lado dos favoritos. A página de configurações da extensão deseja o token desse perfil."
+  },
+  "errBadUrl": {
+    "message": "Esse endereço ainda não está completo — ele precisa de um esquema e um nome de host (por exemplo http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "O arquivo de dados para “ $1 ” não pode ser lido, então esse não foi gravado. O arquivo precisa ser corrigido naquela máquina – tentar novamente não ajudará.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "O perfil “$1” está desabilitado, então nada pode ser gravado nele. Reative-o na página de administração dessa máquina.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Esse marcador já está neste perfil – ele não foi armazenado pela segunda vez. Para alterá-lo, use o botão de edição na página."
+  },
+  "errGoneTarget": {
+    "message": "Esse grupo ou marcador desapareceu – outra pessoa pode tê-lo alterado. Atualize a página e veja novamente."
+  },
+  "errIconName": {
+    "message": "Esta máquina não conhece esse nome de ícone. Para alterá-lo, use o botão de edição desse marcador na página."
+  },
+  "errNoBookmarks": {
+    "message": "Nenhum marcador pôde ser lido neste navegador - certifique-se de que os marcadores que você quis dizer estejam neste navegador (os marcadores de outro navegador ou de outra máquina não estão neste)."
+  },
+  "errNothingAccepted": {
+    "message": "Nenhum dos endereços nos favoritos deste navegador pode ser inserido (geralmente eles não têm nome de host, como javascript: links). Continue usando aqueles no navegador; eles não podem entrar em nenhum perfil (os links locais file:// são a exceção - esses entram)."
+  },
+  "errOpsBatch": {
+    "message": "Esse lote não foi escrito – seus favoritos permanecem intactos. Clicar novamente não mudará isso; este tem que ser alterado na página."
+  },
+  "errConflict": {
+    "message": "Este perfil mudou agora há pouco. Clique mais uma vez."
+  },
+  "errPlanGone": {
+    "message": "Esse relatório já foi usado ou expirou. Leia os marcadores novamente para obter um novo."
+  },
+  "errTargetNotEmpty": {
+    "message": "Este perfil já possui favoritos. Uma importação os substitui em vez de adicioná-los – escolha um perfil vazio."
+  },
+  "errNoSnap": {
+    "message": "Essa versão não pôde ser armazenada, então o salvamento foi cancelado – seus favoritos permanecem intactos."
+  },
+  "errServer": {
+    "message": "A máquina respondeu HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Não foi possível acessar esta máquina ( $1 ). O endereço inclui a porta, como http://10.0.0.3:7600?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Adicione o token de outro perfil"
+  },
+  "tokenPlaceholder": {
+    "message": "O token deste perfil (acesso de gravação)"
+  },
+  "tokenAria": {
+    "message": "Token para $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "este perfil"
+  },
+  "deleteRow": {
+    "message": "Remover"
+  },
+  "rowRemovedNote": {
+    "message": "Só desaparece quando você pressiona “Salvar configurações”."
+  },
+  "saved": {
+    "message": "Salvo."
+  },
+  "needBase": {
+    "message": "Preencha o endereço primeiro."
+  },
+  "needToken": {
+    "message": "Preencha primeiro o token deste perfil — o id e seu token pertencem à mesma linha."
+  },
+  "testOK": {
+    "message": "Conectado — este token abre “$1”.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Conectado, mas este token não pode abrir “ $1 ”: o escopo é para outro perfil ou o ID é um erro de digitação. Use o ID que corresponde ao token ou use o token que corresponde.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "A máquina respondeu HTTP $1 — o endereço ou o perfil pode estar errado.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Lendo seus favoritos…"
+  },
+  "noPerm": {
+    "message": "Sem permissão para ler seus favoritos, isso não poderá ser executado. Você ainda pode seguir o caminho do site: exporte você mesmo um arquivo .html e carregue-o lá."
+  },
+  "missed": {
+    "message": "— $1 não conseguiu (o relatório lista o porquê)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Leia $1 favoritos em $2 grupos $3 . Confira o relatório abaixo; nada está escrito até que você confirme.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Falha na importação: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Favoritos $1 importados. Este perfil agora é a versão $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Nada foi escrito: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Não importado – seus favoritos permanecem intactos."
+  },
+  "unnamedFolder": {
+    "message": "Sem nome"
+  },
+  "noProfileToken": {
+    "message": "Este perfil ainda não possui token próprio – preencha primeiro um acima."
+  },
+  "pageTitle": {
+    "message": "Salvar no launchbay · Configurações"
+  },
+  "lblBase": {
+    "message": "O endereço desta máquina"
+  },
+  "noteBase": {
+    "message": "Sem barra final. É para onde a extensão envia."
+  },
+  "lblProf": {
+    "message": "ID de perfil padrão"
+  },
+  "noteProf": {
+    "message": "Clicar com o botão direito salva neste. Precisa de um token abaixo; sem ele você obterá “este perfil não tem token” em vez de uma gravação silenciosa em outro perfil."
+  },
+  "colId": {
+    "message": "ID do perfil"
+  },
+  "colToken": {
+    "message": "Seu token (acesso de gravação)"
+  },
+  "noteToken": {
+    "message": "O token é o <b>acesso de gravação</b> desta máquina. Ele permanece <b>neste computador</b> — <b>nunca sincronizado, nunca carregado</b>. Alterar perfil, alterar token; se um vazar, revogue apenas esse."
+  },
+  "btnSave": {
+    "message": "Salvar configurações"
+  },
+  "btnTest": {
+    "message": "Teste esta máquina"
+  },
+  "noteTest": {
+    "message": "“Teste” usa o endereço e o token na linha <b>perfil padrão</b> para ler esse perfil uma vez (<code>GET /api/v1/data</code>). Ele verifica o que realmente deve ser mantido: esse token pode abrir esse perfil. Um 403 nem sempre significa que o token e o perfil não correspondem – um perfil desativado ou uma chave de administrador também fornece 403; a mensagem nomeia qual delas por meio do tipo de resposta."
+  },
+  "bmHeading": {
+    "message": "Importe os favoritos do seu navegador"
+  },
+  "noteBookmarks": {
+    "message": "Isso mostra a árvore de favoritos do <b>próprio navegador</b> — nenhum arquivo para exportar primeiro. Na primeira vez que você pressiona o botão abaixo, o navegador pergunta uma vez se pode ler seus favoritos. Isso é confidencial (é efetivamente todo o seu histórico de navegação), então a permissão é <b>solicitada sob demanda</b>: alguém que instala isso apenas para salvar com o botão direito nunca vê esse prompt."
+  },
+  "btnReadBookmarks": {
+    "message": "Leia meus favoritos e mostre o que seria importado"
+  },
+  "btnApply": {
+    "message": "Confirmar e importar"
+  },
+  "btnCancel": {
+    "message": "Não importe"
+  }
+}

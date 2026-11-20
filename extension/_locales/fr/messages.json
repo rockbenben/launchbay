@@ -1,0 +1,383 @@
+{
+  "extName": {
+    "message": "Enregistrer dans la baie de lancement"
+  },
+  "extDescription": {
+    "message": "Faites un clic droit pour enregistrer la page sur laquelle vous vous trouvez sur votre baie de lancement d'accueil, enregistrez ..."
+  },
+  "menuSave": {
+    "message": "Enregistrer dans la baie de lancement"
+  },
+  "menuSaveWindow": {
+    "message": "Enregistrez les onglets de cette fenêtre"
+  },
+  "badgeSaved": {
+    "message": "Enregistré"
+  },
+  "badgeSavedN": {
+    "message": "$1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "failTitle": {
+    "message": "Je n'ai pas enregistré dans Launchbay"
+  },
+  "failProfile": {
+    "message": "(Profil en cours d'enregistrement sous : $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "noBase": {
+    "message": "L'adresse de cette machine n'est pas encore définie : il s'agit de la première case de la page des paramètres de l'extension."
+  },
+  "noToken": {
+    "message": "Ce profil n'a pas encore de jeton."
+  },
+  "noGroup": {
+    "message": "Ce profil n'a pas encore de groupes. Créez-en d'abord un sur la page, puis enregistrez-le."
+  },
+  "alreadySaved": {
+    "message": "Cette page est déjà dans ce profil, donc rien n'a été enregistré deux fois."
+  },
+  "stoppedAt": {
+    "message": "J'en ai enregistré $1, puis je l'ai arrêté : $2",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "windowTotals": {
+    "message": "Cette fenêtre avait $1 pages à enregistrer, donc $2 n'ont pas été enregistrées.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "skippedDup": {
+    "message": "$1 figuraient déjà dans ce profil.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "nothingNew": {
+    "message": "Toutes les $1 pages enregistrables dans cette fenêtre se trouvaient déjà dans ce profil – rien de nouveau à enregistrer.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err401": {
+    "message": "Cette machine ne reconnaît pas ce jeton : il lui manque peut-être un caractère ou la machine l'a fait pivoter."
+  },
+  "err403": {
+    "message": "Ce token ne peut pas ouvrir « $1 » : il appartient à un autre profil, ou cet identifiant est une faute de frappe — cette machine répond aux deux de la même manière.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "err404": {
+    "message": "Cette machine n'a pas de profil appelé « $1 » – elle a probablement été supprimée.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errAdminOnly": {
+    "message": "C'est la clé d'administration – elle n'ouvre pas le côté des favoris. La page des paramètres d'extension souhaite le propre jeton de ce profil."
+  },
+  "errBadUrl": {
+    "message": "Cette adresse n'est pas encore complète : elle nécessite un schéma et un nom d'hôte (par exemple http://10.0.0.5:5000/)."
+  },
+  "errBroken": {
+    "message": "Le fichier de données pour « $1 » ne peut pas être lu, donc celui-ci n'a pas été écrit. Le fichier doit être corrigé sur cette machine – réessayer ne servira à rien.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDisabled": {
+    "message": "Le profil « $1 » est désactivé, rien ne peut donc y être écrit. Réactivez-le à partir de la page d'administration de cette machine.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "errDuplicate": {
+    "message": "Ce favori figure déjà dans ce profil ; il n'a pas été stocké une deuxième fois. Pour le modifier, utilisez le bouton Modifier dans la page."
+  },
+  "errGoneTarget": {
+    "message": "Ce groupe ou ce signet a disparu ; quelqu'un d'autre l'a peut-être modifié. Actualisez la page et regardez à nouveau."
+  },
+  "errIconName": {
+    "message": "Cette machine ne connaît pas le nom de cette icône. Pour le modifier, utilisez le bouton Modifier sur ce signet dans la page."
+  },
+  "errNoBookmarks": {
+    "message": "Aucun favori n'a pu être lu à partir de ce navigateur — assurez-vous que les favoris que vous vouliez dire se trouvent dans ce navigateur (les favoris d'un autre navigateur ou d'une autre machine ne sont pas dans celui-ci)."
+  },
+  "errNothingAccepted": {
+    "message": "Aucune des adresses contenues dans les favoris de ce navigateur ne peut y entrer (elles n'ont généralement pas de nom d'hôte, comme javascript: links). Continuez à les utiliser dans le navigateur ; ils ne peuvent accéder à aucun profil (les liens locaux file:// sont l'exception – ceux-ci entrent)."
+  },
+  "errOpsBatch": {
+    "message": "Ce lot n'a pas été écrit : vos favoris sont intacts. Cliquer à nouveau ne le changera pas ; celui-ci doit être modifié dans la page."
+  },
+  "errConflict": {
+    "message": "Ce profil a changé tout à l'heure. Cliquez une fois de plus."
+  },
+  "errPlanGone": {
+    "message": "Ce rapport était déjà utilisé ou il a expiré. Relisez les signets pour en trouver un nouveau."
+  },
+  "errTargetNotEmpty": {
+    "message": "Ce profil contient déjà des favoris. Une importation les remplace plutôt que d’y ajouter : choisissez un profil vide."
+  },
+  "errNoSnap": {
+    "message": "Cette version n'a pas pu être stockée, la sauvegarde a donc été annulée : vos favoris sont intacts."
+  },
+  "errServer": {
+    "message": "La machine a répondu HTTP $1 .",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "netFail": {
+    "message": "Impossible d'atteindre cette machine ( $1 ). L'adresse inclut-elle le port, comme http://10.0.0.3:7600 ?",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "addRow": {
+    "message": "+ Ajouter le jeton d'un autre profil"
+  },
+  "tokenPlaceholder": {
+    "message": "Le jeton de ce profil (accès en écriture)"
+  },
+  "tokenAria": {
+    "message": "Jeton pour $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "thisProfile": {
+    "message": "ce profil"
+  },
+  "deleteRow": {
+    "message": "Retirer"
+  },
+  "rowRemovedNote": {
+    "message": "Ce n'est vraiment parti que lorsque vous appuyez sur « Enregistrer les paramètres »."
+  },
+  "saved": {
+    "message": "Enregistré."
+  },
+  "needBase": {
+    "message": "Remplissez d'abord l'adresse."
+  },
+  "needToken": {
+    "message": "Remplissez d'abord le jeton de ce profil : l'identifiant et son jeton appartiennent sur la même ligne."
+  },
+  "testOK": {
+    "message": "Connecté — ce jeton ouvre « $1 ».",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "test403": {
+    "message": "Connecté, mais ce jeton ne peut pas ouvrir « $1 » : il est limité à un autre profil, ou l'identifiant est une faute de frappe. Utilisez l'identifiant qui correspond au jeton ou utilisez le jeton qui correspond.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "testOther": {
+    "message": "La machine a répondu HTTP $1 — l'adresse ou le profil est peut-être erroné.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "reading": {
+    "message": "Lire vos favoris…"
+  },
+  "noPerm": {
+    "message": "Sans autorisation de lire vos favoris, cela ne peut pas fonctionner. Vous pouvez toujours suivre le chemin du site : exporter vous-même un fichier .html et l'y télécharger."
+  },
+  "missed": {
+    "message": "— $1 n'est pas arrivé (le rapport indique pourquoi)",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "planSummary": {
+    "message": "Lire $1 favoris dans $2 groupes $3 . Consultez le rapport ci-dessous ; rien n'est écrit jusqu'à ce que vous confirmiez.",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "importFail": {
+    "message": "Échec de l'importation : $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "applied": {
+    "message": "Signets $1 importés. Ce profil est désormais la version $2 . $3",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      },
+      "2": {
+        "content": "$2",
+        "example": ""
+      },
+      "3": {
+        "content": "$3",
+        "example": ""
+      }
+    }
+  },
+  "warnClause": {
+    "message": "( $1 )",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "warnSep": {
+    "message": ";"
+  },
+  "applyFail": {
+    "message": "Rien n'a été écrit : $1",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": ""
+      }
+    }
+  },
+  "cancelled": {
+    "message": "Non importé : vos favoris restent intacts."
+  },
+  "unnamedFolder": {
+    "message": "Anonyme"
+  },
+  "noProfileToken": {
+    "message": "Ce profil n’a pas encore de jeton propre – remplissez-en un ci-dessus en premier."
+  },
+  "pageTitle": {
+    "message": "Enregistrer sur Launchbay · Paramètres"
+  },
+  "lblBase": {
+    "message": "L'adresse de cette machine"
+  },
+  "noteBase": {
+    "message": "Aucune barre oblique finale. C'est là que l'extension envoie."
+  },
+  "lblProf": {
+    "message": "Identifiant du profil par défaut"
+  },
+  "noteProf": {
+    "message": "Un clic droit enregistre dans celui-ci. Il a besoin d'un jeton ci-dessous ; sans cela, vous obtiendrez « ce profil n'a pas de jeton » plutôt qu'une écriture silencieuse dans un autre profil."
+  },
+  "colId": {
+    "message": "Identifiant du profil"
+  },
+  "colToken": {
+    "message": "Son token (accès en écriture)"
+  },
+  "noteToken": {
+    "message": "Le jeton est l'<b>accès en écriture</b> de cette machine. Il reste sur <b>cet ordinateur</b> — <b>jamais synchronisé, jamais téléchargé</b>. Changer de profil, changer de token ; s'il y en a une qui fuit, révoquez uniquement celle-là."
+  },
+  "btnSave": {
+    "message": "Enregistrer les paramètres"
+  },
+  "btnTest": {
+    "message": "Testez cette machine"
+  },
+  "noteTest": {
+    "message": "« Test » utilise l'adresse et le jeton sur la ligne <b>profil par défaut</b> pour lire ce profil une fois (<code>GET /api/v1/data</code>). Il vérifie ce qui doit réellement contenir : ce jeton peut-il ouvrir ce profil. Un 403 ne signifie pas toujours que le jeton et le profil ne correspondent pas : un profil désactivé ou une clé d'administrateur donne également 403 ; le message nomme lequel via le type de réponse."
+  },
+  "bmHeading": {
+    "message": "Importez les favoris de votre navigateur"
+  },
+  "noteBookmarks": {
+    "message": "Ceci lit l'arborescence de signets <b>de ce navigateur</b> - aucun fichier à exporter en premier. La première fois que vous appuyez sur le bouton ci-dessous, le navigateur vous demande une fois s'il peut lire vos favoris. C'est sensible (il s'agit en fait de l'intégralité de votre historique de navigation), donc l'autorisation est <b>demandée à la demande</b> : quelqu'un qui l'installe juste pour l'enregistrer par un clic droit ne voit jamais cette invite."
+  },
+  "btnReadBookmarks": {
+    "message": "Lire mes favoris et montrer ce qui serait importé"
+  },
+  "btnApply": {
+    "message": "Confirmer et importer"
+  },
+  "btnCancel": {
+    "message": "Ne pas importer"
+  }
+}

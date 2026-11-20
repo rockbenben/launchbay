@@ -17,7 +17,7 @@
 // 扩展不做 URL 白名单，替用户偷偷删书签不是它该做的事。
 //
 // 这里**一句中文都不写**：每一句人都要读到的话都住在 `_locales/*/messages.json`
-// （internal/i18n/extcatalog_test.go 钉着两份语言一一对应，并钉着"服务端登记的
+// （internal/i18n/extcatalog_test.go 钉着各门语言 key 一一对应，并钉着"服务端登记的
 // 每一个错误码在这儿都有交代"）。服务端答的那些 detail / reason 是给脚本读的
 // 协议话，不进通知——它们进 console，那里有排查的人与 AI。
 
