@@ -285,7 +285,7 @@ type historyDict struct {
 	st *store.Store
 	id string
 	// tr 是**这一份**的翻译器（2026-10-20）：这一页的每一句话都要跟档案页
-	// 的 chrome 同一种语言，否则一页上会出现中英混排。
+	// 的 chrome 同一种语言，否则一页上会出现多种语言混排。
 	tr     tr
 	sep    string
 	groups map[string]string
@@ -351,7 +351,7 @@ func (d *historyDict) groupName(gid string) string {
 
 // itemName 是「自建服务 › 群晖 DSM」那一句。分隔符走语言包（`history.sep`）
 // 而不是在这里拼一个字符：它是屏幕上的字，而屏上的字只有一份、住在语言包里
-// （AGENTS.md 那条纪律一）。今天两种语言用同一个 ` › `，将来要分开也是改语言包。
+// （AGENTS.md 那条纪律一）。今天的语言包里大多是 ` › `（阿拉伯语是 `›`），将来要换也是改语言包。
 func (d *historyDict) itemName(gid, iid string) string {
 	name := iid
 	if n, ok := d.items[gid+"/"+iid]; ok {

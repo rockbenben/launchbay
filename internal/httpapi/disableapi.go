@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/ops"
 	"github.com/rockbenben/launchbay/internal/render"
@@ -135,7 +136,7 @@ func (s *Server) handleAdminDisableAPI(w http.ResponseWriter, r *http.Request) {
 // "把家删了"；停用的理由更轻——停用自己在用的那一份会立刻把自己关在门外，
 // 而管理员随时能启回来，所以它只是防手滑，不是安全闸。
 //
-// 停用**管理员自己**是允许的（他可以停用自己那份、去看另一个管理员的台）——
+// 停用**管理员自己**是允许的（他可以停用自己那份，也可以从另一份档案的会话回选择页）——
 // 那是账号层面的正常操作，不涉及任何人的书签。
 func (s *Server) disableSelfBlocked(r *http.Request, row statusProfile) bool {
 	return row.ID == sessionProfileID(r)
@@ -160,25 +161,28 @@ func (s *Server) handleAdminDisablePage(w http.ResponseWriter, r *http.Request) 
 		redirectAdminErr(w, "selfdisable")
 		return
 	}
+	lang, theme := s.adminAppearance(r)
+	text := i18n.Load(lang).T
 	label := rowLabel(row)
 	var heading, explain, submit string
 	disabled := !row.Disabled
 	if disabled {
-		heading = s.t(r, "admin.disable.heading.on", label)
-		explain = s.t(r, "admin.disable.explain.on", label)
-		submit = s.t(r, "admin.disable.submit.on")
+		heading = text("admin.disable.heading.on", label)
+		explain = text("admin.disable.explain.on", label)
+		submit = text("admin.disable.submit.on")
 	} else {
-		heading = s.t(r, "admin.disable.heading.off", label)
-		explain = s.t(r, "admin.disable.explain.off", label)
-		submit = s.t(r, "admin.disable.submit.off")
+		heading = text("admin.disable.heading.off", label)
+		explain = text("admin.disable.explain.off", label)
+		submit = text("admin.disable.submit.off")
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: s.t(r, map[bool]string{true: "admin.disable.title.on", false: "admin.disable.title.off"}[disabled]),
+		Theme: theme,
+		ID:    id, Title: text(map[bool]string{true: "admin.disable.title.on", false: "admin.disable.title.off"}[disabled]),
 		Heading: heading, Explain: explain,
-		Notice: s.notice(r, r.URL.Query().Get("err")),
+		Notice: noticeOf(lang, r.URL.Query().Get("err")),
 		Action: "/admin/disable",
 		Submit: submit,
-	}, s.machineLang(r))
+	}, lang)
 	if err != nil {
 		writeInternalError(w, err)
 		return

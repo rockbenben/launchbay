@@ -34,6 +34,10 @@ import (
 var pinRangeRe = regexp.MustCompile(fmt.Sprintf(`\b%d\b\s*(?:到|to|إلى|-|–|—)\s*\b%d\b`,
 	auth.PinMinLen, auth.PinMaxLen))
 
+// Localized messages can spell out the separator or use local decimal digits.
+var localizedPINRangeRe = regexp.MustCompile(fmt.Sprintf(`(?:^|[^\p{N}])%d[^\p{N}]{1,12}%d(?:$|[^\p{N}])`,
+	auth.PinMinLen, auth.PinMaxLen))
+
 // 服务端那句 422 理由：它是**给人看的那句**，数字必须与判据同源。
 func TestPIN的格式理由说的是判据那个范围(t *testing.T) {
 	_, h := setupBatch(t)
@@ -86,7 +90,15 @@ func TestPIN的范围在各门语言包里说的是同一个(t *testing.T) {
 	} {
 		for _, lang := range i18n.All {
 			s := i18n.Load(lang).T(tc.key, tc.args...)
-			if !pinRangeRe.MatchString(s) {
+			digits := strings.Map(func(r rune) rune {
+				for _, zero := range []rune{'০', '٠', '०', '๐'} {
+					if r >= zero && r <= zero+9 {
+						return '0' + r - zero
+					}
+				}
+				return r
+			}, s)
+			if !localizedPINRangeRe.MatchString(digits) {
 				t.Errorf("%s 的 %s 说的是 %q，没有说当前那个范围（%d 到 %d 位）",
 					lang, tc.key, s, auth.PinMinLen, auth.PinMaxLen)
 			}

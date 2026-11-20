@@ -214,6 +214,17 @@ func (s *Server) machineLang(r *http.Request) i18n.Lang {
 	return i18n.En
 }
 
+// adminAppearance follows the active profile's reading preferences when present.
+func (s *Server) adminAppearance(r *http.Request) (i18n.Lang, string) {
+	if id := sessionProfileID(r); id != "" {
+		p, err := s.deps.Store.LoadProfile(id)
+		if err == nil && !p.Disabled {
+			return s.langOfProfile(r, p), p.Theme
+		}
+	}
+	return s.machineLang(r), ""
+}
+
 // langOf 拿"这一次请求、这一份档案"该用哪种语言。
 //
 // 链条最上面那一格是**这一份自己记的**（profile.json 的 language）——它最具体，
@@ -232,7 +243,7 @@ func (s *Server) langOf(r *http.Request, profileID string) i18n.Lang {
 //
 // **判据是 i18n.ProfileLang 一处**（2026-10-20 修）：从前这里把
 // "这一份自己记了没有语言"与"记了一个不认识的值"当成同一件事，于是
-// 手改/拷贝来的 `"language":"zh-CN"`（或 "fr"）会把这一份**静默钉死在中文**——
+// 手改/拷贝来的 `"language":"zh-CN"`会把这一份**静默钉死在中文**——
 // 既不跟站级默认，也不跟浏览器语言，链的后两格被完全跳过。而 i18n.ProfileLang
 // 的新口径是"不认识的 = 没选过"（读侧宽、写侧严），空串与非法值同形。
 func (s *Server) langOfProfile(r *http.Request, p *model.Profile) i18n.Lang {
@@ -253,9 +264,7 @@ func (s *Server) langOfProfile(r *http.Request, p *model.Profile) i18n.Lang {
 // 所以两处形状并存，各有理由：模板里的 chrome（语言无关的那些）走 view.T，
 // 这一族（要带值）在 Go 侧查表。翻字只有 i18n.Load 这一份。
 //
-// **它说的是"站级那一种"**（2026-10-20 改判）：管理页、选择页、登录页与三张
-// 确认页都是**机器层面**的页面，它们用默认语言。**档案自己那一份**的页面
-// （档案页、台面面板、改动历史、回退、导入）用 trFor(r, id) 翻。
+// 选择页等没有个人会话的页面使用站级语言，管理页用 adminAppearance。
 func (s *Server) t(r *http.Request, key string, args ...any) string {
 	return i18n.Load(s.machineLang(r)).T(key, args...)
 }
@@ -352,6 +361,12 @@ func browserLangOr(h string) (i18n.Lang, bool) {
 			continue
 		}
 		full := strings.ToLower(strings.TrimSpace(pref.tag))
+		if strings.HasPrefix(full, "zh-hant-") {
+			return i18n.ZhTW, true
+		}
+		if strings.HasPrefix(full, "zh-hans-") {
+			return i18n.Zh, true
+		}
 		switch full {
 		case "zh-tw", "zh-hk", "zh-mo", "zh-hant":
 			return i18n.ZhTW, true
@@ -365,7 +380,7 @@ func browserLangOr(h string) (i18n.Lang, bool) {
 		}
 		primary := strings.ToLower(strings.TrimSpace(strings.SplitN(pref.tag, "-", 2)[0]))
 		for _, l := range i18n.All {
-			if string(l) == primary {
+			if tag, _, _ := strings.Cut(l.HTMLLang(), "-"); tag == primary {
 				return l, true
 			}
 		}

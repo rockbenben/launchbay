@@ -15,7 +15,7 @@ import (
 // 写错一个，屏幕上就印出 `⟨history.op.item.nmae⟩`，而没有任何测试会红。
 //
 // 渲染层那一侧扫不到它们（它们不在 .go 的调用点里），所以这一族在这里查：
-// 判据是**每一枚都在语言包里**（两种语言都要有）。
+// 判据是**每一枚都在语言包里**（各门语言都要有）。
 func Test历史那一族的key都在语言包里(t *testing.T) {
 	for name, m := range map[string]map[string]string{
 		"itemFieldKeys":  itemFieldKeys,
@@ -37,7 +37,7 @@ func Test历史那一族的key都在语言包里(t *testing.T) {
 	}
 }
 
-// 渠道那一族**要全**：`by` 是调用方自报的口径，AGENTS.md 写着七个值
+// 渠道那一族**要全**：`by` 是调用方自报的口径，AGENTS.md 写着六个值
 // （ai / bookmarklet / extension / web / import / cli）。而语言包里少了哪一档，
 // 那一档在历史页上就印出尖括号——而历史页是"谁动过这台机器"的唯一证据。
 func Test历史那一族的渠道都有一句话(t *testing.T) {

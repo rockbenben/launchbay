@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rockbenben/launchbay/internal/auth"
+	"github.com/rockbenben/launchbay/internal/i18n"
 	"github.com/rockbenben/launchbay/internal/model"
 	"github.com/rockbenben/launchbay/internal/render"
 )
@@ -137,22 +138,25 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 	// 仍然拦着的是**删档与停用**：那两件是会话层面的事（删掉自己正在用的那
 	// 一份会把会话悬空），与权限无关——删档见 deleteBlocked，停用见
 	// disableSelfBlocked（disableapi.go）。
-	title, heading, explain := s.t(r, "admin.pin.title.add"), s.t(r, "admin.pin.heading.add", rowLabel(row)), s.t(r, "admin.pin.explain.add", rowLabel(row))
-	submit, field, hint := s.t(r, "admin.pin.submit.add"), s.t(r, "admin.pin.field.add"), s.t(r, "admin.pin.field.hint.add")
+	lang, theme := s.adminAppearance(r)
+	text := i18n.Load(lang).T
+	title, heading, explain := text("admin.pin.title.add"), text("admin.pin.heading.add", rowLabel(row)), text("admin.pin.explain.add", rowLabel(row))
+	submit, field, hint := text("admin.pin.submit.add"), text("admin.pin.field.add"), text("admin.pin.field.hint.add")
 	if row.PinSet {
-		title, heading, explain = s.t(r, "admin.pin.title.change"), s.t(r, "admin.pin.heading.change", rowLabel(row)), s.t(r, "admin.pin.explain.change", rowLabel(row))
-		submit, field, hint = s.t(r, "admin.pin.submit.change"), s.t(r, "admin.pin.field.change"), s.t(r, "admin.pin.field.hint.change")
+		title, heading, explain = text("admin.pin.title.change"), text("admin.pin.heading.change", rowLabel(row)), text("admin.pin.explain.change", rowLabel(row))
+		submit, field, hint = text("admin.pin.submit.change"), text("admin.pin.field.change"), text("admin.pin.field.hint.change")
 	}
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: title, Heading: heading,
+		Theme: theme,
+		ID:    id, Title: title, Heading: heading,
 		// 档案名两侧要有引号：从前写成"进 妈妈的台 这一份"，名字裸粘在句中读起来
 		// 像漏了字。人称也换掉——"他本人""你得"假定了对方的性别与身份，
 		// 而管理员未必是家长。
 		Explain: explain,
 		// 改的是**自己正在用的那一份**时有一句额外的话要说：现在这个页面
 		// 还在（会话不受影响），但下次进门要输新的那个 PIN。
-		Note:   s.pinNoteFor(r, row),
-		Notice: s.notice(r, r.URL.Query().Get("err")),
+		Note:   pinNoteFor(r, row, lang),
+		Notice: noticeOf(lang, r.URL.Query().Get("err")),
 		Action: "/admin/pin",
 		Submit: submit,
 		// 长度范围**取自 auth 那两个常量**（2026-10-20）：这一格是这一族页面
@@ -165,7 +169,7 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 			// 不归模板——管理密钥那一格要的是相反的那一种（见下面那处）。
 			InputMode: "numeric",
 			MinLen:    auth.PinMinLen, MaxLen: auth.PinMaxLen}},
-	}, s.machineLang(r))
+	}, lang)
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -178,11 +182,11 @@ func (s *Server) handleAdminPinPage(w http.ResponseWriter, r *http.Request) {
 // 它是**后果**：改 PIN 不会把当前会话踢掉（会话挂在档案 id 上，不挂在 PIN
 // 上），但下一次进门要输新的那个——不说的话，人会以为"改完就进不来了"，
 // 于是不敢改自己那一份，于是永远用旧 PIN。
-func (s *Server) pinNoteFor(r *http.Request, row statusProfile) string {
+func pinNoteFor(r *http.Request, row statusProfile, lang i18n.Lang) string {
 	if row.ID == "" || row.ID != sessionProfileID(r) {
 		return ""
 	}
-	return s.t(r, "admin.pin.note.self")
+	return i18n.Load(lang).T("admin.pin.note.self")
 }
 
 // handleAdminPinForm 是第二步：走 API 同一个落点（adminPin），**不自写判据**。
@@ -202,7 +206,7 @@ func (s *Server) handleAdminPinForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// **profile 同名多值也要拒**（2026-10-20 补）。`profile` 是"改哪一份"的身份
-	// 字段，而同族的 /admin/delete 早就查了它（那边是 adminpage.go 抄的同一条
+	// 字段，而同族的 /admin/delete 早就查了它（那条表单也在本文件里，抄的是同一条
 	// 纪律）。从前这一条只查 new，于是
 	// `POST /admin/pin profile=kid&profile=dad&new=1357` 取第一个就改了 kid——
 	// 与 /prefs、/setup 那条"同名多值不是取第一个，是没说清"同一族纪律。
@@ -266,18 +270,21 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 		redirectAdminErr(w, "self")
 		return
 	}
+	lang, theme := s.adminAppearance(r)
+	text := i18n.Load(lang).T
 	page, err := s.deps.Render.AdminActionPage(render.AdminAction{
-		ID: id, Title: s.t(r, "admin.delete.title"), Heading: s.t(r, "admin.delete.heading", rowLabel(row)),
+		Theme: theme,
+		ID:    id, Title: text("admin.delete.title"), Heading: text("admin.delete.heading", rowLabel(row)),
 		// 页面上不该出现 markdown 的反引号与磁盘文件名：`revert` 与 history.jsonl
 		// 是给读代码的人看的词，家里人在浏览器里看到只会愣一下。
 		//
 		// **id 也要说出来**（2026-10-23）：标题是给人看的，而两份档案可以同名
 		// （派生 id 那时是 home / home-2 两份不同的档案，标题一模一样）——只写
 		// 名字的那一页分不清要删的是哪一份，而删掉找不回来。
-		Explain: s.t(r, "admin.delete.explain", row.ID, row.Items, row.Snapshots),
-		Notice:  s.notice(r, r.URL.Query().Get("err")),
+		Explain: text("admin.delete.explain", row.ID, row.Items, row.Snapshots),
+		Notice:  noticeOf(lang, r.URL.Query().Get("err")),
 		Action:  "/admin/delete",
-		Submit:  s.t(r, "admin.delete.submit"),
+		Submit:  text("admin.delete.submit"),
 		Danger:  true,
 		// **要密码**（2026-10-23，用户拍板「删除需要有确认警示，并要求密码」）：
 		// 这一格填那把机器级密钥（LAUNCHBAY_ADMIN_TOKEN）。它是这台机器上唯一
@@ -289,9 +296,9 @@ func (s *Server) handleAdminDeletePage(w http.ResponseWriter, r *http.Request) {
 		// **inputmode 是 text，不是 numeric**（2026-10-23）：那把 key 是一段任意
 		// 文本（默认那把是 launchbay123，用户自己换的那把可以有字母），数字键盘
 		// 会让它在手机上根本没法输。PIN 那一格要的正是相反的那一种。
-		Fields: []render.AdminField{{Name: "key", Label: s.t(r, "admin.login.key"), Type: "password",
-			Autofocus: true, Hint: s.t(r, "admin.delete.keyHint"), InputMode: "text"}},
-	}, s.machineLang(r))
+		Fields: []render.AdminField{{Name: "key", Label: text("admin.login.key"), Type: "password",
+			Autofocus: true, Hint: text("admin.delete.keyHint"), InputMode: "text"}},
+	}, lang)
 	if err != nil {
 		writeInternalError(w, err)
 		return

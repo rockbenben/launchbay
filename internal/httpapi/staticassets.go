@@ -23,9 +23,15 @@ import (
 // 它必须公开是因为 CSP 的 `script-src 'self'` 要求脚本来自自己的源——而不公开的
 // 资源在"没登录"的那些页面上根本拿不到。
 func (s *Server) handleAppJS(w http.ResponseWriter, r *http.Request) {
+	body, ok := render.AppJSLocale(r.URL.Query().Get("locale"))
+	if !ok {
+		w.Header().Set("Cache-Control", "no-store")
+		http.NotFound(w, r)
+		return
+	}
 	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	w.Write(render.AppJS())
+	w.Write(body)
 }
 
 var manifestBytes = []byte(`{

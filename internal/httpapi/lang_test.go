@@ -151,7 +151,7 @@ func TestAdminLanguage_不认识的值说清而不是静默落默认(t *testing.
 	srv, h, admin, _ := langScene(t)
 
 	for _, tc := range []struct{ lang, key string }{
-		{"fr", "badlang"},
+		{"xx", "badlang"},
 		{"EN", "badlang"},
 	} {
 		rec := postLangForm(t, h, "/admin/language", "language="+url.QueryEscape(tc.lang), admin, "")
@@ -317,7 +317,7 @@ func TestSetup_语言留空仍然建得成(t *testing.T) {
 // 它要说清这一半。
 func TestSetup_不认识的语言说清且档案仍在(t *testing.T) {
 	s, h := setupZero(t)
-	rec := postLangForm(t, h, "/setup", "title=Dad&pin=1234&language=fr", "", "")
+	rec := postLangForm(t, h, "/setup", "title=Dad&pin=1234&language=xx", "", "")
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("该 303，实际 %d", rec.Code)
 	}
@@ -437,10 +437,12 @@ func TestBrowserLang_按q值从高到低认得出就落那一门(t *testing.T) {
 		"ar-SA":             i18n.Ar,
 		"en-US,de;q=0.9":    i18n.En,
 		"zh":                i18n.Zh,
-		"de,en;q=0.9":       i18n.En, // 第一个认不出就往下看（按 q 值）
+		"de,en;q=0.9":       i18n.Lang("de"),
+		"xx,en;q=0.9":       i18n.En, // 第一个认不出就往下看（按 q 值）
 		"english":           i18n.Zh, // 含 "en" 三个字母不是语言标签
 		"  en-GB  ":         i18n.En,
-		"fr-FR":             i18n.Zh,
+		"fr-FR":             i18n.Lang("fr"),
+		"xx-XX":             i18n.Zh,
 		"EN-us":             i18n.En, // 大小写不敏感
 		"en;q=0.9":          i18n.En, // 权重要剥掉：从前整条认不出
 		"zh;q=0.9":          i18n.Zh,

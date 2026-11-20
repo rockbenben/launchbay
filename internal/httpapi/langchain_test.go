@@ -18,7 +18,7 @@ import (
 //     它们是全站唯一两页中文的，而 404 页那颗按钮又是英文的（混排）。
 //  2. Accept-Language 只取**第一个**标签且不剥 ";q="——"zh;q=0.9" 整条认不出，
 //     一个说中文的客户端拿到英文首页。
-//  3. 档案里写坏的语言值（"zh-CN" / "fr"）把这一份**静默钉死在中文**，
+//  3. 档案里写坏的语言值（"zh-CN" / "xx"）把这一份**静默钉死在中文**，
 //     面板上三颗键还全都不亮。
 //
 // 文案对不对由 i18n 包的守恒测试管；这里钉的是**行为**。
@@ -90,7 +90,7 @@ func Test语言_档案里写坏的语言值当没选过(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.Language = "fr"
+	p.Language = "xx"
 	if err := srv.deps.Store.SaveProfile(p); err != nil {
 		t.Fatal(err)
 	}

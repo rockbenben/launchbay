@@ -79,8 +79,10 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 	// ?err= 只当键用：不在白名单里的值一个字都不进页面（与进门页同一套，
 	// 判据由 httpapi 算，渲染器只印）。
-	notice := s.notice(r, r.URL.Query().Get("err"))
+	lang, theme := s.adminAppearance(r)
+	notice := noticeOf(lang, r.URL.Query().Get("err"))
 	opts := s.adminOptions()
+	opts.Theme = theme
 	opts.Host, opts.RemoteAddr = r.Host, r.RemoteAddr
 	opts.LANHosts = s.deps.Store.LANHosts()
 	shape := model.LANShapeOf(r.Host, opts.LANHosts)
@@ -89,7 +91,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	// 建档失败一次就清空名字，人得从头再打一遍；PIN 错的那一发更会顺手变成
 	// noname，白跑两趟。PIN 一个字都不回填——它是这一页的凭证。
 	opts.FormTitle = strings.TrimSpace(r.URL.Query().Get("title"))
-	page, err := s.deps.Render.AdminPage(views, notice, opts, s.machineLang(r))
+	page, err := s.deps.Render.AdminPage(views, notice, opts, lang)
 	if err != nil {
 		writeInternalError(w, err)
 		return
@@ -164,7 +166,7 @@ func (s *Server) handleAdminCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // redirectAdminFail 与 redirectSetup 同形，只是回的是管理页。code 只来自本包的常量
-// （setupFieldKey 的两个键与 "nametaken"），永远不是用户可控的字符串；页面那头还要
+// （setupFieldKey 的四个键与 "nametaken"），永远不是用户可控的字符串；页面那头还要
 // 过 pinNotices 白名单。
 func redirectAdminFail(w http.ResponseWriter, code string) {
 	w.Header().Set("Location", "/admin?err="+code)

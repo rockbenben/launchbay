@@ -635,7 +635,7 @@ func TestSetup_语言下拉的形状错说人话(t *testing.T) {
 		{"", "nolang"},
 		// 给了空串 = 「跟随浏览器」那一档（取消站级默认）→ 正常 303，不带键。
 		{"language=", ""},
-		{"language=fr", "badlang"},
+		{"language=xx", "badlang"},
 		{"language=EN", "badlang"},
 		{"language=zh&language=en", "body"},
 	} {

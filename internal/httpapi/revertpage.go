@@ -188,7 +188,7 @@ func (s *Server) choiceLabel(t tr, c snapshotChoice) string {
 	if c.When != "" {
 		// **时间按这一页的语言排版**（render.ShortTime）：中文是「10月21日 16:33」、
 		// 英文是「21 Oct, 16:33」——与管理页、改动历史同一份写法。
-		label = render.ShortTime(string(t.cat.Lang()), c.When) + " · " + label
+		label = render.ShortTime(t.cat.Lang(), c.When) + " · " + label
 	}
 	// 分组集合与现在**一模一样**时，这一格到此为止：13 份快照的实拍里，
 	// 12 行的组名一字不差地重复，每行四成宽度花在从不变化的信息上。

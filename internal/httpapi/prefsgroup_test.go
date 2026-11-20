@@ -127,7 +127,7 @@ func TestPrefsGroup_每颗键带组名而动作键不装开关(t *testing.T) {
 //
 // 触发的实测：英文站上把 /prefs 打开，aria-label 那八个位置印的是「蓝 青 绿 黄
 // 橙 红 紫 粉」——名字当时住在 model 的一张 Go 表里，绕过了"文案只有一份，
-// 在 messages/{zh,en}.json"那条纪律。英文界面里一个英语读者看见中文单字，
+// 在 messages/*.json"那条纪律。英文界面里一个英语读者看见中文单字，
 // 比看见英文更没用（他念不出来，而那本来就是给念不出颜色的人准备的）。
 func TestPrefsGroup_色名跟着界面语言走(t *testing.T) {
 	s, h := setupBatch(t)
