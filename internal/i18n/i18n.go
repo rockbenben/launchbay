@@ -12,7 +12,7 @@
 //     `⟨profile.search⟩` 这样一眼可辨的东西。返回空串才是事故——那条路会让一处
 //     漏翻变成界面上一块空白，而空白看起来像"设计如此"。
 //  3. **每门语言的 key 必须守恒**：catalog_test.go 既逐条比对 All 里每一门与 zh
-//     （今天 4 门），另一条又把 messages/ 下 18 份文件全比对一遍，少一个就红。
+//     ，另一条又检查 messages/ 下 18 份文件，少一个就红。
 //     这是"翻全了"唯一的机械保证——靠人眼一条一条数文案，早晚漏。
 package i18n
 
@@ -52,49 +52,43 @@ const (
 // 事，将来要改默认值只改一处。
 const Default = Zh
 
-// All 是**页面上真能选到**的语言，**按界面显示顺序**。写进页面的下拉框与校验
-// 都取这一份。
-//
-// **它今天只有 4 门，而 messages/ 下有 18 份包**：另外 14 份已经译好、由
-// catalog_test 的 18 文件那条守着 key 与占位符，但还没接线（不进下拉框、不进
-// Accept-Language 识别、写 `language` 也过不了写侧）。接一门语言要动四处：
-// 这里加一行、DisplayName/HTMLLang 各补一个 case、重生成 app.js 的 APP_I18N，
-// 并看一眼 app.js 的字节闸（`TestBudget_appJS在预算内`）——18 门全塞进那一个
-// 静态文件会顶破 §7.3 的契约，所以这不是"只改 All 一行"就完的事。
-var All = []Lang{Zh, ZhTW, En, Ar}
+// All 是所有启用的语言，按下拉框显示顺序排列。
+var All = []Lang{
+	Zh, ZhTW, En, Ar, "bn", "de", "es", "fr", "hi", "id", "it",
+	"ja", "ko", "pt_BR", "ru", "th", "tr", "vi",
+}
 
-// HTMLLang 给 <html lang> 用。RFC 5646 标准写法，screen reader 与浏览器的翻译提示认它。
+// HTMLLang 返回 <html lang> 使用的 BCP 47 标签。
 func (l Lang) HTMLLang() string {
 	switch l {
 	case Zh:
 		return "zh-CN"
 	case ZhTW:
 		return "zh-TW"
-	case Ar:
-		return "ar"
-	case En:
-		return "en"
+	case "pt_BR":
+		return "pt-BR"
 	default:
+		if l.Valid() {
+			return string(l)
+		}
 		return "en"
 	}
 }
 
-// DisplayName 是语言自己的名字，**用该语言自己写（Endonym）**。
-// 「中文（简体）」「繁體中文」「English」「العربية」：让一个看不懂当前语言的人也能从
-// 这个列表里认出自己要的那一个。这是所有语言选择器的通用做法，不是本项目的偏好。
+// DisplayName 返回该语言自己的名字，方便从陌生语言的界面切回来。
 func (l Lang) DisplayName() string {
-	switch l {
-	case Zh:
-		return "中文（简体）"
-	case ZhTW:
-		return "繁體中文"
-	case En:
-		return "English"
-	case Ar:
-		return "العربية"
-	default:
-		return string(l)
+	if name, ok := languageNames[l]; ok {
+		return name
 	}
+	return string(l)
+}
+
+var languageNames = map[Lang]string{
+	Zh: "中文（简体）", ZhTW: "繁體中文", En: "English", Ar: "العربية",
+	"bn": "বাংলা", "de": "Deutsch", "es": "Español", "fr": "Français",
+	"hi": "हिन्दी", "id": "Bahasa Indonesia", "it": "Italiano", "ja": "日本語",
+	"ko": "한국어", "pt_BR": "Português (Brasil)", "ru": "Русский",
+	"th": "ไทย", "tr": "Türkçe", "vi": "Tiếng Việt",
 }
 
 // IsRTL 报告该语言是否为从右向左（RTL）书写。
@@ -153,7 +147,7 @@ func ParseLang(s string) Lang {
 //
 // **不认识的也当"没选过"**（2026-10-20 改判）：从前这里对非法值返回
 // Default（中文），而调用方（httpapi.langOfProfile）从前压根不调它、自己
-// 重写了一遍——于是手改或拷贝来的 `"language":"zh-CN"`（或 "fr"）会把这一份
+// 重写了一遍——于是手改或拷贝来的 `"language":"zh-CN"`会把这一份
 // **静默钉死在中文**：既不跟站级默认，也不跟浏览器语言，链的后两格被跳过，
 // 而面板上三颗键还全都不亮（那一格负责显示"现在是哪一档"）。
 //
@@ -225,7 +219,7 @@ func (c *Catalog) Dir() string { return c.Lang().Dir() }
 // 写，而"第一次"在多 goroutine 下是同时。
 //
 // 锁是读写锁：命中缓存的读占绝大多数（每渲染一页都要读），加写锁会把并发读也
-// 串起来。语言只有四种、每种一辈子只解析一次，所以写那一侧几乎不争。
+// 串起来。每种语言只解析一次，所以写那一侧几乎不争。
 var (
 	cachedMu sync.RWMutex
 	cached   = map[Lang]*Catalog{}

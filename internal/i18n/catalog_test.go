@@ -122,7 +122,7 @@ func TestCatalog_缺key返回尖括号而不是空串(t *testing.T) {
 // 不认识的语言要落回默认，而不是崩：配置是 data/settings.json，手改写错一个字节
 // 不该让一台跑着的导航台打不开。
 func TestParseLang_不认识的值落回默认(t *testing.T) {
-	for _, s := range []string{"", "zh", "en", "EN", "fr", "en-US", "中文", "  "} {
+	for _, s := range []string{"", "zh", "en", "EN", "xx", "en-US", "中文", "  "} {
 		got := ParseLang(s)
 		switch s {
 		case "zh", "en":
@@ -140,8 +140,8 @@ func TestParseLang_不认识的值落回默认(t *testing.T) {
 // 语言列表是页面上那个下拉框的**唯一来源**。
 // 每种语言都要能用它自己的名字报出自己，否则那个下拉框里会出现一个空项。
 func TestLang_每种语言都能报出自己的名字(t *testing.T) {
-	if len(All) < 2 {
-		t.Fatalf("All 少于两门语言，测试意义不大：%v", All)
+	if len(All) != 18 {
+		t.Fatalf("下拉应启用 18 门语言，实际 %d", len(All))
 	}
 	seen := map[string]bool{}
 	for _, l := range All {
@@ -217,7 +217,7 @@ func TestCatalog_非法语言也能拿到可用文案(t *testing.T) {
 	// 直接 Load 一个不存在的语言，必须落回默认而不是 panic——
 	// 语言包是仓库里的静态文件，真坏了也该由本包的测试报出来，
 	// 而不是让一台跑着的机器因为某个字节改错就起不来。
-	c := Load(Lang("fr"))
+	c := Load(Lang("xx"))
 	if c == nil {
 		t.Fatal("Load 不认识的语言返回了 nil")
 	}
@@ -252,6 +252,9 @@ func TestCatalog_全部18张嵌入语言表守恒与取值(t *testing.T) {
 		name := e.Name()
 		if !strings.HasSuffix(name, ".json") {
 			continue
+		}
+		if !Lang(strings.TrimSuffix(name, ".json")).Valid() {
+			t.Errorf("%s 没有启用", name)
 		}
 		raw, err := messageFS.ReadFile("messages/" + name)
 		if err != nil {
