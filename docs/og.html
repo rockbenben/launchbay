@@ -1,19 +1,31 @@
 <!doctype html>
 <!--
-  launchbay 的 social preview 卡（1200×630）。**改这个文件，不要改 PNG**：
-  改完重新渲染一次就行，命令见文件末尾的注释。
+  launchbay 的 **GitHub 仓库 social preview** 卡（1280×640，2:1）。**改这个文件，
+  不要改 PNG**：改完重新渲染一次就行，命令见文件末尾的注释。
 
-  为什么英文为主、中文为辅：产品本身支持中英双语，而 GitHub 的 social preview
-  会出现在 X / Slack / Discord / 搜索引擎的卡片里——那些地方读的人不一定读得懂
-  中文。主句给英文，中文作为副行跟着，**两句说的是同一件事**，不是两套说辞。
+  它不是网站的 og:image：网站 OG 卡是 1200×630（1.91:1），而 GitHub 的仓库
+  social preview 是 1280×640（2:1，最大 1MB，Settings → Social preview 上传即覆盖）。
+  文件名沿用 og.* 是历史原因，实际用途只有仓库那张卡。
+
+  这一版（2026-11-20）跟着 2026-11-19 的色板重做，并且补上了上一版缺的东西：
+  卡片上**从头到尾没有出现过产品名**。GitHub 的 social preview 在信息流里只有
+  一张图，图里不写名字，别人存下来转发就再也不知道它叫什么。所以第一行是
+  wordmark，第二行才是主张。
+
+  为什么英文为主、中文为辅：产品支持多门界面语言（今天简中、繁中、英文、阿拉伯语
+  四门），而这张卡会出现在 X / Slack / Discord / 搜索引擎的卡片里——那些地方读的
+  人不一定读得懂中文。主句给英文，中文作为副行跟着，**说的是同一件事**（中文多
+  收了半句「一点就开」，那是产品自己的话，不是第二套卖点）。
 
   配色与字重抄自 internal/render/web/base.css 的当时真实值，不是另起一套"品牌色"——
-  卡片要长得像产品本身，而不是像产品的一张海报。
+  卡片要长得像产品本身，而不是像产品的一张海报。暗档今天仍是 --bg:#131b29、
+  --ink:#edf2fa、--ink2:#b4c1d5、--accent:#4c8dff，极光三层是
+  rgba(76,141,255,.19) / rgba(88,132,201,.07) / rgba(0,168,159,.08)。卡片把它们
+  抬亮一档（缩略图里极光会看不见），但**色相一个没改**。
 
-  **2026-11-19 主站改过色板**（--bg / --ink / --line / 极光 / --scrim 都变了），
-  而这张卡没有跟着重做：GitHub 的 Social preview 上传即覆盖、旧图找不回，改它
-  要先明确"就是要换这张图"。所以这份源文件里的颜色是**当时的** base.css，
-  不是今天的——别拿它当主题变量的第二份真相。
+  右边那格是产品首屏的样子：顶栏（页面名 + 搜索 + 添加 + 档案 + 设置）、侧栏分组
+  计数、两列卡片（图标 / 名字 / 说明 / 标签）。只画到"看得懂这是什么"为止，
+  不塞真书签、不编真实内网地址。
 
   重新渲染：
     node {html-shot}/render.mjs docs/og.html docs/og.png
@@ -23,128 +35,379 @@
 <head>
 <meta charset="utf-8" />
 <style>
-  * { margin:0; box-sizing:border-box; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1280px; height:640px; overflow:hidden; }
   body {
     position:relative;
-    /* 1200 = 56×2 (padding) + 708 (text) + 40 (gap) + 340 (mock)。这四个数是
-       **算出来的**，不是估的：上一版左边给到 640 而右边 412，加上 padding 与 gap
-       总共 1248，比画布还宽 48px，于是 nowrap 的标题直接压到右栏的磁贴上。
-       英文比中文占横向空间（一个词 5–7 个字母，一个汉字 1 个），所以左边那格
-       必须比纯中文版宽。 */
-    width:1200px; height:630px; overflow:hidden;
-    display:flex; align-items:center; gap:40px; padding:0 56px;
-    background:#0b0e14; color:#e9edf8;
+    background:
+      radial-gradient(42% 58% at 6% 2%, rgba(76,141,255,.30), transparent 62%),
+      radial-gradient(34% 48% at 98% 0%, rgba(112,96,255,.20), transparent 66%),
+      radial-gradient(46% 55% at 55% 112%, rgba(0,168,159,.17), transparent 62%),
+      linear-gradient(180deg, #172235 0%, #131b29 46%, #0e1622 100%);
+    color:#edf2fa;
     font-family: system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                  "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  /* 极光底：base.css 里 body::before/::after 用的就是这三团光，这里照抄 */
-  .aurora { position:absolute; inset:-160px; z-index:0; pointer-events:none; }
-  .aurora i { position:absolute; display:block; border-radius:50%; filter:blur(90px); }
-  .a1 { width:760px; height:560px; left:-120px;  top:-140px; background:rgba(76,141,255,.30); }
-  .a2 { width:660px; height:520px; right:-140px; top:-80px;  background:rgba(150,80,255,.22); }
-  .a3 { width:700px; height:480px; left:280px;  bottom:-220px; background:rgba(0,200,180,.18); }
-
-  .left, .right { position:relative; z-index:1; }
-  .left { width:708px; min-width:0; }
-  .eyebrow {
-    display:inline-flex; align-items:center; gap:10px;
-    font-size:19px; font-weight:600; letter-spacing:.04em;
-    color:#a7b2cd; background:rgba(255,255,255,.055);
-    border:1px solid rgba(255,255,255,.14); border-radius:999px;
-    padding:8px 16px; margin-bottom:26px;
+  /* 极光的第二层：大范围柔和光斑，让纯色底不在缩略图里塌成一块黑。 */
+  body::before {
+    content:""; position:absolute; inset:-160px; pointer-events:none;
+    background:
+      radial-gradient(38% 42% at 18% 20%, rgba(76,141,255,.16), transparent 62%),
+      radial-gradient(32% 36% at 84% 16%, rgba(150,120,255,.10), transparent 64%),
+      radial-gradient(40% 40% at 64% 92%, rgba(0,190,175,.10), transparent 62%);
+    filter: blur(50px);
   }
-  .eyebrow b { color:#4c8dff; font-weight:700; }
-  .eyebrow .sep { color:#5c687d; }
-
-  /* 字号与文案都是**量出来的**，不是估的（probe：复制那行到 nowrap 的 span 里量宽）：
-     44px 下 "Nobody reads your bookmarks." 是 676px，左边那格 708px，余 32px。
-     44px 下原来那句 "Nobody else sees your bookmarks." 要 746px，溢 38px，
-     于是被折成三行、"bookmarks." 孤零零一只，下面那行中文跟着贴上来。
-     换成 reads 之后两行收得住，且与中文副行是同一件事，不是两套说辞。
-     **不留 nowrap** —— 宁可按词换行，也不要压到右栏的磁贴上（第一版就这么翻的车）。 */
-  h1 { font-size:44px; line-height:1.16; font-weight:800; letter-spacing:-.02em; }
-  h1 .hl { color:#4c8dff; }
-  .zh { margin-top:16px; font-size:23px; line-height:1.5; color:#8f9cb4; }
-  .sub { margin-top:20px; font-size:21px; line-height:1.6; color:#a7b2cd; }
-  .foot {
-    margin-top:28px; padding-top:18px;
-    border-top:1px solid rgba(255,255,255,.14);
-    font-size:19px; color:#6b7688; display:flex; gap:16px; align-items:center;
+  /* 一条很淡的顶光，把卡片从信息流里托起来。 */
+  body::after {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.045), transparent 22%);
   }
-  .foot code { font-family:ui-monospace,Consolas,monospace; color:#8fa3c8; }
 
-  /* 右侧：产品首屏的样子（分磁贴），只画到"看得懂这是什么"为止，不塞真书签。 */
-  .right { width:340px; flex:0 0 auto; }
-  .frame {
-    background:rgba(255,255,255,.055);
-    border:1px solid rgba(255,255,255,.14);
-    border-radius:18px; padding:16px 16px 18px;
-    box-shadow:0 24px 60px rgba(0,0,0,.45);
-  }
-  .bar { display:flex; align-items:center; gap:9px; margin-bottom:13px; }
-  .avatar {
-    width:26px; height:26px; border-radius:8px; flex:0 0 auto;
-    background:rgba(76,141,255,.22); border:1px solid rgba(76,141,255,.42);
-    color:#9cc0ff; font-size:11px; font-weight:700;
+  .left, .right { position:absolute; z-index:1; }
+  .left { left:64px; top:66px; width:560px; }
+  .right { left:664px; top:50%; transform:translateY(-50%); width:560px; }
+
+  /* ── 品牌行 ────────────────────────────────────────────────────────── */
+  .brand { display:flex; align-items:center; gap:13px; }
+  .mark {
+    width:40px; height:40px; border-radius:12px; flex:0 0 auto;
+    background:linear-gradient(145deg, #5b9bff 0%, #2f6fd0 100%);
+    box-shadow:0 8px 22px rgba(76,141,255,.32), inset 0 1px 0 rgba(255,255,255,.32);
     display:flex; align-items:center; justify-content:center;
   }
-  .bar .n { font-size:13.5px; font-weight:600; color:#dbe3f5; }
-  .group { margin-bottom:11px; }
-  .group:last-child { margin-bottom:0; }
-  .gtitle {
-    font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
-    color:#77839a; margin-bottom:6px;
+  .mark svg { display:block; }
+  .word { font-size:30px; font-weight:800; letter-spacing:-.035em; line-height:1; }
+  .word em { font-style:normal; color:#8fb6ff; }
+
+  .kicker {
+    margin-top:40px; font-size:14px; font-weight:600;
+    letter-spacing:.16em; text-transform:uppercase; color:#8b9bb5;
   }
-  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .kicker b { color:#6ea6ff; font-weight:700; }
+
+  /* 字号是量出来的：64px 下 "Your bookmarks," 约 524px，左栏 560px，
+     余 36px。再大就会折行，而这句话折行之后 "at home." 会被挤到第三行。 */
+  h1 {
+    margin-top:14px; font-size:64px; line-height:1.09;
+    font-weight:800; letter-spacing:-.032em; color:#edf2fa;
+  }
+  h1 .hl { color:#6ea6ff; }
+  .zh { margin-top:16px; font-size:24px; line-height:1.5; color:#b4c1d5; letter-spacing:.01em; }
+  .sub { margin-top:20px; font-size:19px; line-height:1.55; color:#a7b2cd; }
+
+  /* 三枚事实徽标：社交媒体上没人读段落，但这三件是选型时的硬条件。
+     用产品自己的 .badge 形状（圆角、淡底、细描边），不另造一套。 */
+  .facts { margin-top:22px; display:flex; gap:8px; }
+  .fact {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:14px; font-weight:500; color:#aebbd1;
+    background:rgba(194,214,247,.065); border:1px solid rgba(207,222,246,.14);
+    border-radius:999px; padding:6px 12px;
+  }
+  .fact i { width:5px; height:5px; border-radius:50%; background:#5fd0c4; }
+  .fact:nth-child(2) i { background:#8fb6ff; }
+  .fact:nth-child(3) i { background:#c3a4ff; }
+
+  /* ── 底部的安装那一步 ────────────────────────────────────────────────── */
+  .foot {
+    position:absolute; z-index:1; left:64px; bottom:56px; width:560px;
+    padding-top:18px; border-top:1px solid rgba(207,222,246,.13);
+    display:flex; align-items:center; gap:13px;
+    font-size:15px; color:#72809a;
+  }
+  .foot code {
+    font-family:ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size:13.5px; color:#a9c2e6;
+    background:rgba(255,255,255,.045); border:1px solid rgba(207,222,246,.12);
+    border-radius:7px; padding:5px 9px;
+  }
+  .foot .arrow { color:#5a6980; }
+  .foot span { white-space:nowrap; }
+
+  /* ── 右侧：产品首屏 ──────────────────────────────────────────────────── */
+  .window {
+    width:560px; overflow:hidden;
+    border-radius:17px;
+    background:rgba(18,28,45,.90);
+    border:1px solid rgba(207,222,246,.20);
+    box-shadow:0 34px 90px rgba(0,0,0,.55), 0 2px 0 rgba(255,255,255,.05) inset;
+    backdrop-filter:blur(18px) saturate(1.15);
+  }
+  .bar {
+    height:54px; display:flex; align-items:center; gap:8px;
+    padding:0 13px; border-bottom:1px solid rgba(207,222,246,.11);
+  }
+  .bar .page { font-size:12.5px; font-weight:700; letter-spacing:-.01em; white-space:nowrap; }
+  .bar .search {
+    flex:1 1 auto; min-width:0; height:28px;
+    display:flex; align-items:center; gap:6px; padding:0 9px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(207,222,246,.12);
+    border-radius:8px; color:#7c8aa2;
+  }
+  .bar .search svg { flex:0 0 auto; opacity:.8; }
+  .bar .search span { font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar .add {
+    flex:0 0 auto; height:28px; padding:0 10px;
+    display:flex; align-items:center; gap:4px;
+    font-size:10.5px; font-weight:700; color:#a9c8ff;
+    background:rgba(76,141,255,.17); border:1px solid rgba(76,141,255,.36);
+    border-radius:8px;
+  }
+  .bar .who {
+    flex:0 0 auto; height:28px; padding:0 9px;
+    display:flex; align-items:center; gap:5px;
+    font-size:10.5px; font-weight:600; color:#dbe5f5;
+    background:rgba(194,214,247,.075); border:1px solid rgba(207,222,246,.14);
+    border-radius:8px;
+  }
+  .bar .who i { color:#8fa0bd; font-style:normal; font-size:9px; }
+  .bar .gear {
+    flex:0 0 auto; width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+    background:rgba(194,214,247,.075); border:1px solid rgba(207,222,246,.14);
+    border-radius:8px; color:#aebbd1;
+  }
+
+  .body { display:grid; grid-template-columns:122px minmax(0,1fr); gap:15px; padding:16px 15px; }
+  .side { min-width:0; }
+  .side .cap { font-size:8.5px; letter-spacing:.15em; color:#77859d; margin:2px 0 7px 8px; }
+  .side a {
+    display:flex; align-items:center; gap:7px; height:29px; padding:0 8px;
+    border-radius:7px; font-size:11px; color:#c4cfe2; text-decoration:none;
+  }
+  .side a.on { background:rgba(194,214,247,.09); color:#edf2fa; font-weight:600; }
+  .side a .dot { width:6px; height:6px; border-radius:2px; flex:0 0 auto; }
+  .side a .n { margin-left:auto; font-size:9.5px; font-weight:500; color:#8492a9; }
+
+  .main { min-width:0; }
+  .sec { display:flex; align-items:center; gap:6px; margin:2px 0 7px; }
+  .sec .sq { width:6px; height:6px; border-radius:1.5px; background:#4c8dff; }
+  .sec b { font-size:9px; letter-spacing:.15em; font-weight:700; color:#c4cfe2; }
+  .sec .grid { margin-left:auto; color:#69778e; display:flex; gap:2px; }
+  .sec .grid i { width:3px; height:3px; background:currentColor; border-radius:.5px; }
+  .sec.work { margin-top:17px; }
+  .sec.work .sq { background:#a98bff; }
+  .sec.dev { margin-top:17px; }
+  .sec.dev .sq { background:#5fd0c4; }
+
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .card {
+    min-width:0; height:92px; padding:10px 11px 9px;
+    background:rgba(194,214,247,.075); border:1px solid rgba(207,222,246,.16);
+    border-radius:10px; display:flex; flex-direction:column;
+  }
+  .card .top { display:flex; align-items:center; gap:7px; min-width:0; }
   .tile {
-    display:flex; align-items:center; gap:7px; min-width:0;
-    background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.12);
-    border-radius:10px; padding:8px 9px; height:40px;
-  }
-  .tile .ic {
     width:21px; height:21px; border-radius:6px; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
-    font-size:9px; font-weight:700; color:#0b0e14;
   }
-  .tile span { font-size:11.5px; color:#cbd5ea; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .tile svg { display:block; }
+  .card b {
+    font-size:11.5px; font-weight:600; color:#e6edf9; letter-spacing:-.01em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .card p {
+    margin-top:5px; font-size:9.5px; line-height:1.34; color:#9fb0c9;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .card .tags { margin-top:auto; display:flex; gap:4px; }
+  .card .tag {
+    font-size:8px; line-height:1; color:#a4b2c8; padding:3px 5px;
+    border:1px solid rgba(207,222,246,.15); border-radius:4px;
+  }
 </style>
 </head>
 <body>
-  <div class="aurora"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
-
   <div class="left">
-    <div class="eyebrow">
-      <b>⌂</b> LAN bookmark nav <span class="sep">·</span> 局域网书签导航台
+    <div class="brand">
+      <div class="mark">
+        <svg width="19" height="22" viewBox="0 0 19 22" aria-hidden="true">
+          <path d="M2.2 1.6h14.6c.7 0 1.2.5 1.2 1.2v17.4c0 .6-.7.9-1.1.5l-7.4-5.6-7.4 5.6c-.4.3-1.1.1-1.1-.5V2.8c0-.7.5-1.2 1.2-1.2Z"
+                fill="#fff"/>
+        </svg>
+      </div>
+      <div class="word">launch<em>bay</em></div>
     </div>
-    <h1>Opens without waiting.<br />Nobody reads <span class="hl">your</span> bookmarks.</h1>
-    <div class="zh">打开不用等，别人的书签看不见。</div>
-    <div class="sub">One HTML file — links are drawn straight into the page.<br />Zero third-party libraries · one static binary · three commands.</div>
-    <div class="foot"><code>git clone</code> → <code>docker compose up -d</code> → open the browser</div>
+
+    <div class="kicker">Self-hosted <b>·</b> LAN-first <b>·</b> Open source</div>
+
+    <h1>Your bookmarks,<br /><span class="hl">at home.</span></h1>
+    <div class="zh">书签放在自己家里，一点就开。</div>
+
+    <p class="sub">A self-hosted launchpad for the NAS, the router,<br />and every dashboard you can never remember.</p>
+
+    <div class="facts">
+      <span class="fact"><i></i>No account</span>
+      <span class="fact"><i></i>No cloud</span>
+      <span class="fact"><i></i>Works offline</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <code>docker compose up -d</code>
+    <span class="arrow">→</span>
+    <span>open in any browser</span>
   </div>
 
   <div class="right">
-    <div class="frame">
+    <div class="window">
       <div class="bar">
-        <div class="avatar">Dad</div>
-        <div class="n">Dad's links</div>
-      </div>
-
-      <div class="group">
-        <div class="gtitle">Everyday</div>
-        <div class="tiles">
-          <div class="tile"><i class="ic" style="background:#4c8dff">群</i><span>群晖 DSM</span></div>
-          <div class="tile"><i class="ic" style="background:#3fb6a8">NAS</i><span>NAS panel</span></div>
-          <div class="tile"><i class="ic" style="background:#a06bff">图</i><span>immich</span></div>
-          <div class="tile"><i class="ic" style="background:#ff9d6c">播</i><span>Podcasts</span></div>
+        <div class="page">My bookmarks</div>
+        <div class="search">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
+          </svg>
+          <span>Search bookmarks</span>
+        </div>
+        <div class="add">＋ Add</div>
+        <div class="who">Dad <i>⇄</i></div>
+        <div class="gear">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3.2"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.88 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.88.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.88V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/>
+          </svg>
         </div>
       </div>
 
-      <div class="group">
-        <div class="gtitle">Dev</div>
-        <div class="tiles">
-          <div class="tile"><i class="ic" style="background:#7f9cf5">码</i><span>GitHub</span></div>
-          <div class="tile"><i class="ic" style="background:#e0a86a">栈</i><span>Stack Overflow</span></div>
+      <div class="body">
+        <div class="side">
+          <div class="cap">GROUPS</div>
+          <a class="on"><i class="dot" style="background:#4c8dff"></i>Home<b class="n">5</b></a>
+          <a><i class="dot" style="background:#a98bff"></i>Work<b class="n">5</b></a>
+          <a><i class="dot" style="background:#3fb6a8"></i>Dev<b class="n">3</b></a>
+          <a><i class="dot" style="background:#e0a86a"></i>Daily<b class="n">3</b></a>
+          <a><i class="dot" style="background:#e076a8"></i>Media<b class="n">2</b></a>
+          <a><i class="dot" style="background:#8f9bb3"></i>Tools<b class="n">4</b></a>
+        </div>
+
+        <div class="main">
+          <div class="sec">
+            <i class="sq"></i><b>HOME</b>
+            <span class="grid"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(76,141,255,.16); color:#8fb6ff">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/>
+                    <line x1="7" y1="7.5" x2="7.01" y2="7.5"/><line x1="7" y1="16.5" x2="7.01" y2="16.5"/>
+                  </svg>
+                </span>
+                <b>Synology DSM</b>
+              </div>
+              <p>Files, photos and backups in one place.</p>
+              <span class="tags"><span class="tag">nas</span></span>
+            </div>
+
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(95,208,196,.15); color:#6fd6c8">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/>
+                    <line x1="12" y1="19.5" x2="12.01" y2="19.5"/>
+                  </svg>
+                </span>
+                <b>Router admin</b>
+              </div>
+              <p>Ports, firmware and who is online.</p>
+              <span class="tags"><span class="tag">network</span></span>
+            </div>
+
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(224,168,106,.16); color:#e9b87d">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                    <path d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/>
+                  </svg>
+                </span>
+                <b>Home Assistant</b>
+              </div>
+              <p>Lights, plugs and every sensor.</p>
+              <span class="tags"><span class="tag">ha</span><span class="tag">smart home</span></span>
+            </div>
+
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(169,139,255,.16); color:#b9a2ff">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <circle cx="8.5" cy="9.5" r="1.6"/>
+                    <path d="m5 18 5-5 4 4 3-3 3 3"/>
+                  </svg>
+                </span>
+                <b>Photo albums</b>
+              </div>
+              <p>Years of photos, sorted by person.</p>
+              <span class="tags"><span class="tag">photos</span></span>
+            </div>
+          </div>
+
+          <div class="sec work">
+            <i class="sq"></i><b>WORK</b>
+            <span class="grid"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(76,141,255,.16); color:#8fb6ff">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                    <rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    <path d="M3 12h18"/>
+                  </svg>
+                </span>
+                <b>Work OA</b>
+              </div>
+              <p>Leave, expenses and approvals.</p>
+              <span class="tags"><span class="tag">admin</span></span>
+            </div>
+
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(95,208,196,.15); color:#6fd6c8">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>
+                  </svg>
+                </span>
+                <b>Company mail</b>
+              </div>
+              <p>Only the company domain.</p>
+              <span class="tags"><span class="tag">mail</span></span>
+            </div>
+          </div>
+
+          <div class="sec dev">
+            <i class="sq"></i><b>DEV</b>
+            <span class="grid"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="cards">
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(233,135,80,.16); color:#f0a06b">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <circle cx="6.5" cy="6" r="2.2"/><circle cx="6.5" cy="18" r="2.2"/><circle cx="17.5" cy="9" r="2.2"/>
+                    <path d="M6.5 8.2v7.6M8.7 6.8c3.4 1.3 6.6-.2 6.6 2.2"/>
+                  </svg>
+                </span>
+                <b>GitLab</b>
+              </div>
+              <p>Repos, pipelines and runners.</p>
+              <span class="tags"><span class="tag">git</span><span class="tag">dev</span></span>
+            </div>
+
+            <div class="card">
+              <div class="top">
+                <span class="tile" style="background:rgba(255,157,108,.15); color:#ffb082">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/>
+                  </svg>
+                </span>
+                <b>Grafana</b>
+              </div>
+              <p>Dashboards for everything.</p>
+              <span class="tags"><span class="tag">monitoring</span></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
