@@ -54,7 +54,7 @@ var cliCommands = []struct {
 	run func(args []string, cfg config, out, errOut io.Writer) int
 }{
 	{"revert", "把某一份书签恢复到它的某个历史版本", cmdRevert},
-	{"profile", "建档，或重建一份读不动的 profile.json", cmdProfile},
+	{"profile", "建档、重建一份读不动的 profile.json，或修好\"名字就是地址\"的条目", cmdProfile},
 	{"import-bookmarks", "把浏览器导出的书签文件导进一份还没有书签的档案", cmdImportBookmarks},
 	{"backup", "把某一份导出成一份备份文件（书签 + 台面设置）", cmdBackup},
 	{"restore", "把一份备份导进某一份（书签 + 台面设置）", cmdRestore},

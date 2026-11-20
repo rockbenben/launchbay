@@ -68,7 +68,7 @@ func TestCLISurfacesServerDetail(t *testing.T) {
 // 对就是用法错误 2 而不是"带着零值发一次请求"。
 //
 // 这一格早年是"尚未实现"占位（不许静默当成功），落地后换成了现在这条：
-// `profile` 底下有 create 与 rebuild 两个子命令（rebuild 2026-10-10 才落地，
+// `profile` 底下有 create、rebuild 与 fix-names 三个子命令（rebuild 2026-10-10 才落地，
 // 在那之前敲它打出的是 create 的用法——那份命令只存在于文档里的日子）。
 // `sync-template` 随模板机制整条删掉，所以它**现在不是 CLI 命令**：不认得的
 // 第一个参数必须老实落到服务端分支去，而不是被一个已删的子命令名接走。
@@ -82,9 +82,9 @@ func TestCLIDispatchAndUsage(t *testing.T) {
 		want    int
 		needles []string
 	}{
-		// profile 底下现在是 create 与 rebuild 两个子命令，用法文本列的是那两行
+		// profile 底下现在是 create、rebuild 与 fix-names 三个子命令，用法文本列的是那三行
 		// （"rebuild 落地之前这里打的是 create 的用法"正是它曾经的样子）。
-		// 完整的两行由 TestCLIProfileUsageListsBothSubcommands 钉。
+		// 完整的三行由 TestCLIProfileUsageListsAllThreeSubcommands 钉。
 		{[]string{"profile"}, 2, []string{"用法", "launchbay profile create"}},
 		{[]string{"profile", "list"}, 2, []string{"用法", "launchbay profile create"}},
 		// **sync-template 不再是子命令**（2026-10-10，模板整条拆掉）：它曾经

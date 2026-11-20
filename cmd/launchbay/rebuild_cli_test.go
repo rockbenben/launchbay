@@ -183,7 +183,7 @@ func TestCLIProfileRebuildSurfacesNotFound(t *testing.T) {
 	}
 }
 
-// 用法文本必须**同时**列出两个子命令：rebuild 落地之前，`profile rebuild` 打印的
+// 用法文本必须**同时**列出三个子命令：rebuild 落地之前，`profile rebuild` 打印的
 // 是 create 的用法——那正是"文档说的命令不存在"在终端上的样子。
 //
 // 这两条是**用法错误**（没给子命令 / 打错了子命令名），所以用法文本走 stderr、
@@ -205,7 +205,7 @@ func TestCLIProfileUsageListsAllThreeSubcommands(t *testing.T) {
 			t.Errorf("用法里该有 %q，实际 %q", want, errBuf.String())
 		}
 	}
-	// 不认识的子命令同样给出两份用法，不许只报一个
+	// 不认识的子命令同样给出三份用法，不许只报一个
 	out.Reset()
 	errBuf.Reset()
 	if code := runCLI([]string{"profile", "rebuild-all"}, config{Port: "7600"},
