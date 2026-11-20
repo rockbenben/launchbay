@@ -43,10 +43,68 @@ try {
   await ev(`document.getElementById('lb-prefs-open').click()`);
   await waitFor(c, `!!document.querySelector('#lb-prefs #prefs-pane-look > .prefs-row')`, 8000);
   await checkSettingsSpacing();
+  await screenshot('settings-desktop');
+  const languages = await run(`Array.from(document.querySelector('#lb-prefs-language').options, o => o.value).filter(Boolean)`);
+  assert.equal(languages.length, 18);
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  for (const lang of languages) {
+    const catalog = JSON.parse(fs.readFileSync(new URL(`../../internal/i18n/messages/${lang}.json`, import.meta.url), 'utf8'));
+    const htmlLang = ({ zh: 'zh-CN', zh_TW: 'zh-TW', pt_BR: 'pt-BR' })[lang] ?? lang;
+    if (await run('document.documentElement.lang') !== htmlLang) {
+      await ev(`const select = document.querySelector('#lb-prefs-language');
+        select.value = ${JSON.stringify(lang)};
+        select.form.querySelector('button[type=submit]').click();`);
+      await waitFor(c, `document.documentElement.lang === ${JSON.stringify(htmlLang)}`, 8000);
+      await waitFor(c, `!!document.querySelector('#lb-sheet-h')`, 8000);
+      await ev(`document.getElementById('lb-prefs-open').click()`);
+      await waitFor(c, `!!document.querySelector('#lb-prefs-language')`, 8000);
+    }
+    assert.equal(await run(`document.getElementById('lb-prefs-open').textContent`), catalog['prefs.open.label'], lang);
+    assert.equal(await run(`document.getElementById('lb-prefs-h').textContent`), catalog['prefs.heading'], lang);
+    assert.equal(await run(`document.getElementById('lb-sheet-h').textContent`), catalog['app.sheetTitle'], lang);
+    assert.equal(await run(`document.querySelector('#lb-prefs .close').getAttribute('aria-label')`), catalog['app.close'], lang);
+    assert.equal(await run(`document.querySelector('.cmdk[role=dialog]').getAttribute('aria-label')`), catalog['app.cmdk.aria'], lang);
+    assert.equal(await run(`document.documentElement.dir`), lang === 'ar' ? 'rtl' : '', lang);
+    assert.equal(await run(`(() => {
+      const panes = document.querySelector('#lb-prefs .prefs-panes');
+      return panes.scrollWidth === panes.clientWidth;
+    })()`), true, `${lang} settings overflow on a 390px viewport`);
+    if (['ar', 'pt_BR', 'vi'].includes(lang)) await screenshot(`settings-mobile-${lang}`);
+  }
+  await ev(`document.querySelector('#lb-prefs button[name=theme][value=light]').click()`);
+  await waitFor(c, `document.documentElement.dataset.theme === 'light'`, 8000);
+  await run(`fetch('/admin/login', {
+    method: 'POST', body: new URLSearchParams({key: ${JSON.stringify(admin)}})
+  }).then(r => r.status)`);
+  await send('Page.navigate', { url: srv + '/admin' });
+  await waitFor(c, `!!document.getElementById('lb-admin-language')`, 8000);
+  assert.equal(await run(`document.documentElement.lang`), 'vi');
+  assert.equal(await run(`document.documentElement.dataset.theme`), 'light');
+  assert.equal(await run(`document.getElementById('lb-admin-language').options.length`), 19);
+  assert.equal(await run(`(() => {
+    const nav = document.querySelector('.adm-bar nav');
+    const logout = nav.querySelector('button');
+    return nav.scrollWidth === nav.clientWidth && logout.scrollWidth === logout.clientWidth;
+  })()`), true, 'long administration actions fit on a narrow screen');
+  await screenshot('admin-mobile-vi');
+  await run(`fetch('/admin/logout', {method: 'POST'}).then(r => r.status)`);
+  await home();
+  await waitFor(c, `!!document.getElementById('lb-sheet-h')`, 8000);
+  await ev(`document.getElementById('lb-prefs-open').click()`);
+  await waitFor(c, `!!document.querySelector('#lb-prefs button[name=theme][value=auto]')`, 8000);
+  await ev(`document.querySelector('#lb-prefs button[name=theme][value=auto]').click()`);
+  await waitFor(c, `!document.documentElement.hasAttribute('data-theme')`, 8000);
+  console.log('PASS management inherits the active language and theme; system theme removes the explicit override');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 850, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: srv + '/prefs' });
   await waitFor(c, `!!document.querySelector('#prefs-pane-look > .prefs-row')`, 8000);
   await checkSettingsSpacing();
-  await home();
+  assert.equal(await run(`document.querySelector('#lb-prefs-language').value`), languages.at(-1));
+  await ev(`const select = document.querySelector('#lb-prefs-language');
+    select.value = '';
+    select.form.querySelector('button[type=submit]').click();`);
+  await waitFor(c, `location.pathname === '/' && document.documentElement.lang === 'zh-CN'`, 8000);
+  console.log('PASS all 18 languages render the main page, settings, add dialog and command palette; standalone settings restores the default');
   await ev(`document.querySelector('.skip-link').focus()`);
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
@@ -85,6 +143,33 @@ try {
   assert.equal(await run(`matchMedia('(pointer:coarse)').matches`), true);
   assert.equal(await run(`getComputedStyle(document.querySelector('.usage-touch')).display!=='none'`), true);
   await screenshot('mobile-profile');
+  await ev(`document.getElementById('lb-prefs-open').click()`);
+  await waitFor(c, `!!document.querySelector('#lb-prefs #prefs-pane-look > .prefs-row')`, 8000);
+  await screenshot('settings-mobile');
+  const settings = await run(`(() => {
+    const dialog = document.getElementById('lb-prefs');
+    const panes = dialog.querySelector('.prefs-panes');
+    const top = selector => dialog.querySelector(selector).getBoundingClientRect().top;
+    const closeTop = top('.close');
+    const navTop = top('.prefs-nav');
+    panes.scrollTop = panes.scrollHeight;
+    const light = getComputedStyle(panes).scrollbarColor;
+    document.documentElement.dataset.theme = 'dark';
+    const dark = getComputedStyle(panes).scrollbarColor;
+    document.documentElement.dataset.theme = 'light';
+    return {
+      scrolled: panes.scrollTop > 0,
+      closeFixed: top('.close') === closeTop,
+      navFixed: top('.prefs-nav') === navTop,
+      fitsWidth: panes.scrollWidth === panes.clientWidth,
+      themed: light !== 'auto' && dark !== 'auto' && light !== dark,
+    };
+  })()`);
+  assert.deepEqual(settings, { scrolled: true, closeFixed: true, navFixed: true, fitsWidth: true, themed: true });
+  await ev(`document.querySelector('#lb-prefs label[for="prefs-tab-groups"]').click()`);
+  assert.equal(await run(`document.querySelector('#lb-prefs .prefs-panes').scrollTop`), 0);
+  await ev(`document.querySelector('#lb-prefs .close').click()`);
+  console.log('PASS settings scroll independently with fixed controls and theme colors');
   const point = await run(`(()=>{const r=document.querySelector('li[data-item]').getBoundingClientRect();return {x:r.left+25,y:r.top+20}})()`);
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point }] });
   await sleep(520);

@@ -8,13 +8,12 @@
 //	  新建组 / 删组——每一格都是一次写加一次重画。
 //	搜索两路：整页 ?q=（服务端渲染）与 ⌘K 面板（客户端过滤）**必须给同一个词
 //	  同一个答案**，这是 AGENTS.md 里写过的一条判据。
-//	剪贴板那一格：⌘K 里"把剪贴板里的网址存进来"。
 //	窄屏 390 + 浅色：不许横向溢出。
 //	待办删掉最后一条：外层提示框一起走，不留空壳。
 //	bookmarklet 预填：?add= 打开浮层，读取要有一个字的状态。
 //	减弱动效：prefers-reduced-motion: reduce 下新加的那几条必须显式关掉。
-//	零 JS 通路：/pin、/prefs、/prefs/group、/revert、/import、/admin —— 这些页面
-//	  本来就是给"没有脚本也能用"准备的，而第一道全程开着脚本。
+//	零 JS 通路：/、/prefs、/revert、/import、/admin —— 这些页面本来就是给
+//	  "没有脚本也能用"准备的，而第一道全程开着脚本。
 //
 //   node tools/uicheck/sweep-variants.mjs <port> <dataDir> [cdpBase]
 import path from 'node:path';
