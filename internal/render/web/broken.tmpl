@@ -1,5 +1,5 @@
 {{define "broken"}}<!doctype html>
-<html lang="{{.Lang}}">
+<html lang="{{.Lang}}"{{with .Dir}} dir="{{.}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -17,7 +17,7 @@
        `其它档案不受影响。`，中间还夹着两个 <b>）。英文那侧读出来是
        "Profile dad will not open. Other profiles are unaffected."——动词与主语
        被拼接拆散、句中多出一个句号，而中文那句以「，」收尾等着被续写。
-       一句话现在是一个键：id 走 %s 进句子内部，两种语言各自说完整的一句。 */}}
+       一句话现在是一个键：id 走 %s 进句子内部，各门语言各自说完整的一句。 */}}
   <p>{{.T "broken.p.a" .ProfileID}}</p>
   <p>{{.T "broken.p.b"}}</p>
   <p>{{.T "broken.p2"}}</p>

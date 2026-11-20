@@ -16,7 +16,7 @@ import (
 // 为什么主站的闸管不到它：扩展跑在浏览器里，够不到 Go 的 embed，也够不到
 // `internal/i18n` 那份 catalog——它必须有自己的一份，而"两份手写、没有闸"正是
 // 主站 app.js 那份拷贝曾经踩过的坑（那边靠 appi18n_test.go 钉着）。这一族就是
-// 扩展侧的同一颗钉子，钉的是五件事：两种语言的 key 一一对应、占位符逐位相同、
+// 扩展侧的同一颗钉子，钉的是五件事：各门语言的 key 一一对应、占位符逐位相同、
 // 位置占位符不许紧挨着（Chrome 先把 `$NAME$` 那一遍做完）、代码/页面/manifest
 // 里引用的每个 key 都在册、在册的 key 每一个都有人引用。
 //
@@ -110,11 +110,11 @@ func declaredPlaceholders(m extMessage) []string {
 	return out
 }
 
-// 一、两种语言的 key 守恒 + 每条都有内容。
-func TestExtension_两种语言的key守恒(t *testing.T) {
+// 一、各门语言的 key 守恒 + 每条都有内容。
+func TestExtension_各门语言的key守恒(t *testing.T) {
 	locales := extLocales(t)
 	if len(locales) < 2 {
-		t.Fatalf("extension/_locales 只有 %v：双语是这一份目录存在的理由", locales)
+		t.Fatalf("extension/_locales 只有 %v：多门语言是这一份目录存在的理由", locales)
 	}
 	// default_locale 必须真的指到一个目录：指错了不是"退回中文"，是整个扩展装不上。
 	manifest, err := os.ReadFile(filepath.Join(extDir, "manifest.json"))
@@ -171,7 +171,7 @@ func TestExtension_两种语言的key守恒(t *testing.T) {
 	}
 }
 
-// 二、占位符：同一个 key 在两种语言里用到的编号必须一模一样。
+// 二、占位符：同一个 key 在各门语言里用到的编号必须一模一样。
 //
 // 数量相同、编号错位也会说反话："读到 $1 条书签、$2 个分组" 译成
 // "$2 bookmarks in $1 groups" 两种语言各自都读得通，界面上的数字却是反的。
@@ -281,7 +281,7 @@ func TestExtension_引用的key都在册(t *testing.T) {
 		sort.Strings(ls)
 		t.Errorf("%v 里引用了 %q，但扩展目录 %v 没有这一条", refs[key], key, ls)
 	}
-	// 白放的 key 也要报：一条谁都不引用的文案会一直"看起来是双语的"，
+	// 白放的 key 也要报：一条谁都不引用的文案会一直"看起来是翻全的"，
 	// 直到有人去改那句界面话时只改了一半。
 	for _, l := range extLocales(t) {
 		cat := cats[l]

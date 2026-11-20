@@ -112,8 +112,8 @@ func Test图标库空态说的是先搜而不是图库的来源(t *testing.T) {
 		t.Error("来源说明没有单独一行（它得从状态行的位子上退下来）")
 	}
 
-	// 三种语言都要有那几句——只加中文时英文界面上会退回 key 本身。
-	for _, lang := range []i18n.Lang{i18n.Zh, i18n.En} {
+	// 各门语言都要有那几句——只加中文时别的语言界面上会退回 key 本身。
+	for _, lang := range i18n.All {
 		cat := i18n.Load(lang)
 		for _, k := range []string{"app.icon.libStart", "app.icon.libHint", "app.icon.libStarter", "app.icon.libCommon"} {
 			if got := cat.T(k); got == "" || strings.HasPrefix(got, "⟨") {

@@ -154,7 +154,7 @@ func selectorsWithDeclaration(css, decl string) []string {
 //
 // Task 6 的 .gnav a / Task 7 收宽后的把手一族 summary 不是按钮也不是输入框，
 // 是"导航目标"这第三族：它们各开一条 joint 规则 `.gnav a,summary{min-height:44px}`，
-// 本族里这个数字仍只写一遍（输入族、按钮族、导航族，三族各一次，见 base.css 的注释）。
+// 本族里这个数字仍只写一遍（今天七族各一次，见 base.css 的注释）。
 //
 // ④.5 Task 2 的引导表单**不开第四条**：它的两个输入框归输入族，提交按钮靠表单
 // 同时带 `pick` 这个类归按钮族。新开一族就是"同一个硬数字写两处"，正是本函数要拦
@@ -2469,7 +2469,7 @@ func TestAdminPage_建档表单与提示在场(t *testing.T) {
 }
 
 // 名字那一格里印了两个名字：**显示名**与**id**。而 id 是从名字派生的
-// （store 的 DeriveID），所以 ASCII 名字那一份（rockben、NAS、dad…）两个词
+// （store 的 NextProfileID），所以 ASCII 名字那一份（rockben、NAS、dad…）两个词
 // 是同一个——两个都印就成了「rockben rockben」，读起来像重影。
 //
 // 判据：**两个一样时只印一个**；不一样时两个都在（"爸爸 dad"——id 是 API
@@ -2758,5 +2758,32 @@ func TestCSS_wall那一档的节不带上边距(t *testing.T) {
 	}
 	if !strings.Contains(rule, "margin:0 0 18px") {
 		t.Errorf("wall 那一档的节应该是 margin:0 0 18px，实际：%s", rule)
+	}
+}
+
+// 阿拉伯语等 RTL 语言在根标签渲染 dir="rtl"，其余语言不发 dir 属性。
+func TestRTL_阿拉伯语页面渲染带有dirRTL(t *testing.T) {
+	ix, fc, s := assets(t)
+	r := New(s, ix, fc)
+	page, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "", AdminOptions{}, i18n.Ar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(page.Body)
+	if !strings.Contains(body, `<html lang="ar" dir="rtl">`) {
+		t.Errorf("阿拉伯语管理页头部缺少 dir=\"rtl\":\n%.300s", body)
+	}
+
+	// 繁体中文页面无 dir 属性且 lang="zh-TW"
+	pageTW, err := r.AdminPage([]AdminRow{{ID: "dad", Title: "爸爸"}}, "", AdminOptions{}, i18n.ZhTW)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodyTW := string(pageTW.Body)
+	if strings.Contains(htmlHead(bodyTW), `dir=`) {
+		t.Errorf("繁体中文管理页头部不该有 dir 属性:\n%.300s", bodyTW)
+	}
+	if !strings.Contains(bodyTW, `<html lang="zh-TW">`) {
+		t.Errorf("繁体中文管理页头部缺少 lang=\"zh-TW\":\n%.300s", bodyTW)
 	}
 }

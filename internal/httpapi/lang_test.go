@@ -431,7 +431,10 @@ func TestBrowserLang_按q值从高到低认得出就落那一门(t *testing.T) {
 		"en-US":             i18n.En,
 		"en-US,en;q=0.9":    i18n.En,
 		"zh-CN,zh;q=0.9":    i18n.Zh,
-		"zh-TW":             i18n.Zh,
+		"zh-TW":             i18n.ZhTW,
+		"zh-HK":             i18n.ZhTW,
+		"ar":                i18n.Ar,
+		"ar-SA":             i18n.Ar,
 		"en-US,de;q=0.9":    i18n.En,
 		"zh":                i18n.Zh,
 		"de,en;q=0.9":       i18n.En, // 第一个认不出就往下看（按 q 值）

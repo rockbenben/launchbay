@@ -20,20 +20,22 @@ import (
 //
 // **T 由执行器注入，调用方一律不许填**——与 CSS 同一条纪律：让 httpapi 那头
 // 能填 T，就等于允许它塞一段未经查表校验的字符串进页面（而查表正是"这一句话
-// 在两种语言里都存在"的唯一保证）。
+// 在各门语言里都存在"的唯一保证）。
 //
 // 语言以**位置参数**递进执行器方法而不是放在视图结构体上，与 HasSnapshots 同一
 // 条理由：字段能忘填，位置参数不能。一个忘了传语言的渲染函数会立刻在测试里
 // 显出 ⟨key⟩ 而不是安静地退回中文。
 type i18nView struct {
-	// Lang 是 <html lang> 的值：zh-CN / en。取自 HTMLLang 而不是 Lang 本身——
+	// Lang 是 <html lang> 的值：zh-CN / zh-TW / en / ar 等。取自 HTMLLang 而不是 Lang 本身——
 	// 前者是标准写法（RFC 5646），读屏软件与浏览器的翻译提示认它。
 	Lang string
+	// Dir 是 <html dir> 的值：rtl 或空（空即默认 ltr）。仅在阿拉伯语等 RTL 语言下出现。
+	Dir string
 	// Langs 是语言下拉框的选项，**每页都带着**：引导页建档时选一次，管理页随时改。
 	// 两个入口都要，所以放共用的这一格而不是各页各算一遍。
 	Langs []LangOption
 	// cat 是文案本体，**不许导出**：导出就等于让 httpapi 那头能填，一份未经查表
-	// 校验的字符串就能进页面（而查表正是"这一句话在两种语言里都存在"的唯一保证）。
+	// 校验的字符串就能进页面（而查表正是"这一句话在各门语言里都存在"的唯一保证）。
 	// 模板只能拿到下面那个 T 方法。
 	cat *i18n.Catalog
 }
@@ -120,10 +122,14 @@ func newI18nView(cat *i18n.Catalog) i18nView {
 	if cat == nil {
 		cat = i18n.Load(i18n.Default)
 	}
+	dir := ""
+	if cat.Lang().IsRTL() {
+		dir = "rtl"
+	}
 	// Langs 只是**占位**：真正用它的两页（管理页与建档页）要显示的是
 	// **盘上写着的那个**值，而不是这一页正在用的那一种语言——那两页在
 	// 各自的执行器里覆盖掉这一份（见 langOptions 的注释）。
-	return i18nView{cat: cat, Lang: cat.HTMLLang(), Langs: langOptions("", cat)}
+	return i18nView{cat: cat, Lang: cat.HTMLLang(), Dir: dir, Langs: langOptions("", cat)}
 }
 
 type executor struct {
@@ -916,8 +922,12 @@ func hostOf(raw string) string {
 //
 // **按语言走形状**：同一个 `01-02 15:04` 在中文读者那里读成"10 月 11 日"，
 // 在英语读者那里分不清是 11 月 10 日还是 10 月 11 日——月在前还是日在前，
-// 两种读法都成立。英文给月份名（`11 Oct, 15:04`），中文把单位也带上
+// 两种读法都成立。英文给月份名（`11 Oct, 15:04`），中文（含繁体）把单位也带上
 // （`10月11日 15:04`），两边都不再靠读者猜。
+//
+// **今天只有这两种形状**：阿拉伯语等其余语言落中文那一支——它们还没有自己的
+// 日期格式，这是已知缺口（不是"按语言全都排好了"）。补一门口语要在这里加一支，
+// 别在调用点各写一遍。
 //
 // lang 显式传进来而不是自己去读 store：这一层没有 Server，而"用哪种语言排版"
 // 是渲染侧判据的一部分，调用点看得见比藏起来好（与 Server.t 同一理由）。
@@ -1007,7 +1017,7 @@ func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
 			b.label = cat.T("history.day.yesterday")
 		default:
 			// 日期本身就是那一节的标题，不再包一层句子：`10月4日` 与 `4 Oct`
-			// 已经是两种语言各自的样子，而语言包里放一条 `%s` 只会多一处空壳。
+			// 已经是各门语言各自的样子，而语言包里放一条 `%s` 只会多一处空壳。
 			b.label = dayDate(lang, lt, now.Year())
 		}
 		seen[key] = b
@@ -1026,6 +1036,8 @@ func historyDays(rows []HistoryRow, cat *i18n.Catalog) []historyDay {
 
 // dayDate 是一天的标题里那个日期。跨年时要带年份：只写「2 Jan」的人读到
 // 去年的时间那一节，会以为那是今年一月——而"哪一月的哪一天"正是这一节唯一的职责。
+//
+// 与 ShortTime 同一条边界：只有英文与中文两种形状，其余语言落中文那一支。
 func dayDate(lang string, t time.Time, thisYear int) string {
 	if t.Year() == thisYear {
 		if lang == string(i18n.En) {

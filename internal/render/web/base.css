@@ -102,7 +102,9 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;
   max-width:1600px;margin:0 auto 18px;padding:0 16px}
 header h1{flex:0 1 auto;min-width:0;margin:0;font-size:21px;letter-spacing:-.025em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 「改名」那一格（顶栏标题旁边）。h1 从 `flex:1 1 auto` 收成 `0 1 auto`：
+/* 「改名」那一格**已经不在顶栏**（2026-10-13 收进台面面板）。下面这几条规则因此
+   没有挂载点，留着只作历史参照；删它们要同步 views_test.go 里那条证人选择器。
+   h1 从 `flex:1 1 auto` 收成 `0 1 auto` 的那段理由也属于那一版：
    它以前要吃掉整行余量，那样"改名"那颗会被推到搜索框跟前去、看着像搜索区的东西；
    余量交给 nav（它本来就是 `flex:1 0 auto` + 右对齐），这颗就贴着它管的标题。
    长标题仍然截——`min-width:0` 加 ellipsis 一个字没动。 */
@@ -218,7 +220,7 @@ main p,main .notice,main .hint,main .explain{max-width:42em}
    框。460 是量出来的——`.pick input` 的最小可用宽约 300，加上 16px 内衬两侧。 */
 .chooser form.setup{max-width:460px}
 .chooser form.login{max-width:460px}
-/* 外壳栅格（spec §8.2）：桌面 190px 常驻侧栏；≤1100px 收成抽屉（summary 才是
+/* 外壳栅格（spec §8.2）：桌面 206px 常驻侧栏（文字宽 190）；≤1100px 收成抽屉（summary 才是
    把手，桌面把**抽屉那一只**的 summary 藏掉——解释页那只不该藏）；≤700px 变顶部横向标签行。
    侧栏的 ul 不需要再显式写 display：网格只挂在条目列表那三个类上（见裸 `ul`
    那条的注释），从前它挂在裸 `ul` 上，侧栏就得自己逃——那一版这条注释写的就是
@@ -1017,8 +1019,9 @@ input[type=file]{max-width:100%}
    这一条就是白底浅灰字，加上就是暗底浅字）——不是从注释推的。**注意**：用
    `<select size=N>` 的页内列表去验是**验错的**，它在页面里画，弹层那一层根本没参与。
 
-   判据只写这一处，**不按容器点名**：全站五颗 select（建档那枚、`/admin` 那枚、切换语言
-   那枚、浮层里的分组与图标那两颗）共用它，坏的也只有这一个原因。按容器点名过一次
+   判据只写这一处，**不按容器点名**：`select option` 是全局的，全站六颗 select
+   （选择页与 `/admin` 各一枚语言下拉，添加与编辑两张浮层各有分组/图标两枚）都吃这一条，
+   坏的也只有这一个原因。按容器点名过一次
    （只有 `.pick select`），那次的症状是"规则整条没匹配上，而屏上只表现为看着没生效"。
 
    底用 `--bg` 而不是 `--card`：`--card` 是半透明白，弹层画在页面之外、底下垫的是浏览器
@@ -1377,12 +1380,12 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-swatch-preview{flex:0 0 auto;width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 [data-theme=light] .prefs-swatch-preview{box-shadow:0 0 0 1px rgba(0,0,0,.18)}
 /* 每个分组**两行**（2026-10-15 改判）：第一行是名字 ｜ 磁贴/单列/大卡，
-   第二行是十颗色板 + 取色器 + 「用这个」。色板用 `flex:1 0 100%` 明确占满第二行
+   第二行是八颗色板 + 跟随主色 + 取色器 + 「用这个」（11 格）。色板用 `flex:1 0 100%` 明确占满第二行
    （见 1427 那条），不是靠"装不下"折行——改任何一个宽度都别让版式在"一行/两行"
    之间悄悄翻面。名字那一格的下限 96px 是它让位的那条线（见 1367）。
 
-   宽度算术（2026-10-21 复量，1440）：色板自己 **694**（十颗色点 + 取色器 +
-   「用这个」），排法三颗 **157**，删键 **89**——加起来 940，而分组那一行只有
+   宽度算术（2026-10-21 复量，1440）：色板自己 **694**（十一格：跟随 + 八颗色点 +
+   取色器 + 「用这个」），排法三颗 **157**，删键 **89**——加起来 940，而分组那一行只有
    **728**（差 212），一行版式今天连放都放不下。2026-10-15 那一版算的是另一组数
    （面板内容 899、色板 512、排法 212、名字下限 96），那一版的"836"已经作废；
    两行之后每组 44 → 161px，代价写在上面。
@@ -1510,7 +1513,7 @@ select option{background:var(--bg);color:var(--ink)}
 
    **边框要自己给**（2026-10-14 实拍后补）：`<input type=color>` 的那一圈框是
    **浏览器画的**，而这份 CSS 从前只写了尺寸与 cursor——于是暗色面板上凭空冒出
-   八个亮蓝方框（实测：8 个分组、8 个框），与旁边十颗半透明 + 1px `--line` 的
+   八个亮蓝方框（实测：8 个分组、8 个框），与旁边那些半透明 + 1px `--line` 的
    色块完全不是一族。蓝框不是设计，是**疏漏**：全站其它控件的边框都是 `--line`，
    唯独它由 UA 代劳。
 
@@ -1607,7 +1610,7 @@ select option{background:var(--bg);color:var(--ink)}
   .prefs-group:not(.prefs-group-new) > .prefs-group-shape{grid-column:1;grid-row:2;min-width:0}
   .prefs-group:not(.prefs-group-new) > .prefs-group-del{grid-column:2;grid-row:2;justify-self:end}
   .prefs-group:not(.prefs-group-new) > .prefs-group-colors{grid-column:1 / -1;grid-row:3;width:100%}
-  /* 缝收到 4px 让**一行装六颗**（batch11 P6 的另一半）：12 格（跟随主色 + 九颗色板
+  /* 缝收到 4px 让**一行装六颗**（batch11 P6 的另一半）：11 格（跟随主色 + 八颗色板
      + 取色器 + 「用这个」）在 301px 里按 8px 缝只装得下五颗一行 = 三行 159px，
      把刚省下来的那一行又吃回去了。44px 一颗不动（§7.5 的地板），动的是缝。 */
   .prefs-group-colors{gap:4px}
@@ -1801,8 +1804,8 @@ form.act:has(fieldset.choices) button{position:sticky;bottom:14px}
 /* 窄屏藏描述**只对磁贴**。从前是 `.card i{display:none}` 一刀切，可它那条规则
    的理由只对磁贴成立：≤700px 时磁贴压成两列，一格只有 ~190px，名字 + 描述 + 编辑
    把手挤在一行里，描述只能被挤没。
-   而 **list 在同一档是整幅单行**（上面那条 `repeat(auto-fill,minmax(360px,1fr))`
-   在 610px 上算出一列）——地方多的是，把描述一起藏掉就是白藏。实拍：1280 档看得到
+   而 **list 在这一档按 `repeat(auto-fill,minmax(300px,1fr))` 排**，每列仍比磁贴的
+   ~190px 宽——地方多的是，把描述一起藏掉就是白藏。实拍：1280 档看得到
    「主路由 · 192.168.x.x」，650px 档只剩「主路由」，而描述往往正是"这个地址是哪台
    机器"的那半句。 */
 @media (max-width:700px){.tiles .card i{display:none}}
@@ -2288,3 +2291,13 @@ body:not([data-profile-view=dense]) .shell>main section>h2{color:var(--ink);font
   .adm-page dl{grid-template-columns:minmax(0,1fr);gap:4px}
   .adm-page dd{margin-bottom:12px}
 }
+
+/* 阿拉伯语等从右向左语言（RTL）的镜像适配：次行缩进、表头与深度导航 */
+[dir=rtl] .tiles .card i{margin-left:0;margin-right:32px;text-align:right}
+[dir=rtl] .tiles .tags-row{margin-left:0;margin-right:32px}
+[dir=rtl] [data-addr-level=full] .tiles .card i.addr{margin-right:0}
+[dir=rtl] [data-layout=list] .card i{margin-right:0}
+[dir=rtl] [data-layout=list] .plain .tags-row{margin-right:0}
+[dir=rtl] .adm th{text-align:right}
+[dir=rtl] .gnav li{padding-left:0;padding-right:calc(var(--d,0) * 12px)}
+[dir=rtl] .action-page:has(button.danger) .explain{border-left:0;border-right:3px solid var(--bad);border-radius:10px 0 0 10px}

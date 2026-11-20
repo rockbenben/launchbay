@@ -1,5 +1,5 @@
 {{define "admin"}}<!doctype html>
-<html lang="{{.Lang}}">
+<html lang="{{.Lang}}"{{with .Dir}} dir="{{.}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -26,10 +26,11 @@
      1440 实拍还量到另一件事：四块全都铺到 1368px，而建档那行控件只占约 700px、
      语言那块约 330px——右边三分之二是空的。
 
-     改成**三节**，每节一个 h2（h2::before 那枚色点自动跟上，全案一致）：
+     改成**四节**，每节一个 h2（h2::before 那枚色点自动跟上，全案一致）：
        ① 这台机器上的档案 —— 表格
        ② 加一个人         —— 建档表单（补上标题与它自己的说明）
        ③ 这台机器的设置   —— 语言、管理密钥与书签栏并排
+       ④ 地址判断诊断     —— Host / RemoteAddr / 生效档位与 lanHosts
      主栏同时收窄（.adm-page）：这一页是**一个人偶尔来一次**的设置页，
      不是档案页那种铺满的卡片墙；1600 那条上限是给档案页量的。 */}}
 <main role="main" class="adm-page">
@@ -57,7 +58,7 @@
       <tbody>
       {{range .Rows}}
         <tr>
-          <td data-k="{{$.T "admin.col.profile"}}"><span class="name"><b>{{if .Title}}{{.Title}}{{else}}{{.ID}}{{end}}</b>{{/* id 是**从名字派生**的（store 的 DeriveID），所以 ASCII 名字那一
+          <td data-k="{{$.T "admin.col.profile"}}"><span class="name"><b>{{if .Title}}{{.Title}}{{else}}{{.ID}}{{end}}</b>{{/* id 是**从名字派生**的（store 的 NextProfileID），所以 ASCII 名字那一
              份（rockben、NAS、dad…）标题与 id 是同一个词——两个都印就成了
              「rockben rockben」。同一份只印一次：id 那一格是给 API 寻址用的
              handle，而动作键的链接里已经带着它。标题读不出来（坏档）时，

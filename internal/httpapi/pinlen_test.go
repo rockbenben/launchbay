@@ -17,7 +17,7 @@ import (
 // 这个数要说给人听的地方有四类，而它们**不是同一类东西**：
 //   - 服务端那句 422 理由（Go 里的字符串）——由常量算出来；
 //   - 模板上那对 minlength/maxlength（渲染出来的那一半）——见 render 包的同名测试；
-//   - 两份语言包里的文案（**静态 JSON**）；
+//   - 各门语言包里的文案（**静态 JSON**）；
 //   - 机器契约 openapi.json（**静态 JSON**）。
 //
 // 后两类是静态文件：它们没法从 Go 那个常量算出来，于是**由测试钉**——
@@ -26,11 +26,12 @@ import (
 // 为什么值得这么麻烦：这个数一旦两处不同，症状是"页面上限 6、服务端只收 4"
 // 与"服务端收 8、页面上写着 4-6"，而两样都不报错——人只会以为自己手滑了。
 
-// pinRangeRe 认"4 到 6"这一族写法：中文的"到"、英文的"to"、契约里的"-"都在内。
+// pinRangeRe 认"4 到 6"这一族写法：中文的"到"、英文的"to"、阿拉伯语的"إلى"、
+// 契约里的"-"都在内。
 //
 // 数字取自常量，所以改了范围这条正则跟着改——**它认的是"当前该说的那个范围"**，
 // 而不是一个写死的 4-6。
-var pinRangeRe = regexp.MustCompile(fmt.Sprintf(`\b%d\b\s*(?:到|to|-|–|—)\s*\b%d\b`,
+var pinRangeRe = regexp.MustCompile(fmt.Sprintf(`\b%d\b\s*(?:到|to|إلى|-|–|—)\s*\b%d\b`,
 	auth.PinMinLen, auth.PinMaxLen))
 
 // 服务端那句 422 理由：它是**给人看的那句**，数字必须与判据同源。
@@ -66,11 +67,11 @@ func TestPIN的格式理由说的是判据那个范围(t *testing.T) {
 	}
 }
 
-// 两份语言包里那几句提到 PIN 格式的话，说的都必须是**当前那个范围**。
+// 各门语言包里那几句提到 PIN 格式的话，说的都必须是**当前那个范围**。
 //
 // 名单是"哪几句说了格式"逐条列出来的：漏一条，那一句就会在改了范围之后
 // 继续说旧的——而它是**给人看的**，人照着它敲就会敲错。
-func TestPIN的范围在两份语言包里说的是同一个(t *testing.T) {
+func TestPIN的范围在各门语言包里说的是同一个(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		args []any
@@ -83,7 +84,7 @@ func TestPIN的范围在两份语言包里说的是同一个(t *testing.T) {
 		{"admin.pin.field.change", nil},
 		{"prefs.pin.badNew", nil},
 	} {
-		for _, lang := range []i18n.Lang{i18n.Zh, i18n.En} {
+		for _, lang := range i18n.All {
 			s := i18n.Load(lang).T(tc.key, tc.args...)
 			if !pinRangeRe.MatchString(s) {
 				t.Errorf("%s 的 %s 说的是 %q，没有说当前那个范围（%d 到 %d 位）",

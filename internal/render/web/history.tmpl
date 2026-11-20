@@ -1,5 +1,5 @@
 {{define "history"}}<!doctype html>
-<html lang="{{.Lang}}">
+<html lang="{{.Lang}}"{{with .Dir}} dir="{{.}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -40,7 +40,7 @@
         <li class="plain">
           {{/* 时刻只到分：日期已经被这一节的标题说过了，一行里说两遍是挤。 */}}
           <b>{{with clockTime $.Lang .At}}{{.}} · {{end}}{{.Channel}}{{with .Actor}} · {{.}}{{end}}</b>
-          {{/* 单复数在**数量**上分支，不在语言上分支：两种语言各有各的
+          {{/* 单复数在**数量**上分支，不在语言上分支：各门语言各有各的
                "一处改动 / 1 edit"，模板里不许出现 `{{if eq .Lang ...}}`。 */}}
           {{if .Count}}{{if eq .Count 1}}<span class="badge">{{$.T "history.row.count.one"}}</span>{{else}}<span class="badge">{{$.T "history.row.count" .Count}}</span>{{end}}{{end}}
           {{if .Rev}}<span class="badge">{{$.T "history.row.rev" .Rev}}</span>{{else}}<span class="badge">{{$.T "history.row.noRev"}}</span>{{end}}

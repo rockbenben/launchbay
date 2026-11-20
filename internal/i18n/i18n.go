@@ -11,8 +11,9 @@
 //  2. **缺 key 不静默**：T 查不到时返回 key 自己（外面包尖括号），页面上会看到
 //     `⟨profile.search⟩` 这样一眼可辨的东西。返回空串才是事故——那条路会让一处
 //     漏翻变成界面上一块空白，而空白看起来像"设计如此"。
-//  3. **两种语言的 key 必须守恒**：catalog_test.go 逐条比对 zh 与 en 的 key 集合，
-//     少一个就红。这是"翻全了"唯一的机械保证——靠人眼一条一条数文案，早晚漏。
+//  3. **每门语言的 key 必须守恒**：catalog_test.go 既逐条比对 All 里每一门与 zh
+//     （今天 4 门），另一条又把 messages/ 下 18 份文件全比对一遍，少一个就红。
+//     这是"翻全了"唯一的机械保证——靠人眼一条一条数文案，早晚漏。
 package i18n
 
 import (
@@ -27,47 +28,86 @@ import (
 //go:embed messages/*.json
 var messageFS embed.FS
 
-// Lang 是一种界面语言。取值只有两个，且必须是常量。
+// Lang 是一种界面语言。必须是常量。
 //
 // **语言是"每一份档案自己记一份"，站级那一份是默认**（2026-10-20 改判）：
 // 见下面 ProfileLang 的注释。
 type Lang string
 
 const (
-	// Zh 是默认语言。**默认值必须落中文**：从前的档案没有"这一份自己的语言"这一格，
+	// Zh 是默认语言（简体中文）。**默认值必须落中文**：从前的档案没有"这一份自己的语言"这一格，
 	// 缺字段 = 没选过，落到站级默认；站级也没设过就问浏览器语言，最后才是 en
 	// （ProfileLang → machineLang）。默认英文会是一次无声的行为变更，对已经建好
 	// 中文档案的人尤其难解释。
 	Zh Lang = "zh"
+	// ZhTW 是繁体中文。
+	ZhTW Lang = "zh_TW"
 	// En 是英文。
 	En Lang = "en"
+	// Ar 是阿拉伯语（RTL）。
+	Ar Lang = "ar"
 )
 
 // Default 是缺字段时的语言。与 Zh 同一个常量，不是两份写法——两个名字指向同一件
 // 事，将来要改默认值只改一处。
 const Default = Zh
 
-// All 是全部受支持的语言，**按界面显示顺序**。写进页面的下拉框与校验都取这一份，
-// 所以"新增一种语言"只有这一个地方要动。
-var All = []Lang{Zh, En}
+// All 是**页面上真能选到**的语言，**按界面显示顺序**。写进页面的下拉框与校验
+// 都取这一份。
+//
+// **它今天只有 4 门，而 messages/ 下有 18 份包**：另外 14 份已经译好、由
+// catalog_test 的 18 文件那条守着 key 与占位符，但还没接线（不进下拉框、不进
+// Accept-Language 识别、写 `language` 也过不了写侧）。接一门语言要动四处：
+// 这里加一行、DisplayName/HTMLLang 各补一个 case、重生成 app.js 的 APP_I18N，
+// 并看一眼 app.js 的字节闸（`TestBudget_appJS在预算内`）——18 门全塞进那一个
+// 静态文件会顶破 §7.3 的契约，所以这不是"只改 All 一行"就完的事。
+var All = []Lang{Zh, ZhTW, En, Ar}
 
-// HTMLLang 给 <html lang> 用。中文是 zh-CN，英文是 en——不是 zh / en：
-// 前者是标准写法（RFC 5646），screen reader 与浏览器的翻译提示认它。
+// HTMLLang 给 <html lang> 用。RFC 5646 标准写法，screen reader 与浏览器的翻译提示认它。
 func (l Lang) HTMLLang() string {
-	if l == En {
+	switch l {
+	case Zh:
+		return "zh-CN"
+	case ZhTW:
+		return "zh-TW"
+	case Ar:
+		return "ar"
+	case En:
+		return "en"
+	default:
 		return "en"
 	}
-	return "zh-CN"
 }
 
-// DisplayName 是语言自己的名字，**用该语言自己写**。
-// 「中文」「English」而不是「Chinese」「英文」：让一个看不懂当前语言的人也能从
+// DisplayName 是语言自己的名字，**用该语言自己写（Endonym）**。
+// 「中文（简体）」「繁體中文」「English」「العربية」：让一个看不懂当前语言的人也能从
 // 这个列表里认出自己要的那一个。这是所有语言选择器的通用做法，不是本项目的偏好。
 func (l Lang) DisplayName() string {
-	if l == En {
+	switch l {
+	case Zh:
+		return "中文（简体）"
+	case ZhTW:
+		return "繁體中文"
+	case En:
 		return "English"
+	case Ar:
+		return "العربية"
+	default:
+		return string(l)
 	}
-	return "中文"
+}
+
+// IsRTL 报告该语言是否为从右向左（RTL）书写。
+func (l Lang) IsRTL() bool {
+	return l == Ar
+}
+
+// Dir 返回 HTML 的 dir 属性值（"rtl" 或 "ltr"）。
+func (l Lang) Dir() string {
+	if l.IsRTL() {
+		return "rtl"
+	}
+	return "ltr"
 }
 
 // Valid 报告 l 是不是受支持的语言。配置里存了不认识的值（手改文件、抄错了、
@@ -135,7 +175,7 @@ type Catalog struct {
 
 // T 是查表，可带占位符参数。
 //
-// 占位符用 fmt 的 %s/%d，**两种语言的占位符序列必须逐位相同**（catalog_test 钉着）：
+// 占位符用 fmt 的 %s/%d，**每门语言的占位符序列必须逐位相同**（catalog_test 钉着）：
 // 翻译时把 `%d` 写成 `%s`，或者把两个参数的顺序调换，界面就会印出
 // `%!s(float=6)` 这种东西——它在页面上看起来像乱码，而没人会去查语言包。
 //
@@ -165,8 +205,14 @@ func (c *Catalog) Lang() Lang {
 // HTMLLang 是给 <html lang> 用的便捷形式。
 func (c *Catalog) HTMLLang() string { return c.Lang().HTMLLang() }
 
+// IsRTL 报这份文案是否为 RTL 语言。
+func (c *Catalog) IsRTL() bool { return c.Lang().IsRTL() }
+
+// Dir 是给 <html dir> 用的便捷形式。
+func (c *Catalog) Dir() string { return c.Lang().Dir() }
+
 // cached 留一份每种语言的已加载文案。语言可能来自档案自己、站级默认或浏览器
-// （2026-10-20 起按档案），一个进程里同时出现两种是常态；每次渲染重新解析 JSON
+// （2026-10-20 起按档案），一个进程里同时出现两种以上是常态；每次渲染重新解析 JSON
 // 纯属浪费，命中缓存的读是纯内存操作。这张表按语言缓存，不需要"切换时失效"——
 // 键就是语言本身。
 //
@@ -179,7 +225,7 @@ func (c *Catalog) HTMLLang() string { return c.Lang().HTMLLang() }
 // 写，而"第一次"在多 goroutine 下是同时。
 //
 // 锁是读写锁：命中缓存的读占绝大多数（每渲染一页都要读），加写锁会把并发读也
-// 串起来。语言只有两种、每种一辈子只解析一次，所以写那一侧几乎不争。
+// 串起来。语言只有四种、每种一辈子只解析一次，所以写那一侧几乎不争。
 var (
 	cachedMu sync.RWMutex
 	cached   = map[Lang]*Catalog{}
@@ -235,7 +281,7 @@ func loadFrom(l Lang) (*Catalog, error) {
 	return &Catalog{lang: l, msgs: msgs}, nil
 }
 
-// Keys 返回这份文案的全部 key，排序后返回。**只给测试用**：守恒测试要逐条比对两种
+// Keys 返回这份文案的全部 key，排序后返回。**只给测试用**：守恒测试要逐条比对多门
 // 语言的 key 集合，除此之外没有调用者——把它塞进公开 API 只会诱使人绕过 T 直接读表。
 func (c *Catalog) Keys() []string {
 	out := make([]string, 0, len(c.msgs))

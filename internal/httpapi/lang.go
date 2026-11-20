@@ -344,11 +344,24 @@ func browserLang(h string) i18n.Lang {
 //   - 按 q 值从高到低找（q 相同按原文顺序，这是 RFC 的稳定排序）；
 //   - `q=0` = 客户端**不接受**这一门，跳过（`en;q=0,zh;q=0.5` → zh）；
 //   - `*` 是"其余都行"，不是"他要哪一门"，跳过；
-//   - 区域码取主标签（`zh-CN` → `zh`）。
+//   - 支持全标签匹配与区域变体映射（`zh-TW`/`zh-HK` → `zh_TW`，`zh-CN`/`zh-SG` → `zh`）；
+//   - 区域码取主标签（`en-US` → `en`，`ar-SA` → `ar`）。
 func browserLangOr(h string) (i18n.Lang, bool) {
 	for _, pref := range parseAcceptLanguage(h) {
 		if pref.tag == "*" || pref.q <= 0 {
 			continue
+		}
+		full := strings.ToLower(strings.TrimSpace(pref.tag))
+		switch full {
+		case "zh-tw", "zh-hk", "zh-mo", "zh-hant":
+			return i18n.ZhTW, true
+		case "zh", "zh-cn", "zh-sg", "zh-hans":
+			return i18n.Zh, true
+		}
+		for _, l := range i18n.All {
+			if strings.EqualFold(string(l), full) || strings.EqualFold(strings.ReplaceAll(string(l), "_", "-"), full) {
+				return l, true
+			}
 		}
 		primary := strings.ToLower(strings.TrimSpace(strings.SplitN(pref.tag, "-", 2)[0]))
 		for _, l := range i18n.All {

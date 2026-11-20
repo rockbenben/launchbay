@@ -26,6 +26,8 @@ func Test语言_什么都没设过时按浏览器说的那一门(t *testing.T) {
 		wantLang string
 	}{
 		{"浏览器说中文", "zh-CN,zh;q=0.9", "zh-CN"}, // 中文那一门的 <html lang> 是 zh-CN（RFC 5646）
+		{"浏览器说繁体中文", "zh-TW,zh;q=0.9", "zh-TW"},
+		{"浏览器说阿拉伯语", "ar-SA,ar;q=0.9", "ar"},
 		{"浏览器说英文", "en-US,en;q=0.9", "en"},
 		// 认不出来的浏览器语言 → **en**（国际通用那一门），不是中文。
 		{"浏览器说我们没有的那一门", "fr-FR,fr;q=0.9", "en"},

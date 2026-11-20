@@ -1,62 +1,73 @@
 package i18n
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 )
 
-// 守恒：两种语言的 key 集合必须逐条相等。
+// 守恒：全部支持语言的 key 集合必须逐条相等。
 //
 // 这是"翻全了"唯一的机械保证。靠人眼一条一条数文案，早晚会漏一处；而漏一处的
 // 后果不是编译错，是那一行英文界面印出 ⟨admin.act.delete⟩ 这样一眼可辨的东西——
 // 它至少不是静默的空白，但仍然是坏的页面。
-func TestCatalog_两种语言的key守恒(t *testing.T) {
-	zh := Load(Zh)
-	en := Load(En)
-
-	zhKeys := map[string]bool{}
-	for _, k := range zh.Keys() {
-		zhKeys[k] = true
-	}
-	enKeys := map[string]bool{}
-	for _, k := range en.Keys() {
-		enKeys[k] = true
+func TestCatalog_各门语言的key守恒(t *testing.T) {
+	base := Load(Default)
+	baseKeys := map[string]bool{}
+	for _, k := range base.Keys() {
+		baseKeys[k] = true
 	}
 
-	var missingInEn, missingInZh []string
-	for _, k := range zh.Keys() {
-		if !enKeys[k] {
-			missingInEn = append(missingInEn, k)
+	for _, l := range All {
+		if l == Default {
+			continue
 		}
-	}
-	for _, k := range en.Keys() {
-		if !zhKeys[k] {
-			missingInZh = append(missingInZh, k)
+		cat := Load(l)
+		otherKeys := map[string]bool{}
+		for _, k := range cat.Keys() {
+			otherKeys[k] = true
 		}
-	}
-	if len(missingInEn) > 0 {
-		t.Errorf("英文包少了 %d 条：%s", len(missingInEn), strings.Join(missingInEn, "、"))
-	}
-	if len(missingInZh) > 0 {
-		t.Errorf("中文包少了 %d 条：%s", len(missingInZh), strings.Join(missingInZh, "、"))
+
+		var missingInOther, missingInBase []string
+		for _, k := range base.Keys() {
+			if !otherKeys[k] {
+				missingInOther = append(missingInOther, k)
+			}
+		}
+		for _, k := range cat.Keys() {
+			if !baseKeys[k] {
+				missingInBase = append(missingInBase, k)
+			}
+		}
+		if len(missingInOther) > 0 {
+			t.Errorf("%s 包少了 %d 条：%s", l, len(missingInOther), strings.Join(missingInOther, "、"))
+		}
+		if len(missingInBase) > 0 {
+			t.Errorf("基准包少了 %s 的 %d 条：%s", l, len(missingInBase), strings.Join(missingInBase, "、"))
+		}
 	}
 }
 
-// 占位符守恒：同一个 key 在两种语言里的 %s/%d 序列必须逐位相同。
+// 占位符守恒：同一个 key 在各种语言里的 %s/%d 序列必须逐位相同。
 //
 // 顺序也算：把 "找到 %d 条，这个档案一共 %d 条" 译成 "%d total, %d found"
 // 数量对得上、位置全错——界面上就会说"一共 6 条，找到 20 条"，而且完全读得通，
 // 只是说反了。这一条比上一条更难靠眼睛发现。
 func TestCatalog_占位符序列守恒(t *testing.T) {
-	zh := Load(Zh)
-	en := Load(En)
+	base := Load(Default)
 
-	for _, k := range zh.Keys() {
-		zp := placeholders(zh.msgs[k])
-		ep := placeholders(en.msgs[k])
-		if zp != ep {
-			t.Errorf("key %q 的占位符对不上：\n  zh = %s\n  en = %s", k, zp, ep)
+	for _, l := range All {
+		if l == Default {
+			continue
+		}
+		cat := Load(l)
+		for _, k := range base.Keys() {
+			bp := placeholders(base.msgs[k])
+			op := placeholders(cat.msgs[k])
+			if bp != op {
+				t.Errorf("语言 %s 的 key %q 的占位符对不上：\n  base = %s\n  %s = %s", l, k, bp, l, op)
+			}
 		}
 	}
 }
@@ -130,7 +141,7 @@ func TestParseLang_不认识的值落回默认(t *testing.T) {
 // 每种语言都要能用它自己的名字报出自己，否则那个下拉框里会出现一个空项。
 func TestLang_每种语言都能报出自己的名字(t *testing.T) {
 	if len(All) < 2 {
-		t.Fatalf("All 少于两种语言，测试意义不大：%v", All)
+		t.Fatalf("All 少于两门语言，测试意义不大：%v", All)
 	}
 	seen := map[string]bool{}
 	for _, l := range All {
@@ -139,7 +150,7 @@ func TestLang_每种语言都能报出自己的名字(t *testing.T) {
 			t.Errorf("%s 的 DisplayName 是空的", l)
 		}
 		if seen[n] {
-			t.Errorf("两种语言报了同一个名字 %q，下拉框里分不出来", n)
+			t.Errorf("两门语言报了同一个名字 %q，下拉框里分不出来", n)
 		}
 		seen[n] = true
 		if l.HTMLLang() == "" {
@@ -168,8 +179,7 @@ func TestCatalog_语言包都是合法JSON且非空(t *testing.T) {
 	}
 }
 
-// 每条中文文案都要在两种语言里都出现——这个已经被上面两条覆盖了，
-// 这里补的是另一件事：**中文包不许出现英文残留**。翻译时漏改一处会在这里被逮到，
+// 这一条补的是**英文包不许出现中文残留**——key 守恒上面两条已经管了。翻译时漏改一处会在这里被逮到，
 // 而不是等一个英文用户在页面上看到 "已读到标题"。
 func TestCatalog_英文包不许夹带中文(t *testing.T) {
 	en := Load(En)
@@ -216,6 +226,71 @@ func TestCatalog_非法语言也能拿到可用文案(t *testing.T) {
 	}
 	if c.Lang() != Default {
 		t.Errorf("落回之后 Lang() 应该是 %q，拿到 %q", Default, c.Lang())
+	}
+}
+
+// 验证 embed 进二进制的所有 18 门语言词典文件（messages/*.json）的完备性与守恒。
+func TestCatalog_全部18张嵌入语言表守恒与取值(t *testing.T) {
+	entries, err := messageFS.ReadDir("messages")
+	if err != nil {
+		t.Fatalf("读不到内嵌 messages 目录：%v", err)
+	}
+	if len(entries) != 18 {
+		t.Fatalf("期望 embed 18 门语言词典，实际发现 %d 个文件", len(entries))
+	}
+
+	baseRaw, err := messageFS.ReadFile("messages/zh.json")
+	if err != nil {
+		t.Fatalf("读不到默认 zh.json：%v", err)
+	}
+	var baseMap map[string]string
+	if err := json.Unmarshal(baseRaw, &baseMap); err != nil {
+		t.Fatalf("zh.json 解析失败：%v", err)
+	}
+
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		raw, err := messageFS.ReadFile("messages/" + name)
+		if err != nil {
+			t.Errorf("%s 读取失败：%v", name, err)
+			continue
+		}
+		var msgs map[string]string
+		if err := json.Unmarshal(raw, &msgs); err != nil {
+			t.Errorf("%s 不是合法 JSON：%v", name, err)
+			continue
+		}
+
+		if len(msgs) != len(baseMap) {
+			t.Errorf("%s 键总数 %d 与基准 %d 不一致", name, len(msgs), len(baseMap))
+		}
+
+		for k, bv := range baseMap {
+			ov, ok := msgs[k]
+			if !ok {
+				t.Errorf("%s 缺失键 %q", name, k)
+				continue
+			}
+			if strings.TrimSpace(ov) == "" {
+				t.Errorf("%s 键 %q 内容为空", name, k)
+			}
+			bp := placeholders(bv)
+			op := placeholders(ov)
+			if bp != op {
+				t.Errorf("%s 键 %q 占位符对不上：基准 %s vs 实际 %s", name, k, bp, op)
+			}
+		}
+
+		// 真实取值抽样：抽查特定键，断言真实文本非空
+		for _, sampleKey := range []string{"profile.search.submit", "profile.rename.save", "admin.new.submit"} {
+			v := msgs[sampleKey]
+			if strings.TrimSpace(v) == "" {
+				t.Errorf("%s 抽样键 %q 为空", name, sampleKey)
+			}
+		}
 	}
 }
 
