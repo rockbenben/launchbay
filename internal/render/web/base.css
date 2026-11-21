@@ -1157,6 +1157,11 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs h3.prefs-sec+p.prefs-hint{margin-top:10px}
 .prefs h3.prefs-sec{margin:6px 0 -4px;font-size:15px;font-weight:650;color:var(--ink);border-top:1px solid var(--line);padding-top:14px}
 .prefs h3.prefs-sec:first-of-type{border-top:0;padding-top:0}
+#prefs-pane-look{gap:10px}
+#prefs-pane-look .prefs-sec{margin-block:12px 0;padding:7px 10px;border:0;border-radius:6px;
+  background:var(--card);color:var(--ink2);font-size:13px;line-height:1.4}
+#prefs-pane-look .prefs-sec:first-child{margin-block-start:0}
+#prefs-pane-look .prefs-sec+.prefs-row{border-top:0;padding-top:2px}
 .prefs-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;
   padding:10px 0 0;border-top:1px solid var(--line)}
 /* 一格 = 说明 + 控件（列）。`min-width:0` 是承重的：它让这一格在窄屏上能缩到
@@ -1209,6 +1214,21 @@ select option{background:var(--bg);color:var(--ink)}
 .prefs-field .prefs-keys button:hover{color:var(--ink);background:var(--card-hi)}
 .prefs-field .prefs-keys button[aria-pressed=true]{font-weight:600;color:var(--ink);
   border-color:var(--accent);background:var(--accent-tint)}
+.prefs-field .prefs-view-options button{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:5px;flex:1 1 0;min-width:0;min-inline-size:min(100%,5em);overflow-wrap:anywhere}
+.prefs-view-options button::before{content:"";display:block;flex:none;width:27px;height:17px;
+  border:1px solid currentColor;border-radius:3px;opacity:.7}
+.prefs-view-options [value=groups]::before{
+  background:linear-gradient(currentColor 0 0) center 4px/17px 2px no-repeat,
+    linear-gradient(currentColor 0 0) center 9px/17px 2px no-repeat}
+.prefs-view-options [value=wall]::before{
+  background:linear-gradient(currentColor 0 0) 4px center/6px 8px no-repeat,
+    linear-gradient(currentColor 0 0) 15px center/6px 8px no-repeat}
+.prefs-view-options [value=dense]::before{
+  background:linear-gradient(currentColor 0 0) center/17px 1px no-repeat,
+    linear-gradient(currentColor 0 0) center 4px/17px 1px no-repeat,
+    linear-gradient(currentColor 0 0) center 10px/17px 1px no-repeat}
+.prefs-view-options button[aria-pressed=true]::before{color:var(--accent);opacity:1}
 /* 这一行**下面**的 hint（分组那一节的长说明、背景那一句约束）。
    它不在 `.prefs-field` 里——背景与分组那两节自己多一层内容，说明留在那一格
    的最下方，横跨整格；`.prefs-field` 里的 `.prefs-hint` 才是"标签与控件之间"

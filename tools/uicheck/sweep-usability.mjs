@@ -61,6 +61,15 @@ try {
     }
     assert.equal(await run(`document.getElementById('lb-prefs-open').textContent`), catalog['prefs.open.label'], lang);
     assert.equal(await run(`document.getElementById('lb-prefs-h').textContent`), catalog['prefs.heading'], lang);
+    const headings = await run(`Array.from(document.querySelectorAll('#prefs-pane-look > h3'), h => h.textContent)`);
+    assert.deepEqual(headings, ['general', 'appearance', 'opening'].map(section => catalog[`prefs.section.${section}`]), lang);
+    assert.equal(await run(`(() => {
+      const options = [...document.querySelectorAll('.prefs-view-options button')];
+      return options.length === 3 && options.every(button => {
+        const preview = getComputedStyle(button, '::before');
+        return preview.content !== 'none' && preview.backgroundImage !== 'none' && button.getBoundingClientRect().height >= 44;
+      });
+    })()`), true, `${lang} has three usable layout previews`);
     assert.equal(await run(`document.getElementById('lb-sheet-h').textContent`), catalog['app.sheetTitle'], lang);
     assert.equal(await run(`document.querySelector('#lb-prefs .close').getAttribute('aria-label')`), catalog['app.close'], lang);
     assert.equal(await run(`document.querySelector('.cmdk[role=dialog]').getAttribute('aria-label')`), catalog['app.cmdk.aria'], lang);

@@ -511,7 +511,7 @@
        页面名字那一行用 `<label for>` 而不是 `<span>` + 内层 `<label>`：可见文字
        **就是**输入框的可及名（WCAG 2.5.3），而且点那五个字会直接把光标送进
        输入框。内层再写一遍「这一页的名字」是同一句话说了两遍。 */}}
-  <h3 class="prefs-sec">{{.T "prefs.sec.look"}}</h3>
+  <h3 class="prefs-sec">{{.T "prefs.section.general"}}</h3>
 
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
@@ -550,6 +550,7 @@
     </div>
   </form>
 
+  <h3 class="prefs-sec">{{.T "prefs.section.appearance"}}</h3>
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
       <span class="prefs-label">{{.T "prefs.theme"}}</span>
@@ -564,9 +565,9 @@
 
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
-      <span class="prefs-label">{{.T "prefs.view"}}</span>
-      <p class="prefs-hint">{{.T "prefs.view.hint"}}</p>
-      <div class="prefs-keys">
+      <span class="prefs-label" id="prefs-view-label">{{.T "prefs.view"}}</span>
+      <p class="prefs-hint" id="prefs-view-hint">{{.T "prefs.view.hint"}}</p>
+      <div class="prefs-keys prefs-view-options" role="group" aria-labelledby="prefs-view-label" aria-describedby="prefs-view-hint">
         <button type="submit" name="view" value="groups" aria-pressed="{{if eq .Profile.View "wall"}}false{{else if eq .Profile.View "dense"}}false{{else}}true{{end}}" title="{{.T "profile.view.groups.title"}}">{{.T "profile.view.groups.label"}}</button>
         <button type="submit" name="view" value="wall" aria-pressed="{{if eq .Profile.View "wall"}}true{{else}}false{{end}}" title="{{.T "profile.view.wall.title"}}">{{.T "profile.view.wall.label"}}</button>
         <button type="submit" name="view" value="dense" aria-pressed="{{if eq .Profile.View "dense"}}true{{else}}false{{end}}" title="{{.T "profile.view.dense.title"}}">{{.T "profile.view.dense.label"}}</button>
@@ -702,10 +703,7 @@
     </div>
   </div>
 
-  {{/* 「备份与历史」不是设置，是**数据进出的出口**——它排在上面那几行"这一页长什么样"
-       （界面语言/页面名字/排列方式/第二行/分组列表的位置/主题/背景）之后，而不在它们中间：
-       2026-10-14 之前背景那一节落在它下面，于是这屏读成
-       「几行设置 → 两个出口 → 又一行设置」，一屏里设置与出口各断一次。 */}}
+  <h3 class="prefs-sec">{{.T "prefs.section.opening"}}</h3>
   <form method="post" action="/prefs" class="prefs-row">
     <div class="prefs-field">
       <span class="prefs-label" id="link-mode-label">{{.T "prefs.linkMode"}}</span>
