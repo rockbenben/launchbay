@@ -37,7 +37,7 @@ async function load() {
 }
 
 function renderRows(c) {
-  rows.innerHTML = '';
+  rows.replaceChildren();
   const ids = [...new Set([...Object.keys(c.tokens), c.defaultProfile].filter(Boolean))];
   if (!ids.length) ids.push('');
   for (const id of ids) rows.append(tokenRow(id, c.tokens[id] || ''));

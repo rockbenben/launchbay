@@ -548,17 +548,24 @@ a:active,button:active,input[type=submit]:active,summary:active{transform:transl
    （`prefers-reduced-motion:reduce` 那条本来就整条关掉，豁免通路没有变。） */
 @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .card{animation:rise .14s ease backwards}
-li:nth-child(2) .card{animation-delay:.012s}
-li:nth-child(3) .card{animation-delay:.024s}
-li:nth-child(4) .card{animation-delay:.036s}
-li:nth-child(5) .card{animation-delay:.048s}
-li:nth-child(6) .card{animation-delay:.06s}
-li:nth-child(7) .card{animation-delay:.072s}
-li:nth-child(8) .card{animation-delay:.084s}
-li:nth-child(9) .card{animation-delay:.096s}
-li:nth-child(10) .card{animation-delay:.108s}
-li:nth-child(11) .card{animation-delay:.12s}
-li:nth-child(12) .card{animation-delay:.132s}
+@supports (animation-delay:calc(sibling-index() * .012s)){
+  /* 顺序按 li 算，卡面继承延迟。第 13 张起直接入场。 */
+  :where(li[data-item]:nth-child(-n+12)){animation-delay:calc((sibling-index() - 1) * .012s)}
+  li[data-item]>.card{animation-delay:inherit}
+}
+@supports not (animation-delay:calc(sibling-index() * .012s)){
+  li:nth-child(2) .card{animation-delay:.012s}
+  li:nth-child(3) .card{animation-delay:.024s}
+  li:nth-child(4) .card{animation-delay:.036s}
+  li:nth-child(5) .card{animation-delay:.048s}
+  li:nth-child(6) .card{animation-delay:.06s}
+  li:nth-child(7) .card{animation-delay:.072s}
+  li:nth-child(8) .card{animation-delay:.084s}
+  li:nth-child(9) .card{animation-delay:.096s}
+  li:nth-child(10) .card{animation-delay:.108s}
+  li:nth-child(11) .card{animation-delay:.12s}
+  li:nth-child(12) .card{animation-delay:.132s}
+}
 /* 网点纹理压在极光之上（spec §8.1 那句"叠一层 3px 网点"）。
    pointer-events:none 不是装饰：固定层盖住内容会把整页点击吃掉。 */
 body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.014) 1px,transparent 1px);background-size:3px 3px}

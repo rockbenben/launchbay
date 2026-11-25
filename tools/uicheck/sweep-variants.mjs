@@ -695,16 +695,40 @@ await step('横幅 → 关闭键不折行（一个字一行是坏的）', async 
 }
 
 // ── 减弱动效 ────────────────────────────────────────────────────────────────
+await step('书签卡片 → 前 12 张依次入场，之后不延迟', async () => {
+  await goHome();
+  return await ev(`
+    const list = document.createElement('ul');
+    for (let i = 0; i < 13; i++) {
+      const item = document.createElement('li');
+      item.dataset.item = '';
+      const card = document.createElement('a');
+      card.className = 'card';
+      item.append(card);
+      list.append(item);
+    }
+    document.body.append(list);
+    try {
+      return JSON.stringify([...list.children].map((item) =>
+        Math.round(parseFloat(getComputedStyle(item.firstElementChild).animationDelay) * 1000)));
+    } finally { list.remove(); }
+  `);
+}, { noInvariant: true,
+  outcome: (inv, d, res) => res === '[0,12,24,36,48,60,72,84,96,108,120,132,0]'
+    ? [] : [`卡片入场延迟异常：${res}`] });
+
 await step('减弱动效 → 新加的那几条显式关掉', async () => {
   await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 1300, deviceScaleFactor: 1, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   await goHome();
   return await run(`(()=>{const li=document.querySelector('li[data-item]');
     const b=document.getElementById('lb-banner');
+    const card=document.querySelector('li[data-item] > .card');
     const mk=document.createElement('style'); mk.id='lb-probe';
     mk.textContent='#lb-banner.ok::after{display:block}'; document.head.append(mk);
     const after=getComputedStyle(document.querySelector('#lb-banner')||document.body,'::after');
     const r={ 新条目动画: li?getComputedStyle(li).animationName:'NO-LI',
+              卡片动画: card?getComputedStyle(card).animationName:'NO-CARD',
               横幅动画: b?getComputedStyle(b).animationName:'NO-BANNER',
               细线: after?after.display:'?' };
     mk.remove(); return JSON.stringify(r) })()`);
@@ -714,23 +738,42 @@ await step('减弱动效 → 新加的那几条显式关掉', async () => {
     if (!m) return ['读数没拿到：' + res];
     // 页面里没有 is-new 的行时读到的就是默认 animation（none），所以这条只钉
     // "不是 lb-pop 那种动画在跑"。
-    return m[1] === 'lb-pop' || m[1] === 'lb-ring' ? [`减弱动效下还在跑 ${m[1]}`] : [];
+    if (m[1] === 'lb-pop' || m[1] === 'lb-ring') return [`减弱动效下还在跑 ${m[1]}`];
+    return /"卡片动画":"none"/.test(String(res)) ? [] : [`卡片未关闭入场动画：${res}`];
   } });
 
 // ── 键盘 ────────────────────────────────────────────────────────────────────
-await step('键盘 → Ctrl+K 开面板，Esc 关掉', async () => {
+await step('键盘 → 命令面板保留输入法按键、Ctrl+回车另开标签、Esc 归还焦点', async () => {
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await goHome();
+  await ev(`document.querySelector('input[type=search]').focus()`);
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'k', code: 'KeyK', modifiers: 2, windowsVirtualKeyCode: 75 });
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'k', code: 'KeyK', modifiers: 2, windowsVirtualKeyCode: 75 });
   await sleep(600);
-  const opened = await run(`!document.querySelector('.cmdk')?.hidden`);
-  await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
-  await sleep(400);
-  const closed = await run(`document.querySelector('.cmdk')?.hidden !== false`);
-  return `opened=${opened} closed=${closed}`;
+  return await ev(`
+    const input = document.getElementById('lb-k');
+    const panel = input.closest('.cmdk');
+    const search = document.querySelector('input[type=search]');
+    const url = document.querySelector('li[data-item] > a[href]').getAttribute('href');
+    const key = (key, init) => input.dispatchEvent(new KeyboardEvent('keydown', {
+      key, bubbles: true, cancelable: true, ...init,
+    }));
+    const opened = !panel.hidden && document.activeElement === input;
+    input.value = url;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const ime = key('Enter', { isComposing: true }) && key('Enter', { keyCode: 229 })
+      && key('Escape', { isComposing: true }) && !panel.hidden;
+    const open = window.open;
+    let newTab;
+    window.open = (...args) => { newTab = args; };
+    try { key('Enter', { ctrlKey: true }); } finally { window.open = open; }
+    const background = newTab?.[0] === url && newTab?.[1] === '_blank' && !panel.hidden;
+    key('Escape');
+    return JSON.stringify({ opened, ime, background, restored: panel.hidden && document.activeElement === search });
+  `);
 }, { noInvariant: true, wait: 400,
-  outcome: (inv, d, res) => String(res) === 'opened=true closed=true' ? [] : [`面板没按预期开关：${res}`] });
+  outcome: (inv, d, res) => String(res) === '{"opened":true,"ime":true,"background":true,"restored":true}'
+    ? [] : [`命令面板的按键行为异常：${res}`] });
 
 // ── 零 JS 通路 ──────────────────────────────────────────────────────────────
 {

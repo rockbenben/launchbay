@@ -90,7 +90,7 @@ const idsOf = (d, gid) => d.groups.find((g) => g.id === gid).items.map((i) => i.
 const movedWithin = (gid, before, d, changed) => {
   const a = idsOf(before, gid), b = idsOf(d, gid);
   if (a.length !== b.length) return [`${gid} 条数变了：${a.length} → ${b.length}`];
-  if (JSON.stringify([...a].sort()) !== JSON.stringify([...b].sort())) return [`${gid} 的条目集合变了`];
+  if (JSON.stringify(a.toSorted()) !== JSON.stringify(b.toSorted())) return [`${gid} 的条目集合变了`];
   return changed(a, b) ? [] : [`${gid} 的次序没变：${JSON.stringify(b)}`];
 };
 // 跨组：搬过去的那一条要落在**指定的那个下标**上（判据是"落在哪"，不是"首尾变了"）

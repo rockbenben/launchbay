@@ -86,6 +86,8 @@
   }
   // ── 小工具 ────────────────────────────────────────────────────────────────
   const $ = (sel, root = document) => root.querySelector(sel);
+  // Safari 可能先发送 compositionend，再发送用于确认选词的 keydown。
+  const composing = (e) => e.isComposing || e.keyCode === 229;
   const el = (tag, attrs = {}, kids = []) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -223,9 +225,8 @@
       if (opener && opener.isConnected) opener.focus();
       return true;
     }
-    for (const n of [help, cmdk]) {
-      if (!n.hidden) { n.hidden = true; syncTrap(); return true; }
-    }
+    if (!help.hidden) { help.hidden = true; syncTrap(); return true; }
+    if (!cmdk.hidden) { cmdkClose(); return true; }
     if (!sheet.hidden) { closeSheet(); return true; }
     const banner = $('#lb-banner');
     if (banner) { banner.remove(); return true; }
@@ -993,7 +994,7 @@
       if (box.dataset.lbWired) continue;
       box.dataset.lbWired = '1';
       box.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
+        if (e.key !== 'Escape' || composing(e)) return;
         e.preventDefault();
         box.value = box.defaultValue;
         box.blur();
@@ -1026,8 +1027,7 @@
   // 也选不到"抓这个网站的图标"。两个语义值常驻，resolve 回来的候选再插进去。
   const iconLabel = (v) => v.replace(/^[a-z-]+:/, '');
   function fillIconChoices(sel, candidates, current) {
-    sel.innerHTML = '';
-    sel.append(
+    sel.replaceChildren(
       el('option', { value: '', text: T('app.icon.none') }),
       el('option', { value: 'auto', text: T('app.icon.auto') }),
     );
@@ -1111,6 +1111,7 @@
       iconPick.timer = setTimeout(runIconSearch, 180);
     });
     input.addEventListener('keydown', (e) => {
+      if (composing(e)) return;
       // 回车取第一格：搜出来的常常只有一个想要的名字，而手已经在回车上了
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -2343,7 +2344,7 @@
   // 和阅读位置全丢了。
   const cmdkInput = el('input', { type: 'text', id: 'lb-k', class: 'fld', role: 'combobox',
     'aria-expanded': 'true', 'aria-controls': 'lb-k-list', 'aria-autocomplete': 'list',
-    placeholder: T('app.cmdk.placeholder'), autocomplete: 'off' });
+    placeholder: T('app.cmdk.placeholder'), 'aria-label': T('app.cmdk.placeholder'), autocomplete: 'off' });
   const cmdkList = el('ul', { class: 'cmdk-list', id: 'lb-k-list', role: 'listbox' });
   const cmdk = el('div', { class: 'cmdk', hidden: 'hidden', role: 'dialog', 'aria-modal': 'true', 'aria-label': T('app.cmdk.aria') }, [
     cmdkInput, cmdkList,
@@ -2426,7 +2427,7 @@
     cmdkHits = [...actions.filter((x) => !q || x.label.toLowerCase().includes(q)), ...hits];
     if (total > hits.length && q) cmdkHits.push({ kind: 'more', label: T('app.cmdk.more', q, total), run: () => toPageSearch(q) });
     cmdkSel = 0;
-    cmdkList.innerHTML = '';
+    cmdkList.replaceChildren();
     for (const h of cmdkHits) {
       const row = el('li', {
         role: 'option', 'aria-selected': 'false',
@@ -2527,10 +2528,17 @@
 
   cmdkInput.addEventListener('input', cmdkRender);
   cmdkInput.addEventListener('keydown', (e) => {
+    if (composing(e)) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); cmdkSel = (cmdkSel + 1) % (cmdkHits.length || 1); cmdkPaint(); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); cmdkSel = (cmdkSel - 1 + (cmdkHits.length || 1)) % (cmdkHits.length || 1); cmdkPaint(); return; }
-    if (e.key === 'Enter') { e.preventDefault(); if (cmdkHits[cmdkSel]) cmdkRun(cmdkHits[cmdkSel]); return; }
-    if (e.key === 'Escape') { e.preventDefault(); cmdkClose(); }
+    if (e.key === 'Enter' && !mod(e)) {
+      e.preventDefault();
+      if (cmdkHits[cmdkSel]) cmdkRun(cmdkHits[cmdkSel]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cmdkClose();
+    }
   });
 
   // ── ⑤ 就地编辑（§8.4）：✎ 把名字/描述/地址变成表单，失焦即写库 ─────────
@@ -3227,7 +3235,7 @@
         // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
         // 武装态下的 Esc 先**解除武装**，再按一次才关面板——两步确认不能被 Esc 一次跳过。
         keydown: (e) => {
-          if (e.key !== 'Escape') return;
+          if (e.key !== 'Escape' || composing(e)) return;
           e.preventDefault();
           e.stopPropagation();
           if (armed) {
@@ -3320,7 +3328,7 @@
     const n = multi.picked.size;
     bar.hidden = !multi.on;
     if (!multi.on) return;
-    bar.innerHTML = '';
+    bar.replaceChildren();
     const mk = (label, fn, cls) => bar.append(el('button', { type: 'button', class: cls ? 'fld ' + cls : 'fld', text: label, on: { click: fn } }));
     mk(T('app.multi.move', n), pickMoveTarget);
     mk(T('app.multi.tags', n), pickTags);
@@ -3544,6 +3552,7 @@
   const mod = (e) => (e.metaKey || e.ctrlKey);
 
   document.addEventListener('keydown', (e) => {
+    if (composing(e)) return;
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     if (mod(e) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault();
