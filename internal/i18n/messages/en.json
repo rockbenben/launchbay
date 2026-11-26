@@ -172,6 +172,8 @@
   "app.icon.unavailable": "The page was reachable, but its icon could not be retrieved.",
   "app.icon.httpOnly": "Enter a complete HTTP or HTTPS address.",
   "app.icon.upload": "Upload icon…",
+  "app.icon.find": "Find the website icon",
+  "app.icon.downloadHint": "Save the image, then choose “Upload icon…”",
   "app.icon.custom": "Custom icon",
   "app.icon.uploadError": "Could not read the image. Choose a PNG, JPEG, WebP, GIF, ICO, or SVG file up to 4 MB.",
   "app.icon.lib": "Icon library…",

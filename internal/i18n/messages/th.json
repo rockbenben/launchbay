@@ -172,6 +172,8 @@
   "app.icon.unavailable": "เข้าถึงหน้าเว็บได้ แต่ดึงไอคอนของเว็บไซต์ไม่ได้",
   "app.icon.httpOnly": "ป้อนที่อยู่ HTTP หรือ HTTPS แบบเต็ม",
   "app.icon.upload": "อัปโหลดไอคอน…",
+  "app.icon.find": "ค้นหาไอคอนเว็บไซต์",
+  "app.icon.downloadHint": "บันทึกรูปภาพ แล้วเลือก “อัปโหลดไอคอน…”",
   "app.icon.custom": "ไอคอนที่กำหนดเอง",
   "app.icon.uploadError": "อ่านรูปภาพไม่ได้ เลือกไฟล์ PNG, JPEG, WebP, GIF, ICO หรือ SVG ขนาดไม่เกิน 4 MB",
   "app.icon.lib": "ไลบรารีไอคอน...",

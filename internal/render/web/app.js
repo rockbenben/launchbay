@@ -1158,6 +1158,26 @@
 
   function siteIconControls(select, address, active) {
     const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
+    const iconSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.find') });
+    const downloadHint = el('p', { class: 'sheet-status', hidden: '' }, [iconSource, ' ', T('app.icon.downloadHint')]);
+    let downloadOrigin = '';
+    let resolvedIcon = '';
+    const syncDownload = (favicon) => {
+      let origin = '';
+      try {
+        const url = new URL(address.value.trim());
+        if (url.protocol === 'http:' || url.protocol === 'https:') origin = url.origin;
+      } catch { /* No usable address yet. */ }
+      if (origin !== downloadOrigin) resolvedIcon = '';
+      downloadOrigin = origin;
+      downloadHint.hidden = !origin;
+      if (!origin) {
+        iconSource.removeAttribute('href');
+        return;
+      }
+      if (favicon?.startsWith('/icons/')) resolvedIcon = favicon;
+      iconSource.href = resolvedIcon || origin + '/favicon.ico';
+    };
     let request;
     let upload;
     const showSelected = () => {
@@ -1190,6 +1210,7 @@
         if (!isCurrent()) return;
         fillIconChoices(select, result.iconCandidates, select.value);
         if (result.favicon) {
+          syncDownload(result.favicon);
           status.replaceChildren(siteIconImage(result.favicon), T('app.icon.ready'));
         } else {
           status.textContent = T('app.icon.unavailable');
@@ -1238,24 +1259,30 @@
       });
       upload = current;
     });
-    address.addEventListener('input', resetSite);
+    address.addEventListener('input', () => {
+      resetSite();
+      syncDownload();
+    });
     select.addEventListener('change', () => {
       upload = null;
       if (select.value === 'auto') load();
       else resetSite();
     });
     showSelected();
+    syncDownload();
     return {
       field: el('div', { class: 'site-icon-field' }, [
         el('label', { text: T('app.field.icon') }, [select]),
         el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose]),
-        fileInput, status,
+        fileInput, downloadHint, status,
       ]),
+      syncDownload,
       pending: () => upload || (request?.pending && request.url === address.value.trim() ? request.promise : null),
       load,
       reset: () => {
         upload = null;
         resetSite();
+        syncDownload();
       },
     };
   }
@@ -1951,6 +1978,7 @@
   function fetchMeta(url) { return api('/api/v1/resolve', { url, profile }); }
 
   async function resolveNow() {
+    addSiteIcon.syncDownload();
     const seq = ++statusSeq;
     const gen = sheetGen;
     const url = fUrl.value.trim();
@@ -1995,6 +2023,7 @@
           if (o.value === want) { fGroup.value = want; break; }
         }
       }
+      if (url === fUrl.value.trim()) addSiteIcon.syncDownload(r.favicon);
       const nextIcon = iconTouched ? fIcon.value : (r.favicon ? 'auto' : '');
       fillIconChoices(fIcon, r.iconCandidates, nextIcon);
       // **只承诺标题**（2026-10-25）：resolve 可以只读到 title（description 只认
@@ -2252,7 +2281,10 @@
       // `sheet.hidden = true`，而 syncTrap 是**唯一**给 body 其余子元素
       // 摘/挂 inert 的地方——于是离线存完一条之后整页永久 inert：点不动、
       // Tab 也进不去，只能刷新。在线那一支（下面）一直记得调它。
-      if (keepOpen) { for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = ''; } else {
+      if (keepOpen) {
+        for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = '';
+        addSiteIcon.syncDownload();
+      } else {
         sheet.hidden = true;
         syncTrap();
         if (savedKeepOpen) { savedKeepOpen = false; reloadKeepingPlace(); }
@@ -3473,6 +3505,7 @@
     const ic = el('select', { id: 'lb-edit-icon', class: 'fld' });
     fillIconChoices(ic, [], curIcon);
     const siteIcon = siteIconControls(ic, u, () => form.isConnected);
+    if (curIcon === 'auto') siteIcon.syncDownload(li.querySelector('.ic-img')?.getAttribute('src'));
     let saving = false;
     // 分组那一格（2026-10-16）。这里从前是一句「这一条在「应用」里」——它说得出
     // 在哪一组，却改不了。把一条书签挪到别组在界面上只剩两条路：拖（只有鼠标

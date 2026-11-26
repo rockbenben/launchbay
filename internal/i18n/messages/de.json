@@ -172,6 +172,8 @@
   "app.icon.unavailable": "Die Seite war erreichbar, aber ihr Symbol konnte nicht abgerufen werden.",
   "app.icon.httpOnly": "Geben Sie eine vollständige HTTP- oder HTTPS-Adresse ein.",
   "app.icon.upload": "Symbol hochladen…",
+  "app.icon.find": "Website-Symbol suchen",
+  "app.icon.downloadHint": "Bild speichern und dann „Symbol hochladen…“ wählen.",
   "app.icon.custom": "Eigenes Symbol",
   "app.icon.uploadError": "Das Bild konnte nicht gelesen werden. Wählen Sie eine PNG-, JPEG-, WebP-, GIF-, ICO- oder SVG-Datei mit höchstens 4 MB.",
   "app.icon.lib": "Symbolbibliothek…",

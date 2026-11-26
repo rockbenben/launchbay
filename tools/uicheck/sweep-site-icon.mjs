@@ -72,12 +72,28 @@ try {
   await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
   assert.equal(await revision(), rev);
 
-  await c.ev(`document.getElementById('lb-add').click();
-    document.getElementById('lb-url').value = ${JSON.stringify(address + '/another')};`);
+  const addIconSource = "#lb-sheet .site-icon-field a";
+  await c.ev("document.getElementById('lb-add').click()");
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').parentElement.hidden`), true);
+  const typeAddress = url => c.ev(`{
+    const input = document.getElementById('lb-url');
+    input.value = ${JSON.stringify(url)};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }`);
+  await typeAddress('https://example.org/docs');
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.org/favicon.ico');
+  await typeAddress('chrome://settings');
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').hasAttribute('href')`), false);
+  await typeAddress(address + '/another');
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), new URL(address).origin + '/favicon.ico');
   await changeIcon('lb-icon');
   assert.equal(await waitFor(c, "document.querySelector('#lb-sheet .site-icon-status img')?.naturalWidth > 0"), true);
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').getAttribute('href')`), newIcon);
+  await typeAddress('https://example.net/docs');
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.net/favicon.ico');
   await c.ev("document.querySelector('#lb-sheet button.close').click()");
   await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
+  assert.equal(await c.run("document.querySelector('.inline-edit .site-icon-field a').getAttribute('href')"), newIcon);
   const setIconFile = (name, content) => c.ev(`{
     const input = document.querySelector('.inline-edit input[type=file]');
     const transfer = new DataTransfer();

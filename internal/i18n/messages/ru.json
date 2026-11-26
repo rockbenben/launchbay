@@ -172,6 +172,8 @@
   "app.icon.unavailable": "Страница была доступна, но загрузить её значок не удалось.",
   "app.icon.httpOnly": "Введите полный адрес HTTP или HTTPS.",
   "app.icon.upload": "Загрузить значок…",
+  "app.icon.find": "Найти значок сайта",
+  "app.icon.downloadHint": "Сохраните изображение и выберите «Загрузить значок…».",
   "app.icon.custom": "Свой значок",
   "app.icon.uploadError": "Не удалось прочитать изображение. Выберите файл PNG, JPEG, WebP, GIF, ICO или SVG размером до 4 МБ.",
   "app.icon.lib": "Библиотека иконок…",

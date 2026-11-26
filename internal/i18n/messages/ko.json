@@ -172,6 +172,8 @@
   "app.icon.unavailable": "웹페이지에는 접속했지만 사이트 아이콘을 가져오지 못했습니다.",
   "app.icon.httpOnly": "전체 HTTP 또는 HTTPS 주소를 입력하세요.",
   "app.icon.upload": "아이콘 업로드…",
+  "app.icon.find": "사이트 아이콘 찾기",
+  "app.icon.downloadHint": "이미지를 저장한 뒤 ‘아이콘 업로드…’를 선택하세요.",
   "app.icon.custom": "사용자 지정 아이콘",
   "app.icon.uploadError": "이미지를 읽을 수 없습니다. 4MB 이하의 PNG, JPEG, WebP, GIF, ICO 또는 SVG 파일을 선택하세요.",
   "app.icon.lib": "아이콘 라이브러리…",

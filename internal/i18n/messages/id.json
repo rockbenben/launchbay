@@ -172,6 +172,8 @@
   "app.icon.unavailable": "Halaman dapat diakses, tetapi ikonnya tidak dapat diambil.",
   "app.icon.httpOnly": "Masukkan alamat HTTP atau HTTPS lengkap.",
   "app.icon.upload": "Unggah ikon…",
+  "app.icon.find": "Cari ikon situs",
+  "app.icon.downloadHint": "Simpan gambar, lalu pilih “Unggah ikon…”.",
   "app.icon.custom": "Ikon kustom",
   "app.icon.uploadError": "Gambar tidak dapat dibaca. Pilih berkas PNG, JPEG, WebP, GIF, ICO, atau SVG hingga 4 MB.",
   "app.icon.lib": "Perpustakaan ikon…",

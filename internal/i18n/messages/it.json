@@ -172,6 +172,8 @@
   "app.icon.unavailable": "La pagina era accessibile, ma non è stato possibile recuperare la sua icona.",
   "app.icon.httpOnly": "Inserisci un indirizzo HTTP o HTTPS completo.",
   "app.icon.upload": "Carica icona…",
+  "app.icon.find": "Cerca l’icona del sito",
+  "app.icon.downloadHint": "Salva l’immagine, poi scegli «Carica icona…».",
   "app.icon.custom": "Icona personalizzata",
   "app.icon.uploadError": "Impossibile leggere l’immagine. Scegli un file PNG, JPEG, WebP, GIF, ICO o SVG fino a 4 MB.",
   "app.icon.lib": "Libreria di icone...",
