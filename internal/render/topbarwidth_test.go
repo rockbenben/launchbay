@@ -77,8 +77,13 @@ func Test台面那几格里只有主题能就地其余必须重渲染(t *testing
 	}
 
 	// 一：主题就地——换 <html> 上那一个属性，并就地按那颗键。
-	if !strings.Contains(seg, "document.documentElement.dataset.theme =") {
-		t.Error("主题没有就地换 data-theme：它本可以不重渲染就生效")
+	_, paint, ok := strings.Cut(js, "function setPageTheme(")
+	if !ok {
+		t.Fatal("没有共用的主题更新函数")
+	}
+	paint, _, _ = strings.Cut(paint, "\n  }")
+	if !strings.Contains(paint, "document.documentElement.dataset.theme = theme") || !strings.Contains(paint, "markPressed(form, theme)") {
+		t.Error("主题应就地更新 data-theme 和 aria-pressed")
 	}
 	// 二：其余三格重渲染。
 	if !strings.Contains(seg, "location.reload();") {
@@ -91,7 +96,7 @@ func Test台面那几格里只有主题能就地其余必须重渲染(t *testing
 	if themeAt < 0 || loadAt < 0 || loadAt < themeAt {
 		t.Error("主题那一支没有在 reload 之前 return：主题会被无谓地整页重载")
 	}
-	if !strings.Contains(seg, "if (btn.value != null) markPressed(form, btn.value);\n          return;") {
-		t.Error("主题就地之后没有 return（也没就地按那颗键的 aria-pressed）")
+	if !strings.Contains(seg, "setPageTheme(payload.theme);\n          return;") {
+		t.Error("设置面板应交给共用逻辑更新主题并直接返回")
 	}
 }

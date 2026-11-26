@@ -104,7 +104,7 @@ func TestCSS_浮层里的hidden盖得住作者规则的display(t *testing.T) {
 	}
 	for _, w := range []string{
 		".fld{display:block",
-		".sheet label{display:block",
+		".sheet label:has(",
 		".sheet [hidden]{display:none}",
 	} {
 		if !strings.Contains(string(raw), w) {

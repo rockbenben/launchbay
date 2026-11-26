@@ -622,5 +622,9 @@
   "profile.empty.add": "Añade tu primer marcador",
   "app.usage.desktop": "Pase el cursor sobre un marcador para editarlo. Mantenga presionada una tarjeta para seleccionar varias.",
   "app.usage.touch": "Toca el lápiz para editar. Mantenga presionado para seleccionar varios; desliza para desplazarte.",
-  "app.usage.dismiss": "Entiendo"
+  "app.usage.dismiss": "Entiendo",
+  "app.theme.toggle": "Cambiar entre tema claro y oscuro",
+  "app.group.addHere": "Añadir marcador a «%s»",
+  "app.multi.pick": "Seleccionar «%s»",
+  "app.search.clear": "Limpiar filtro"
 }

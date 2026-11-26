@@ -51,6 +51,7 @@
          寻址用的 handle，坏档案那行 profile.json 读不出 title 时也要留得下定位信息。*/}}
     {{/* 每一格都带 data-k：窄屏（≤700）这张表换成一格一行、行首挂列名的读法，
          列名与表头同一份文字，由 CSS 的 ::before 取 attr(data-k) 印出来。 */}}
+    <div class="adm-table-wrap">
     <table class="adm">
       <thead>
         <tr><th>{{.T "admin.col.profile"}}</th><th>{{.T "admin.col.items"}}</th><th>{{.T "admin.col.rev"}}</th><th>{{.T "admin.col.modified"}}</th><th>{{.T "admin.col.snapshots"}}</th><th>{{.T "admin.col.actions"}}</th></tr>
@@ -143,6 +144,7 @@
       {{end}}
       </tbody>
     </table>
+    </div>
   </section>
 
   <section class="adm-sec">

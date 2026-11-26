@@ -622,5 +622,9 @@
   "profile.empty.add": "Ajoutez votre premier favori",
   "app.usage.desktop": "Passez la souris sur un signet pour le modifier. Appuyez longuement sur une carte pour en sélectionner plusieurs.",
   "app.usage.touch": "Appuyez sur le crayon pour modifier. Appuyez longuement pour en sélectionner plusieurs ; faites glisser pour faire défiler.",
-  "app.usage.dismiss": "J'ai compris"
+  "app.usage.dismiss": "J'ai compris",
+  "app.theme.toggle": "Basculer entre le thème clair et sombre",
+  "app.group.addHere": "Ajouter un favori à « %s »",
+  "app.multi.pick": "Sélectionner « %s »",
+  "app.search.clear": "Effacer le filtre"
 }

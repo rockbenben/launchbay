@@ -622,5 +622,9 @@
   "profile.empty.add": "Thêm dấu trang đầu tiên của bạn",
   "app.usage.desktop": "Di chuột qua dấu trang để chỉnh sửa nó. Nhấn và giữ một thẻ để chọn một số.",
   "app.usage.touch": "Nhấn vào bút chì để chỉnh sửa. Nhấn và giữ để chọn một số; vuốt để cuộn.",
-  "app.usage.dismiss": "Hiểu rồi"
+  "app.usage.dismiss": "Hiểu rồi",
+  "app.theme.toggle": "Chuyển giao diện sáng hoặc tối",
+  "app.group.addHere": "Thêm dấu trang vào \"%s\"",
+  "app.multi.pick": "Chọn \"%s\"",
+  "app.search.clear": "Xóa bộ lọc"
 }

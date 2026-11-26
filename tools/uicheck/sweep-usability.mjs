@@ -8,7 +8,10 @@ const admin = process.env.LB_UI_ADMIN, token = process.env.LB_UI_WRITE;
 await seedFixture(srv, admin, token);
 const tagged = await fetch(srv + '/api/v1/batch', { method: 'POST',
   headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ profile: 'dad', by: 'web', ops: [{ op: 'set', path: 'groups/tiles-1/items/it-tiles-1-1/tags', value: ['常用', '工具'] }] }) });
+  body: JSON.stringify({ profile: 'dad', by: 'web', ops: [
+    { op: 'set', path: 'groups/tiles-1/items/it-tiles-1-1/tags', value: ['常用', '工具'] },
+    { op: 'set', path: 'groups/feat-1/items/it-feat-1-ext/alias', value: ['browser-configuration'] },
+  ] }) });
 assert.equal(tagged.status, 200, await tagged.text());
 const c = await connect(process.argv[4]);
 const { send, run, ev, sleep } = c;
@@ -32,7 +35,55 @@ const screenshot = async name => {
 try {
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 850, deviceScaleFactor: 1, mobile: false });
   await home();
-  assert.equal(await run(`!!document.querySelector('.usage-hint')`), true);
+  assert.equal(await run(`!!document.querySelector('li[data-item] .pick-chk')`), true);
+  assert.equal(await run(`!!document.getElementById('lb-theme-quick')`), true);
+  const search = async (query) => ev(`
+    const input = document.querySelector('header input[type=search]');
+    input.focus();
+    input.value = ${JSON.stringify(query)};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return [...document.querySelectorAll('main li[data-item]:not([hidden])')].map(li => li.dataset.item);
+  `);
+  assert.deepEqual(await search('browser-configuration'), ['it-feat-1-ext']);
+  assert.deepEqual(await search('chrome://settings'), ['it-feat-1-ext']);
+  assert.equal((await search('大卡组')).length, 4);
+  assert.equal(await ev(`
+    const input = document.activeElement;
+    const accepted = input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape',
+      isComposing: true, bubbles: true, cancelable: true }));
+    return accepted && input.value === '大卡组';
+  `), true);
+  assert.deepEqual(await search('nothing-matches-this-query'), []);
+  assert.equal(await ev(`const status = document.querySelector('.live-nomatch [role=status]');
+    return status.textContent.includes('nothing-matches-this-query') && getComputedStyle(status).display !== 'none';`), true);
+  await ev(`document.querySelector('.live-nomatch button').click()`);
+  assert.equal(await run(`document.activeElement.matches('header input[type=search]') && !document.body.hasAttribute('data-searching')`), true);
+  const groupAdd = 'section[data-gid="list-1"] .grp-add';
+  await ev(`const button = document.querySelector('${groupAdd}'); button.focus(); button.click();`);
+  assert.equal(await run(`document.getElementById('lb-group').value`), 'list-1');
+  await ev(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));`);
+  assert.equal(await run(`document.getElementById('lb-sheet').hidden && document.activeElement.matches('${groupAdd}')`), true);
+  await ev(`document.querySelector('.gnav a[href="#f-feat-1"]').click()`);
+  await waitFor(c, `document.querySelector('.gnav a[href="#f-feat-1"]').getAttribute('aria-current') === 'location'`, 8000);
+  assert.equal(await run(`document.activeElement.id`), 'f-feat-1');
+  await home();
+  await ev(`document.getElementById('lb-theme-quick').click()`);
+  await waitFor(c, `!!document.documentElement.dataset.theme`, 8000);
+  const quickTheme = await run(`document.documentElement.dataset.theme`);
+  await home();
+  assert.equal(await run(`document.documentElement.dataset.theme`), quickTheme);
+  await ev(`
+    const fetchOriginal = window.fetch;
+    const button = document.getElementById('lb-theme-quick');
+    window.fetch = () => Promise.resolve(new Response(null, { status: 503 }));
+    button.focus();
+    try { button.click(); } finally { window.fetch = fetchOriginal; }
+  `);
+  await waitFor(c, `document.getElementById('lb-banner')?.textContent.includes('503')`, 8000);
+  assert.equal(await run(`document.documentElement.dataset.theme`), quickTheme);
+  assert.equal(await run(`document.activeElement.id`), 'lb-theme-quick');
+  await home();
+  console.log('PASS live search fields, IME, group add focus, navigation and persisted quick theme');
   await screenshot('desktop-hint');
   // Both settings surfaces share a pane: spacing must separate the actual forms,
   // not just the outer container that holds the hidden panes.
@@ -122,10 +173,11 @@ try {
   await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'theme=light'}).then(r=>r.status)`);
   await home();
   await screenshot('desktop-light');
-  await ev(`document.querySelector('.usage-hint button').click()`);
-  await home();
-  assert.equal(await run(`!!document.querySelector('.usage-hint')`), false);
-  console.log('PASS usage hint dismisses and stays dismissed after navigation');
+  await ev(`document.querySelector('li[data-item] .pick-chk').click()`);
+  assert.equal(await run(`document.body.dataset.multi === 'on' && !document.querySelector('.multibar').hidden`), true);
+  await ev(`document.querySelector('.multibar button:last-child').click()`);
+  assert.equal(await run(`!document.body.dataset.multi`), true);
+  console.log('PASS card multi-select checkbox toggles bulk bar cleanly');
 
   // Force a conflicting suggestion while preserving the real batch write.
   await ev(`window.__fetch=window.fetch;window.fetch=(url,opts)=>String(url).includes('/api/v1/resolve')?Promise.resolve(new Response(JSON.stringify({title:'Drop target',suggestedGroup:{id:'tiles-1',title:'Tiles'}}),{headers:{'Content-Type':'application/json'}})):window.__fetch(url,opts)`);
@@ -147,10 +199,8 @@ try {
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }] });
   await home();
-  await ev(`localStorage.removeItem('lb-usage-hint-v1-dad')`);
-  await home();
   assert.equal(await run(`matchMedia('(pointer:coarse)').matches`), true);
-  assert.equal(await run(`getComputedStyle(document.querySelector('.usage-touch')).display!=='none'`), true);
+  assert.equal(await run(`getComputedStyle(document.querySelector('li[data-item] .pick-chk')).display==='none'`), true);
   await screenshot('mobile-profile');
   await ev(`document.getElementById('lb-prefs-open').click()`);
   await waitFor(c, `!!document.querySelector('#lb-prefs #prefs-pane-look > .prefs-row')`, 8000);

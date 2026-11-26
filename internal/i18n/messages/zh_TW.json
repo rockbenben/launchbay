@@ -622,5 +622,9 @@
   "app.usage.desktop": "懸停在書籤上可編輯；長按卡片可多選。",
   "app.usage.touch": "點書籤旁的鉛筆可編輯；長按卡片可多選，滑動瀏覽。",
   "app.usage.dismiss": "知道了",
-  "common.skip": "跳到主要內容"
+  "common.skip": "跳到主要內容",
+  "app.theme.toggle": "切換淺色或深色主題",
+  "app.group.addHere": "向「%s」新增書籤",
+  "app.multi.pick": "選擇「%s」",
+  "app.search.clear": "清除篩選"
 }

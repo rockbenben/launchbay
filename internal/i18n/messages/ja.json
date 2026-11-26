@@ -622,5 +622,9 @@
   "profile.empty.add": "最初のブックマークを追加する",
   "app.usage.desktop": "ブックマークにカーソルを合わせると編集できます。カードを長押しして複数選択します。",
   "app.usage.touch": "編集するには鉛筆をタップします。長押しして複数選択します。スワイプしてスクロールします。",
-  "app.usage.dismiss": "わかった"
+  "app.usage.dismiss": "わかった",
+  "app.theme.toggle": "ライト／ダークテーマを切り替え",
+  "app.group.addHere": "「%s」にブックマークを追加",
+  "app.multi.pick": "「%s」を選択",
+  "app.search.clear": "絞り込みを解除"
 }

@@ -176,10 +176,10 @@
 {{if .Featured}}
 <section class="feat" aria-label="{{.T "profile.featured"}}">
 {{range .Featured}}
-  <h2 class="feat-g" id="f-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
+  <h2 class="feat-g" id="f-{{.ID}}" tabindex="-1" data-group="{{.ID}}" title="{{.Title}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}}"{{end}}>{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
   <ul class="feat-row" data-gid="{{.ID}}">
   {{range .Items}}
-    <li data-item="{{.ID}}"{{if .URLWan}} data-addr-lan="{{.URLLan}}" data-addr-wan="{{.URLWan}}"{{end}}{{if .Desc}} data-desc="{{.Desc}}"{{end}} data-icon-name="{{.Icon}}">
+    <li data-item="{{.ID}}"{{if .URLWan}} data-addr-lan="{{.URLLan}}" data-addr-wan="{{.URLWan}}"{{end}}{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
         {{/* **地址既不在 `href` 上、也不在 `<code>` 里**（2026-10-19 改判）：可点的那支
              在 href 上、正文里点不动的外部地址在 <code> 里，唯独大卡带里点不动的
@@ -190,7 +190,7 @@
              **不能叫 data-url**：Go 的 html/template 按属性名判断 URL 上下文，
              `data-icon` 就因此被写成 #ZgotmplZ（那一条的前车之鉴在下面的 data-icon-name）。 */}}
         <span class="feat-card plain" data-addr="{{.URL}}">
-          {{template "icon" .}}
+          <span class="ic-box">{{template "icon" .}}</span>
           <b title="{{.Name}}">{{.Name}}</b>
           {{/* **这一格也认 `AddrLevel`**（2026-10-19 补）：大卡带里点不动的这一行印的
                是 `host` 那一格，与它旁边那张能点的卡同形——「第二行印什么」这一格
@@ -209,7 +209,7 @@
         </span>
       {{else}}
         <a class="feat-card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
-          {{template "icon" .}}
+          <span class="ic-box">{{template "icon" .}}</span>
           <b title="{{.Name}}">{{.Name}}</b>
           {{/* **大卡带这一格跟正文那张卡认的是同一个 `AddrLevel`**（2026-10-19）：
                它从前是第三份写法（有说明印说明、没说明印主机名），于是那一格一改，
@@ -236,7 +236,7 @@
      磁盘上的标题一个字都没改，拆成两半只是为了读起来有层级（exec.go 的
      pathSplit，判据只有那一份）；title 属性仍挂全名，截断与悬停都不丢信息。 */}}
 <section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}" data-depth="{{.Depth}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}};--d:{{.Depth}}"{{else}} style="--d:{{.Depth}}"{{end}}>
-  <h2 id="g-{{.ID}}" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
+  <h2 id="g-{{.ID}}" tabindex="-1" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
   <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
   {{range .Items}}
     {{/* data-desc / data-alias / data-tags 是给 ⌘K 的那一屏用的：面板从前只比名字与
@@ -253,7 +253,7 @@
     <li data-item="{{.ID}}"{{if .URLWan}} data-addr-lan="{{.URLLan}}" data-addr-wan="{{.URLWan}}"{{end}}{{if .Desc}} data-desc="{{.Desc}}"{{end}}{{if .Alias}} data-alias="{{range .Alias}}{{.}}&#10;{{end}}"{{end}}{{if .Tags}} data-tags="{{range .Tags}}{{.}}&#10;{{end}}"{{end}} data-icon-name="{{.Icon}}">
       {{if .External}}
         <span class="plain">
-          {{template "icon" .}}
+          <span class="ic-box">{{template "icon" .}}</span>
           <b title="{{.Name}}">{{.Name}}</b>
         <span class="addr">
           <code title="{{.URL}}">{{.URL}}</code>
@@ -279,7 +279,7 @@
         </span>
       {{else}}
         <a class="card" href="{{.URL}}"{{if $.Bookmarks.OpenInNewTab}} target="_blank" rel="noopener noreferrer"{{end}}>
-          {{template "icon" .}}
+          <span class="ic-box">{{template "icon" .}}</span>
           <b title="{{.Name}}">{{.Name}}</b>
           {{/* **第二行印什么由「设置」那一格说了算**（2026-10-19 加）：
                `host`（默认）有说明印说明、没说明印主机名；`full` 一律印完整地址；
@@ -835,7 +835,6 @@
            maxlength 只在浏览器认，所以上限还在服务端（maxGroupTitleRunes）；
            两处同源同一个数，改一处要改另一处——那条 422 会点名 rename。 */}}
       <div class="prefs-group-name">
-        <i class="prefs-swatch-preview" style="--sw:{{if .Accent}}{{.Accent}}{{else}}var(--accent){{end}}" aria-hidden="true"></i>
         <input type="text" name="rename" class="prefs-group-rename" value="{{.Title}}"
           maxlength="{{$.MaxGroupTitleRunes}}" autocomplete="off" spellcheck="false"
           aria-label="{{$gname}} · {{$.T "prefs.groups.rename"}}"
@@ -889,6 +888,39 @@
            空组（Count=0）说的是另一句"这一组是空的，删掉不会少书签"：页面照画
            空组（空组仍是一个能放东西进去的目标），而删是这一屏唯一能清掉它的
            出口，所以它得先说清自己为什么可以放心删。 */}}
+      <details class="prefs-color-pop">
+        <summary class="prefs-color-btn" aria-label="{{$gname}} · {{$.T "prefs.groups.customLabel"}}" title="{{$.T "prefs.groups.customLabel"}}">
+          <i class="prefs-swatch-preview" style="--sw:{{if .Accent}}{{.Accent}}{{else}}var(--accent){{end}}" aria-hidden="true"></i>
+        </summary>
+        <div class="prefs-keys prefs-group-colors">
+          {{/* 「跟随页面主色」不是"无色"，而是**没设色**这个状态的按钮**：
+               它是那一行的默认值，所以它得是一颗能被按的键——否则从自定义色
+               回不到默认去，色板就成了只能进不能出的单向门。 */}}
+          <button type="submit" name="accent" value="" class="prefs-swatch prefs-swatch-none"
+            aria-pressed="{{if $cur}}false{{else}}true{{end}}"
+            aria-label="{{$gname}} · {{$.T "prefs.groups.accentDefault"}}" title="{{$.T "prefs.groups.accentDefault"}}"></button>
+          {{range $i, $c := $.PrefPalette}}
+          <button type="submit" name="accent" value="{{$c}}" class="prefs-swatch" style="--sw:{{$c}}"
+            aria-pressed="{{if eq $cur $c}}true{{else}}false{{end}}"
+            aria-label="{{$gname}} · {{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
+          {{end}}
+          {{/* 这一格**必须**叫 custom 而不是 accent：命名过的输入框每一次提交都跟着走，
+               与色板那颗键同名就会出现两个 `accent`——那正是把整条零 JS 通路堵死的形状
+               （实测：按色块 422 一屏裸 JSON）。它只在同一次提交里带上 `apply_custom`
+               时才说话，判据在 httpapi/prefs.go 那一处。 */}}
+          <input type="color" class="prefs-color" name="custom"
+            {{if and $cur (not $onPalette)}}data-active="1"{{end}}
+            value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
+            aria-label="{{$gname}} · {{$.T "prefs.groups.customLabel"}}{{if and $cur (not $onPalette)}}{{$.T "prefs.groups.customOn"}}{{end}}"
+            title="{{$.T "prefs.groups.customLabel"}}">
+          {{/* 「用这个颜色」（batch11 P2 搬到这里）。**这颗键不是开关**：它没有
+               "按下/没按下"可言，只有"按下去会发生什么"，所以不带 aria-pressed；
+               "现在生效的是自定义那一格"由取色器身上那一圈 `data-active` 说。
+               原生取色器一开不会立刻改别人的东西——说话的是这一颗。 */}}
+          <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
+            title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
+        </div>
+      </details>
       <details class="prefs-group-del">
         <summary aria-label="{{$gname}} · {{$.T "prefs.groups.delete"}}">{{$.T "prefs.groups.delete"}}</summary>
         <div class="prefs-group-del-box">
@@ -899,34 +931,6 @@
           <button type="submit" name="remove" value="1" class="fld danger">{{$.T "prefs.groups.delete.go"}}</button>
         </div>
       </details>
-      <div class="prefs-keys prefs-group-colors">
-        {{/* 「跟随页面主色」不是"无色"，而是**没设色**这个状态的按钮**：
-             它是那一行的默认值，所以它得是一颗能被按的键——否则从自定义色
-             回不到默认去，色板就成了只能进不能出的单向门。 */}}
-        <button type="submit" name="accent" value="" class="prefs-swatch prefs-swatch-none"
-          aria-pressed="{{if $cur}}false{{else}}true{{end}}"
-          aria-label="{{$gname}} · {{$.T "prefs.groups.accentDefault"}}" title="{{$.T "prefs.groups.accentDefault"}}"></button>
-        {{range $i, $c := $.PrefPalette}}
-        <button type="submit" name="accent" value="{{$c}}" class="prefs-swatch" style="--sw:{{$c}}"
-          aria-pressed="{{if eq $cur $c}}true{{else}}false{{end}}"
-          aria-label="{{$gname}} · {{index $.PrefPaletteNames $i}}" title="{{index $.PrefPaletteNames $i}}"></button>
-        {{end}}
-        {{/* 这一格**必须**叫 custom 而不是 accent：命名过的输入框每一次提交都跟着走，
-             与色板那颗键同名就会出现两个 `accent`——那正是把整条零 JS 通路堵死的形状
-             （实测：按色块 422 一屏裸 JSON）。它只在同一次提交里带上 `apply_custom`
-             时才说话，判据在 httpapi/prefs.go 那一处。 */}}
-        <input type="color" class="prefs-color" name="custom"
-          {{if and $cur (not $onPalette)}}data-active="1"{{end}}
-          value="{{if $cur}}{{$cur}}{{else}}#4c8dff{{end}}"
-          aria-label="{{$gname}} · {{$.T "prefs.groups.customLabel"}}{{if and $cur (not $onPalette)}}{{$.T "prefs.groups.customOn"}}{{end}}"
-          title="{{$.T "prefs.groups.customLabel"}}">
-        {{/* 「用这个颜色」（batch11 P2 搬到这里）。**这颗键不是开关**：它没有
-             "按下/没按下"可言，只有"按下去会发生什么"，所以不带 aria-pressed；
-             "现在生效的是自定义那一格"由取色器身上那一圈 `data-active` 说。
-             原生取色器一开不会立刻改别人的东西——说话的是这一颗。 */}}
-        <button type="submit" class="prefs-swatch-apply" name="apply_custom" value="1"
-          title="{{$.T "prefs.groups.customSave"}}" aria-label="{{$gname}} · {{$.T "prefs.groups.customSave"}}">{{$.T "prefs.groups.customSave"}}</button>
-      </div>
     </form>
     {{end}}
   </div>

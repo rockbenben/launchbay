@@ -622,5 +622,9 @@
   "profile.empty.add": "İlk yer işaretinizi ekleyin",
   "app.usage.desktop": "Düzenlemek için bir yer işaretinin üzerine gelin. Birkaç tane seçmek için bir karta uzun basın.",
   "app.usage.touch": "Düzenlemek için kaleme dokunun. Birkaç tane seçmek için uzun basın; kaydırmak için kaydırın.",
-  "app.usage.dismiss": "Anladım"
+  "app.usage.dismiss": "Anladım",
+  "app.theme.toggle": "Açık veya koyu temaya geç",
+  "app.group.addHere": "\"%s\" grubuna yer imi ekle",
+  "app.multi.pick": "\"%s\" öğesini seç",
+  "app.search.clear": "Filtreyi temizle"
 }

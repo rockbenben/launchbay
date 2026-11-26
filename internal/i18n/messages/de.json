@@ -622,5 +622,9 @@
   "profile.empty.add": "Fügen Sie Ihr erstes Lesezeichen hinzu",
   "app.usage.desktop": "Bewegen Sie den Mauszeiger über ein Lesezeichen, um es zu bearbeiten. Drücken Sie lange auf eine Karte, um mehrere auszuwählen.",
   "app.usage.touch": "Tippen Sie zum Bearbeiten auf den Stift. Lange drücken, um mehrere auszuwählen; Wischen Sie, um zu scrollen.",
-  "app.usage.dismiss": "Habe es"
+  "app.usage.dismiss": "Habe es",
+  "app.theme.toggle": "Helles oder dunkles Design umschalten",
+  "app.group.addHere": "Lesezeichen zu „%s“ hinzufügen",
+  "app.multi.pick": "„%s“ auswählen",
+  "app.search.clear": "Filter löschen"
 }

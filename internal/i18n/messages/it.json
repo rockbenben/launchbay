@@ -622,5 +622,9 @@
   "profile.empty.add": "Aggiungi il tuo primo segnalibro",
   "app.usage.desktop": "Passa il mouse sopra un segnalibro per modificarlo. Premi a lungo una carta per selezionarne diverse.",
   "app.usage.touch": "Tocca la matita per modificare. Premere a lungo per selezionarne diversi; scorrere per scorrere.",
-  "app.usage.dismiss": "Fatto"
+  "app.usage.dismiss": "Fatto",
+  "app.theme.toggle": "Cambia tra tema chiaro e scuro",
+  "app.group.addHere": "Aggiungi segnalibro a \"%s\"",
+  "app.multi.pick": "Seleziona \"%s\"",
+  "app.search.clear": "Cancella filtro"
 }

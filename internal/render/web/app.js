@@ -264,14 +264,16 @@
   // 从前它们会留下来，而 resolve 只在名字为空时才填——于是"上次失败的名字"
   // 会把下一条新地址盖成旧名字。save and continue 那条路不走这里，它有意只清
   // URL/名字/说明并保留分组与图标。
-  function resetSheetForm() {
+  function resetSheetForm(gid) {
     fUrl.value = '';
     fWan.value = '';
     fTitle.value = '';
     fDesc.value = '';
     fNewGroup.value = '';
+    iconTouched = false;
     iconChoices([]);
-    const first = [...fGroup.options].find((o) => o.value !== NEW_GROUP);
+    const target = gid && [...fGroup.options].find((o) => o.value === gid);
+    const first = target || [...fGroup.options].find((o) => o.value !== NEW_GROUP);
     fGroup.value = first ? first.value : NEW_GROUP;
     syncGroupFields();
     pickShape('tiles');
@@ -279,10 +281,12 @@
     say('');
   }
 
-  function openSheet(reset = false) {
+  let sheetOpener;
+  function openSheet(reset = false, gid) {
     sheetGen++;
+    if (sheet.hidden) sheetOpener = document.activeElement;
     sheet.hidden = false;
-    if (reset) resetSheetForm();
+    if (reset) resetSheetForm(gid);
     syncTrap();
     say('');
     fUrl.focus();
@@ -300,23 +304,124 @@
     const mustReload = savedKeepOpen;
     savedKeepOpen = false;
     if (mustReload) reloadKeepingPlace();
-    else openBtn.focus();
+    else (sheetOpener?.isConnected && sheetOpener !== body ? sheetOpener : openBtn).focus();
   }
 
   const openBtn = el('button', {
-    // **不加 primary**（2026-10-17 用户改判：这一颗按普通的来）：它是顶栏里的
-    // 一个动作，不是"这一页上你唯一该做的事"——搜索、设置、换档案都在它旁边。
-    // 加重之后它比顶栏右侧那三颗都响，而这一页真正的主内容是下面那些书签。
     type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
     on: { click: () => openSheet(true) },
   });
-  // 插在搜索表单**之后**而不是 header 末尾：DOM 顺序就是视觉顺序，这样「＋ 添加」
-  // 跟着标题与搜索框排同一行，不再独占一行拉成一条横带（1440 上实测 980×44）。
   const searchForm = $('header .search');
   header.insertBefore(openBtn, searchForm ? searchForm.nextSibling : header.firstChild);
   const searchInput = searchForm?.querySelector('input[type=search]');
-  if (searchInput && !searchInput.value) {
-    searchInput.after(el('kbd', { class: 'search-key', text: '/', 'aria-hidden': 'true' }));
+  if (searchInput) {
+    const serverFiltered = !!$('.hits');
+    const clearLive = !serverFiltered ? el('button', {
+      type: 'button', class: 'search-clear', text: '×', hidden: true,
+      'aria-label': T('app.search.clear'), title: T('app.search.clear'),
+    }) : null;
+    if (clearLive) searchInput.after(clearLive);
+    if (!searchInput.value) {
+      (clearLive || searchInput).after(el('kbd', { class: 'search-key', text: '/', 'aria-hidden': 'true' }));
+    }
+    const resetLiveFilter = () => {
+      searchInput.value = '';
+      runLiveFilter();
+      searchInput.focus();
+    };
+    const status = el('p', { role: 'status' });
+    const clearEmpty = el('button', { type: 'button', class: 'badge', text: T('app.search.clear'),
+      hidden: true, on: { click: resetLiveFilter } });
+    const noMatchBox = el('div', { class: 'live-nomatch' }, [status, clearEmpty]);
+    if (!serverFiltered) $('main').append(noMatchBox);
+    const runLiveFilter = () => {
+      if (serverFiltered) return;
+      const raw = searchInput.value.trim();
+      const q = raw.toLowerCase();
+      if (q) body.dataset.searching = '1';
+      else delete body.dataset.searching;
+      if (clearLive) clearLive.hidden = !q;
+      let shown = 0;
+      for (const li of document.querySelectorAll('main li[data-item]')) {
+        const hit = !q || itemMatches(li, q);
+        li.hidden = !hit;
+        if (hit) shown++;
+      }
+      for (const sec of document.querySelectorAll('main section[data-gid]')) {
+        sec.hidden = !!q && ![...sec.querySelectorAll('li[data-item]')].some((li) => !li.hidden);
+      }
+      const feat = $('main .feat');
+      if (feat) {
+        for (const fg of feat.querySelectorAll('.feat-g')) {
+          const row = fg.nextElementSibling;
+          const hide = !!q && !row.querySelector('li[data-item]:not([hidden])');
+          fg.hidden = row.hidden = hide;
+          const empty = row.nextElementSibling;
+          if (empty?.classList.contains('grp-empty')) empty.hidden = !!q || !!row.children.length;
+        }
+        feat.hidden = !!q && ![...feat.querySelectorAll('li[data-item]')].some((li) => !li.hidden);
+      }
+      const emptyMessage = q && shown === 0 ? T('app.cmdk.none', raw) : '';
+      if (status.textContent !== emptyMessage) status.textContent = emptyMessage;
+      noMatchBox.classList.toggle('has-no-matches', !!emptyMessage);
+      clearEmpty.hidden = !emptyMessage;
+    };
+    if (clearLive) clearLive.addEventListener('click', resetLiveFilter);
+    searchInput.addEventListener('input', runLiveFilter);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !composing(e) && searchInput.value) {
+        e.preventDefault();
+        e.stopPropagation();
+        searchInput.value = '';
+        runLiveFilter();
+      }
+    });
+  }
+
+  const navBar = header.querySelector('nav');
+  const colorPreference = matchMedia('(prefers-color-scheme: light)');
+  const currentTheme = () => document.documentElement.dataset.theme || 'auto';
+  const isLightNow = () => currentTheme() === 'light' || (currentTheme() === 'auto' && colorPreference.matches);
+  let themeBtn;
+  const paintThemeBtn = () => {
+    if (themeBtn) themeBtn.textContent = isLightNow() ? '☾' : '☀';
+  };
+  function setPageTheme(theme) {
+    if (theme === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+    paintThemeBtn();
+    const form = $('#lb-prefs button[name=theme]')?.form;
+    if (form) markPressed(form, theme);
+  }
+  if (navBar) {
+    themeBtn = el('button', {
+      type: 'button', id: 'lb-theme-quick', class: 'badge theme-quick',
+      title: T('app.theme.toggle'), 'aria-label': T('app.theme.toggle'),
+      on: {
+        click: async () => {
+          const next = isLightNow() ? 'dark' : 'light';
+          if (themeBtn.getAttribute('aria-disabled') === 'true') return;
+          themeBtn.setAttribute('aria-disabled', 'true');
+          try {
+            const res = await fetch('/prefs', {
+              method: 'POST',
+              body: new URLSearchParams({ theme: next }),
+              credentials: 'same-origin',
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (res.headers.get('X-LB-Profile') !== profile) throw new Error(T('app.opsGone'));
+            setPageTheme(next);
+          } catch (err) {
+            showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)), 'warn');
+          } finally {
+            themeBtn.removeAttribute('aria-disabled');
+          }
+        },
+      },
+    });
+    paintThemeBtn();
+    colorPreference.addEventListener('change', paintThemeBtn);
+    navBar.append(themeBtn);
   }
 
   const firstAdd = $('[data-add-first]');
@@ -424,6 +529,8 @@
   }
   fGroup.addEventListener('change', syncGroupFields);
   const fIcon = el('select', { id: 'lb-icon', class: 'fld' });
+  let iconTouched = false;
+  fIcon.addEventListener('change', () => { iconTouched = true; });
 
   const status = el('p', { class: 'sheet-status', role: 'status', 'aria-live': 'polite' });
   // 「地址」自己的那一行错误（2026-10-14）。**为什么它不能只靠底部那一条**：
@@ -533,15 +640,27 @@
   // 就是两处会各自漂的判据（背景那一颗改了形状，导入那一颗还按老样子找）。
   function wireFileNames(root) {
     for (const input of root.querySelectorAll('.prefs-file input[type=file]')) {
-      // 文件名那一行是**同一张表单里的兄弟**（不在 label 里面）——label 里只有
-      // 那颗 chip 与真正被盖住的 input。
-      const out = input.closest('form')?.querySelector('.prefs-file-picked');
+      const form = input.closest('form');
+      const out = form?.querySelector('.prefs-file-picked');
       if (!out || input.dataset.lbWired) continue;
       input.dataset.lbWired = '1';
       input.addEventListener('change', () => {
-        // **只取最后一段**：完整路径在这台机器上可能是 C:\Users\…\某张图.png，
-        // 一行放不下而被省略号吃掉，露出来的恰好是用户最不需要看的那部分。
-        out.textContent = input.files && input.files[0] ? input.files[0].name : '';
+        const file = input.files && input.files[0];
+        out.textContent = file ? file.name : '';
+        const submit = form.querySelector('button[type=submit]');
+        if (submit) submit.classList.toggle('primary', !!file);
+        const bgWrap = form.closest('.prefs-bg');
+        if (bgWrap && file && file.type.startsWith('image/')) {
+          let preview = bgWrap.querySelector('img.prefs-bg-preview');
+          if (!preview) {
+            preview = el('img', { class: 'prefs-bg-preview', alt: '' });
+            bgWrap.prepend(preview);
+          }
+          if (preview.dataset.lbObjUrl) URL.revokeObjectURL(preview.dataset.lbObjUrl);
+          const u = URL.createObjectURL(file);
+          preview.dataset.lbObjUrl = u;
+          preview.src = u;
+        }
       });
     }
   }
@@ -896,9 +1015,7 @@
         // 所以：**theme 就地，其余重载**。重载后回到当前 URL（档案页或 /prefs），
         // 落在**新**的那一档视图上，这正是"按一下就生效"。
         if (btn && btn.name === 'theme' && payload.theme) {
-          if (payload.theme === 'auto') delete document.documentElement.dataset.theme;
-          else document.documentElement.dataset.theme = payload.theme;
-          if (btn.value != null) markPressed(form, btn.value);
+          setPageTheme(payload.theme);
           return;
         }
         location.reload();
@@ -1401,6 +1518,7 @@
       sel.append(el('option', { value: name, text: iconLabel(name) }));
     }
     sel.value = name;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
     closeIconPicker();
   }
 
@@ -1466,6 +1584,41 @@
     return /^https?:\/\/\S+$/i.test(plain) ? plain : '';
   };
 
+  const titleFromDrag = (dt, url) => {
+    const moz = dt.getData('text/x-moz-url') || '';
+    if (moz) {
+      const lines = moz.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (lines.length > 1 && lines[1] !== url) return lines[1];
+    }
+    const html = dt.getData('text/html') || '';
+    if (html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const txt = (doc.querySelector('a')?.textContent || '').trim();
+      if (txt && txt !== url) return txt;
+    }
+    return '';
+  };
+
+  let activeUrlDrop = null;
+  function clearUrlDrop() {
+    if (!activeUrlDrop) return;
+    for (const n of document.querySelectorAll('.drop-url-target')) n.classList.remove('drop-url-target');
+    activeUrlDrop = null;
+  }
+  function markUrlDrop(gid) {
+    if (!gid) { clearUrlDrop(); return; }
+    if (activeUrlDrop === gid) return;
+    clearUrlDrop();
+    activeUrlDrop = gid;
+    for (const box of groupsOnPage()) {
+      if (box.dataset.gid === gid) box.classList.add('drop-url-target');
+    }
+    for (const a of document.querySelectorAll('.gnav a[href^="#"]')) {
+      const href = a.getAttribute('href').slice(1);
+      if (href === gid || href === 'g-' + gid || href === 'f-' + gid) a.classList.add('drop-url-target');
+    }
+  }
+
   // **这两条要挂在捕获阶段**（第三参数 true）。卡片的 dragover/drop 为了站内排序
   // 调了 `stopPropagation()`，挂在 document 上的**冒泡**监听于是永远收不到拖到
   // 卡片上的那一次——症状是"拖进来没反应"，而排序那条路径全程在跑（落点高亮、
@@ -1475,8 +1628,15 @@
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
+    markUrlDrop(dropGroupGid(e.target) || groupsOnPage()[0]?.dataset.gid || null);
   }, true);
+  document.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget) clearUrlDrop();
+  });
+  document.addEventListener('dragend', clearUrlDrop);
+  window.addEventListener('blur', clearUrlDrop);
   document.addEventListener('drop', (e) => {
+    clearUrlDrop();
     if (!dragIsURL(e.dataTransfer)) return;
     const url = urlFromDrag(e.dataTransfer);
     if (!url) return;
@@ -1485,23 +1645,24 @@
     // 落点**在事件里取**：拖到某张卡/某一行上就是那一组，拖到组标题上就是标题
     // 那一组。取完之后才进异步——事件对象一 await 就过期了。
     // 松手的位置也一起带进去：新卡片要从那里滑过来（flip 的旧位置取的就是它）。
-    saveDropped(url, dropGroupGid(e.target), { x: e.clientX, y: e.clientY });
+    saveDropped(url, dropGroupGid(e.target), { x: e.clientX, y: e.clientY }, titleFromDrag(e.dataTransfer, url));
   }, true);
 
-  // 拖进来的网址该落进哪一组。**与站内排序的 `dropTargetOf` 同一判据**（行 → 它
-  // 那一组；组标题 → 标题那一组），但这里要的是 **gid** 而不是一个可以 mark 的节点。
-  //
-  // 从前写的是 `closest('section[data-gid]')`（2026-10-16 修）：大卡带的组容器是
-  // `ul.feat-row[data-gid]`，它上面那个 `section.feat` 没有 data-gid，于是**拖到大卡
-  // 上会一路找到 null**，再由 `sec || 第一组` 兜底——**存进了完全不相干的那一组**，
-  // 而屏上给的是"存进了你指的那一组"的横幅。那是这一族里最坏的一种：写进去了、
-  // 报成功了、位置是错的。
+  // 拖进来的网址该落进哪一组。**支持卡片、组标题、组内空白/空组提示框及侧栏导航链接**。
   const dropGroupGid = (node) => {
     if (!node || !node.closest) return null;
     const li = node.closest('li[data-item]');
     if (li) return groupOf(li)?.dataset.gid || null;
     const head = node.closest('h2[data-group]');
-    return head ? head.dataset.group : null;
+    if (head) return head.dataset.group;
+    const sec = node.closest('[data-gid]');
+    if (sec) return sec.dataset.gid || null;
+    const nav = node.closest('.gnav a[href^="#"]');
+    if (nav) {
+      const id = nav.getAttribute('href').slice(1).replace(/^[gf]-/, '');
+      if (groupsOnPage().some((g) => g.dataset.gid === id)) return id;
+    }
+    return null;
   };
 
   // 卡片的**名字**：先要 resolve 读到的标题，读不到就用**网站的名字**（主机名）。
@@ -1517,10 +1678,23 @@
     try { return new URL(url).host || url; } catch { return url; }
   };
 
+  function matchHostBrandIcon(candidates, rawUrl) {
+    if (!candidates || !candidates.length) return '';
+    let hostParts;
+    try {
+      hostParts = new Set(new URL(rawUrl).hostname.toLowerCase().split('.').filter(Boolean));
+    } catch { return ''; }
+    for (const c of candidates) {
+      const slugPart = String(c).replace(/^simple-icons:/, '');
+      if (slugPart !== c && hostParts.has(slugPart)) return c;
+    }
+    return '';
+  }
+
   // 存进去的那一段。**只剩失败才说话**（§8.7：写失败一律显式报错）。
   // 标题仍然走 resolve：没有它，存进去的名字就是一串地址，而这一页全部的价值
   // 就是"看得懂的名字"；读不到**不是**不存的理由，退回到用网站的名字。
-  async function saveDropped(url, dropGid, dropAt) {
+  async function saveDropped(url, dropGid, dropAt, dragTitle) {
     // 同一个地址拖两次不该多出一条。比的是屏上 href 的**原样**：不做规范化比较——
     // 把带不带尾斜杠当成两条不同的书签，比多存一条更难解释。
     // 按**任何带 href 的元素**比（从前是 `a.card`）：大卡带那张是 `a.feat-card`，
@@ -1532,14 +1706,20 @@
     // 拖到空白处就退到页面上第一组：这一页的卡片总是属于某一组。
     const targetGid = dropGid || groupsOnPage()[0]?.dataset.gid;
     if (!targetGid) { showBanner(T('app.drop.noGroup'), 'bad'); return; }
+    showBanner(T('app.reading'));
     let meta = null;
     try {
       const r = await api('/api/v1/resolve', { url, profile });
       if (!r.code) meta = r; // 读不到就用地址当名字，不因此丢掉这一条
     } catch { /* 同上：读取失败不等于不能存 */ }
-    const name = itemName(meta && meta.title, url);
+    const name = itemName((meta && meta.title) || dragTitle, url);
     const value = { id: slug(url, true), name, url };
     if (meta && meta.desc) value.desc = meta.desc;
+    if (meta && meta.favicon) value.icon = 'auto';
+    else if (meta && meta.iconCandidates) {
+      const brand = matchHostBrandIcon(meta.iconCandidates, url);
+      if (brand) value.icon = brand;
+    }
     // An explicit drop target wins over metadata suggestions.
     const gid = targetGid;
     const ops = [{ op: 'add', path: 'groups/' + gid + '/items', value }];
@@ -1670,7 +1850,8 @@
           if (o.value === want) { fGroup.value = want; break; }
         }
       }
-      iconChoices(r.iconCandidates);
+      const nextIcon = iconTouched ? fIcon.value : (r.favicon ? 'auto' : '');
+      fillIconChoices(fIcon, r.iconCandidates, nextIcon);
       // **只承诺标题**（2026-10-25）：resolve 可以只读到 title（description 只认
       // og:description，icon 也可能抓不到）；旧文案「标题、说明和图标」会在两格
       // 空着时说假话。空着的字段自己看得见，状态别替它们打包票。
@@ -1892,6 +2073,9 @@
           fTitle.value = meta.title;
         }
         if (meta && meta.desc && !fDesc.value.trim()) fDesc.value = meta.desc;
+        if (meta && meta.favicon && !iconTouched && !fIcon.value) {
+          fillIconChoices(fIcon, meta.iconCandidates, 'auto');
+        }
       } finally {
         fUrl.readOnly = wasReadOnly;
         saveBtn.disabled = moreBtn.disabled = false;
@@ -1953,6 +2137,7 @@
       if (keepOpen) {
         savedKeepOpen = true;
         for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = '';
+        iconTouched = false;
         iconChoices([]);
         fUrl.focus();
       } else {
@@ -1971,6 +2156,7 @@
         enqueue({ gid: g.gid, ops: g.ops, value });
         clearAddQuery();
         for (const f of [fUrl, fWan, fTitle, fDesc]) f.value = '';
+        iconTouched = false;
         iconChoices([]);
         sheet.hidden = true;
         syncTrap();
@@ -2403,18 +2589,7 @@
     // 选中它并按回车，把这个词交给页面上那个搜索框（整页搜是服务端渲染那条路）。
     let total = 0;
     for (const li of document.querySelectorAll('li[data-item]')) {
-      const name = (li.querySelector('b')?.textContent || '').toLowerCase();
-      const url = itemURL(li).toLowerCase();
-      // 判据与 `filter.go` 的 matchItem 是**同一组字段**：名字、地址、说明、每一个
-      // 别名、每一个标签，再加"分组标题命中就把整组带出来"。从前这里只比名字与地址，
-      // 于是同一个词在同一个产品里有两个答案——实测（同一份数据、两条通路各跑 11 个词）：
-      // 「NAS」整页 8 条 / 面板 2 条，「影音」（那是组名）3 条 / 0 条，「pt」「备份」
-      // 「对象存储」都是服务端有、面板回一句"没有叫「X」的书签"。
-      // 值从 li 上的 data-desc / data-alias / data-tags 读，多个值以换行连接。
-      const gtitle = groupName(groupOf(li)).toLowerCase();
-      const extra = [li.dataset.desc || '', ...(li.dataset.alias || '').split('\n'), ...(li.dataset.tags || '').split('\n')];
-      if (!q || name.includes(q) || url.includes(q) || gtitle.includes(q)
-        || extra.some((x) => x && x.toLowerCase().includes(q))) {
+      if (!q || itemMatches(li, q)) {
         total++;
         if (hits.length < 8) {
           // `external` 与正文那一支同源：**它没有 <a href> 就是点不动**，
@@ -2577,6 +2752,13 @@
     const raw = li.querySelector('[data-addr]');
     return (raw && raw.getAttribute('data-addr')) || '';
   };
+
+  // 与服务端 filter.go 共用字段口径；逐字段匹配，避免跨两个别名或标签误配。
+  function itemMatches(li, q) {
+    return [li.querySelector('b')?.textContent || '', itemURL(li), li.dataset.desc || '',
+      groupName(groupOf(li)), ...(li.dataset.alias || '').split('\n'), ...(li.dataset.tags || '').split('\n'),
+    ].some((value) => value.toLowerCase().includes(q));
+  }
 
   // 「屏上有哪几个分组」这一份集合，判据收在这一处。四个功能各要一次：
   // 拖网址进来的兜底（页面上第一组）、添加浮层的分组下拉、编辑模态的分组下拉、
@@ -2945,55 +3127,41 @@
   // "只给这一行补挂一遍"这个出口，于是要么整段重挂（已挂过的会挂两遍，一次拖动
   // 触发两次排序）要么新行没有把手。
   function bindItem(li) {
-    // 幂等：它会 append 一颗把手，绑两遍就是两颗把手。判据写在节点上而不是靠调用点自觉。
     if (li.dataset.lbItemBound) return;
     li.dataset.lbItemBound = '1';
-    // **这一行该有的全部监听都从这里出去**（2026-10-16）：长按多选那一族从前是页面
-    // 加载时另扫一轮挂上去的，于是**拖进来的那一行没有它**——长按没反应、在多选里
-    // 点它也不切换。新节点是接卡片那段 `spliceCardIn` 接进来的，它只调这一个函数。
     bindMulti(li);
-    // 把手与拖拽挂在**这一行的主体**上：可点的地址是 .card，点不动的那几行是 .plain。
-    // 2026-10-12 之前这里只认 .card，注释写的是"非 http 的不给把手（不给做不到的承诺）"——
-    // 那句把两件事混成了一件：**打不开**是浏览器的限制，**改不了**不是。
-    // 就地编辑写的是 name/desc/url，与协议无关；把把手摘掉等于让一条 chrome://
-    // 或 file:// 的书签在界面上永远改不了名、换不了说明，而浏览器收藏夹导入
-    // 恰好会把这类地址成批收进来（AGENTS.md：file: 照收）。
+    const itemName = li.querySelector('b')?.textContent || T('app.edit.fallbackName');
+    const chk = el('button', {
+      type: 'button', class: 'pick-chk', text: '✓',
+      'aria-label': T('app.multi.pick', itemName),
+      'aria-pressed': 'false',
+      on: {
+        click: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = li.dataset.item;
+          if (!id) return;
+          if (!multi.on) enterMulti(id);
+          else {
+            if (multi.picked.has(id)) multi.picked.delete(id);
+            else multi.picked.add(id);
+            paintPicked();
+          }
+        },
+      },
+    });
+    li.prepend(chk);
     const card = li.querySelector('.card, .feat-card, .plain');
     if (!card) return; // 三种形态都不是（坏档那一屏根本没有 li）才真的没有把手
     const pencil = el('button', {
-      type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', li.querySelector('b')?.textContent || T('app.edit.fallbackName')),
+      type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', itemName),
       on: { click: (e) => { e.preventDefault(); editItem(li); } },
     });
-    // 两枚键的落点：可点的那张卡上只有一把手，挂在卡片本体（角上）——
-    // 「点不动那一行」上**两枚键一起住进地址那一行**（`.addr`，模板给的容器），
-    // 把手就跟着复制键进去。分开放看着"分处两行就不可能相交"，实拍是它们叠在
-    // 右下角（把手 `top:6px` 高 44px 落到 y 6–50，而第二行从 y 32 起算，重叠 18px）。
-    // 同一行里并排是**结构上**不相交，不是算下来不相交。
     const keys = card.querySelector('.addr') || card;
     keys.append(pencil);
-    // draggable 要**在拖之前就位**：从前它在 dragstart 的回调里才设上，而浏览器
-    // 是在 pointer 按下那一刻读这个属性的——第一次拖根本不会开始，得人拖过一回
-    // （属性已经留下了）第二次才动。拖动的**监听**不在这里（见下面那个委托块）。
     card.setAttribute('draggable', 'true');
   }
   for (const li of document.querySelectorAll('li[data-item]')) bindItem(li);
-
-  const hintKey = 'lb-usage-hint-v1-' + profile;
-  let hintDismissed = false;
-  try { hintDismissed = localStorage.getItem(hintKey) === '1'; } catch { /* Optional hint. */ }
-  if (!hintDismissed && document.querySelector('li[data-item]')) {
-    const hint = el('div', { class: 'usage-hint', role: 'note' }, [
-      el('span', { class: 'usage-desktop', text: T('app.usage.desktop') }),
-      el('span', { class: 'usage-touch', text: T('app.usage.touch') }),
-    ]);
-    hint.append(el('button', { type: 'button', class: 'badge', text: T('app.usage.dismiss'), on: {
-      click: () => {
-        try { localStorage.setItem(hintKey, '1'); } catch { /* Dismiss still works. */ }
-        hint.remove();
-      },
-    } }));
-    $('main')?.prepend(hint);
-  }
 
   // ── 拖放：四种落点，一个委托块（2026-10-16）────────────────────────────
   // 从前是「每一行挂五个（dragstart/dragend/dragover/dragleave/drop）+ 每个组
@@ -3154,7 +3322,7 @@
           lookIcon.disabled = true;
           try {
             const r = await api('/api/v1/resolve', { url: u.value.trim() || url, profile });
-            fillIconChoices(ic, r.iconCandidates, ic.value || curIcon);
+            fillIconChoices(ic, r.iconCandidates, ic.value || (r.favicon ? 'auto' : '') || curIcon);
           } catch (e) {
             showBanner(T('app.readErr', e.message), 'bad');
           } finally {
@@ -3291,13 +3459,21 @@
     if (!h2) continue;
     const cur = sec.dataset.layout === 'tiles' ? 'tiles' : 'list';
     const other = cur === 'tiles' ? 'list' : 'tiles';
-    const name = h2.textContent.trim();
-    // 键上从前印的是**当前形态名**（「磁贴」/「单列」），于是分组标题那行读成
-    // 「● 应用 磁贴」——一个名词挂在另一个名词后面，既不是句子也不是按钮。
-    // 现在印字形（▦ 磁贴 / ☰ 单列），完整那句话进 title 与 aria-label：
-    // 看得见的人一眼认出这是"换排法"的开关，读屏与语音的人拿到的是整句。
+    const name = groupName(h2) || h2.textContent.trim();
     const word = T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows');
     const say = T('app.layout.aria', name, word, T(cur === 'tiles' ? 'app.layout.rows' : 'app.layout.tiles'));
+    const gid = sec.dataset.gid;
+    h2.append(el('button', {
+      type: 'button', class: 'grp-add',
+      text: '+', title: T('app.group.addHere', name), 'aria-label': T('app.group.addHere', name),
+      on: {
+        click: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openSheet(true, gid);
+        },
+      },
+    }));
     h2.append(el('button', {
       type: 'button', class: 'layoutbtn',
       text: cur === 'tiles' ? '▦' : '☰',
@@ -3307,11 +3483,62 @@
         click: async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const ok = await applyOps([{ op: 'set', path: `groups/${sec.dataset.gid}/layout`, value: other }], 'app.ops.layout');
+          const ok = await applyOps([{ op: 'set', path: `groups/${gid}/layout`, value: other }], 'app.ops.layout');
           if (ok) reloadKeepingPlace();
         },
       },
     }));
+    const emptyP = sec.querySelector(':scope > p.grp-empty');
+    if (emptyP) {
+      emptyP.append(el('button', {
+        type: 'button', class: 'badge grp-empty-add', text: '+',
+        title: T('app.group.addHere', name), 'aria-label': T('app.group.addHere', name),
+        on: { click: () => openSheet(true, gid) },
+      }));
+    }
+  }
+
+  // 侧栏与顶栏当前可视分组高亮
+  const navLinks = [...document.querySelectorAll('.gnav a[href^="#"]')];
+  if (navLinks.length) {
+    const setActiveNav = (href) => {
+      for (const a of navLinks) {
+        if (a.getAttribute('href') === href) a.setAttribute('aria-current', 'location');
+        else a.removeAttribute('aria-current');
+      }
+    };
+    const initialHref = navLinks.find((a) => a.hash === location.hash)?.hash || navLinks[0].hash;
+    setActiveNav(initialHref);
+    if (CSS.supports('scroll-target-group: auto') && CSS.supports('selector(:target-current)')) {
+      const syncCurrent = () => {
+        const current = navLinks.find((a) => a.matches(':target-current'));
+        if (current) setActiveNav(current.hash);
+      };
+      requestAnimationFrame(syncCurrent);
+      document.addEventListener('scrollend', syncCurrent);
+    } else if ('IntersectionObserver' in window) {
+      const targets = new Map();
+      for (const a of navLinks) {
+        const heading = document.getElementById(a.hash.slice(1));
+        if (!heading) continue;
+        const target = heading.classList.contains('feat-g')
+          ? (heading.nextElementSibling?.children.length ? heading.nextElementSibling : heading)
+          : heading.parentElement;
+        if (target) targets.set(target, a.hash);
+      }
+      const visible = new Set();
+      const observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target);
+          else visible.delete(entry.target);
+        }
+        const current = [...visible].reduce((best, section) => !best ||
+          Math.abs(section.getBoundingClientRect().top - 90) < Math.abs(best.getBoundingClientRect().top - 90)
+          ? section : best, null);
+        if (current) setActiveNav(targets.get(current));
+      }, { rootMargin: '-90px 0px 0px' });
+      for (const target of targets.keys()) observer.observe(target);
+    }
   }
 
   // ── §8.4 长按多选 → 批量移动 / 打标签 ────────────────────────────────────
@@ -3342,7 +3569,10 @@
   }
   function paintPicked() {
     for (const li of document.querySelectorAll('li[data-item]')) {
-      li.classList.toggle('sel-mark', multi.picked.has(li.dataset.item));
+      const on = multi.picked.has(li.dataset.item);
+      li.classList.toggle('sel-mark', on);
+      const chk = li.querySelector(':scope > .pick-chk');
+      if (chk) chk.setAttribute('aria-pressed', String(on));
     }
     paintMulti();
   }
@@ -3389,8 +3619,10 @@
     li.addEventListener('pointercancel', cancel);
     li.addEventListener('pointermove', cancel);
     li.addEventListener('click', (e) => {
-      // Releasing the hold also produces a click; keep the first card selected.
-      if (held) { held = false; e.preventDefault(); e.stopPropagation(); return; }
+      // Capture-phase interception ensures releasing a long-press never fires child button/link clicks.
+      if (held) { held = false; e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    li.addEventListener('click', (e) => {
       if (multi.on) { e.preventDefault(); e.stopPropagation(); togglePick(id); }
       // 不在多选里就让它照常打开链接——这里什么都不做正是要的形状。
     });

@@ -27,7 +27,7 @@ func TestProfileStructureAndNoJS(t *testing.T) {
 		// 2026-10-12：标题按「叶名 + 弱化的父路径」排版，这一份没有父路径，
 		// 所以 sec-leaf 那一格是它自己；父链非空时的形状由
 		// Test节标题_父路径弱化叶名突出 单独钉（同一份拆法，不在同一条里塞两种）。
-		`<h2 id="g-nas" data-group="nas" title="NAS"><span class="sec-leaf">NAS</span></h2>`,
+		`<h2 id="g-nas" tabindex="-1" data-group="nas" title="NAS"><span class="sec-leaf">NAS</span></h2>`,
 		`href="http://10.0.0.3:5000"`, // 关掉 JS 也能点
 		`dsm 台`,                       // save() 造的条目标题是 itemID+" 台"
 		`aria-hidden="true"`,          // 首字母色块是装饰
@@ -680,7 +680,7 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 // 选择器，否则"一条都没扫到"也会绿。名单按文件给——两个文件各守各的那一条。
 func TestCSS_选择器段里没有游离引号(t *testing.T) {
 	for _, tc := range []struct{ file, guarded string }{
-		{"web/base.css", ".rename label"},
+		{"web/base.css", ".prefs-group-name"},
 		{"web/app.css", ".inline-edit .row"},
 	} {
 		raw, err := webFS.ReadFile(tc.file)
@@ -1013,56 +1013,25 @@ func TestCSS_硬规格在场(t *testing.T) {
 func checkCSSSpecs(t *testing.T, css string) {
 	t.Helper()
 	wants := map[string]string{
-		"毛玻璃卡片":       `backdrop-filter:blur(12px)`,
-		"hover 抬升":    `translateY(-3px)`,
-		"图标 hover 变换": `scale(1.07) rotate(-2deg)`,
-		"磁贴内线条加粗":     `.tiles .ic-svg{stroke-width:2.5`,
+		"顶栏磨砂粘性":      `backdrop-filter:blur(14px)`,
+		"卡片阴影层次":      `box-shadow:var(--sh)`,
+		"hover 抬升":    `translateY(-2px)`,
+		"图标 hover 变换": `scale(1.05)`,
+		"磁贴内线条加粗":     `.tiles .ic-svg{stroke-width:2.2`,
 		"图标尺寸下限 20px": `.ic-svg,.ic-img{width:22px;height:22px`,
 		"触摸目标 44px":   `min-height:44px`,
 		"减弱动效豁免":      `@media (prefers-reduced-motion:reduce)`,
 		"高对比模式豁免":     `@media (forced-colors:active)`,
-		// 主操作键：同一张脸 + 一个底。钉的是**选择器写成了 `button.primary`**，
-		// 不是 `.primary`——按钮族那条联合规则本身就是 0,1,1，少一个元素就输给它，
-		// 输了的症状是"类加上了但什么都没变"。
-		// 2026-10-16 从"描边转主色"改成一**淡主色底 + 描边回族里那一档**：实拍顶栏里
-		// 它与旁边两颗的字色、底色逐字相同，那一圈蓝边是唯一的差别，读起来是"另一个
-		// 东西套了个框"而不是"同一族里更重的一颗"。
-		"主操作键淡主色底": `button.primary{color:var(--ink);background:var(--accent-tint);border-color:var(--line)}`,
-		// 钉的是**判据本身**而不是那个具体列宽：这一格要保证的是"list 形态由
-		// [data-layout=list] 选、且按视口自适应分列"，而不是"必须是 360px"——
-		// 后者把一个随手可调的像素值抬成了规格，改它就得改这里。
-		// 从前钉的是 `minmax(0,1fr)`（单列满宽），2026-10-11 按实拍改成自适应。
-		"列表形态":    `[data-layout=list] .rows{grid-template-columns:repeat(auto-fill,minmax(`,
-		"暗亮双主题开关": `[data-theme=light]`,
-		// 钉的是"有一道从透明淡入的入场"这个形状，不是位移那个像素值：
-		// 9px→4px、0.5s→0.14s 都是量出来的调参，钉死了就改不动。
-		// （真的把入场删掉，那才是这一行该响的时候——那时它红得对。）
-		"入场 stagger": `@keyframes rise{from{opacity:0;transform:translateY(`,
-		"网点纹理":       `background-size:3px 3px`,
-		// 裁定 M-7：§7.5 的焦点环要有形状钉。上一条"触摸目标 44px"钉的是尺寸，
-		// 没有任何一条钉住 outline——删掉 :focus-visible 那一行时 12 条全绿，
-		// 键盘用户从此看不见焦点。
-		"焦点环形状": `outline:3px solid var(--ring)`,
-		// 裁定 M-4：长名字截断要同时盖住 .card 与 .plain 两种形态，
-		// 只写 .card 时"需手动打开"那条会换行而不是省略。
-		"长名截断两态": `.card b,.plain b{font-weight:600;overflow:hidden;text-overflow:ellipsis`,
-		// 同一族在磁贴里的那一半（2026-10-13）：`flex:1 1 0` 让名字先收缩再省略，
-		// 而不是把行尾的键挤去下一行。少了 `.plain b`，「点不动那一行」在 1440 档
-		// 整排磁贴被 grid 一起拉高 52px（量过：一屏 46→41）。
-		"磁贴里的名字先收缩不换行": `.tiles .card b,.tiles .plain b{flex:1 1 0;min-width:0}`,
-		// 「点不动那一行」在磁贴里改栅格那三条（2026-10-13 实拍后**两次改判**）。
-		// 第一版把复制键放进第三列、把把手绝对定位到右上角——看着"分处两行就不可能
-		// 相交"，实拍恰恰相反：把手 `top:6px` 高 44px 落到 y 6–50，而第二行从 y 32
-		// 起算，**纵向重叠 18px**，两枚键叠在右下角。栅格的轨道还是**被所有行共享**
-		// 的：键放在第二行，第一行的中列照样被压窄。
-		//
-		// 第二版把两枚键**一起收进地址那一行**（`.addr`），那一行是 flex、不参与栅格
-		// 轨道，名字因此一格都不让。钉这三条是因为它们互相咬合：少写 `.addr` 的跨两
-		// 列，地址行就回到与标签同格；少写那两列，名字又被键压窄；少写最后一条，两枚
-		// 键就会退回栅格里重新互相压。HTML 里看不出两个 rect 相不相交，只能逐字钉。
-		"点不动那行改栅格":  `.tiles .plain{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px}`,
-		"地址行跨满两列":   `.tiles .plain>.addr{grid-row:2;grid-column:1/-1}`,
-		"两枚键并排在地址行": `.plain .addr>.copybtn,.plain .addr>.pencil{flex:0 0 32px}`,
+		"主操作键实色强调":    `button.primary{color:var(--on-accent);background:var(--accent);border-color:var(--accent)`,
+		"列表形态":        `[data-layout=list] .rows{grid-template-columns:repeat(auto-fill,minmax(`,
+		"暗亮双主题开关":     `[data-theme=light]`,
+		"入场 stagger":  `@keyframes rise{from{opacity:0;transform:translateY(`,
+		"焦点环形状":       `outline:3px solid var(--ring)`,
+		"长名截断两态":      `.card b,.plain b{font-weight:600;line-height:1.35;overflow:hidden;text-overflow:ellipsis`,
+		"磁贴里的名字第二列":   `.tiles .card:not(.plain)>b{grid-column:2`,
+		"点不动那行改栅格":    `.tiles .plain{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px`,
+		"地址行跨满两列":     `.tiles .plain>.addr{grid-row:2;grid-column:1/-1}`,
+		"两枚键并排在地址行":   `.plain .addr>.copybtn,.plain .addr>.pencil{flex:0 0 32px}`,
 		// 管理横幅与"两层 sticky 让位"这两格在 2026-10-10 随代管态一起删了，
 		// 对应的 CSS 也清干净了——一条永不触发的规则比没有更糟：它看起来像在那里
 		// 守着。替代它们的是下面那条**导入页的触摸目标**——那一族过去不在名单里，
@@ -1134,7 +1103,7 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 色点的消费者：模板发的 style="--sec-accent:…" 只是把值送到元素身上，
 		// 没有这条规则它就是个隐形格子。页面侧有生产者证人（icon_test.go），
 		// CSS 侧缺的是这半边（评审 N-2）。
-		"侧栏色点画得出来": `.gnav .dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%`,
+		"侧栏色点画得出来": `.gnav .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%`,
 		// 解释页的细节块用类名（Task 7 裁定②）：这条钉的是"它是个类而不是裸元素"，
 		// 裸元素写法会把 margin/padding 漏给侧栏那个 .drawer。
 		"细节块用类名": `.tech{margin:14px 0;border:1px solid`,
@@ -1146,7 +1115,7 @@ func checkCSSSpecs(t *testing.T, css string) {
 		// 引导表单两格竖排时必须显式 stretch：`.pick label` 给的是 center，列向 flex
 		// 里 center 管的是水平轴，输入框会被 flex:1 1 auto 收成内容宽的一小块。
 		// 这条在单测里量不到宽度，只有浏览器知道——所以按本函数的口径钉声明本身。
-		"引导表单的输入框铺满": `.setup label{display:flex;flex-direction:column;align-items:stretch`,
+		"引导表单的输入框铺满": `.setup label,.login label{display:flex;flex-direction:column;align-items:stretch`,
 		// 细节块在高对比模式下的**那一条**（评审 R-3 的另一半）：上面"高对比模式
 		// 豁免"钉的是 `@media (forced-colors:active)` 这个串在场，而它在文件里出现
 		// 四次，删掉 .tech 这一条它照样绿。系统色会盖掉 --ring 描边，没有这条
@@ -1739,16 +1708,13 @@ func checkCSSContrasts(t *testing.T, path string, vars map[string]string) {
 	// background-color 永远看不见，所以这里自己合成一次再量。
 	// 只量 --warn：它是透明底上唯一的**小字**彩色件（11px）；--ring/--accent 落在
 	// 页底上按非文本 3:1 判，2026-10-12 实测两套都过，没有需要钉的新谎话。
-	if a1, ok := cssColor(t, vars["--aurora-1"]); ok {
-		page := compositeOver(a1, bg)
-		if w, wok := cssColor(t, vars["--warn"]); wok {
-			r := wcagContrast(w, page)
-			t.Logf("%s：徽标 --warn / 极光页底 = %.2f:1（压 %s）", path, r, cssHex(page))
-			if r < 4.5 {
-				t.Errorf("%s：--warn %s 压在带极光的页底 %s 上只有 %.2f:1，要 ≥4.5:1"+
-					"（管理页表格那枚「数据文件读不了」是透明底，11px 小字）",
-					path, strings.TrimSpace(vars["--warn"]), cssHex(page), r)
-			}
+	if w, wok := cssColor(t, vars["--warn"]); wok {
+		r := wcagContrast(w, bg)
+		t.Logf("%s：徽标 --warn / 页底 = %.2f:1（压 %s）", path, r, cssHex(bg))
+		if r < 4.5 {
+			t.Errorf("%s：--warn %s 压在页底 %s 上只有 %.2f:1，要 ≥4.5:1"+
+				"（管理页表格那枚「数据文件读不了」是透明底，11px 小字）",
+				path, strings.TrimSpace(vars["--warn"]), cssHex(bg), r)
 		}
 	}
 }

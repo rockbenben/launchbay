@@ -622,5 +622,9 @@
   "profile.empty.add": "添加第一个书签",
   "app.usage.desktop": "悬停在书签上可编辑；长按卡片可多选。",
   "app.usage.touch": "点书签旁的铅笔可编辑；长按卡片可多选，滑动浏览。",
-  "app.usage.dismiss": "知道了"
+  "app.usage.dismiss": "知道了",
+  "app.theme.toggle": "切换浅色或深色主题",
+  "app.group.addHere": "向「%s」添加书签",
+  "app.multi.pick": "选择「%s」",
+  "app.search.clear": "清除筛选"
 }

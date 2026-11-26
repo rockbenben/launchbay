@@ -100,7 +100,7 @@
     <li>
       {{/* 每张卡片都是一个自包含的表单：profile 走 hidden 字段，
            选档案不需要任何脚本。?add= 同样逐卡片带上，穿过 PIN 步骤。 */}}
-      <form method="post" action="/pin" class="pick" novalidate>
+      <form method="post" action="/pin" class="pick{{if not .NeedsPIN}} pick-instant{{end}}" novalidate>
         <input type="hidden" name="profile" value="{{.ID}}">
         {{with $.KeepAdd}}<input type="hidden" name="keep_add" value="{{.}}">{{end}}
         {{with $.KeepAddTitle}}<input type="hidden" name="keep_title" value="{{.}}">{{end}}
