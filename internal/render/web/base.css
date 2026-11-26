@@ -116,8 +116,7 @@ input:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid
 .card b,.plain b{font-weight:600;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card i{font-style:normal;font-size:12px;color:var(--ink2);margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;max-width:38%}
 
-.ic-box{width:34px;height:34px;flex:0 0 auto;border-radius:9px;
-  background:var(--surface);border:1px solid var(--line);
+.ic-box{width:34px;height:34px;flex:0 0 auto;
   display:grid;place-items:center;transition:transform .16s ease}
 .ic-box .ic-svg,.ic-box .ic-img{width:24px;height:24px;border-radius:6px}
 .ic-box .ic{width:34px;height:34px;border-radius:9px;font-size:14px}
