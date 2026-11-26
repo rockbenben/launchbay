@@ -604,7 +604,6 @@
   "backup.err.partial": "Yer işaretleri içe aktarıldı ancak sayfa ayarları kaydedilemedi. Sonucu görmek için yer işaretleri sayfasını yenileyin.",
   "backup.err.tooLarge": "Bu dosya çok büyük (en fazla 8 MB).",
   "backup.err.nofile": "Hiçbir dosya seçilmedi.",
-  "common.repoTitle": "GitHub'daki kaynak ve istekler",
   "prefs.linkMode": "Yer işareti adresleri",
   "prefs.linkMode.hint": "Otomatik, Launchbay'ı açtığınız adresi kullanır. Evde ve dışarıda aynı alan adını kullanıyorsanız manuel olarak geçiş yapabilirsiniz. Tarayıcınız bu ana makine ve profil için yaptığınız seçimi hatırlar.",
   "link.basis": "Adres seçimi",

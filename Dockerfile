@@ -3,6 +3,7 @@ FROM golang:1.27-alpine AS build
 # buildx 注入的内置 ARG：声明之后才能在下面的 RUN 里用。多平台构建时它分别是
 # amd64 / arm64，交叉编译与"跳过 arm64 的测试"这两件事都靠它。
 ARG TARGETARCH
+ARG VERSION=dev
 WORKDIR /src
 # tzdata 装在构建期，运行期只拷需要的目录：scratch 里没有系统时区库，
 # 不装的话 created_at 的时区偏移会是假的（见下面 stage-1 的注释）。
@@ -23,7 +24,9 @@ COPY . .
 # 该被架构抓出来的问题由交叉编译本身抓（链接错、平台专属代码编译不过），
 # 那不需要跑测试。
 RUN if [ "$TARGETARCH" = "amd64" ]; then go vet ./... && go test ./...; fi \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/launchbay ./cmd/launchbay
+    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath \
+      -ldflags="-s -w -X github.com/rockbenben/launchbay/internal/render.dockerVersion=$VERSION" \
+      -o /out/launchbay ./cmd/launchbay
 
 FROM scratch
 COPY --from=build /out/launchbay /launchbay

@@ -604,7 +604,6 @@
   "backup.err.partial": "Nội dung dấu trang đã được nhập nhưng không lưu được cài đặt trang. Tải lại trang dấu trang để xem kết quả.",
   "backup.err.tooLarge": "Tệp đó quá lớn (tối đa 8 MB).",
   "backup.err.nofile": "Không có tập tin nào được chọn.",
-  "common.repoTitle": "Nguồn và yêu cầu trên GitHub",
   "prefs.linkMode": "Đánh dấu địa chỉ",
   "prefs.linkMode.hint": "Tự động sử dụng địa chỉ bạn mở Launchbay. Nếu bạn sử dụng cùng một miền ở nhà và ở xa, bạn có thể chuyển đổi theo cách thủ công. Trình duyệt của bạn ghi nhớ sự lựa chọn cho máy chủ và hồ sơ này.",
   "link.basis": "Lựa chọn địa chỉ",

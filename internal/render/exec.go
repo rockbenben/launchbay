@@ -352,18 +352,7 @@ type profileView struct {
 	LinkRule         string
 	i18nView
 	Profile *model.Profile
-	// RepoIcon 是那枚 GitHub 猫头（源码与需求在 GitHub 上）。**图标 + 一行字**：
-	// 猫头是「代码/仓库」最通用的记号，而落点正好就是 GitHub——图标与去处同一个
-	// 名字，不需要解释。
-	//
-	// **它住在设置面板的最下面那一行**（2026-10-21 从档案页的页脚搬进来，用户定的）：
-	// 档案页是**天天看**的那一页，而「源码/需求」是低频事——放在那一页，它就成了
-	// 别人不点也要看见的东西（多栏那一档它还被当成"一条没有名字的书签"，见
-	// base.css 那一段）。设置面板是"出了事去找设置"的落点，源码入口放那儿各得其所。
-	//
-	// **它带一个字**：从前那枚是纯图标，而一枚孤零零的猫读作"某个没有名字的
-	// 东西"——这正是它在多栏那一档被当成"一条没有名字的书签"的那件事。带一个字
-	// 之后它读作**一句引用**（图标 + 文字），可及名也就是那句可见文字。
+	// RepoIcon is the GitHub icon next to the version in the settings footer.
 	RepoIcon iconPiece
 	// PageTitle 是**顶栏那行大字与浏览器标签页的前半**：这一页叫什么。
 	// 它取自 Profile.PageTitle（台面偏好，与 theme/layout 同族），空则按界面语言
@@ -713,7 +702,8 @@ func newExecutor(ix *icons.Index, fc *store.IconCache) *executor {
 		// 视图上的一个字段：字段要**每一页都记得填**，而忘了填的那一处症状是
 		// "链接点得开、却什么也不做"（href 空）——一种平时完全看不出来的错。
 		// 函数则只有一份，两个模板各写 `{{repoURL}}` 就是同一处。
-		"repoURL": func() string { return RepoURL },
+		"repoURL":       func() string { return RepoURL },
+		"dockerVersion": func() string { return dockerVersion },
 	}
 	parse := func(name string) *template.Template {
 		data, err := webFS.ReadFile("web/" + name)

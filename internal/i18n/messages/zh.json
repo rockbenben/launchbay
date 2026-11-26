@@ -604,7 +604,6 @@
   "backup.err.partial": "书签内容已导入，但页面设置未能保存。请刷新书签页查看导入结果。",
   "backup.err.tooLarge": "文件太大（上限 8 MB）。",
   "backup.err.nofile": "请选择备份文件。",
-  "common.repoTitle": "源码与需求在 GitHub 上",
   "prefs.linkMode": "书签地址",
   "prefs.linkMode.hint": "自动根据打开导航台的地址选择。在家和在外使用同一域名时，可手动切换。选择保存在当前浏览器，只用于这个主机上的这份档案。",
   "link.basis": "地址选择依据",

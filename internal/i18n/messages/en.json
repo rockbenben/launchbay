@@ -604,7 +604,6 @@
   "backup.err.partial": "Bookmark content was imported, but page settings could not be saved. Refresh the bookmarks page to see the result.",
   "backup.err.tooLarge": "That file is too large (8 MB max).",
   "backup.err.nofile": "No file was picked.",
-  "common.repoTitle": "Source and requests on GitHub",
   "prefs.linkMode": "Bookmark addresses",
   "prefs.linkMode.hint": "Auto uses the address you open Launchbay with. If you use the same domain at home and away, you can switch manually. Your browser remembers the choice for this host and profile.",
   "link.basis": "Address selection",

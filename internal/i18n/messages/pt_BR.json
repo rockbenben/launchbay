@@ -604,7 +604,6 @@
   "backup.err.partial": "Os favoritos foram importados, mas não foi possível salvar as configurações da página. Atualize a página de favoritos para ver o resultado.",
   "backup.err.tooLarge": "Esse arquivo é muito grande (8 MB no máximo).",
   "backup.err.nofile": "Nenhum arquivo foi selecionado.",
-  "common.repoTitle": "Fonte e solicitações no GitHub",
   "prefs.linkMode": "Endereços favoritos",
   "prefs.linkMode.hint": "Auto usa o endereço com o qual você abre o Launchbay. Se você usar o mesmo domínio em casa e fora, poderá alternar manualmente. Seu navegador lembra a escolha deste host e perfil.",
   "link.basis": "Seleção de endereço",

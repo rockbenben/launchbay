@@ -604,7 +604,6 @@
   "backup.err.partial": "북마크는 가져왔지만 페이지 설정을 저장하지 못했습니다. 북마크 페이지를 새로 고쳐 결과를 확인하세요.",
   "backup.err.tooLarge": "파일이 너무 큽니다(최대 8MB).",
   "backup.err.nofile": "선택한 파일이 없습니다.",
-  "common.repoTitle": "GitHub의 소스 및 요청",
   "prefs.linkMode": "북마크 주소",
   "prefs.linkMode.hint": "Auto는 Launchbay를 여는 주소를 사용합니다. 집에서나 밖에서나 동일한 도메인을 사용하는 경우 수동으로 전환할 수 있습니다. 귀하의 브라우저는 이 호스트와 프로필에 대한 선택을 기억합니다.",
   "link.basis": "주소 선택",

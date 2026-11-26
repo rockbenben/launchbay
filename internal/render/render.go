@@ -41,6 +41,9 @@ type Page struct {
 // 改了模块名而忘了改这一行，那道闸会红）。
 const RepoURL = "https://github.com/rockbenben/launchbay"
 
+// dockerVersion is set by the Dockerfile at link time.
+var dockerVersion string
+
 type cacheKey struct {
 	// linkMode / linkRule 是生效的地址模式及其匹配规则（2026-11-08 加）：
 	// 模式决定页面卡片渲染出的 href（主地址 vs 外网覆盖地址），规则决定徽标提示，

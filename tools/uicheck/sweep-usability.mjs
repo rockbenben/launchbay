@@ -228,11 +228,23 @@ try {
   await run(`fetch('/prefs',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'theme=light'}).then(r=>r.status)`);
   await home();
   await screenshot('desktop-light');
+  const checkboxVisible = `getComputedStyle(document.querySelector('li[data-item] .pick-chk')).display !== 'none'`;
+  const card = await run(`(() => {
+    const rect = document.querySelector('li[data-item]').getBoundingClientRect();
+    return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2};
+  })()`);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...card });
+  assert.equal(await run(checkboxVisible), false);
+  await ev(`document.getElementById('lb-multi').click()`);
+  assert.equal(await run(`document.body.dataset.multi === 'on' && !document.querySelector('.multibar').hidden
+    && document.getElementById('lb-multi').getAttribute('aria-pressed') === 'true'`), true);
+  assert.equal(await run(checkboxVisible), true);
   await ev(`document.querySelector('li[data-item] .pick-chk').click()`);
-  assert.equal(await run(`document.body.dataset.multi === 'on' && !document.querySelector('.multibar').hidden`), true);
+  assert.equal(await run(`document.querySelector('.pick-chk').getAttribute('aria-pressed')`), 'true');
   await ev(`document.querySelector('.multibar button:last-child').click()`);
-  assert.equal(await run(`!document.body.dataset.multi`), true);
-  console.log('PASS card multi-select checkbox toggles bulk bar cleanly');
+  assert.equal(await run(`!document.body.dataset.multi && document.getElementById('lb-multi').getAttribute('aria-pressed') === 'false'`), true);
+  assert.equal(await run(checkboxVisible), false);
+  console.log('PASS card hover hides checkboxes and the toolbar button enables selection');
 
   // Force a conflicting suggestion while preserving the real batch write.
   await ev(`window.__fetch=window.fetch;window.fetch=(url,opts)=>String(url).includes('/api/v1/resolve')?Promise.resolve(new Response(JSON.stringify({title:'Drop target',suggestedGroup:{id:'tiles-1',title:'Tiles'}}),{headers:{'Content-Type':'application/json'}})):window.__fetch(url,opts)`);

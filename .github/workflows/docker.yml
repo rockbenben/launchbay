@@ -89,6 +89,16 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
+      - name: 确定设置页显示的镜像版本
+        id: version
+        env:
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" != tag ]]; then
+            IMAGE_VERSION="sha-${GITHUB_SHA:0:7}"
+          fi
+          echo "value=$IMAGE_VERSION" >> "$GITHUB_OUTPUT"
+
       # build-push-action 只在**构建成功**之后才推：门禁（在 Dockerfile 的 amd64
       # 那一路里跑）或交叉编译失败，push 根本不会发生。所以这一条不需要额外的
       # "先验后发"步骤。
@@ -100,6 +110,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ steps.version.outputs.value }}
           # gha 缓存让第二次构建只重跑改动过的层。mode=max 连中间层一起留，
           # 慢一点但下次几乎全命中——自托管项目的发版频率低，划算。
           cache-from: type=gha

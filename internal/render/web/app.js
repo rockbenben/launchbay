@@ -2789,11 +2789,6 @@
     // 因为这一页不需要浏览器给任何权限。
     const actions = [];
     actions.push({ kind: 'action', label: T('app.cmdk.history'), run: () => { location.href = '/history'; } });
-    // 多选从前**只有一个入口：长按卡片**（HOLD_MS 那一段）。它对手指是自然的，
-    // 对鼠标用户则是"这个功能不存在"——而批量打标签、批量删、一次挪好几条
-    // 只有这一个门。它确实写在快捷键清单里（`?` 那一屏），可那一屏要先按 `?`
-    // 才知道有。面板是这一页上唯一一处明写着"做点什么"的地方，动作该列在这儿：
-    // 长按照旧能用，这一格只是让不知道那只手势的人也能找到同一件事。
     actions.push({ kind: 'action', label: T('app.cmdk.multi'), run: () => { cmdkClose(); enterMulti(); } });
     if (navigator.clipboard?.readText) {
       actions.push({ kind: 'action', label: T('app.cmdk.clipboard'), run: addClipboard });
@@ -3361,14 +3356,7 @@
         click: (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const id = li.dataset.item;
-          if (!id) return;
-          if (!multi.on) enterMulti(id);
-          else {
-            if (multi.picked.has(id)) multi.picked.delete(id);
-            else multi.picked.add(id);
-            paintPicked();
-          }
+          if (multi.on) togglePick(li.dataset.item);
         },
       },
     });
@@ -3759,18 +3747,20 @@
     }
   }
 
-  // ── §8.4 长按多选 → 批量移动 / 打标签 ────────────────────────────────────
-  // 拖拽管的是"挪一条"，而**批量管的是"这几条一起挪"**：后者才是"整理"这件事
-  // 的真实形状（一次调整一个分类下的一堆链接），一条一条挪等于把这件事做十遍。
-  //
-  // 用**长按**而不是勾选框：勾选框会占掉每张磁贴的位置，而那点位置在 44px
-  // 触摸目标之下已经很紧了；长按不占任何常驻空间。
+  // ── §8.4 多选 → 批量移动 / 打标签 ────────────────────────────────────
   const multi = { on: false, picked: new Set() };
+  const multiBtn = el('button', {
+    type: 'button', id: 'lb-multi', class: 'multi-toggle',
+    title: T('app.cmdk.multi'), 'aria-label': T('app.cmdk.multi'), 'aria-pressed': 'false',
+    on: { click: () => { if (multi.on) exitMulti(); else enterMulti(); } },
+  });
+  navBar?.prepend(multiBtn);
   const bar = el('div', { class: 'multibar', hidden: 'hidden', role: 'toolbar', 'aria-label': T('app.multi.aria') });
   body.append(bar);
 
   function paintMulti() {
     const n = multi.picked.size;
+    multiBtn.setAttribute('aria-pressed', String(multi.on));
     bar.hidden = !multi.on;
     if (!multi.on) return;
     bar.replaceChildren();
@@ -3802,6 +3792,8 @@
     showBanner(T('app.multi.hint'));
   }
   function exitMulti() {
+    const focus = document.activeElement;
+    if (bar.contains(focus) || focus?.classList.contains('pick-chk')) multiBtn.focus();
     multi.on = false;
     multi.picked.clear();
     delete body.dataset.multi;
@@ -3830,6 +3822,7 @@
     li.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
       held = false;
+      if (multi.on) return;
       holdTimer = setTimeout(() => { holdTimer = null; held = true; enterMulti(id); }, HOLD_MS);
     });
     const cancel = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };

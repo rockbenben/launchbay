@@ -604,7 +604,6 @@
   "backup.err.partial": "Isi markah telah diimpor, tetapi pengaturan halaman tidak dapat disimpan. Muat ulang halaman markah untuk melihat hasilnya.",
   "backup.err.tooLarge": "File itu terlalu besar (maks 8 MB).",
   "backup.err.nofile": "Tidak ada file yang diambil.",
-  "common.repoTitle": "Sumber dan permintaan di GitHub",
   "prefs.linkMode": "Tandai alamat",
   "prefs.linkMode.hint": "Otomatis menggunakan alamat tempat Anda membuka Launchbay. Jika Anda menggunakan domain yang sama di rumah dan di luar, Anda dapat beralih secara manual. Browser Anda mengingat pilihan host dan profil ini.",
   "link.basis": "Pemilihan alamat",

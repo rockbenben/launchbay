@@ -34,23 +34,11 @@ func Test仓库地址与模块路径同源(t *testing.T) {
 	}
 }
 
-// **一处**：**设置面板**最下面那一行里的一枚 GitHub 猫头（2026-10-21 从档案页的
-// 页脚搬过来，用户定的）。
-//
-// **为什么搬**：档案页是**天天看**的那一页，而「源码/需求」是低频事——放在那一页，
-// 它就成了别人不点也要看见的东西；多栏那一档它还被多栏关进栏里（base.css 那一段）。
-// 设置面板是"出了事去找设置"的落点，源码入口放那儿各得其所。
-//
-// **它带一个字，不是一枚孤零零的图标**：图标 + 文字（`common.repoTitle`）。
-// 纯图标读作"某个没有名字的东西"——那正是它在多栏那一档被当成"一条没有名字的
-// 书签"的那件事。带一个字之后它读作**一句引用**。
-//
-// **可及名就是那句可见文字**（WCAG 2.5.3）：所以它**没有 aria-label**——文字自己
-// 就是名字，再写一遍 aria-label 是同一句话说两遍。**可及名与语言包同源**：
-// 界面上那句与语言包里那把键逐字相同（`common.repoTitle`），改文案只改一处。
-//
-// **搬走不是复制**：档案页**不再**带它（下面那条判据钉的就是这件事）。
-func Test设置面板带着仓库链接(t *testing.T) {
+func Test设置面板显示镜像版本(t *testing.T) {
+	previous := dockerVersion
+	dockerVersion = "1.2.3"
+	t.Cleanup(func() { dockerVersion = previous })
+
 	s := seeded(t)
 	save(t, s, "dad", "爸爸的台", "dsm")
 	r := renderer(t, s)
@@ -68,7 +56,7 @@ func Test设置面板带着仓库链接(t *testing.T) {
 	// 一行不许超过 42 字）会把 `<p>` 截到 630px——这一行要占满面板的宽度。
 	i := strings.Index(body, `class="prefs-foot"`)
 	if i < 0 {
-		t.Fatalf("设置面板里没有最下面那一行（源码链接所在的地方）")
+		t.Fatalf("设置面板里没有最下面那一行（镜像版本所在的地方）")
 	}
 	foot := body[i:]
 	if j := strings.Index(foot, "</div>"); j >= 0 {
@@ -84,8 +72,8 @@ func Test设置面板带着仓库链接(t *testing.T) {
 	}
 	// **图标得有话**：图形按钮不带可及名，读屏软件只会念「链接」。而这一枚是
 	// **图标 + 文字**，所以名字就是那句可见文字。
-	if want := i18n.Load(i18n.Zh).T("common.repoTitle"); !strings.Contains(foot, want) {
-		t.Errorf("那一行里没有语言包里那把键（%q）：可及名与文案不同源", want)
+	if !strings.Contains(foot, `Docker <bdi>1.2.3</bdi>`) {
+		t.Errorf("设置面板没有显示当前镜像版本：%s", foot)
 	}
 	if strings.Contains(foot, "aria-label=") {
 		t.Errorf("那个链接带 aria-label：它的可见文字就是名字，再写一遍是同一句话说两遍")

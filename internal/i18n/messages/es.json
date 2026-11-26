@@ -604,7 +604,6 @@
   "backup.err.partial": "Se importó el contenido de los marcadores, pero no se pudo guardar la configuración de la página. Actualiza la página de marcadores para ver el resultado.",
   "backup.err.tooLarge": "Ese archivo es demasiado grande (8 MB como máximo).",
   "backup.err.nofile": "No se seleccionó ningún archivo.",
-  "common.repoTitle": "Fuente y solicitudes en GitHub",
   "prefs.linkMode": "Direcciones de marcadores",
   "prefs.linkMode.hint": "Auto usa la dirección con la que abre Launchbay. Si utiliza el mismo dominio en casa y fuera de él, puede cambiar manualmente. Su navegador recuerda la elección de este host y perfil.",
   "link.basis": "Selección de dirección",

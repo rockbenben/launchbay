@@ -604,7 +604,6 @@
   "backup.err.partial": "I segnalibri sono stati importati, ma non è stato possibile salvare le impostazioni della pagina. Aggiorna la pagina dei segnalibri per vedere il risultato.",
   "backup.err.tooLarge": "Il file è troppo grande (8 MB massimo).",
   "backup.err.nofile": "Nessun file è stato selezionato.",
-  "common.repoTitle": "Fonte e richieste su GitHub",
   "prefs.linkMode": "Indirizzi dei segnalibri",
   "prefs.linkMode.hint": "Auto utilizza l'indirizzo con cui apri Launchbay. Se utilizzi lo stesso dominio a casa e fuori, puoi cambiare manualmente. Il tuo browser ricorda la scelta per questo host e profilo.",
   "link.basis": "Selezione dell'indirizzo",

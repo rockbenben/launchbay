@@ -603,7 +603,6 @@
   "backup.err.partial": "書籤內容已匯入，但頁面設定未能儲存。請重新整理書籤頁查看結果。",
   "backup.err.tooLarge": "檔案太大（上限 8 MB）。",
   "backup.err.nofile": "請選擇備份檔案。",
-  "common.repoTitle": "原始碼與需求在 GitHub 上",
   "prefs.linkMode": "書籤地址",
   "prefs.linkMode.hint": "自動根據開啟導航臺的地址選擇。在家和在外使用同一域名時，可手動切換。選擇儲存在當前瀏覽器，只用於這個主機上的這份檔案。",
   "link.basis": "地址選擇依據",

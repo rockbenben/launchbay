@@ -604,7 +604,6 @@
   "backup.err.partial": "Les favoris ont été importés, mais les paramètres de la page n’ont pas pu être enregistrés. Actualisez la page des favoris pour voir le résultat.",
   "backup.err.tooLarge": "Ce fichier est trop volumineux (8 Mo maximum).",
   "backup.err.nofile": "Aucun fichier n'a été sélectionné.",
-  "common.repoTitle": "Source et requêtes sur GitHub",
   "prefs.linkMode": "Adresses de favoris",
   "prefs.linkMode.hint": "Auto utilise l'adresse avec laquelle vous ouvrez Launchbay. Si vous utilisez le même domaine à la maison et à l'extérieur, vous pouvez changer manuellement. Votre navigateur mémorise le choix de cet hôte et de ce profil.",
   "link.basis": "Sélection d'adresse",

@@ -604,7 +604,6 @@
   "backup.err.partial": "Die Lesezeichen wurden importiert, aber die Seiteneinstellungen konnten nicht gespeichert werden. Laden Sie die Lesezeichenseite neu, um das Ergebnis zu sehen.",
   "backup.err.tooLarge": "Diese Datei ist zu groß (maximal 8 MB).",
   "backup.err.nofile": "Es wurde keine Datei ausgewählt.",
-  "common.repoTitle": "Quelle und Anfragen auf GitHub",
   "prefs.linkMode": "Lesezeichenadressen",
   "prefs.linkMode.hint": "Auto verwendet die Adresse, mit der Sie Launchbay öffnen. Wenn Sie zu Hause und unterwegs dieselbe Domain verwenden, können Sie manuell wechseln. Ihr Browser merkt sich die Auswahl für diesen Host und dieses Profil.",
   "link.basis": "Adressauswahl",

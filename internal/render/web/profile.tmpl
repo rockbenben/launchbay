@@ -1060,28 +1060,10 @@
                 显式补上，DOM 与从前一模一样（那一层后面本来就没有别的孩子），
                 而那一行回到面板的最下面。 */}}
 
-  {{/* 面板**最下面**那一行（2026-10-21）：左边是「回我的页面」，右边是源码入口。
-       **两样东西同一行**（用户要的"平行"）：它们都是这一页底部的两样东西——一个
-       是**出口**，一个是**引用**。分两行摆着时，右下角那一行与左下角那一枚看着
-       不像一家人；同一行里，中间隔开的那一段空白就是它们的关系。
-
-       「回我的页面」**搬进面板**了（它原来在面板之外、页面上的那一枚）：不搬的
-       话，源码那一行在面板**里面**、出口那一枚在面板**外面**，两者永远不同行。
-       搬进来之后，**浮层那一面**（档案页里点「设置」弹出来的那张）里那枚出口
-       是不该有的——它就浮在你的书签页上，× 就是出口——所以 app.js 注入面板时
-       把它摘掉（见 app.js 的 prefsOpen）。**独立页**（零 JS 也能到的那张）留着
-       它，两条路因此长得不一样：一张是页面、一张是对话框。
-
-       **源码那一枚是"图标 + 一行字"**（从前那枚是纯图标）：纯图标读作"某个没有
-       名字的东西"——这正是它在多栏那一档被当成"一条没有名字的书签"的那件事；
-       带一个字之后，它读作**一句引用**。**不是徽标**：徽标是"点了会做一件事"的
-       形状，而这一枚是个引用（与选择页那句「提需求」同一处置）。
-
-       **名字就是那句可见文字**（WCAG 2.5.3）：所以没有 aria-label——文字自己
-       就是可及名，再写一遍 aria-label 是同一句话说两遍。 */}}
+  {{/* 浮层会去掉返回按钮。版本留在两种设置面板的底部。 */}}
   <div class="prefs-foot">
     <nav class="prefs-back"><a class="badge" href="/">{{.T "common.back.home"}}</a></nav>
-    <a class="repo-link" href="{{repoURL}}" target="_blank" rel="noopener noreferrer">{{template "icon" .RepoIcon}}<span>{{.T "common.repoTitle"}}</span></a>
+    <a class="repo-link" href="{{repoURL}}" target="_blank" rel="noopener noreferrer">{{template "icon" .RepoIcon}}<span>{{with dockerVersion}}Docker <bdi>{{.}}</bdi>{{else}}Launchbay dev{{end}}</span></a>
   </div>
 </section>
 {{end}}

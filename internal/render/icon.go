@@ -11,7 +11,7 @@ import (
 	"github.com/rockbenben/launchbay/internal/store"
 )
 
-// repoIcon 是那枚**GitHub 猫头**——源码与需求在 GitHub 上那个链接的图形。
+// repoIcon returns the GitHub icon next to the version in the settings footer.
 //
 // **从图标索引取，不另画一个**（2026-10-20）：站点/品牌图形都出自 icons 索引，
 // 内联 SVG 的 markup 由 svgMarkup 拼（那是全案唯一拼 **图标** markup 的出口；
