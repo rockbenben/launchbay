@@ -128,7 +128,7 @@ section[data-gid]:hover .grp-add,.grp-add:focus-visible{opacity:1}
 .grp-empty[hidden]{display:none}
 .grp-empty-add{margin-inline-start:auto}
 
-button.badge.theme-quick{padding:6px 10px;font-size:14px;line-height:1;background:transparent;border-color:transparent;color:var(--ink2)}
+button.badge.theme-quick{inline-size:36px;padding:6px 0;font-size:14px;line-height:1;background:transparent;border-color:transparent;color:var(--ink2)}
 button.badge.theme-quick:hover{background:var(--card-hi);border-color:var(--line);color:var(--ink)}
 
 .live-nomatch.has-no-matches{margin:24px auto;padding:24px;max-width:460px;text-align:center;

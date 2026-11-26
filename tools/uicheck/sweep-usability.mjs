@@ -24,7 +24,7 @@ const home = async (profile = 'dad') => {
   await sleep(150);
   await run(`fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'profile=${profile}'}) .then(r=>r.status)`);
   await send('Page.navigate', { url: srv + '/' });
-  await waitFor(c, `!!document.getElementById('lb-add')`, 8000);
+  await waitFor(c, `!!document.querySelector('#lb-add:enabled')`, 8000);
 };
 const screenshot = async name => {
   if (!process.env.LB_UI_SHOTS) return;
@@ -35,6 +35,33 @@ const screenshot = async name => {
 try {
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 850, deviceScaleFactor: 1, mobile: false });
   await home();
+  // Compare the same server-rendered header before and after its module runs.
+  const bounds = `[...document.querySelectorAll('header form.search, header form.search input')].map(el => {
+    const { x, y, width, height } = el.getBoundingClientRect();
+    return [x, y, width, height];
+  })`;
+  const headerActions = `[...document.querySelectorAll('#lb-add, #lb-multi, #lb-theme-quick')]`;
+  for (const width of [2560, 390, 1280]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 850, deviceScaleFactor: 1, mobile: width === 390 });
+    await send('Emulation.setScriptExecutionDisabled', { value: true });
+    let before;
+    try {
+      await send('Page.navigate', { url: srv + '/?header-check=before' });
+      assert.equal(await waitFor(c, `location.search === '?header-check=before' && document.readyState === 'complete'`), true);
+      assert.deepEqual(await run(`${headerActions}.map(el => [el.disabled, getComputedStyle(el).visibility])`),
+        Array(3).fill([true, 'hidden']));
+      before = await run(bounds);
+      assert.equal(before.length, 2);
+    } finally {
+      await send('Emulation.setScriptExecutionDisabled', { value: false });
+    }
+    await send('Page.navigate', { url: srv + '/?header-check=after' });
+    assert.equal(await waitFor(c, `location.search === '?header-check=after' && !!document.querySelector('#lb-add:enabled')`), true);
+    assert.deepEqual(await run(`${headerActions}.map(el => [el.disabled, getComputedStyle(el).visibility])`),
+      Array(3).fill([false, 'visible']));
+    assert.deepEqual(await run(bounds), before, `Search bounds changed at ${width}px`);
+    console.log(`PASS search box and input stayed at the same coordinates at ${width}px`);
+  }
   assert.equal(await run(`!!document.querySelector('li[data-item] .pick-chk')`), true);
   assert.equal(await run(`!!document.getElementById('lb-theme-quick')`), true);
   const search = async (query) => ev(`

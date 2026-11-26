@@ -712,6 +712,7 @@ footer p{margin:0}
 .bookmark-header .search-go{border-radius:10px}
 .bookmark-header .search a{flex:0 0 44px;align-self:stretch}
 .bookmark-header .search:has(>a) input::-webkit-search-cancel-button{display:none}
+.bookmark-header .header-action:disabled{visibility:hidden}
 .bookmark-header .add{white-space:nowrap;font-weight:500;background:var(--card);color:var(--ink);border-color:var(--line-s)}
 .bookmark-header .add:hover{background:var(--card-hi);border-color:var(--accent);color:var(--accent)}
 .bookmark-header nav{flex:0 1 auto;min-width:0;flex-wrap:wrap;gap:6px;margin-inline-start:auto}
@@ -721,7 +722,8 @@ footer p{margin:0}
 .bookmark-header .profmenu .badge{display:flex;gap:8px;padding-block:6px;min-width:0}
 .profile-switch-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .profile-switch-icon{color:var(--ink2);font-size:15px}
-.search-key{display:none}
+.search-key{display:none;visibility:hidden}
+.bookmark-header:has(#lb-add:enabled) .search-key{visibility:visible}
 @media (hover:hover) and (pointer:fine) and (min-width:861px){
   .search:not(:focus-within) .search-key{display:block;color:var(--ink2);padding:1px 6px;
     border:1px solid var(--line);border-radius:6px;background:var(--surface);font:inherit;font-size:12px;margin-inline-end:4px}

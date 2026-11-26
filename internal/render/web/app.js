@@ -7,9 +7,8 @@
 // 零依赖、零框架、ES module。理由与后端同一条：depguard 守着整个仓库零外部依赖，
 // 而一个前端框架会让"构建期零 node"（§10）当场失效。
 //
-// **按钮由本文件创建，不由模板渲染**——所以关掉 JS 时顶栏不会出现一个点了没反应的
-// 东西。§8.1 的原话是"点了没反应的东西不进界面"，这比用 `<noscript>` 藏起来更
-// 干脆：没有 JS 就没有这个功能，而书签仍全部可见可点（§7.2）。
+// 顶栏按钮由模板预留位置，等本文件绑定交互再启用。关掉 JS 时按钮保持隐藏，
+// 书签仍全部可见可点（§7.2）。
 //
 // **书签数据的写入**都经 `POST /api/v1/batch`（§6.1 的唯一写通路）；台面偏好、背景图
 // 与备份导入各有自己的表单落点。**不直接碰 data/**：快照、历史、rev 递增都在那条
@@ -304,12 +303,10 @@
     else (sheetOpener?.isConnected && sheetOpener !== body ? sheetOpener : openBtn).focus();
   }
 
-  const openBtn = el('button', {
-    type: 'button', id: 'lb-add', class: 'add', text: T('app.add'), title: T('app.addTitle'),
-    on: { click: () => openSheet(true) },
-  });
+  const openBtn = $('#lb-add');
+  openBtn.title = T('app.addTitle');
+  openBtn.addEventListener('click', () => openSheet(true));
   const searchForm = $('header .search');
-  header.insertBefore(openBtn, searchForm ? searchForm.nextSibling : header.firstChild);
   const searchInput = searchForm?.querySelector('input[type=search]');
   if (searchInput) {
     const serverFiltered = !!$('.hits');
@@ -318,9 +315,6 @@
       'aria-label': T('app.search.clear'), title: T('app.search.clear'),
     }) : null;
     if (clearLive) searchInput.after(clearLive);
-    if (!searchInput.value) {
-      (clearLive || searchInput).after(el('kbd', { class: 'search-key', text: '/', 'aria-hidden': 'true' }));
-    }
     const resetLiveFilter = () => {
       searchInput.value = '';
       runLiveFilter();
@@ -375,13 +369,13 @@
     });
   }
 
-  const navBar = header.querySelector('nav');
   const colorPreference = matchMedia('(prefers-color-scheme: light)');
   const currentTheme = () => document.documentElement.dataset.theme || 'auto';
   const isLightNow = () => currentTheme() === 'light' || (currentTheme() === 'auto' && colorPreference.matches);
-  let themeBtn;
+  const themeBtn = $('#lb-theme-quick');
+  themeBtn.title = themeBtn.getAttribute('aria-label');
   const paintThemeBtn = () => {
-    if (themeBtn) themeBtn.textContent = isLightNow() ? '☾' : '☀';
+    themeBtn.textContent = isLightNow() ? '☾' : '☀';
   };
   function setPageTheme(theme) {
     if (theme === 'auto') delete document.documentElement.dataset.theme;
@@ -390,36 +384,27 @@
     const form = $('#lb-prefs button[name=theme]')?.form;
     if (form) markPressed(form, theme);
   }
-  if (navBar) {
-    themeBtn = el('button', {
-      type: 'button', id: 'lb-theme-quick', class: 'badge theme-quick',
-      title: T('app.theme.toggle'), 'aria-label': T('app.theme.toggle'),
-      on: {
-        click: async () => {
-          const next = isLightNow() ? 'dark' : 'light';
-          if (themeBtn.getAttribute('aria-disabled') === 'true') return;
-          themeBtn.setAttribute('aria-disabled', 'true');
-          try {
-            const res = await fetch('/prefs', {
-              method: 'POST',
-              body: new URLSearchParams({ theme: next }),
-              credentials: 'same-origin',
-            });
-            if (!res.ok) throw new Error(T('app.opsServerError', res.status));
-            if (res.headers.get('X-LB-Profile') !== profile) throw new Error(T('app.opsGone'));
-            setPageTheme(next);
-          } catch (err) {
-            showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message), 'warn');
-          } finally {
-            themeBtn.removeAttribute('aria-disabled');
-          }
-        },
-      },
-    });
-    paintThemeBtn();
-    colorPreference.addEventListener('change', paintThemeBtn);
-    navBar.append(themeBtn);
-  }
+  themeBtn.addEventListener('click', async () => {
+    const next = isLightNow() ? 'dark' : 'light';
+    if (themeBtn.getAttribute('aria-disabled') === 'true') return;
+    themeBtn.setAttribute('aria-disabled', 'true');
+    try {
+      const res = await fetch('/prefs', {
+        method: 'POST',
+        body: new URLSearchParams({ theme: next }),
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error(T('app.opsServerError', res.status));
+      if (res.headers.get('X-LB-Profile') !== profile) throw new Error(T('app.opsGone'));
+      setPageTheme(next);
+    } catch (err) {
+      showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message), 'warn');
+    } finally {
+      themeBtn.removeAttribute('aria-disabled');
+    }
+  });
+  paintThemeBtn();
+  colorPreference.addEventListener('change', paintThemeBtn);
 
   const firstAdd = $('[data-add-first]');
   if (firstAdd) {
@@ -3746,12 +3731,9 @@
 
   // ── §8.4 多选 → 批量移动 / 打标签 ────────────────────────────────────
   const multi = { on: false, picked: new Set(), hint: null };
-  const multiBtn = el('button', {
-    type: 'button', id: 'lb-multi', class: 'multi-toggle',
-    title: T('app.cmdk.multi'), 'aria-label': T('app.cmdk.multi'), 'aria-pressed': 'false',
-    on: { click: () => { if (multi.on) exitMulti(); else enterMulti(); } },
-  });
-  navBar?.prepend(multiBtn);
+  const multiBtn = $('#lb-multi');
+  multiBtn.title = multiBtn.getAttribute('aria-label');
+  multiBtn.addEventListener('click', () => { if (multi.on) exitMulti(); else enterMulti(); });
   const bar = el('div', { class: 'multibar', hidden: 'hidden', role: 'toolbar', 'aria-label': T('app.multi.aria') });
   body.append(bar);
 
@@ -4151,4 +4133,5 @@
     // 存不下就不说，独立页那条蓝色提示仍在；但别静默吞掉真正的脚本错误。
     console.warn('lb: restore banner failed', e);
   }
+  for (const button of [openBtn, multiBtn, themeBtn]) button.disabled = false;
 })();
