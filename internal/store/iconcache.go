@@ -108,10 +108,18 @@ func (c *IconCache) Put(origin string, data []byte, ext string) (IconEntry, erro
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	blob := c.st.IconBlobPath(hash, ext)
 	if old, ok := c.byID[origin]; ok && old.Hash == hash && old.Ext == ext && old.FailAt == "" {
+		if _, err := os.Stat(blob); errors.Is(err, os.ErrNotExist) {
+			if err := c.st.WriteFileAtomic(blob, data); err != nil {
+				return IconEntry{}, err
+			}
+		} else if err != nil {
+			return IconEntry{}, err
+		}
 		return old, nil // 完全没变：端回盘上那个条目（新造 e 的 At 磁盘上根本没有，端出去就是假时间戳），也不动代次
 	}
-	if err := c.st.WriteFileAtomic(c.st.IconBlobPath(hash, ext), data); err != nil {
+	if err := c.st.WriteFileAtomic(blob, data); err != nil {
 		return IconEntry{}, err
 	}
 	old, hadOld := c.byID[origin]

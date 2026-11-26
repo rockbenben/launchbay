@@ -17,8 +17,9 @@ import (
 // resolveRequest 没有 by 字段：resolve 不写历史行（它只往 data/icons/ 落
 // 缓存），给它一个 by 就是把一个没人消费的字段摆进契约。
 type resolveRequest struct {
-	URL     string `json:"url"`
-	Profile string `json:"profile"`
+	URL         string `json:"url"`
+	Profile     string `json:"profile"`
+	RefreshIcon bool   `json:"refreshIcon,omitempty"`
 }
 
 type resolveGroup struct {
@@ -107,7 +108,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 		SuggestedGroup: suggestGroup(snap.B, in.URL, page.Title),
 		IconCandidates: iconCandidates(s.deps.Icons, in.URL, page.Title),
 	}
-	if fav := s.resolveFavicon(in.URL, page, finalURL); fav != "" {
+	if fav := s.resolveFavicon(in.URL, page, in.RefreshIcon); fav != "" {
 		f := fav
 		resp.Favicon = &f
 	}
@@ -125,23 +126,20 @@ func parseResolveURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-// resolveFavicon 只在缓存没有且不在冷却时抓图（spec §5 第 1 条：
-// resolve 是唯一的即时抓取口，且它自己也不该每次重抓）。
-//
-// finalURL（跟完重定向后的地址）在这里刻意不用：缓存键必须是**人填的那个**
-// 地址的 origin，否则一条 302 去别家主机的书签会把别人的图标登记在这条书签
-// 的 origin 上，下次同一 origin 就命中错图。参数保留是和 Extract(body, base)
-// 的调用形状对齐，不是给实现读的。
-func (s *Server) resolveFavicon(rawURL string, page icons.Page, finalURL string) string {
+// resolveFavicon 平时复用缓存，手动刷新则重新抓取。缓存键始终用书签原始地址，
+// 这样跳转之后抓到的图标仍能在渲染这条书签时找到。
+func (s *Server) resolveFavicon(rawURL string, page icons.Page, refresh bool) string {
 	origin := icons.Origin(rawURL)
 	if origin == "" {
 		return ""
 	}
-	if e, ok := s.deps.Cache.Lookup(origin); ok {
-		return "/icons/" + e.Hash + "." + e.Ext
-	}
-	if s.deps.Cache.InCooldown(origin) {
-		return ""
+	if !refresh {
+		if e, ok := s.deps.Cache.Lookup(origin); ok {
+			return "/icons/" + e.Hash + "." + e.Ext
+		}
+		if s.deps.Cache.InCooldown(origin) {
+			return ""
+		}
 	}
 	candidate := page.Favicon
 	if candidate == "" {

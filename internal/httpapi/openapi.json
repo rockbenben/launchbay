@@ -91,7 +91,7 @@
         }
       }
     },
-    "/app.497058070843.js": {
+    "/app.d03f75150540.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -116,7 +116,7 @@
         }
       }
     },
-    "/app.abd1ec32e8f9.css": {
+    "/app.f0282edcc9d9.css": {
       "get": {
         "summary": "⑤/⑥ 的交互样式（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -2909,7 +2909,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "把一条 URL 解析成添加书签时的候选：标题、og 描述、建议分组、候选图标，并顺手把 favicon 抓进 data/icons/。同一份实现供页面浮层与 AI 共用（§6.1）。**它不写书签、不写历史、不产生 rev、不动 bookmarks.json/profile.json**——整条链上它只允许写 data/icons/。它也是全服务唯一的即时抓取口：没有后台抓取任务，也没人经别的通路往这目录写（§5 第 1 条如实放弃的那半条：AI 绕过这里直接写 icon: auto 的条目不会有图，直到有人 resolve 过一次）。抓取约束（GET、3 秒超时、各 ≤256KB、图片要 image/*、重定向 ≤3、非 2xx 即失败不解析、失败按 origin 记 24 小时冷却）都在抓取内核里，这里不再叠一层重试/退避/限速——多出来的防护同样算越界（§11）。请求体只有 url 与 profile 两个键：**by 是未知字段（422）**，因为它不写历史行，没有渠道可自报。profile 申报读谁的分组，纪律与 data/batch 完全一致：作用域令牌必须等于它，管理员令牌与管理员 cookie 一律 403（只管账号），会话申报自己的当前档案，**空申报 = 403**（那是 credScoped 的\"不申报即拒\"，属凭证类答案而不是形状错，所以不是 422）。只取 <title> 与 og:description，不存正文、不留抓到的 HTML。",
+        "description": "把一条 URL 解析成添加书签时的候选：标题、og 描述、建议分组、候选图标，并顺手把 favicon 抓进 data/icons/。同一份实现供页面浮层与 AI 共用（§6.1）。**它不写书签、不写历史、不产生 rev、不动 bookmarks.json/profile.json**——整条链上它只允许写 data/icons/。它也是全服务唯一的即时抓取口：没有后台抓取任务，也没人经别的通路往这目录写（§5 第 1 条如实放弃的那半条：AI 绕过这里直接写 icon: auto 的条目不会有图，直到有人 resolve 过一次）。抓取约束（GET、3 秒超时、各 ≤256KB、图片要 image/*、重定向 ≤3、非 2xx 即失败不解析、普通请求失败按 origin 记 24 小时冷却）都在抓取内核里，这里不再叠一层重试/退避/限速——多出来的防护同样算越界（§11）。可选的 refreshIcon 为 true 时跳过已有缓存和失败冷却，重新抓图。刷新失败返回 favicon: null，并保留已有缓存。**by 是未知字段（422）**，因为它不写历史行，没有渠道可自报。profile 申报读谁的分组，纪律与 data/batch 完全一致：作用域令牌必须等于它，管理员令牌与管理员 cookie 一律 403（只管账号），会话申报自己的当前档案，**空申报 = 403**（那是 credScoped 的\"不申报即拒\"，属凭证类答案而不是形状错，所以不是 422）。只取 <title> 与 og:description，不存正文、不留抓到的 HTML。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2929,6 +2929,11 @@
                   "profile": {
                     "type": "string",
                     "description": "ASCII slug，读谁的分组来给建议。必须是该凭证有资格动的那个档案；缺了或空申报按 credScoped 的纪律走凭证分诊拒 403（不是 422），非空但不是 slug 才是 422"
+                  },
+                  "refreshIcon": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "跳过缓存与失败冷却，重新抓取网站图标。失败时保留之前成功取得的图标。"
                   }
                 }
               }

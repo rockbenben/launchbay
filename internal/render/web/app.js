@@ -551,6 +551,7 @@
   // 从前两颗都是 .fld 那张脸，实测并排等宽等色，主操作只能靠读字认（batch11 P8）。
   const saveBtn = el('button', { type: 'submit', class: 'fld primary', text: T('app.save') });
   const moreBtn = el('button', { type: 'button', class: 'fld more', text: T('app.saveMore'), on: { click: () => submit(true) } });
+  const addSiteIcon = siteIconControls(fIcon, fUrl, () => !sheet.hidden);
 
   // **`class: 'sheet-form'` 不是装饰**（2026-10-21 修）：这一层要按**列**排，
   // 字段与字段之间留 10px 缝（见 app.css 那条 `.sheet-form`）。
@@ -585,10 +586,7 @@
     el('label', { text: T('app.field.group') }, [fGroup]),
     fNewGroupLabel,
     fGroupShapeWrap,
-    el('div', { class: 'icrow' }, [
-      el('label', { text: T('app.field.icon') }, [fIcon]),
-      iconLibraryButton(fIcon),
-    ]),
+    addSiteIcon.field,
     el('div', { class: 'sheet-actions' }, [saveBtn, moreBtn]),
     status,
   ]);
@@ -1140,8 +1138,7 @@
   if (fGroup.options.length === 1) fGroup.value = NEW_GROUP;
   syncGroupFields();
 
-  // 图标下拉在 resolve 之前是**空的**（零选项的下拉框）：人看不到能选什么，
-  // 也选不到"抓这个网站的图标"。两个语义值常驻，resolve 回来的候选再插进去。
+  // 首字母和网站图标始终可选，resolve 返回的图标库候选再插进去。
   const iconLabel = (v) => v.replace(/^[a-z-]+:/, '');
   function fillIconChoices(sel, candidates, current) {
     sel.replaceChildren(
@@ -1160,8 +1157,86 @@
     for (const c of list) sel.append(el('option', { value: c, text: iconLabel(c) }));
     if (current) sel.value = current;
   }
-  function iconChoices(candidates) { fillIconChoices(fIcon, candidates, ''); }
+  function iconChoices(candidates) {
+    fillIconChoices(fIcon, candidates, '');
+    addSiteIcon.reset();
+  }
   iconChoices([]);
+
+  function siteIconControls(select, address, active) {
+    const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
+    let request;
+    const reset = () => {
+      request = null;
+      refresh.disabled = false;
+      status.replaceChildren();
+    };
+    function load(force = false) {
+      const url = address.value.trim();
+      if (request?.url === url && (!force || request.pending)) return request.promise;
+      if (!siteIconOrigin(url)) {
+        status.textContent = T('app.icon.httpOnly');
+        return;
+      }
+      const current = { url, pending: true };
+      request = current;
+      refresh.disabled = true;
+      status.textContent = T('app.icon.loading');
+      const isCurrent = () => request === current && address.value.trim() === url && active();
+      current.promise = api('/api/v1/resolve', { url, profile, refreshIcon: force }).then((result) => {
+        if (result.favicon) updateSiteIcons(url, result.favicon);
+        if (!isCurrent()) return;
+        fillIconChoices(select, result.iconCandidates, select.value);
+        if (result.favicon) {
+          status.replaceChildren(siteIconImage(result.favicon), T('app.icon.ready'));
+        } else {
+          status.textContent = T('app.icon.unavailable');
+        }
+      }).catch((error) => {
+        if (isCurrent()) status.textContent = error.status === 502 ? T('app.icon.unavailable') : error.message;
+      }).finally(() => {
+        current.pending = false;
+        if (request === current) refresh.disabled = false;
+      });
+      return current.promise;
+    }
+    const refresh = el('button', {
+      type: 'button', class: 'fld', text: T('app.icon.refresh'),
+      on: { click: () => load(true) },
+    });
+    address.addEventListener('input', reset);
+    select.addEventListener('change', () => { if (select.value === 'auto') load(); });
+    return {
+      field: el('div', { class: 'site-icon-field' }, [
+        el('label', { text: T('app.field.icon') }, [select]),
+        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select)]),
+        status,
+      ]),
+      pending: () => request?.pending && request.url === address.value.trim() ? request.promise : null,
+      load,
+      reset,
+    };
+  }
+
+  // 与服务端的缓存键一样保留显式端口（URL.origin 会去掉默认端口）。
+  function siteIconOrigin(url) {
+    const parts = /^(https?:\/\/)([^/?#]+)/i.exec(url.trim());
+    if (!parts || !parseableAddress(url)) return '';
+    return (parts[1] + parts[2].split('@').pop()).toLowerCase();
+  }
+
+  function siteIconImage(src) {
+    return el('img', { class: 'ic-img', src, alt: '', 'aria-hidden': 'true', width: 22, height: 22 });
+  }
+
+  function updateSiteIcons(url, src) {
+    const origin = siteIconOrigin(url);
+    for (const li of document.querySelectorAll('main li[data-item][data-icon-name="auto"]')) {
+      if (siteIconOrigin(li.dataset.addrLan ?? itemURL(li)) !== origin) continue;
+      const box = li.querySelector('.ic-box');
+      if (box && box.firstElementChild?.getAttribute('src') !== src) box.replaceChildren(siteIconImage(src));
+    }
+  }
 
   // ── 图标库：挑一枚图标（2026-10-14）────────────────────────────────────
   //
@@ -2023,6 +2098,12 @@
       fUrl.focus();
       say(T('app.resolveBadUrl'), 'bad', urlErr);
       return;
+    }
+    const iconRequest = addSiteIcon.pending() ||
+      (iconTouched && fIcon.value === 'auto' && navigator.onLine ? addSiteIcon.load() : null);
+    if (iconRequest) {
+      await iconRequest;
+      if (gen !== sheetGen || sheet.hidden || url !== fUrl.value.trim()) return;
     }
     let saved = itemURLAlreadySaved(url);
     if (!saved && pageIsFiltered()) {
@@ -3315,22 +3396,8 @@
     const curIcon = li.dataset.iconName || '';
     const ic = el('select', { id: 'lb-edit-icon', class: 'fld' });
     fillIconChoices(ic, [], curIcon);
-    const lookIcon = el('button', {
-      type: 'button', class: 'fld', text: T('app.icon.fetch'),
-      on: {
-        click: async () => {
-          lookIcon.disabled = true;
-          try {
-            const r = await api('/api/v1/resolve', { url: u.value.trim() || url, profile });
-            fillIconChoices(ic, r.iconCandidates, ic.value || (r.favicon ? 'auto' : '') || curIcon);
-          } catch (e) {
-            showBanner(T('app.readErr', e.message), 'bad');
-          } finally {
-            lookIcon.disabled = false;
-          }
-        },
-      },
-    });
+    const siteIcon = siteIconControls(ic, u, () => form.isConnected);
+    let saving = false;
     // 分组那一格（2026-10-16）。这里从前是一句「这一条在「应用」里」——它说得出
     // 在哪一组，却改不了。把一条书签挪到别组在界面上只剩两条路：拖（只有鼠标
     // 做得顺手）与多选里的「移动到」（要先长按卡片，而那个暗示在屏幕上看不见）。
@@ -3379,6 +3446,16 @@
       on: {
         submit: async (e) => {
           e.preventDefault();
+          if (saving) return;
+          const nextURL = u.value.trim();
+          const iconRequest = siteIcon.pending() ||
+            (ic.value === 'auto' && nextURL !== url && navigator.onLine ? siteIcon.load() : null);
+          if (iconRequest) {
+            saving = true;
+            await iconRequest;
+            saving = false;
+            if (!form.isConnected || nextURL !== u.value.trim()) return;
+          }
           // **没改的字段不发**（2026-10-24 修）：从前名字、说明、地址三格永远发，
           // 于是打开一条按「保存」什么都不改，也会写一版快照、rev +1，并在历史
           // 里留下"改名 / 改说明 / 改地址"三条假动作。没改就没改，与分组那一族
@@ -3422,8 +3499,7 @@
         el('label', { text: T('app.field.wan') }, [w]),
         el('p', { id: 'lb-edit-wan-hint', class: 'prefs-hint', text: T('app.wan.hint') }),
         el('label', { text: T('app.field.group') }, [gs]),
-        el('label', { text: T('app.field.icon') }, [ic]),
-        el('p', { class: 'edit-icon-row' }, [lookIcon, iconLibraryButton(ic)]),
+        siteIcon.field,
         el('div', { class: 'row' }, [
           el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
           el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit() } }),

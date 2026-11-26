@@ -26,7 +26,7 @@ Most bookmark tools differ on four things: whose server holds the data, how a ho
 | Organising by dragging | A folder tree, not a laid-out page | Mostly not | **Drop to save, drag to reorder** |
 | Who else can read it | Your browser account | The vendor | **Nobody through the app** |
 
-No account, no third-party script, no telemetry. The only outside requests are fetching the page you add (for its title) and its favicon; a failed icon fetch cools down for 24 hours.
+No account, no third-party script, no telemetry. Launchbay fetches the title and favicon of pages you add. A failed favicon fetch has a 24-hour cooldown, which a manual refresh can bypass.
 
 **If you are just one person, the browser's own bookmarks page is probably enough.** launchbay trades that for three things:
 
@@ -60,7 +60,7 @@ No account, no third-party script, no telemetry. The only outside requests are f
 
 - **Groups and search**: the top bar searches names, addresses, notes and tags; press Enter and the server answers — no JavaScript needed. With scripts on, press `/` or use the `⌘/Ctrl K` palette.
 - **Featured groups**: promote the groups you use most into a large-card band at the top.
-- **10,000+ icons, offline**: Tabler and Simple Icons are gzipped into the binary; a site's favicon is fetched once and then served from the local cache.
+- **10,000+ icons, offline**: Tabler and Simple Icons are gzipped into the binary; site icons are served from the local cache and can be refreshed when adding or editing a bookmark.
 
 **At home and away**
 

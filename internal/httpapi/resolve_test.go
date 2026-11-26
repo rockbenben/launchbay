@@ -187,6 +187,67 @@ func TestResolve_第二次不重抓图(t *testing.T) {
 	}
 }
 
+func TestResolve_手动刷新更新缓存且失败保留旧图(t *testing.T) {
+	var version atomic.Int32
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/favicon.ico" {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<title>Example</title>"))
+			return
+		}
+		v := version.Load()
+		if v == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G', byte(v)})
+	}))
+	defer site.Close()
+	_, h := setupBatch(t)
+	resolve := func(refresh bool) *string {
+		t.Helper()
+		body, err := json.Marshal(resolveRequest{URL: site.URL, Profile: "dad", RefreshIcon: refresh})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rec := doResolve(t, h, body, dadTok)
+		var got resolveResponse
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+			t.Fatalf("resolve %d: %s", rec.Code, rec.Body)
+		}
+		return got.Favicon
+	}
+
+	if got := resolve(false); got != nil {
+		t.Fatal("抓取失败应返回空图标")
+	}
+	version.Store(1)
+	if got := resolve(false); got != nil {
+		t.Fatal("普通读取应遵守失败冷却")
+	}
+	first := resolve(true)
+	if first == nil {
+		t.Fatal("手动刷新应跳过失败冷却")
+	}
+	version.Store(2)
+	next := resolve(true)
+	if next == nil || *next == *first {
+		t.Fatal("图片变化后，手动刷新应返回新的内容指纹")
+	}
+	if img := get(h, *next, ""); img.Code != http.StatusOK ||
+		!bytes.Equal(img.Body.Bytes(), []byte{0x89, 'P', 'N', 'G', 2}) {
+		t.Fatalf("新图标返回 %d: %v", img.Code, img.Body.Bytes())
+	}
+	version.Store(0)
+	if got := resolve(true); got != nil {
+		t.Fatal("刷新失败应返回空图标")
+	}
+	if cached := resolve(false); cached == nil || *cached != *next {
+		t.Fatal("刷新失败后普通读取仍应返回旧缓存")
+	}
+}
+
 // 冷却的证人（spec §5 第 1 条"失败按 origin 记 24 小时冷却"）。
 // 图端点持续 404：第一次 resolve 已经打过它一次，所以计数清零后再来两次
 // 才是要断言的那一段——不清零就断言 0，正确的实现反而会红。

@@ -86,11 +86,11 @@ func TestAppJS_图标库那一格两处都进得去(t *testing.T) {
 	for name, want := range map[string]string{
 		// 两个浮层各有一颗入口键：能改内容的那一层与能选图标的那一层都要有——
 		// 就地编辑此前连图标那一格都没有（app.js 那条注释记着这段历史）。
-		"添加浮层的入口": `iconLibraryButton(fIcon)`,
-		"就地编辑的入口": `iconLibraryButton(ic)`,
+		"添加浮层的入口": `siteIconControls(fIcon, fUrl,`,
+		"就地编辑的入口": `siteIconControls(ic, u,`,
 		// **那颗键不进 <label>**：label 包着的控件是那个 <select>，点 label 里的任何
 		// 一点都会连带激活它——于是点「图标库…」会顺带把下拉弹开，两件事一起发生。
-		"入口不在 label 里": `el('div', { class: 'icrow' }, [`,
+		"入口不在 label 里": `el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select)])`,
 		// 图库要向服务端要**画好的**那一格：搬进 app.js 等于让只看首屏的每一页都背
 		// 一份一万条的名字表（§7.3 那条操作线管的就是这件事）。
 		"向服务端要方格":        `/api/v1/icons/tiles?q=`,
@@ -128,19 +128,13 @@ func TestCSS_图标库方格的形状(t *testing.T) {
 	}
 	css := string(raw)
 	for _, want := range []string{
-		".icrow{display:flex;align-items:flex-end;gap:8px}",
-		// **width:auto 是承重的**：`.fld` 的 `width:100%` 是给"整幅铺开"写的，而这两行
-		// 里的键都要和别的控件并排。带着 100% 时每颗的 flex 基准宽度就是整行，于是它们
-		// 把旁边那一格压成 0px——实测出来的那样：添加那一行 label 0 宽、下拉只剩
-		// 22px；就地编辑那行 104 高、每颗 514 宽。
-		".icrow>button{flex:0 0 auto;width:auto}",
 		".icpick{width:min(460px,calc(100vw - 28px))}",
 		".icpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr))",
 		".icpick-tile{min-height:76px",
 		".icpick-tile .ic-svg,.icpick-tile .ic-img{width:28px;height:28px}",
 		// 名字那一行必须在（batch11 U1：格子里没有可读名字，两枚相似的鲸鱼无从分辨）
 		".icpick-name{font-size:10px",
-		// 就地编辑那一行从一颗变两颗，得自己排一行（此前它没有任何规则，<p> 里一颗）
+		// 添加和编辑共用图标操作行，窄屏可以换行。
 		".edit-icon-row{display:flex;gap:8px;flex-wrap:wrap}",
 		".edit-icon-row>button{width:auto}",
 	} {

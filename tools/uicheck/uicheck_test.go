@@ -58,6 +58,10 @@ func TestDualURLInteraction(t *testing.T) {
 	runBrowserSweeps(t, "sweep-dual-url.mjs")
 }
 
+func TestSiteIconInteraction(t *testing.T) {
+	runBrowserSweeps(t, "sweep-site-icon.mjs")
+}
+
 func TestUsabilityInteraction(t *testing.T) {
 	runBrowserSweeps(t, "sweep-usability.mjs")
 }

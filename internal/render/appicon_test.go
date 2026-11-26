@@ -31,7 +31,8 @@ func TestEditSheet_hasIconFieldAndOnlyWritesItWhenTouched(t *testing.T) {
 		// 起它并进"没改的字段不发"那一组（同一个保存动作，同一套判据）。
 		"if (ic.value !== curIcon) fields.icon = ic.value;",
 		// 候选图标仍要能现查（resolve 那一条通路复用添加那层的同一份判据）。
-		"'/api/v1/resolve', { url: u.value.trim() || url, profile }",
+		"siteIconControls(ic, u,",
+		"'/api/v1/resolve', { url, profile, refreshIcon: force }",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("app.js 里少了 %q：编辑模态的图标那一格又变成装饰", want)
