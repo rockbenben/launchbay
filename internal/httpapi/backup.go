@@ -427,8 +427,9 @@ func (s *Server) restoreInto(id, actor string, pkg *backupPackage, by string) (r
 			// 调用方若以为整份都回滚了，就会拿同一份文件再导一次——那一次照样
 			// 撞「目标档案不空」，而真正的缺口是设置没写进去。
 			detail := "台面设置没写进去（" + err.Error() + "）"
-			if pkg.Bookmarks != nil {
-				detail = "书签已经写进去了，但" + detail
+			if out.Applied > 0 {
+				return restoreResponse{}, backupErr(http.StatusInternalServerError, apierr.InternalError,
+					"backup.err.partial", "书签已经写进去了，但"+detail)
 			}
 			return restoreResponse{}, backupErr(http.StatusInternalServerError, apierr.InternalError, "backup.err.write", detail)
 		}

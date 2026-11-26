@@ -9,10 +9,10 @@
     "message": "存到 launchbay"
   },
   "menuSaveWindow": {
-    "message": "把这一窗的标签页全存进去"
+    "message": "收藏当前窗口的所有标签页"
   },
   "badgeSaved": {
-    "message": "已存"
+    "message": "已收藏"
   },
   "badgeSavedN": {
     "placeholders": {
@@ -43,7 +43,7 @@
     "message": "这个档案一个分组都没有，先在页面上建一个分组再收藏"
   },
   "alreadySaved": {
-    "message": "这一条已经在这份里了，没有重复存。"
+    "message": "这条书签已存在。"
   },
   "stoppedAt": {
     "placeholders": {
@@ -146,10 +146,10 @@
     "message": "这一份刚刚被改过，再点一次就好。"
   },
   "errPlanGone": {
-    "message": "那份报告已经用过或过期了。再读一次书签就有新的一份。"
+    "message": "这次导入预览已失效。请重新预览。"
   },
   "errTargetNotEmpty": {
-    "message": "这一份里已经有书签了。导入是把浏览器那套整个换进来，不是往上叠加——换一个空档案吧。"
+    "message": "此档案已有书签。请选择没有书签的档案进行导入。"
   },
   "errNoSnap": {
     "message": "这一版存不下，改动已经取消，书签一个字都没变。"
@@ -171,7 +171,7 @@
     "message": "连不上这台机器（$1）。地址里含端口吗？例如 http://10.0.0.3:7600"
   },
   "addRow": {
-    "message": "＋ 再加一枚（另一个档案）"
+    "message": "添加档案令牌"
   },
   "tokenPlaceholder": {
     "message": "这一份档案自己的令牌"
@@ -188,19 +188,19 @@
     "message": "这个档案"
   },
   "deleteRow": {
-    "message": "删掉这一枚"
+    "message": "移除令牌"
   },
   "rowRemovedNote": {
-    "message": "这一枚要在下一次点「存设置」时才真的去掉。"
+    "message": "点击「保存设置」后移除此令牌。"
   },
   "saved": {
     "message": "已保存。"
   },
   "needBase": {
-    "message": "先填地址。"
+    "message": "请输入 Launchbay 服务地址。"
   },
   "needToken": {
-    "message": "先填这一份档案自己的令牌（id 和令牌要在同一行）。"
+    "message": "请填写档案 ID 和对应的令牌。"
   },
   "testOK": {
     "placeholders": {
@@ -227,10 +227,10 @@
     "message": "这台机器答了 HTTP $1，地址或档案可能不对。"
   },
   "reading": {
-    "message": "正在读书签…"
+    "message": "正在读取书签…"
   },
   "noPerm": {
-    "message": "没有拿到「读书签」这个权限，导不了。（你可以只走网页那条路：手动导出 .html 再上传。）"
+    "message": "未获准读取浏览器书签。也可导出 HTML 文件后，在 Launchbay 网页上导入。"
   },
   "missed": {
     "placeholders": {
@@ -296,7 +296,7 @@
     "message": "没写进去：$1"
   },
   "cancelled": {
-    "message": "没导入，书签一点没动。"
+    "message": "已取消导入。"
   },
   "unnamedFolder": {
     "message": "未命名"
@@ -308,48 +308,48 @@
     "message": "存到 launchbay · 设置"
   },
   "lblBase": {
-    "message": "这台机器的地址"
+    "message": "Launchbay 服务地址"
   },
   "noteBase": {
-    "message": "不带结尾斜杠。扩展打过去的就是这里。"
+    "message": "输入 Launchbay 的完整地址（含端口），末尾无需斜杠。"
   },
   "lblProf": {
-    "message": "默认档案 id"
+    "message": "默认档案 ID"
   },
   "noteProf": {
-    "message": "右键收藏时默认存进这一份。下面要有一枚属于它的令牌；没有就报「这一份还没有令牌」，不会拿别的档案顶替。"
+    "message": "右键收藏时会添加到默认档案。请在下方填写该档案对应的令牌。"
   },
   "colId": {
-    "message": "档案 id"
+    "message": "档案 ID"
   },
   "colToken": {
-    "message": "这一枚令牌（写权限）"
+    "message": "档案令牌"
   },
   "noteToken": {
     "message": "令牌是这台机器的<b>写权限</b>。它只留在<b>这台电脑</b>上——不进浏览器同步、不上云；换档案就换令牌，某一台泄露了只吊销那一枚。"
   },
   "btnSave": {
-    "message": "存设置"
+    "message": "保存设置"
   },
   "btnTest": {
-    "message": "试一下这台机器"
+    "message": "测试连接"
   },
   "noteTest": {
-    "message": "「试一下」用<b>默认档案</b>那一行的地址与令牌，去读一次那一份档案（<code>GET /api/v1/data</code>）。它验的是你真正要成立的那件事：这枚令牌能不能打开这个档案。403 不一定是“令牌与档案对不上”——被停用的档案、填了管理密钥也都是 403；提示会按响应里的 kind 说清是哪一种。"
+    "message": "检查服务是否可访问，以及令牌是否可用于默认档案。"
   },
   "bmHeading": {
-    "message": "把浏览器书签整个导进来"
+    "message": "导入浏览器书签"
   },
   "noteBookmarks": {
-    "message": "读的是<b>这台浏览器自己的</b>书签树，不用先去别处导出一份文件。第一次点下面那枚按钮时，浏览器会问你一次「要读你的书签吗」——读书签是一件很敏感的事（它等于你的整个浏览兴趣图谱），所以这项权限我们设成<b>按需申请</b>：只是为「右键收藏」装这个扩展的人，永远不会看到那个提问。"
+    "message": "可直接读取此浏览器的书签。首次预览时，浏览器会要求授予读取书签的权限。"
   },
   "btnReadBookmarks": {
-    "message": "读浏览器书签，看看会导入什么"
+    "message": "预览导入"
   },
   "btnApply": {
     "message": "确认导入"
   },
   "btnCancel": {
-    "message": "算了，不导"
+    "message": "取消导入"
   }
 }

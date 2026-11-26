@@ -51,7 +51,7 @@ func Test语言_404页与坏档页也走整条链(t *testing.T) {
 	if !strings.Contains(body, "That page isn&#39;t here") {
 		t.Errorf("英文浏览器该拿到英文的 404 页：\n%.300s", body)
 	}
-	if strings.Contains(body, "这一页不在这里") {
+	if strings.Contains(body, "找不到页面") {
 		t.Errorf("404 页上还留着中文：\n%.300s", body)
 	}
 	// 混排那一半：那颗"回我的页面"按钮必须与页面同语言。
@@ -59,7 +59,7 @@ func Test语言_404页与坏档页也走整条链(t *testing.T) {
 		t.Errorf("404 页上那颗按钮与页面不同语言（混排）：\n%.300s", body)
 	}
 	rec = getLang(h, "/nope-not-here", "", "zh")
-	if !strings.Contains(rec.Body.String(), "这一页不在这里") {
+	if !strings.Contains(rec.Body.String(), "找不到页面") {
 		t.Errorf("中文浏览器该拿到中文的 404 页：\n%.300s", rec.Body)
 	}
 

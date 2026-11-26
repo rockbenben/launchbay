@@ -2614,7 +2614,7 @@ func TestPickerPage_半件事目录不编名字(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(page.Body)
-	if !strings.Contains(body, "这台机器现在没有进得去的档案") {
+	if !strings.Contains(body, "暂无可用档案") {
 		t.Errorf("零张卡却什么都不说（这正是要闭的那处死路）:\n%.700s", body)
 	}
 	if strings.Contains(body, "数据文件读不了") {

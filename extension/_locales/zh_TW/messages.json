@@ -9,10 +9,10 @@
     "message": "存到 launchbay"
   },
   "menuSaveWindow": {
-    "message": "把這一窗的標籤頁全存進去"
+    "message": "收藏目前視窗的所有分頁"
   },
   "badgeSaved": {
-    "message": "已存"
+    "message": "已收藏"
   },
   "badgeSavedN": {
     "message": "已存 $1",
@@ -45,7 +45,7 @@
     "message": "這個檔案一個分組都沒有，先在頁面上建一個分組再收藏"
   },
   "alreadySaved": {
-    "message": "這一條已經在這份裡了，沒有重複存。"
+    "message": "這筆書籤已存在。"
   },
   "stoppedAt": {
     "message": "存進去 $1 條之後停了：$2",
@@ -158,10 +158,10 @@
     "message": "這一份剛剛被改過，再點一次就好。"
   },
   "errPlanGone": {
-    "message": "那份報告已經用過或過期了。再讀一次書籤就有新的一份。"
+    "message": "這次匯入預覽已失效。請重新預覽。"
   },
   "errTargetNotEmpty": {
-    "message": "這一份裡已經有書籤了。匯入是把瀏覽器那套整個換進來，不是往上疊加——換一個空檔案吧。"
+    "message": "此檔案已有書籤。請選擇沒有書籤的檔案進行匯入。"
   },
   "errNoSnap": {
     "message": "這一版存不下，改動已經取消，書籤一個字都沒變。"
@@ -185,7 +185,7 @@
     }
   },
   "addRow": {
-    "message": "＋ 再加一枚（另一個檔案）"
+    "message": "新增檔案權杖"
   },
   "tokenPlaceholder": {
     "message": "這一份檔案自己的令牌"
@@ -203,19 +203,19 @@
     "message": "這個檔案"
   },
   "deleteRow": {
-    "message": "刪掉這一枚"
+    "message": "移除權杖"
   },
   "rowRemovedNote": {
-    "message": "這一枚要在下一次點「存設定」時才真的去掉。"
+    "message": "按一下「儲存設定」後移除此權杖。"
   },
   "saved": {
     "message": "已儲存。"
   },
   "needBase": {
-    "message": "先填地址。"
+    "message": "請輸入 Launchbay 服務網址。"
   },
   "needToken": {
-    "message": "先填這一份檔案自己的令牌（id 和令牌要在同一行）。"
+    "message": "請輸入檔案 ID 和對應的權杖。"
   },
   "testOK": {
     "message": "連上了，這枚令牌能開「$1」這一份。",
@@ -245,10 +245,10 @@
     }
   },
   "reading": {
-    "message": "正在讀書籤…"
+    "message": "正在讀取書籤…"
   },
   "noPerm": {
-    "message": "沒有拿到「讀書籤」這個許可權，導不了。（你可以只走網頁那條路：手動匯出 .html 再上傳。）"
+    "message": "尚未取得讀取瀏覽器書籤的權限。也可以匯出 HTML 檔案後，在 Launchbay 網頁上匯入。"
   },
   "missed": {
     "message": "，另有 $1 條沒能進來（報告裡逐條列了原因）",
@@ -324,7 +324,7 @@
     }
   },
   "cancelled": {
-    "message": "沒匯入，書籤一點沒動。"
+    "message": "已取消匯入。"
   },
   "unnamedFolder": {
     "message": "未命名"
@@ -336,48 +336,48 @@
     "message": "存到 launchbay · 設定"
   },
   "lblBase": {
-    "message": "這臺機器的地址"
+    "message": "Launchbay 服務網址"
   },
   "noteBase": {
-    "message": "不帶結尾斜槓。擴充套件打過去的就是這裡。"
+    "message": "輸入 Launchbay 的完整網址（含連接埠），結尾不需要斜線。"
   },
   "lblProf": {
-    "message": "預設檔案 id"
+    "message": "預設檔案 ID"
   },
   "noteProf": {
-    "message": "右鍵收藏時預設存進這一份。下面要有一枚屬於它的令牌；沒有就報「這一份還沒有令牌」，不會拿別的檔案頂替。"
+    "message": "使用右鍵收藏時會新增到預設檔案。請在下方輸入對應的檔案權杖。"
   },
   "colId": {
-    "message": "檔案 id"
+    "message": "檔案 ID"
   },
   "colToken": {
-    "message": "這一枚令牌（寫許可權）"
+    "message": "檔案權杖"
   },
   "noteToken": {
     "message": "令牌是這臺機器的<b>寫許可權</b>。它只留在<b>這臺電腦</b>上——不進瀏覽器同步、不上雲；換檔案就換令牌，某一臺洩露了只吊銷那一枚。"
   },
   "btnSave": {
-    "message": "存設定"
+    "message": "儲存設定"
   },
   "btnTest": {
-    "message": "試一下這臺機器"
+    "message": "測試連線"
   },
   "noteTest": {
-    "message": "「試一下」用<b>預設檔案</b>那一行的地址與令牌，去讀一次那一份檔案（<code>GET /api/v1/data</code>）。它驗的是你真正要成立的那件事：這枚令牌能不能開啟這個檔案。403 不一定是“令牌與檔案對不上”——被停用的檔案、填了管理金鑰也都是 403；提示會按響應裡的 kind 說清是哪一種。"
+    "message": "檢查服務能否連線，以及權杖能否用於預設檔案。"
   },
   "bmHeading": {
-    "message": "把瀏覽器書籤整個導進來"
+    "message": "匯入瀏覽器書籤"
   },
   "noteBookmarks": {
-    "message": "讀的是<b>這臺瀏覽器自己的</b>書籤樹，不用先去別處匯出一份檔案。第一次點下面那枚按鈕時，瀏覽器會問你一次「要讀你的書籤嗎」——讀書籤是一件很敏感的事（它等於你的整個瀏覽興趣圖譜），所以這項許可權我們設成<b>按需申請</b>：只是為「右鍵收藏」裝這個擴充套件的人，永遠不會看到那個提問。"
+    "message": "可直接讀取此瀏覽器的書籤。首次預覽時，瀏覽器會要求授予讀取書籤的權限。"
   },
   "btnReadBookmarks": {
-    "message": "讀瀏覽器書籤，看看會匯入什麼"
+    "message": "預覽匯入"
   },
   "btnApply": {
     "message": "確認匯入"
   },
   "btnCancel": {
-    "message": "算了，不導"
+    "message": "取消匯入"
   }
 }

@@ -35,17 +35,24 @@ try {
     method: 'POST', headers,
     body: JSON.stringify({
       profile: 'dad', by: 'cli',
-      ops: [{ op: 'add', path: 'groups/tiles-1/items',
-        value: { id: 'site-icon-test', name: 'Site icon fixture', url: address } }],
+      ops: [
+        { op: 'add', path: 'groups/tiles-1/items',
+          value: { id: 'site-icon-test', name: 'Site icon fixture', url: address } },
+        { op: 'add', path: 'groups/tiles-1/items',
+          value: { id: 'site-icon-peer', name: 'Same site', url: address + '/peer', icon: 'auto' } },
+      ],
     }),
   });
   assert.equal(seeded.status, 200, await seeded.text());
   const login = () => c.run("fetch('/pin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'profile=dad'}).then(r=>r.status)");
   await goHome(c, srv, login);
+  assert.equal(await c.run("!!document.querySelector('li[data-item=site-icon-peer] [data-icon-missing]')"), true);
   await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
   await changeIcon('lb-edit-icon');
+  assert.equal(await waitFor(c, "!document.querySelector('li[data-item=site-icon-peer] [data-icon-missing]')"), true);
   await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
   assert.equal(await waitFor(c, `document.querySelector('${img}')?.naturalWidth > 0`), true);
+  assert.equal(await c.run("!!document.querySelector('li[data-item=site-icon-peer] [data-icon-missing]')"), false);
   const oldIcon = await iconSrc();
   const rev = await revision();
 

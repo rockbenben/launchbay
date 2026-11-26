@@ -140,10 +140,10 @@ func TestPrefsPage_空组照画并带着那颗删键(t *testing.T) {
 	}
 	// 空组的那一句与有内容的那一句**必须不同**：这一格的作用就是说出代价，
 	// 而「还有 0 条」那句话回答不了"删它会不会少书签"。
-	if !strings.Contains(html, "这一组是空的") {
+	if !strings.Contains(html, "这个分组没有书签") {
 		t.Errorf("空组那一行没有说清它是空的：\n%.600s", html)
 	}
-	if !strings.Contains(html, "这一组有 1 条书签") {
+	if !strings.Contains(html, "其中的 1 条书签也会被删除") {
 		t.Errorf("有内容的组那一行没有说出条数：\n%.600s", html)
 	}
 }

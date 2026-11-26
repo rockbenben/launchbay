@@ -196,7 +196,7 @@ func TestImport_确认写入走的是batch那个落点(t *testing.T) {
 		t.Fatalf("确认写入该给结论页（200），得到 %d %s", rec.Code, rec.Body.String())
 	}
 	if out := rec.Body.String(); !strings.Contains(out, "导入完成") ||
-		!strings.Contains(out, "写进了 2 条书签。") {
+		!strings.Contains(out, "已导入 2 条书签。") {
 		t.Errorf("确认写入之后要像直接导入那样说清结果:\n%.600s", out)
 	}
 
@@ -365,7 +365,7 @@ func TestImport_进不来的条目被跳过而不是整批失败(t *testing.T) {
 		t.Fatalf("该给结论页（200），实际 %d %s", rec.Code, rec.Body.String())
 	}
 	if out := rec.Body.String(); !strings.Contains(out, "导入完成") ||
-		!strings.Contains(out, "写进了 2 条书签。") {
+		!strings.Contains(out, "已导入 2 条书签。") {
 		t.Errorf("确认写入之后要说清结果:\n%.600s", out)
 	}
 	if !strings.Contains(rec.Body.String(), "javascript:void(0)") {

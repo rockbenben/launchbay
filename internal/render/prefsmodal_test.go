@@ -35,7 +35,7 @@ func Test面板里的表单留在浮层里而不是整页跳走(t *testing.T) {
 
 	// 三：「点开书签」走 **applyOps**（书签文档 → rev + 快照 + 审计），
 	// 而不是自己发明一条 POST——服务端那条 /prefs/tabs 与这张表单落点相同。
-	if !strings.Contains(js, "{ op: 'set', path: 'openInNewTab', value: v === '1' }") {
+	if !strings.Contains(js, "{ op: 'set', path: 'openInNewTab', value: newTab }") {
 		t.Error("「点开书签」没有走 applyOps 的 set openInNewTab")
 	}
 	// 四：那一格**不整页重载**：它只改一个布尔，整页重载会把面板整个重建

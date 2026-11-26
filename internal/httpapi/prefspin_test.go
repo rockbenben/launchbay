@@ -50,7 +50,7 @@ func Test面板里那张我的PIN表单(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("旧 PIN 不对该回面板（200），实际 %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "现在的 PIN 不对") {
+	if !strings.Contains(rec.Body.String(), "当前 PIN 不正确") {
 		t.Errorf("旧 PIN 不对时页面没有说清：%.300s", rec.Body)
 	}
 	// **而且要落回「我的 PIN」那一节**：服务端答错时把面板连同那句提示一起重画，
@@ -110,12 +110,10 @@ func Test面板里那张我的PIN表单_没设防的那份可以直接设上(t *
 	if !strings.Contains(page, `name="new"`) {
 		t.Errorf("面板上少了「新的 PIN」那一格:\n%.400s", page)
 	}
-	// **文案也跟着形状走**：这一份没有门，于是「改这道门」「取消这道门」那两句
-	// 都是对着不存在的门说的。按钮该说「锁上」，代价该说「不锁上会怎样」。
-	if !strings.Contains(page, "锁上这道门") {
-		t.Errorf("这一份没有门，按钮该说「锁上这道门」:\n%.400s", page)
+	if !strings.Contains(page, ">设置 PIN</button>") {
+		t.Errorf("未设置 PIN 时应显示「设置 PIN」按钮:\n%.400s", page)
 	}
-	for _, wrong := range []string{"改这道门", "取消这道门"} {
+	for _, wrong := range []string{"保存 PIN 设置", "取消 PIN 后"} {
 		if strings.Contains(page, wrong) {
 			t.Errorf("这一份没有门，页面上却还有 %q:\n%.400s", wrong, page)
 		}
@@ -139,8 +137,8 @@ func Test面板里那张我的PIN表单_没设防的那份可以直接设上(t *
 	if !strings.Contains(page, `name="old"`) {
 		t.Errorf("这一份已经有 PIN 了，面板上却还只有一格:\n%.400s", page)
 	}
-	if !strings.Contains(page, "改这道门") {
-		t.Errorf("这一份已经有 PIN 了，按钮该说「改这道门」:\n%.400s", page)
+	if !strings.Contains(page, ">保存 PIN 设置</button>") {
+		t.Errorf("已有 PIN 时应显示「保存 PIN 设置」按钮:\n%.400s", page)
 	}
 
 	// 而它现在真的锁上了：随便一个 PIN 进不去（**拿不到会话 cookie** 才算数——

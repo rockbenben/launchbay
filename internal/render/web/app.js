@@ -408,11 +408,11 @@
               body: new URLSearchParams({ theme: next }),
               credentials: 'same-origin',
             });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) throw new Error(T('app.opsServerError', res.status));
             if (res.headers.get('X-LB-Profile') !== profile) throw new Error(T('app.opsGone'));
             setPageTheme(next);
           } catch (err) {
-            showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)), 'warn');
+            showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message), 'warn');
           } finally {
             themeBtn.removeAttribute('aria-disabled');
           }
@@ -671,7 +671,7 @@
         // （不带走它，浮层每次重开都在第一类）。没记住就不带，让服务端落回第一颗。
         const res = await fetch('/prefs' + (prefsTab ? '?tab=' + encodeURIComponent(prefsTab) : ''),
           { headers: { Accept: 'text/html' } });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error(T('app.opsServerError', res.status));
         const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
         const panel = doc.querySelector('section.prefs');
         if (!panel) throw new Error('no panel in that page');
@@ -730,14 +730,23 @@
   function replacePrefsPanel(panel, notice) {
     const old = prefsSheet.querySelector('section.prefs');
     if (old) old.replaceWith(panel);
-    // 面板顶上原来那一句是**上一次**留下的（上一轮错话），先摘掉再放这一次的。
-    for (const n of prefsSheet.querySelectorAll('.notice')) n.remove();
-    if (notice) panel.querySelector('h2').after(notice);
+    putPrefsNotice(notice);
     wirePrefsPanel(prefsSheet);
     // 焦点别丢：换掉整块面板之后焦点会掉回 <body>，而人下一步要敲的正是
     // 那一格（改错了要改「现在的」，改对了要接着填「新的」）。
     const first = panel.querySelector('input[type=password]');
     if (first) first.focus();
+  }
+
+  function putPrefsNotice(notice) {
+    const panel = prefsSheet?.querySelector('section.prefs');
+    if (!panel) return;
+    panel.querySelector(':scope > .notice')?.remove();
+    if (notice) panel.querySelector('h2').after(notice);
+  }
+
+  function showPrefsError(text) {
+    putPrefsNotice(el('p', { class: 'notice bad', role: 'alert', text }));
   }
 
   function prefsClose() {
@@ -804,38 +813,19 @@
       e.preventDefault();
       const v = e.submitter?.value;
       if (v !== '0' && v !== '1') return; // 只认这两个（服务端同一条纪律）
-      await applyOps([{ op: 'set', path: 'openInNewTab', value: v === '1' }], 'app.ops.tabs');
-      // **不整页刷新**：这一格只改一个布尔，而整页重载会把面板整个重建
-      // （prefsLoaded 那一闩只在首次 fetch 后才为真，重载后要重新拉一次），
-      // 于是「按一下 → 面板消失」与「整页跳走」是同一种丢失。
-      // 改完就地按一下那颗键的 aria-pressed：那是这一格唯一的可见状态。
+      const newTab = v === '1';
+      if (!await applyOps([{ op: 'set', path: 'openInNewTab', value: newTab }], 'app.ops.tabs')) return;
+      putPrefsNotice(null);
       markPressed(form, v);
-    });
-    // 背景那一族（POST /prefs/background，2026-10-20 补上）。
-    //
-    // **它从前是原生提交的**，于是浮层里按一下「暂时不显示」，整页导航到独立
-    // 那一页（实拍复现）：浮层没了、滚动位置没了、还落回"这一页"而不是你刚才
-    // 所在的那一节。同一屏里其余每一行都是就地更新——这一族与整页重载那几格同因。
-    //
-    // 文件那一格是 multipart，所以不能像别的族那样交 URLSearchParams：直接
-    // 把 FormData 交出去（边界由浏览器带）。
-    //
-    // 改完**要重载**：背景的预览图是按内容哈希的 URL，改了就得重新取一张。
-    // 但要记住"面板还开着"（OPEN_KEY），否则重载后面板整个不见了——那正是
-    // 这一族此前那个症状的另一半。
-    prefsSheet.addEventListener('submit', async (e) => {
-      const form = e.target.closest('form[action="/prefs/background"]');
-      if (!form) return;
-      e.preventDefault();
-      const data = new FormData(form, e.submitter || undefined);
-      try {
-        await fetch('/prefs/background', { method: 'POST', body: data, credentials: 'same-origin' });
-      } catch (err) {
-        say(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
-        return;
+      for (const link of document.querySelectorAll('main a.card[href], main a.feat-card[href]')) {
+        if (newTab) {
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        } else {
+          link.removeAttribute('target');
+          link.removeAttribute('rel');
+        }
       }
-      try { sessionStorage.setItem(OPEN_KEY, '1'); } catch { /* 存不下就当没记 */ }
-      reloadKeepingPlace();
     });
     // 「我的 PIN」那一格（POST /prefs/pin，2026-10-20 补上）。
     //
@@ -877,16 +867,16 @@
           method: 'POST', body, headers: { Accept: 'text/html' },
           credentials: 'same-origin', redirect: 'follow',
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error(T('app.opsServerError', res.status));
         html = await res.text();
       } catch (err) {
-        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message));
         return;
       }
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const panel = doc.querySelector('section.prefs');
       if (!panel) {
-        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), 'no panel'));
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), T('app.opsGone')));
         return;
       }
       // 那句话在 `<main>` 里、面板**之前**（renderPrefsNotice 插在那儿），
@@ -925,16 +915,16 @@
           method: 'POST', body: data, headers: { Accept: 'text/html' },
           credentials: 'same-origin', redirect: 'follow',
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error(T('app.opsServerError', res.status));
         html = await res.text();
       } catch (err) {
-        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message));
         return;
       }
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const panel = doc.querySelector('section.prefs');
       if (!panel) {
-        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), 'no panel'));
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), T('app.opsGone')));
         return;
       }
       const notice = doc.querySelector('.prefs-notice .notice');
@@ -998,7 +988,7 @@
         const res = await fetch('/prefs', {
           method: 'POST', body, credentials: 'same-origin', redirect: 'follow',
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error(T('app.opsServerError', res.status));
         // **这一族必须重渲染**（2026-10-14 实拍后改判）。先前只给 theme 做了就地更新，
         // 于是 view/layout/title 按下去**屏上一动不动**——症状是"设置改了没生效"，
         // 而服务端明明答了 303、数据也写进去了。
@@ -1018,7 +1008,7 @@
         }
         location.reload();
       } catch (err) {
-        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), String(err.message || err)));
+        showBanner(T('app.applyOps.fail', T('app.ops.prefs'), err instanceof TypeError ? T('app.netErr') : err.message));
       }
     });
     // 背景那一节（POST /prefs/background，2026-10-14 补上）。
@@ -1033,19 +1023,21 @@
       e.preventDefault();
       const data = new FormData(form, e.submitter || undefined);
       const file = form.querySelector('input[type=file]')?.files?.[0];
-      // 空提交没有意义：没有文件、没按 remove、也没按 hidden。
-      if (!file && !data.has('remove') && !data.has('hidden')) return;
+      if (!file && !data.has('remove') && !data.has('hidden')) {
+        showPrefsError(T('app.bg.invalid'));
+        return;
+      }
       try {
         const res = await fetch('/prefs/background', {
           method: 'POST', body: data, credentials: 'same-origin', redirect: 'follow',
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        // 背景的三个动作各自要面板**重画**（预览图、按钮组、那句"正在用它"都会变），
-        // 而这一格画不出自己——所以这一族也必须整页重载（与 /prefs 那几格同因）：
-        // 留在原地的话，屏上那一节会是**按下去之前的样子**，看着像没生效。
-        location.reload();
+        if (res.status === 422 && file) throw new Error(T('app.bg.invalid'));
+        if (!res.ok) throw new Error(T('app.opsServerError', res.status));
+        if (res.headers.get('X-LB-Profile') !== profile) throw new Error(T('app.opsGone'));
+        try { sessionStorage.setItem(OPEN_KEY, '1'); } catch { /* 存不下就当没记 */ }
+        reloadKeepingPlace();
       } catch (err) {
-        showBanner(T('app.applyOps.fail', T('app.ops.bg'), String(err.message || err)));
+        showPrefsError(T('app.applyOps.fail', T('app.ops.bg'), err instanceof TypeError ? T('app.netErr') : err.message));
       }
     });
   }
@@ -1235,6 +1227,7 @@
       if (siteIconOrigin(li.dataset.addrLan ?? itemURL(li)) !== origin) continue;
       const box = li.querySelector('.ic-box');
       if (box && box.firstElementChild?.getAttribute('src') !== src) box.replaceChildren(siteIconImage(src));
+      li.querySelector('[data-icon-missing]')?.remove();
     }
   }
 
@@ -1352,7 +1345,7 @@
   async function loadIconCommon() {
     try {
       const res = await fetch('/api/v1/icons/starter', { headers: { Accept: 'text/html' } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(T('app.opsServerError', res.status));
       const html = await res.text();
       // 关掉了就别写了：那一层已经从文档里摘掉，往一个不在的格子里画等于
       // 往虚空里画（下面的 paintIconStarter 自己也会因为 grid 为空而退出）。
@@ -1428,7 +1421,7 @@
     try {
       const res = await fetch('/api/v1/icons/browse?offset=' + iconPick.browseOffset +
         '&limit=' + iconBrowsePageSize, { headers: { Accept: 'text/html' } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(T('app.opsServerError', res.status));
       const total = Number(res.headers.get('X-LB-Icons-Library') || 0);
       const html = await res.text();
       // 关掉了就别写了（那一层已经从文档里摘掉）。
@@ -1561,7 +1554,7 @@
     try {
       const res = await fetch('/api/v1/icons/tiles?q=' + encodeURIComponent(q) + '&limit=' + iconTilesLimit,
         { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(T('app.opsServerError', res.status));
       total = Number(res.headers.get('X-LB-Icons-Total') || 0);
       markup = await res.text();
     } catch {
@@ -2730,21 +2723,21 @@
     else cmdkInput.removeAttribute('aria-activedescendant');
   }
   function cmdkRun(hit) {
+    if (hit.external) {
+      const code = cmdkList.children[cmdkHits.indexOf(hit)]?.querySelector('code');
+      copyText(hit.url).then((copied) => {
+        if (copied) {
+          if (code?.isConnected) cmdkClose();
+          showBanner(T('app.copy.done'), 'ok');
+        } else if (code?.isConnected && !cmdk.hidden) {
+          selectText(code);
+          showBanner(T('app.copy.fail'), 'bad');
+        }
+      });
+      return;
+    }
     cmdkClose();
-    // **外部条目复制地址，不跳转**（2026-10-19 修）。
-    //
-    // 面板扫的是**全部** `li[data-item]`，模板那一支却把点不动的外部地址
-    // （chrome:// / file:// …）渲染成 `<code>` 纯文本，于是 `itemURL` 能把真实
-    // 地址读回来——到这里为止都对。原先这里无条件 `location.href = hit.url`，
-    // 于是按下去浏览器拒绝跳转、页面原地不动、**一声不吭**：这正是 §8.1
-    // 「点了没反应的东西不进界面」说的那种承诺。
-    //
-    // 模板那一支已经把这枚徽标换成了能按的复制键（见下面那个
-    // `.plain .badge.warn.ext` 循环），判据是同一个 `itemURL`；面板这一支漏了
-    // 同一层，于是**同一个地址在正文里能复制、在面板里点了没反应**。
-    // 出路（复制到地址栏或拖到书签栏）由模板那条路径给出，那边本来就写着。
     if (hit.kind === 'item') {
-      if (hit.external) { copyText(hit.url); return; }
       location.href = hit.url;
       return;
     }
@@ -2762,14 +2755,16 @@
     // 这条动作只在 `navigator.clipboard?.readText` 真的存在时才会被列进面板
     // （见 cmdkRender），下面两道判据是**贴进来不像网址**与**系统拒了权限**。
     openSheet(true);
+    const gen = sheetGen;
     if (!navigator.clipboard?.readText) {
       say(T('app.clip.denied'), 'warn');
       fUrl.focus();
       return;
     }
     navigator.clipboard.readText().then((t) => {
+      if (gen !== sheetGen || sheet.hidden || fUrl.value) return;
       const u = (t || '').trim();
-      if (!/^https?:\/\//i.test(u)) {
+      if (!siteIconOrigin(u)) {
         say(T('app.clip.noturl'), 'warn');
         fUrl.focus();
         return;
@@ -2777,6 +2772,7 @@
       fUrl.value = u;
       resolveNow();
     }).catch(() => {
+      if (gen !== sheetGen || sheet.hidden || fUrl.value) return;
       say(T('app.clip.noread'), 'warn');
       fUrl.focus();
     });
@@ -2916,7 +2912,9 @@
     } catch (e) {
       // 409 也已经在 api() 里按状态码换过句子了（app.opsConflict），这里不再
       // 分第二次——两处各判一遍同一个状态码，迟早有一处忘了加新一档。
-      showBanner(T('app.applyOps.fail', T(what), e.message));
+      const message = T('app.applyOps.fail', T(what), e.message);
+      if (prefsSheet && !prefsSheet.hidden) showPrefsError(message);
+      else showBanner(message, 'bad');
       return false;
     }
   }
@@ -2951,6 +2949,14 @@
     try { ok = document.execCommand('copy'); } catch { ok = false; }
     ta.remove();
     return ok;
+  }
+
+  function selectText(node) {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   // 图标键。`⧉`（U+29C9 两块相叠的方块）是「复制」在纯文本里最通用的一枚字形，
@@ -3180,14 +3186,7 @@
           const saidText = said ? T('app.copy.done') : T('app.copy.fail');
           btn.title = saidText;
           btn.setAttribute('aria-label', saidText);
-          if (!said) {
-            // 两条路都不通：把地址选中，让 Ctrl+C 立刻有效——比留一颗假装成功的键好。
-            const r = document.createRange();
-            r.selectNodeContents(code);
-            const sel = getSelection();
-            sel.removeAllRanges();
-            sel.addRange(r);
-          }
+          if (!said) selectText(code);
           clearTimeout(timer);
           timer = setTimeout(() => {
             btn.textContent = COPY;
@@ -3835,7 +3834,7 @@
   // 修饰键按平台算好再写进清单，**不要**先生成 ⌘ 版再 replace('⌘','Ctrl')：
   // 那样「⌘/Ctrl K」会变成「Ctrl/Ctrl K」（实测 Windows 上整张清单都这么坏）。
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-  const MOD = mac ? T('app.keys.mod') : 'Ctrl';
+  const MOD = mac ? '⌘' : 'Ctrl';
   const KEYS = [
     [MOD + ' K', T('app.keys.k')],
     [MOD + ' ↵', T('app.keys.enter')],

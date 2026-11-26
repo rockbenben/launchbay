@@ -211,7 +211,7 @@ func TestProfilePage_内联数量与缓存代次(t *testing.T) {
 	if strings.Contains(string(before.Body), `<img class="ic-img"`) {
 		t.Fatal("缓存里还没有图，不该出现 img")
 	}
-	if !strings.Contains(string(before.Body), "图标未匹配") {
+	if !strings.Contains(string(before.Body), `data-icon-missing`) {
 		t.Error("auto 无缓存要端出缺图标角标（spec §12 的“不假装成功”）")
 	}
 

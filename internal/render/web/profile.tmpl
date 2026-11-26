@@ -274,7 +274,7 @@
                而不是"算下来应该不相交"。 */}}
           <span class="badge warn ext" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
         </span>
-          {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
+          {{if .Missing}}<span class="badge" data-icon-missing title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </span>
       {{else}}
@@ -309,7 +309,7 @@
           {{if ne $.AddrLevel "none"}}{{if eq $.AddrLevel "full"}}<i class="addr">{{.URL}}</i>
           {{else if .Desc}}<i>{{.Desc}}</i>
           {{else}}<i class="host">{{hostOf .URL}}</i>{{end}}{{end}}
-          {{if .Missing}}<span class="badge" title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
+          {{if .Missing}}<span class="badge" data-icon-missing title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}
           <span class="tags-row">{{range .Alias}}<span class="tag">{{.}}</span>{{end}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</span>
         </a>
       {{end}}

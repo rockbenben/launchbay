@@ -94,6 +94,61 @@ try {
   await ev(`document.getElementById('lb-prefs-open').click()`);
   await waitFor(c, `!!document.querySelector('#lb-prefs #prefs-pane-look > .prefs-row')`, 8000);
   await checkSettingsSpacing();
+  const tabs = 'form[action="/prefs/tabs"]';
+  const itemLink = 'main a.card[href]';
+  const currentTabs = await run(`document.querySelector('${tabs} [aria-pressed=true]').value`);
+  const nextTabs = currentTabs === '1' ? '0' : '1';
+  const selectTabs = value => `document.querySelector('${tabs} button[value="${value}"]')`;
+  await ev(`
+    const fetchOriginal = window.fetch;
+    window.fetch = () => Promise.resolve(new Response('{}', { status: 409 }));
+    try { ${selectTabs(nextTabs)}.click(); } finally { window.fetch = fetchOriginal; }
+  `);
+  assert.equal(await waitFor(c, "!!document.querySelector('#lb-prefs .notice[role=alert]')"), true);
+  assert.equal(await run(`${selectTabs(currentTabs)}.getAttribute('aria-pressed')`), 'true');
+  await ev(`${selectTabs(nextTabs)}.click()`);
+  assert.equal(await waitFor(c, `${selectTabs(nextTabs)}.getAttribute('aria-pressed') === 'true'`), true);
+  assert.equal(await run(`document.querySelector('${itemLink}').target`), nextTabs === '1' ? '_blank' : '');
+  await ev(`${selectTabs(currentTabs)}.click()`);
+  assert.equal(await waitFor(c, `${selectTabs(currentTabs)}.getAttribute('aria-pressed') === 'true'`), true);
+  console.log('PASS bookmark tab settings update links only after saving');
+
+  await ev(`document.querySelector('form[action="/prefs/background"] button[type=submit]').click()`);
+  assert.equal(await waitFor(c, "document.querySelector('#lb-prefs .notice')?.textContent.includes('4 MB')"), true);
+
+  await ev(`
+    window.emptyBackgroundNotice = document.querySelector('#lb-prefs .notice');
+    const upload = document.querySelector('form[action="/prefs/background"] input[type=file]');
+    const files = new DataTransfer();
+    files.items.add(new File(['not an image'], 'invalid.png', { type: 'image/png' }));
+    upload.files = files.files;
+    upload.dispatchEvent(new Event('change', { bubbles: true }));
+    const fetchOriginal = window.fetch;
+    window.invalidBackgroundRequests = 0;
+    window.fetch = (...args) => {
+      if (args[0] === '/prefs/background') window.invalidBackgroundRequests++;
+      return fetchOriginal(...args);
+    };
+    try { upload.form.querySelector('button[type=submit]').click(); }
+    finally { window.fetch = fetchOriginal; }
+  `);
+  assert.equal(await waitFor(c, `document.querySelector('#lb-prefs .notice') !== window.emptyBackgroundNotice
+    && document.querySelector('#lb-prefs .notice')?.textContent.includes('4 MB')`), true);
+  assert.equal(await run('window.invalidBackgroundRequests'), 1);
+  assert.equal(await run("!document.getElementById('lb-prefs').hidden"), true);
+  console.log('PASS invalid background gets one request and a localized message');
+  await ev(`
+    const upload = document.querySelector('form[action="/prefs/background"] input[type=file]');
+    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a99sAAAAASUVORK5CYII='), c => c.charCodeAt(0));
+    const files = new DataTransfer();
+    files.items.add(new File([bytes], 'background.png', { type: 'image/png' }));
+    upload.files = files.files;
+    upload.dispatchEvent(new Event('change', { bubbles: true }));
+    upload.form.querySelector('button[type=submit]').click();
+  `);
+  assert.equal(await waitFor(c, `document.documentElement.dataset.bg === '1'
+    && document.getElementById('lb-prefs')?.hidden === false`, 8000), true);
+  console.log('PASS background upload updates the page and reopens settings');
   await screenshot('settings-desktop');
   const languages = await run(`Array.from(document.querySelector('#lb-prefs-language').options, o => o.value).filter(Boolean)`);
   assert.equal(languages.length, 18);

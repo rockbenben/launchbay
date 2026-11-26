@@ -222,7 +222,7 @@ func Test404_浏览器拿页面脚本拿kind(t *testing.T) {
 	if !strings.Contains(body, `<html lang="zh-CN">`) {
 		t.Fatal("这一页也要带 lang：它是一整屏人话，不是错误串")
 	}
-	if !strings.Contains(body, "这一页不在这里") {
+	if !strings.Contains(body, "找不到页面") {
 		t.Fatalf("页面没说出这是怎么回事：%.300s", body)
 	}
 	if strings.Contains(body, "route-not-found") {

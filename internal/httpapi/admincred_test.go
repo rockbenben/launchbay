@@ -92,7 +92,7 @@ func Test管理页认两条管理员通路而不认档案会话(t *testing.T) {
 		t.Fatalf("管理员那把 key 打管理页要 200，实际 %d", rec.Code)
 	}
 	withKey := rec.Body.String()
-	if strings.Contains(withKey, "进入管理") {
+	if strings.Contains(withKey, `action="/admin/login"`) {
 		t.Errorf("管理员那把 key 拿到的是登录页：\n%.300s", withKey)
 	}
 	if !strings.Contains(withKey, "爸爸") {
@@ -100,7 +100,7 @@ func Test管理页认两条管理员通路而不认档案会话(t *testing.T) {
 	}
 	// **档案会话不算管理权**（这一条不能松）。
 	body = adminPageGet(t, h, "/admin", auth.CookieProfile+"=dad")
-	if !strings.Contains(*body, "进入管理") {
+	if !strings.Contains(*body, `action="/admin/login"`) {
 		t.Errorf("只有档案会话该拿到登录页：\n%.300s", *body)
 	}
 }

@@ -63,9 +63,10 @@ func Test一个判据一个出口(t *testing.T) {
 				t.Errorf("itemURL 缺 %q：三种卡片形态各有一个地址载体\n%.400s", want, iu)
 			}
 		}
-		// 读 <code> 的地方只许有 itemURL 那一处（拖动那份读的是 href，不是 code）。
-		if n := strings.Count(body, "querySelector('code')"); n != 1 {
-			t.Errorf("读 <code> 的地方有 %d 处，要 1 处（itemURL）："+
+		// 只检查从书签行读取地址。命令面板选中文本时也查找 <code>，
+		// 但复制的地址已经由 itemURL 提供。
+		if n := strings.Count(body, "li.querySelector('code')"); n != 1 {
+			t.Errorf("从书签行查找 <code> 的地方有 %d 处，要 1 处（itemURL）："+
 				"各处自己读就会漏掉没有 <code> 的那种形态", n)
 		}
 		// 至少两个调用点（⌘K 与编辑模态）。
