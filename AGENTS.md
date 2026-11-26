@@ -215,7 +215,7 @@ launchbay 是局域网家庭书签导航台：每人一个档案，各存各的�
 | GET | `/api/v1/backup` | **档案作用域**令牌/本人会话 | 200 备份 JSON + attachment | 导出**这一份的完整状态**（书签 + 台面偏好），`?profile=<id>` 必填。**与上一条不是一回事**：那一条导的是 `bookmarks.json` 的**原字节**（契约是「可直接喂 batch 对照」，改它的形状就是毁掉那条契约），这一条导的是搬家用的整份。边界（门闩/身份/背景图都不在里头、两段各自缺省时各写各的）见下面「整份备份那一族」一节。**被停用的档案一律 403**（kind `profile-disabled`，与其余七条同判据） |
 | POST | `/api/v1/restore` | **档案作用域**令牌/本人会话 | 200 `{profile, rev, applied, settings, warnings}` | 导入一份备份（体就是 `GET /api/v1/backup` 导出的那一份）。**目标档案从凭证推导、不接受申报**（令牌取作用域、会话取自己那一份）——与 `/api/v1/import` 同一族纪律。**两段各自可缺省，但不能都缺**（都缺 422）：带 `bookmarks` 的那份要求目标档案一条书签都没有（`import-target-not-empty`），带 `settings` 的那份与档案空不空无关。**写入顺序是书签先、设置后**：设置那几格不认时在写任何东西之前就 422（半份成功比全败难收拾）。空档检查后若并发导致 rev 变动，返回 409（`rev-conflict`，带 `currentRev`），整份取消且不写设置；成功响应中空 settings/warnings 统一序列化为 `[]` 而非 `null`。设置只改 profile.json，**不产生 rev、不做快照**。**被停用的档案一律 403**（kind `profile-disabled`） |
 | GET | `/api/v1/history` | 令牌/会话 | 200 `{entries:[{at,profile,actor,by,rev,ops}]}` | 审计线，ops 只有动作与路径无 value；省略 `profile` = 全家庭聚合，**仅管理员**（档案作用域令牌 403）；账号类动作的 `actor` 记 `admin` |
-| GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名 + `auto` 且缓存无图，空 `icon` 不算缺，口径见 openapi 的 `/status`）。**每行没有 `admin` 字段**（2026-10-12，档案不再是管理员） |
+| GET | `/api/v1/status` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles[],brokenProfiles[],totals}` | 跨档案 rev/条目/快照/坏档汇总，含 `iconUnmatched`（读时算的缺图数：陌生图标名、`auto` 且缓存无图、无效的上传图标，空 `icon` 不算缺，口径见 openapi 的 `/status`）。**每行没有 `admin` 字段**（2026-10-12，档案不再是管理员） |
 | GET | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 200 `{profiles:[{id,title,createdAt}]}` | 档案元信息列表，零条目零 URL；**同样没有 `admin` 字段** |
 | POST | `/api/v1/profiles` | 管理员（`LAUNCHBAY_ADMIN_TOKEN` 令牌或 `lb_admin` cookie） | 201 `{id,title}` | 建档；**不带任何预置内容**，每个档案从零开始；已存在 409。**「已存在」按档案目录判，不按 `profile.json` 判**（2026-10-19 修）：原先那道闸问的是 `profile.json` 在不在，于是「目录在、profile.json 缺」这一个形状（手删、rsync 半途、坏档被登记过）会穿过它，紧接着把盘上那份 `bookmarks.json` 覆盖成空文档——实测 469 字节含一条书签变成 244 字节空文档，**无快照、无审计行、返回 201**，书签就这么没了。判据收在 `store.idTaken`，与 `NextProfileID` 派生 id、`RebuildProfile` 是**同一个**「这个 id 占了没有」；三处各问一次就会各答一次，于是重名字的坏档从缝里漏过去。**连带**：`rollbackDir` 是 `RemoveAll(整目录)`，只在「目录里只有刚建的东西」时成立——所以闸挡住时**不许**删目录（那目录里可能装着别人的书签）。**请求体没有 `admin` 那一格**（2026-10-12）——送来是 422 且点名该字段，脚本作者据此知道该删哪一行。**PIN 选填**：`{"id","title","nopass":true}` 建出一份**不设防**的档案（局域网里谁都能进）；`pin` 为空且**没给** `nopass` 照旧 422 点名 `pin`。**名字最多 60 个字**（`model.MaxProfileTitleRunes`，2026-10-23 加）：超了 422 点名 `title`、码 `field-too-long`——那一条判据在**写侧**（不进 `Profile.Validate`：在读路径上判长度等于把"名字超长"升级成"坏档"，而那个人从此进不去），与三张建档表单上那个 `maxlength` 是同一个数 |
 | POST | `/api/v1/profiles/new` | 无（公开） | 201 `{id,title}` | **非管理员自己建一份档案**（2026-10-23，用户拍板：「非管理员用户有个 new 接口，可以自己建档案」）。与上面那条管理员建档的差别是：**免凭证**、**id 由名字派生**（**不接受申报**——不接受 `id` 字段，送来是 422 且点名该字段；不接受它就没人能建一份 id 叫 `dad` 的档案顶替别人的那一格）。两条都**没有 `admin` 那一格**（2026-10-12 起档案没有管理员属性）。**免凭证是刻意的**：§11 明写不防局域网内冒充，而建出来的那一份是**空的**、只属于它自己的 PIN，不授予任何读取别人书签的权限；反过来"要管理员才能建"意味着这台机器上第一个想用的人得等家长回来开一次管理页。**代价明写**：局域网里任何设备都能建档，选单页上会多出一张卡（管理员随时能删掉它），档案总数没有上限。体是 `{title, pin, nopass?}`；`pin` 为空且没给 `nopass` 照旧 422 点名 `pin`，两个都给是 422 点名 `nopass`。**名字最多 60 个字**（`model.MaxProfileTitleRunes`）：超了 422 点名 `title`、码 `field-too-long`——**免凭证的那一条尤其要它**：那个上限原先只存在于表单的 `maxlength`（浏览器认、curl 与扩展不认），于是局域网里任何设备都能写进一个几 KB 的名字，而选单页（**全家人每次打开都要拉的那一页**）从此每次都带着它（实测一个 5000 字的标题让那一页从 4.8 万字节涨到 5.3 万）。成功**不发会话**（建完照样要输 PIN 才进门，与 `/setup` 同一条纪律） |
@@ -799,7 +799,8 @@ WCAG 1.4.11 的 3:1（图标型控件，非文本那一档）；现在这一档�
   拉一次 `/api/v1/data` 问整份；扩展在读 `readData` 后本来就会按 URL 查重。
 - **添加和编辑共用图标控件**：选「使用网站图标」立即请求图标，保存后记为 `auto`。
   「重新获取网站图标」强制刷新网址对应的缓存，原图标选项保持选中。成功后显示预览，
-  当前页同源且使用网站图标的卡片立即更新。失败时显示提示。
+  当前页同源且使用网站图标的卡片立即更新。失败时区分网页无法访问和图标未取得。
+  「上传图标…」选择本地图片，浏览器转成 64 × 64 PNG 并预览，随书签保存。
 - **「图标库…」**点开是一层窄浮层，输入即搜
   `GET /api/v1/icons/tiles`，回车取第一格、点一格即把它写回那颗下拉框
   （`simple-icons` 品牌图标 + `tabler` 概念图标，与 resolve 的「自动抓 favicon」并列）。
@@ -1757,11 +1758,10 @@ theme/view/layout/addrLevel/pageTitle/language，坏档正是最需要改排法�
 它是图标选择器打开时先摆的那一批（见上面「`app.js`：档案页那套交互」一节），
 也是脚本想要"一屏常用图标"时该走的那一条。
 
-图标名不许靠猜：`icon` 必须是索引里有的名字，名字不在索引里会被
-`POST /api/v1/batch` 直接 422 拒掉整批，`errors[].field` 点名 `icon`。
-`""`（未设，首屏走首字母兜底）与 `"auto"`（抓 favicon）是仅有的两个不进索引
-判定的语义值。上面 batch 示例里的 `simple-icons:portainer` 是真条目，可直接
-作为"这名字存在"的依据。
+`icon` 接受索引中的名字、`""`（使用首字母）、`"auto"`（抓 favicon）和上传的 PNG。
+上传值是 `data:image/png;base64,<标准 Base64>`，PNG 最大 64 × 64、20 KiB，
+随书签进入快照与备份。无效图标会让 `POST /api/v1/batch` 整批返回 422，
+`errors[].field` 为 `icon`。上面的 `simple-icons:portainer` 是真实索引名。
 
 **但这条严格只挂在写侧**（2026-10-12 改判）：`internal/model` 里那道
 "前缀必须是 tabler/simple-icons"的校验**整条删掉了**，因为 `model.Validate`
@@ -1776,7 +1776,7 @@ theme/view/layout/addrLevel/pageTitle/language，坏档正是最需要改排法�
 `GET /icons/{name}` 是另一回事：那是 `POST /api/v1/resolve` 抓回来的 favicon
 缓存（`<16 位小写十六进制>.<png/ico/svg/webp/gif>`），resolve 返回的 `favicon`
 字段就是这个路径。它是给浏览器 `<img src>` 用的图片 URL，**不要**把它的值写
-进 `icon` 字段——`icon` 只认索引名与上面那两个语义值，写个路径进去只会 422。
+进 `icon` 字段。写入图片路径会返回 422。
 读侧不要自己拼文件名：这条通路的字节只由 resolve 内部写入 `data/icons/`。
 
 ## 发版（2026-10-21 立）

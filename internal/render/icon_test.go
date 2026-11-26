@@ -72,7 +72,7 @@ func TestPiece_auto有缓存就出图(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := pieceFor(model.Item{ID: "j", Name: "Jellyfin", URL: "http://10.0.0.3:8096/web/", Icon: "auto"}, ix, fc)
-	if e, ok := fc.Lookup(origin); !ok || p.Img != "/icons/"+e.Hash+"."+e.Ext {
+	if e, ok := fc.Lookup(origin); !ok || string(p.Img) != "/icons/"+e.Hash+"."+e.Ext {
 		t.Errorf("img 路径不对: %q", p.Img)
 	}
 	if p.SVG != "" {

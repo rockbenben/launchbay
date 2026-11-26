@@ -1131,7 +1131,8 @@
   syncGroupFields();
 
   // 首字母和网站图标始终可选，resolve 返回的图标库候选再插进去。
-  const iconLabel = (v) => v.replace(/^[a-z-]+:/, '');
+  function uploadedIcon(value) { return value.startsWith('data:image/png;base64,'); }
+  const iconLabel = (v) => uploadedIcon(v) ? T('app.icon.custom') : v.replace(/^[a-z-]+:/, '');
   function fillIconChoices(sel, candidates, current) {
     sel.replaceChildren(
       el('option', { value: '', text: T('app.icon.none') }),
@@ -1158,12 +1159,21 @@
   function siteIconControls(select, address, active) {
     const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
     let request;
-    const reset = () => {
+    let upload;
+    const showSelected = () => {
+      if (uploadedIcon(select.value)) {
+        status.replaceChildren(siteIconImage(select.value), T('app.icon.custom'));
+      } else {
+        status.replaceChildren();
+      }
+    };
+    const resetSite = () => {
       request = null;
-      refresh.disabled = false;
-      status.replaceChildren();
+      refresh.disabled = Boolean(upload);
+      showSelected();
     };
     function load(force = false) {
+      if (upload) return upload;
       const url = address.value.trim();
       if (request?.url === url && (!force || request.pending)) return request.promise;
       if (!siteIconOrigin(url)) {
@@ -1196,18 +1206,85 @@
       type: 'button', class: 'fld', text: T('app.icon.refresh'),
       on: { click: () => load(true) },
     });
-    address.addEventListener('input', reset);
-    select.addEventListener('change', () => { if (select.value === 'auto') load(); });
+    const fileInput = el('input', { type: 'file', hidden: '', accept: '.png,.jpg,.jpeg,.webp,.gif,.ico,.svg' });
+    const choose = el('button', {
+      type: 'button', class: 'fld', text: T('app.icon.upload'),
+      on: { click: () => fileInput.click() },
+    });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      fileInput.value = '';
+      if (!file) return;
+      request = null;
+      status.replaceChildren();
+      refresh.disabled = true;
+      const current = readUploadedIcon(file).then((value) => {
+        if (upload !== current || !active()) return false;
+        for (const option of select.options) {
+          if (uploadedIcon(option.value)) { option.remove(); break; }
+        }
+        select.append(el('option', { value, text: T('app.icon.custom') }));
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }).catch(() => {
+        if (upload === current && active()) status.textContent = T('app.icon.uploadError');
+        return false;
+      }).finally(() => {
+        if (upload === current) {
+          upload = null;
+          refresh.disabled = false;
+        }
+      });
+      upload = current;
+    });
+    address.addEventListener('input', resetSite);
+    select.addEventListener('change', () => {
+      upload = null;
+      if (select.value === 'auto') load();
+      else resetSite();
+    });
+    showSelected();
     return {
       field: el('div', { class: 'site-icon-field' }, [
         el('label', { text: T('app.field.icon') }, [select]),
-        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select)]),
-        status,
+        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose]),
+        fileInput, status,
       ]),
-      pending: () => request?.pending && request.url === address.value.trim() ? request.promise : null,
+      pending: () => upload || (request?.pending && request.url === address.value.trim() ? request.promise : null),
       load,
-      reset,
+      reset: () => {
+        upload = null;
+        resetSite();
+      },
     };
+  }
+
+  async function readUploadedIcon(file) {
+    const types = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+      gif: 'image/gif', ico: 'image/x-icon', svg: 'image/svg+xml',
+    };
+    const ext = /\.([a-z]+)$/i.exec(file.name)?.[1].toLowerCase();
+    const type = Object.hasOwn(types, ext) ? types[ext] : '';
+    if (!type || file.size > 4 * 1024 * 1024) throw new Error('Bad icon file');
+    const source = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(new Blob([file], { type }));
+    });
+    const image = new Image();
+    image.src = source;
+    await image.decode();
+
+    // Keep the aspect ratio and transparency when converting to a small PNG.
+    const side = 64;
+    const canvas = el('canvas', { width: side, height: side });
+    const scale = Math.min(side / image.naturalWidth, side / image.naturalHeight);
+    const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+    canvas.getContext('2d').drawImage(image, (side - width) / 2, (side - height) / 2, width, height);
+    return canvas.toDataURL('image/png');
   }
 
   // 与服务端的缓存键一样保留显式端口（URL.origin 会去掉默认端口）。
@@ -1386,7 +1463,7 @@
     const seen = new Set();
     for (const li of document.querySelectorAll('li[data-icon-name]')) {
       const name = li.dataset.iconName;
-      if (!name || name === 'auto' || seen.has(name)) continue;
+      if (!name || name === 'auto' || uploadedIcon(name) || seen.has(name)) continue;
       const face = li.querySelector('.ic-svg,.ic-img,.ic');
       if (!face) continue;
       seen.add(name);
@@ -2095,8 +2172,8 @@
     const iconRequest = addSiteIcon.pending() ||
       (iconTouched && fIcon.value === 'auto' && navigator.onLine ? addSiteIcon.load() : null);
     if (iconRequest) {
-      await iconRequest;
-      if (gen !== sheetGen || sheet.hidden || url !== fUrl.value.trim()) return;
+      const result = await iconRequest;
+      if (result === false || gen !== sheetGen || sheet.hidden || url !== fUrl.value.trim()) return;
     }
     let saved = itemURLAlreadySaved(url);
     if (!saved && pageIsFiltered()) {
@@ -3451,9 +3528,9 @@
             (ic.value === 'auto' && nextURL !== url && navigator.onLine ? siteIcon.load() : null);
           if (iconRequest) {
             saving = true;
-            await iconRequest;
+            const result = await iconRequest;
             saving = false;
-            if (!form.isConnected || nextURL !== u.value.trim()) return;
+            if (result === false || !form.isConnected || nextURL !== u.value.trim()) return;
           }
           // **没改的字段不发**（2026-10-24 修）：从前名字、说明、地址三格永远发，
           // 于是打开一条按「保存」什么都不改，也会写一版快照、rev +1，并在历史

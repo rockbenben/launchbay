@@ -141,7 +141,7 @@ type itemView struct {
 	Alias, Tags []string
 	External    bool // 非 http/https：浏览器不让从网页跳过去
 	SVG         template.HTML
-	Img         string
+	Img         template.URL
 	Missing     bool
 	ChipHue     int
 }

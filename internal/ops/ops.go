@@ -41,16 +41,22 @@ type IconSet interface {
 	Has(icon string) bool
 }
 
-// checkIconName 是唯一的图标名闸门调用点。"" 与 "auto" 在这里判掉：
+// checkIconName 校验图标库名称与上传的 PNG。"" 与 "auto" 在这里判掉：
 // 它们是有语义的取值（"没设"/"抓 favicon"），不是索引成员——
 // 把这两个特例放进 icons.Index.Has 里，索引就得替写校验想事（裁定二）。
-// icons == nil 直接放过：装配点必须传真索引，nil 只允许出现在"这条测试
+// icons == nil 时跳过索引查找：装配点必须传真索引，nil 只允许出现在"这条测试
 // 不关心图标"的场合。
 func checkIconName(icons IconSet, id, icon string) error {
-	if icons == nil || icon == "" || icon == "auto" {
+	if icon == "" || icon == "auto" {
 		return nil
 	}
-	if !icons.Has(icon) {
+	if strings.HasPrefix(icon, "data:") {
+		if model.ValidUploadedIcon(icon) {
+			return nil
+		}
+		return fieldErr{"icon", errors.New("上传图标必须是 64 × 64 以内、最多 20 KiB 的 base64 PNG")}
+	}
+	if icons != nil && !icons.Has(icon) {
 		// 包成 fieldErr{"icon", ...}：字段归因由它决定，否则 fieldOf 会
 		// 按路径推断（add 整组时路径根本没有 icon 段，会掉回 path）。
 		return fieldErr{"icon", kerr(apierr.IconUnknown, fmt.Errorf(

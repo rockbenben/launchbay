@@ -187,7 +187,7 @@ func countIconUnmatched(b *model.Bookmarks, ix *icons.Index, fc *store.IconCache
 				if _, ok := fc.Lookup(o); !ok {
 					n++
 				}
-			case !ix.Has(it.Icon):
+			case !ix.Has(it.Icon) && !model.ValidUploadedIcon(it.Icon):
 				n++
 			}
 		}

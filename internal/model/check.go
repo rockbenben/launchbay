@@ -344,8 +344,7 @@ func ExternalScheme(raw string) bool {
 //
 // 现在读侧对 icon 一个字都不验，渲染层自己兜底（icon.go 的 pieceFor：索引查不到
 // → 首字母色块 + 「图标未匹配」徽标，并计入 GET /api/v1/status 的 iconUnmatched）。
-// 写侧照旧严格：ops 的 checkIconName 要求非 ""/"auto" 的名字**必须在索引里**
-// （internal/ops/ops.go），那比"前缀对不对"强得多，且只作用在真要落盘的那批操作上。
+// 写入时，ops 校验索引名称和上传的 PNG。渲染时也检查 PNG，损坏的图片退回首字母。
 //
 // 运行时只带 tabler 与 simple-icons 两套（spec §5），导入器**不认 MDI**：
 // 浏览器导出里没有图标名，它只按网址猜（bookimport/aliases.go 是 host → 内嵌

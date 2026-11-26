@@ -41,7 +41,7 @@ func repoIcon(ix *icons.Index) iconPiece {
 // 模板不用再回头问"那 Letter 填了没有"。
 type iconPiece struct {
 	SVG     template.HTML // 非空 = 内联 SVG
-	Img     string        // 非空 = <img src>（缓存 favicon）
+	Img     template.URL  // 缓存 favicon 或已验证的上传 PNG
 	Missing bool          // 名查不到 / auto 无缓存：角标"图标未匹配"
 	Letter  string        // 前两者都空时的首字母
 	ChipHue int           // 首字母色块的色相（0-359）
@@ -57,7 +57,7 @@ type iconPiece struct {
 // 分组 accent 不在这里算：它是分组的属性，由 exec.go 用 validatedAccent 算一次
 // 放进 groupView。在这里再算一遍就是第二个真相，两处判据迟早分家。
 //
-// 判据只有两个来源：图标索引（名字在不在）与图标缓存（auto 有没有抓过）。
+// 图标可来自索引、auto 缓存或书签自带的 PNG。
 // 索引里查不到的名字走首字母并标 Missing，**不报错也不清空磁盘上的值**——
 // 索引是快照，快照会漂（spec §6.2 因此把存在性只卡在写路径）。
 func pieceFor(it model.Item, ix *icons.Index, fc *store.IconCache) iconPiece {
@@ -70,11 +70,15 @@ func pieceFor(it model.Item, ix *icons.Index, fc *store.IconCache) iconPiece {
 	case "auto":
 		if o := icons.Origin(it.URL); o != "" {
 			if e, ok := fc.Lookup(o); ok {
-				p.Img = "/icons/" + e.Hash + "." + e.Ext
+				p.Img = template.URL("/icons/" + e.Hash + "." + e.Ext)
 				return p
 			}
 		}
 		p.Missing = true // 没有可抓的协议，或抓过没成：进缺图口径（spec §5）
+		return p
+	}
+	if model.ValidUploadedIcon(it.Icon) {
+		p.Img = template.URL(it.Icon)
 		return p
 	}
 	if ic, ok := ix.Get(it.Icon); ok {

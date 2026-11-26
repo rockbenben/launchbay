@@ -76,7 +76,32 @@ try {
     document.getElementById('lb-url').value = ${JSON.stringify(address + '/another')};`);
   await changeIcon('lb-icon');
   assert.equal(await waitFor(c, "document.querySelector('#lb-sheet .site-icon-status img')?.naturalWidth > 0"), true);
-  console.log('PASS site icon: selection fetches, refresh updates without saving, failure retains the cached icon');
+  await c.ev("document.querySelector('#lb-sheet button.close').click()");
+  await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
+  const setIconFile = (name, content) => c.ev(`{
+    const input = document.querySelector('.inline-edit input[type=file]');
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([${JSON.stringify(content)}], ${JSON.stringify(name)}));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }`);
+  await setIconFile('bad.png', 'not an image');
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('无法读取图片')"), true);
+  assert.equal(await c.run("document.getElementById('lb-edit-icon').value"), 'auto');
+
+  await setIconFile('custom.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 8"><rect width="16" height="8" fill="green"/></svg>');
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);
+  assert.equal(await iconSrc(), newIcon);
+  assert.equal(await revision(), rev);
+  await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
+  assert.equal(await waitFor(c, `document.querySelector('${img}')?.src.startsWith('data:image/png;base64,')
+    && document.querySelector('${img}')?.naturalWidth === 64`), true);
+  assert.equal(await revision(), rev + 1);
+  await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);
+  await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
+  assert.equal(await revision(), rev + 1);
+  console.log('PASS site icon: fetch, refresh, upload preview, save, and reopen');
 } finally {
   site.close();
   await c.close();

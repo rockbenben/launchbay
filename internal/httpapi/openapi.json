@@ -91,7 +91,7 @@
         }
       }
     },
-    "/app.1c7b1f0ff969.js": {
+    "/app.cafaf362ab8b.js": {
       "get": {
         "summary": "⑤ 的应用脚本（内容指纹命名，immutable）",
         "x-credential": "none",
@@ -1217,7 +1217,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "本案唯一的书签写通路。ops 全成或全败：任何一条校验不过整批不写入（422 逐条点名 opsIndex/field/reason）。空 ops 数组合法：200 applied:0，不产生写入。expectedRev 给出且与盘上不符 → 409 {code, detail, currentRev}，AI 应重读后重放而不是硬写。档案不存在 404；档案的 bookmarks.json 坏了 503（detail 带文件名与错误位置，去修那个文件，别重试）；快照写不下去 507（本次写入已取消，什么都没变）。书签已成功而历史追加失败时仍回 200，warnings 里多一条\"历史没写进去\"——报 5xx 会诱导重试造成重复应用。\n\n一批 ops 原子写入某档案。**管理员令牌与管理员 cookie 一律 403**——写某个人的书签必须用作用域正好是那个人的令牌，或者那个人的会话 cookie。\n\n**被停用的档案一律 403**（kind `profile-disabled`）：令牌作用域正对也会被拒——停用是**这一份的状态**，不是凭证的问题（凭证是好的，所以不是 401）。**管理员那一族不受这条约束**：停用要能被启回来，而管理员管的正是账号层面。",
+        "description": "本案唯一的书签写通路。ops 全成或全败：任何一条校验不过整批不写入（422 逐条点名 opsIndex/field/reason）。空 ops 数组合法：200 applied:0，不产生写入。icon 字段接受空串、auto、索引中的名称或上传图标（data:image/png;base64, 后接标准 Base64，PNG 最大 64 × 64、20 KiB）。expectedRev 给出且与盘上不符 → 409 {code, detail, currentRev}，AI 应重读后重放而不是硬写。档案不存在 404；档案的 bookmarks.json 坏了 503（detail 带文件名与错误位置，去修那个文件，别重试）；快照写不下去 507（本次写入已取消，什么都没变）。书签已成功而历史追加失败时仍回 200，warnings 里多一条\"历史没写进去\"——报 5xx 会诱导重试造成重复应用。\n\n一批 ops 原子写入某档案。**管理员令牌与管理员 cookie 一律 403**——写某个人的书签必须用作用域正好是那个人的令牌，或者那个人的会话 cookie。\n\n**被停用的档案一律 403**（kind `profile-disabled`）：令牌作用域正对也会被拒——停用是**这一份的状态**，不是凭证的问题（凭证是好的，所以不是 401）。**管理员那一族不受这条约束**：停用要能被启回来，而管理员管的正是账号层面。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1840,7 +1840,7 @@
             "adminCookie": []
           }
         ],
-        "description": "仅管理员（跨档案聚合信息）。档案作用域的令牌、以及任何档案会话（哪怕登的是 dad 自己）拿它都 403——这是设计不是故障；查单档案请用 GET /api/v1/data。profiles[] 每行 {id, title, disabled, rev, modified, items, iconUnmatched, snapshots, broken}（2026-10-12 起没有 admin 那一格：档案不再是管理员）；modified 是书签最近改动时间（RFC3339 UTC），坏档案读不出来时为空串、不编造；坏档案不消失、照样占一行（rev/items/iconUnmatched 报 0），并集体列在 brokenProfiles[]；totals 是 {profiles, items, iconUnmatched, snapshots} 汇总。iconUnmatched 读时算不记盘（spec §5）：只数\"看着像图标名而索引里没有\"与\"auto 且缓存无图\"的条目，空 icon 不算缺。GET /admin 的表格与这份 JSON 出自同一份聚合实现。",
+        "description": "仅管理员（跨档案聚合信息）。档案作用域的令牌、以及任何档案会话（哪怕登的是 dad 自己）拿它都 403——这是设计不是故障；查单档案请用 GET /api/v1/data。profiles[] 每行 {id, title, disabled, rev, modified, items, iconUnmatched, snapshots, broken}（2026-10-12 起没有 admin 那一格：档案不再是管理员）；modified 是书签最近改动时间（RFC3339 UTC），坏档案读不出来时为空串、不编造；坏档案不消失、照样占一行（rev/items/iconUnmatched 报 0），并集体列在 brokenProfiles[]；totals 是 {profiles, items, iconUnmatched, snapshots} 汇总。iconUnmatched 读时算不记盘：包括未知图标名、auto 缓存无图与无效的上传图标，空 icon 不算缺。GET /admin 的表格与这份 JSON 出自同一份聚合实现。",
         "responses": {
           "200": {
             "description": "汇总",
@@ -1877,7 +1877,7 @@
                           },
                           "iconUnmatched": {
                             "type": "integer",
-                            "description": "该档案缺图条目数，读时算不记盘（spec §5）：只数\"看着像图标名而索引里没有\"的条目与\"auto 且缓存无图\"的条目；空 icon 是\"没设\"不算缺；坏档案那一行报 0（书签没读出来，不编数，与 rev/items 同口径）。"
+                            "description": "该档案缺图条目数，读时算不记盘：包括未知图标名、auto 缓存无图与无效的上传图标；空 icon 不算缺；坏档案那一行报 0（书签没读出来，不编数，与 rev/items 同口径）。"
                           },
                           "snapshots": {
                             "type": "integer"
@@ -1905,7 +1905,7 @@
                         },
                         "iconUnmatched": {
                           "type": "integer",
-                          "description": "全家庭缺图条目合计，口径与 profiles[] 行的 iconUnmatched 同：只数\"看着像图标名而索引里没有\"与\"auto 且缓存无图\"，空 icon 不算缺；读时算不记盘；坏档案那一行按 0 计入。"
+                          "description": "全家庭缺图条目合计，口径与 profiles[] 行的 iconUnmatched 相同。"
                         },
                         "snapshots": {
                           "type": "integer"
