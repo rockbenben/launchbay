@@ -73,6 +73,8 @@ try {
   assert.equal(await revision(), rev);
 
   const addIconSource = "#lb-sheet .site-icon-field a";
+  const backupIconSource = "#lb-sheet .site-icon-field span > a";
+  const backupHref = () => c.run(`document.querySelector('${backupIconSource}').getAttribute('href')`);
   await c.ev("document.getElementById('lb-add').click()");
   assert.equal(await c.run(`document.querySelector('${addIconSource}').parentElement.hidden`), true);
   const typeAddress = url => c.ev(`{
@@ -80,8 +82,14 @@ try {
     input.value = ${JSON.stringify(url)};
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }`);
-  await typeAddress('https://example.org/docs');
-  assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.org/favicon.ico');
+  await typeAddress('https://user:secret@example.org:8443/private?q=token#section');
+  assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.org:8443/favicon.ico');
+  assert.equal(await backupHref(), 'https://icons.duckduckgo.com/ip3/example.org.ico');
+  assert.equal(await c.run(`document.querySelector('${backupIconSource}').relList.contains('noreferrer')`), true);
+  for (const privateURL of ['http://nas/', 'http://printer.local/', 'http://device.home.arpa/', 'http://127.0.0.1/', 'http://[::1]/']) {
+    await typeAddress(privateURL);
+    assert.equal(await backupHref(), null, privateURL);
+  }
   await typeAddress('chrome://settings');
   assert.equal(await c.run(`document.querySelector('${addIconSource}').hasAttribute('href')`), false);
   await typeAddress(address + '/another');
@@ -91,6 +99,8 @@ try {
   assert.equal(await c.run(`document.querySelector('${addIconSource}').getAttribute('href')`), newIcon);
   await typeAddress('https://example.net/docs');
   assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.net/favicon.ico');
+  assert.equal(await backupHref(), 'https://icons.duckduckgo.com/ip3/example.net.ico');
+  assert.equal(await c.run("performance.getEntriesByType('resource').some(e => e.name.startsWith('https://icons.duckduckgo.com/'))"), false);
   await c.ev("document.querySelector('#lb-sheet button.close').click()");
   await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
   assert.equal(await c.run("document.querySelector('.inline-edit .site-icon-field a').getAttribute('href')"), newIcon);

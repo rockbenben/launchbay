@@ -173,6 +173,7 @@
   "app.icon.httpOnly": "Digite um endereço HTTP ou HTTPS completo.",
   "app.icon.upload": "Enviar ícone…",
   "app.icon.find": "Encontrar o ícone do site",
+  "app.icon.backup": "Ícone alternativo (DuckDuckGo)",
   "app.icon.downloadHint": "Salve a imagem e escolha “Enviar ícone…”.",
   "app.icon.custom": "Ícone personalizado",
   "app.icon.uploadError": "Não foi possível ler a imagem. Escolha um arquivo PNG, JPEG, WebP, GIF, ICO ou SVG de até 4 MB.",

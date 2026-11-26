@@ -1159,24 +1159,37 @@
   function siteIconControls(select, address, active) {
     const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
     const iconSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.find') });
-    const downloadHint = el('p', { class: 'sheet-status', hidden: '' }, [iconSource, ' ', T('app.icon.downloadHint')]);
+    const backupSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.backup') });
+    const backupChoice = el('span', { hidden: '' }, [' · ', backupSource]);
+    const downloadHint = el('p', { class: 'sheet-status', hidden: '' }, [
+      iconSource, backupChoice, ' ', T('app.icon.downloadHint'),
+    ]);
     let downloadOrigin = '';
     let resolvedIcon = '';
     const syncDownload = (favicon) => {
       let origin = '';
+      let host = '';
       try {
         const url = new URL(address.value.trim());
-        if (url.protocol === 'http:' || url.protocol === 'https:') origin = url.origin;
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+          origin = url.origin;
+          host = url.hostname.replace(/\.$/, '');
+        }
       } catch { /* No usable address yet. */ }
       if (origin !== downloadOrigin) resolvedIcon = '';
       downloadOrigin = origin;
+      if (origin && favicon?.startsWith('/icons/')) resolvedIcon = favicon;
+
+      // Only disclose the hostname on explicit navigation to the provider.
+      const publicHost = /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/i.test(host) &&
+        !/\.(?:arpa|corp|example|home|i2p|internal|invalid|lan|local|localhost|onion|test)$/i.test(host);
+      backupChoice.hidden = !publicHost || Boolean(resolvedIcon);
+      if (backupChoice.hidden) backupSource.removeAttribute('href');
+      else backupSource.href = 'https://icons.duckduckgo.com/ip3/' + encodeURIComponent(host) + '.ico';
+
       downloadHint.hidden = !origin;
-      if (!origin) {
-        iconSource.removeAttribute('href');
-        return;
-      }
-      if (favicon?.startsWith('/icons/')) resolvedIcon = favicon;
-      iconSource.href = resolvedIcon || origin + '/favicon.ico';
+      if (origin) iconSource.href = resolvedIcon || origin + '/favicon.ico';
+      else iconSource.removeAttribute('href');
     };
     let request;
     let upload;

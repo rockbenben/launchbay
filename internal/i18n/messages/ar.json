@@ -173,6 +173,7 @@
   "app.icon.httpOnly": "أدخل عنوان HTTP أو HTTPS كاملاً.",
   "app.icon.upload": "رفع أيقونة…",
   "app.icon.find": "البحث عن أيقونة الموقع",
+  "app.icon.backup": "أيقونة بديلة (DuckDuckGo)",
   "app.icon.downloadHint": "احفظ الصورة ثم اختر «رفع أيقونة…».",
   "app.icon.custom": "أيقونة مخصّصة",
   "app.icon.uploadError": "تعذّر قراءة الصورة. اختر ملف PNG أو JPEG أو WebP أو GIF أو ICO أو SVG بحجم لا يتجاوز 4 ميغابايت.",

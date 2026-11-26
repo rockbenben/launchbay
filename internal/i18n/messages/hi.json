@@ -173,6 +173,7 @@
   "app.icon.httpOnly": "पूरा HTTP या HTTPS पता डालें।",
   "app.icon.upload": "आइकन अपलोड करें…",
   "app.icon.find": "वेबसाइट का आइकन ढूँढें",
+  "app.icon.backup": "वैकल्पिक आइकन (DuckDuckGo)",
   "app.icon.downloadHint": "चित्र सहेजें, फिर «आइकन अपलोड करें…» चुनें।",
   "app.icon.custom": "कस्टम आइकन",
   "app.icon.uploadError": "चित्र पढ़ा नहीं जा सका। 4 एमबी तक की PNG, JPEG, WebP, GIF, ICO या SVG फ़ाइल चुनें।",
