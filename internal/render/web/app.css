@@ -1,5 +1,13 @@
 /* Launchbay app.css — Crisp Studio interaction & overlay layer. */
 
+:is(.header-action,.grp-add,.layoutbtn,.grp-empty-add):disabled{visibility:hidden}
+.search-key{display:none;visibility:hidden}
+.bookmark-header:has(#lb-add:enabled) .search-key{visibility:visible}
+@media (hover:hover) and (pointer:fine) and (min-width:861px){
+  .search:not(:focus-within) .search-key{display:block;color:var(--ink2);padding:1px 6px;
+    border:1px solid var(--line);border-radius:6px;background:var(--surface);font:inherit;font-size:12px;margin-inline-end:4px}
+}
+
 /* 44px Rule #5 */
 .fld{display:block;width:100%;margin-top:4px;padding:8px 10px;
   font:inherit;font-size:14px;color:var(--ink);background:var(--surface);
@@ -221,6 +229,9 @@ body[data-multi] #lb-banner{bottom:88px}
   background:transparent;border:1px solid var(--warn);border-radius:8px;padding:6px 10px;cursor:pointer;flex:0 0 auto;white-space:nowrap}
 #lb-banner>span{min-width:0}
 
+#lb-connection{max-width:1600px;margin:0 auto 16px;padding-inline:16px}
+#lb-connection:empty{display:none}
+#lb-queue{margin-top:8px}
 .qlist{margin:8px 0 0;padding:0;display:grid;gap:6px}
 .qlist li{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .qlist b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

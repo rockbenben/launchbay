@@ -244,7 +244,10 @@
      磁盘上的标题一个字都没改，拆成两半只是为了读起来有层级（exec.go 的
      pathSplit，判据只有那一份）；title 属性仍挂全名，截断与悬停都不丢信息。 */}}
 <section aria-labelledby="g-{{.ID}}" data-gid="{{.ID}}" data-layout="{{.Layout}}" data-depth="{{.Depth}}"{{if .AccentCSS}} style="--sec-accent:{{.AccentCSS}};--d:{{.Depth}}"{{else}} style="--d:{{.Depth}}"{{end}}>
-  <h2 id="g-{{.ID}}" tabindex="-1" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span></h2>
+  <h2 id="g-{{.ID}}" tabindex="-1" data-group="{{.ID}}" title="{{.Title}}">{{with .Parents}}<span class="sec-path">{{.}} /</span>{{end}}<span class="sec-leaf">{{.Leaf}}</span>
+    <button type="button" class="grp-add" disabled>+</button>
+    <button type="button" class="layoutbtn" disabled>{{if eq .Layout "tiles"}}▦{{else}}☰{{end}}</button>
+  </h2>
   <ul class="{{if eq .Layout "tiles"}}tiles{{else}}rows{{end}}">
   {{range .Items}}
     {{/* data-desc / data-alias / data-tags 是给 ⌘K 的那一屏用的：面板从前只比名字与
@@ -336,7 +339,7 @@
        会漂，而它连语言包的 app.* 切片都进不去（app.js 只能读那一片，
        appi18n_test.go 守的就是这条边界）。`hidden` 不与 `.hint` 打架：那条只给
        margin/字号/颜色，不给 display，UA 那句 `display:none` 照样生效。 */}}
-  <p class="hint grp-empty"{{if .Items}} hidden{{end}}>{{$.T "profile.group.empty"}}</p>
+  <p class="hint grp-empty"{{if .Items}} hidden{{end}}>{{$.T "profile.group.empty"}}<button type="button" class="badge grp-empty-add" disabled>+</button></p>
 </section>
 {{end}}
 {{/* 页脚**在正文列里**（2026-10-20 改）：它原来在 .shell 之后，于是落在

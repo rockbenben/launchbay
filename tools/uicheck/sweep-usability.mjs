@@ -41,10 +41,17 @@ try {
     return [x, y, width, height];
   })`;
   const headerActions = `[...document.querySelectorAll('#lb-add, #lb-multi, #lb-theme-quick')]`;
+  const groupBounds = `[...document.querySelectorAll('main section[data-gid]')].map(group => {
+    const heading = group.querySelector('h2').getBoundingClientRect();
+    const items = group.querySelector('ul').getBoundingClientRect();
+    const empty = group.querySelector('.grp-empty').getBoundingClientRect();
+    return [heading.width, heading.height, items.top - heading.top, empty.width, empty.height];
+  })`;
+  const groupActions = `[...document.querySelectorAll('.grp-add, .layoutbtn, .grp-empty-add')]`;
   for (const width of [2560, 390, 1280]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 850, deviceScaleFactor: 1, mobile: width === 390 });
     await send('Emulation.setScriptExecutionDisabled', { value: true });
-    let before;
+    let before, groupsBefore, actionCount;
     try {
       await send('Page.navigate', { url: srv + '/?header-check=before' });
       assert.equal(await waitFor(c, `location.search === '?header-check=before' && document.readyState === 'complete'`), true);
@@ -52,6 +59,10 @@ try {
         Array(3).fill([true, 'hidden']));
       before = await run(bounds);
       assert.equal(before.length, 2);
+      groupsBefore = await run(groupBounds);
+      actionCount = groupsBefore.length * 3;
+      assert.ok(actionCount > 0);
+      assert.equal(await run(`${groupActions}.filter(el => el.disabled && getComputedStyle(el).visibility === 'hidden').length`), actionCount);
     } finally {
       await send('Emulation.setScriptExecutionDisabled', { value: false });
     }
@@ -60,7 +71,26 @@ try {
     assert.deepEqual(await run(`${headerActions}.map(el => [el.disabled, getComputedStyle(el).visibility])`),
       Array(3).fill([false, 'visible']));
     assert.deepEqual(await run(bounds), before, `Search bounds changed at ${width}px`);
-    console.log(`PASS search box and input stayed at the same coordinates at ${width}px`);
+    assert.deepEqual(await run(groupBounds), groupsBefore, `Group heading or empty-state bounds changed at ${width}px`);
+    assert.equal(await run(`${groupActions}.filter(el => !el.disabled && getComputedStyle(el).visibility === 'visible').length`), actionCount);
+    console.log(`PASS search and group layouts stayed stable at ${width}px`);
+
+    try {
+      await send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+      assert.equal(await waitFor(c, `!!document.getElementById('lb-off')`), true);
+      assert.equal(await run(`(() => {
+        const header = document.querySelector('.bookmark-header');
+        const notice = document.getElementById('lb-off');
+        return !header.contains(notice) &&
+          notice.getBoundingClientRect().top >= header.getBoundingClientRect().bottom &&
+          document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+      })()`), true);
+      assert.deepEqual(await run(bounds), before, `Offline notice moved the search box at ${width}px`);
+      console.log(`PASS offline notice stayed below the header without moving search at ${width}px`);
+    } finally {
+      await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    }
+    assert.equal(await waitFor(c, `!document.getElementById('lb-off')`), true);
   }
   assert.equal(await run(`!!document.querySelector('li[data-item] .pick-chk')`), true);
   assert.equal(await run(`!!document.getElementById('lb-theme-quick')`), true);

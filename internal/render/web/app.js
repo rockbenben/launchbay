@@ -2394,6 +2394,8 @@
   //   - **不无限重试**：恢复在线只重放一遍，失败就不再自动来第二次；
   //   - **写失败一律显式报错**，不静默吞。
   const QKEY = 'lb-queue-' + profile;
+  const connection = el('div', { id: 'lb-connection' });
+  header.after(connection);
   const readQueue = () => {
     try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch { return []; }
   };
@@ -2425,7 +2427,7 @@
     if (n && !chip) {
       chip = el('button', { type: 'button', class: 'badge', id: 'lb-q',
         'aria-label': T('app.offline.aria'), on: { click: showQueue } });
-      header.append(chip);
+      connection.append(chip);
     }
     if (chip) chip.textContent = T('app.offline.chip', n);
     if (!n) { closeQueue(); if (chip) chip.remove(); }
@@ -2456,7 +2458,7 @@
     const retry = navigator.onLine
       ? el('button', { type: 'button', class: 'fld', text: T('app.offline.retry'), on: { click: () => { closeQueue(); replay(); } } })
       : null;
-    header.after(el('div', { class: 'notice', id: 'lb-queue', role: 'status' }, [
+    connection.append(el('div', { class: 'notice', id: 'lb-queue', role: 'status' }, [
       ...(retry ? [retry] : []),
       el('p', { text: T('app.offline.list') }), list,
     ]));
@@ -2466,7 +2468,7 @@
     const off = !navigator.onLine;
     const badge = $('#lb-off');
     if (off && !badge) {
-      header.prepend(el('p', { class: 'notice', id: 'lb-off', role: 'status',
+      connection.prepend(el('p', { class: 'notice', id: 'lb-off', role: 'status',
         text: T('app.offline.blocked') }));
     } else if (!off && badge) {
       badge.remove();
@@ -2561,7 +2563,6 @@
     if (done) reloadKeepingPlace();
   }
 
-  paintOnline();
   paintQueue();
   addEventListener('online', () => { paintOnline(); replay(); });
   addEventListener('offline', paintOnline);
@@ -3647,43 +3648,29 @@
     if (!h2) continue;
     const cur = sec.dataset.layout === 'tiles' ? 'tiles' : 'list';
     const other = cur === 'tiles' ? 'list' : 'tiles';
-    const name = groupName(h2) || h2.textContent.trim();
+    const name = groupName(h2);
     const word = T(cur === 'tiles' ? 'app.layout.tiles' : 'app.layout.rows');
     const say = T('app.layout.aria', name, word, T(cur === 'tiles' ? 'app.layout.rows' : 'app.layout.tiles'));
     const gid = sec.dataset.gid;
-    h2.append(el('button', {
-      type: 'button', class: 'grp-add',
-      text: '+', title: T('app.group.addHere', name), 'aria-label': T('app.group.addHere', name),
-      on: {
-        click: (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openSheet(true, gid);
-        },
-      },
-    }));
-    h2.append(el('button', {
-      type: 'button', class: 'layoutbtn',
-      text: cur === 'tiles' ? '▦' : '☰',
-      title: say,
-      'aria-label': say,
-      on: {
-        click: async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const ok = await applyOps([{ op: 'set', path: `groups/${gid}/layout`, value: other }], 'app.ops.layout');
-          if (ok) reloadKeepingPlace();
-        },
-      },
-    }));
-    const emptyP = sec.querySelector(':scope > p.grp-empty');
-    if (emptyP) {
-      emptyP.append(el('button', {
-        type: 'button', class: 'badge grp-empty-add', text: '+',
-        title: T('app.group.addHere', name), 'aria-label': T('app.group.addHere', name),
-        on: { click: () => openSheet(true, gid) },
-      }));
+    const addLabel = T('app.group.addHere', name);
+    for (const button of sec.querySelectorAll('.grp-add,.grp-empty-add')) {
+      button.title = addLabel;
+      button.setAttribute('aria-label', addLabel);
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openSheet(true, gid);
+      });
+      button.disabled = false;
     }
+    const layoutBtn = h2.querySelector('.layoutbtn');
+    layoutBtn.title = say;
+    layoutBtn.setAttribute('aria-label', say);
+    layoutBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const ok = await applyOps([{ op: 'set', path: `groups/${gid}/layout`, value: other }], 'app.ops.layout');
+      if (ok) reloadKeepingPlace();
+    });
+    layoutBtn.disabled = false;
   }
 
   // 侧栏与顶栏当前可视分组高亮
