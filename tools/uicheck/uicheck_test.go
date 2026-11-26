@@ -25,6 +25,7 @@ package uicheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -35,6 +36,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -417,7 +419,25 @@ func browser(t *testing.T, tmp string) string {
 		close(done)
 	}()
 	// 即使启动失败也回收浏览器，顺序排在 t.TempDir 清理之前。
-	t.Cleanup(func() { stopBrowser(cmd.Process, done) })
+	t.Cleanup(func() {
+		stopBrowser(cmd.Process, done)
+		if runtime.GOOS == "windows" {
+			return // testing.TempDir 已经会重试 Windows 上的清理错误。
+		}
+		// Chrome 主进程退出后，子进程仍可能在档案目录写入最后几个文件。
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			err := os.RemoveAll(profile)
+			if err == nil {
+				return
+			}
+			if !errors.Is(err, syscall.ENOTEMPTY) || time.Now().After(deadline) {
+				t.Errorf("清理 Chrome 临时档案失败：%v", err)
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	})
 
 	portFile := filepath.Join(profile, "DevToolsActivePort")
 	tick := time.NewTicker(200 * time.Millisecond)

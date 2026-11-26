@@ -32,6 +32,8 @@ import fs from 'node:fs';
 const stats = { ran: 0, fails: 0 };
 const say = (s) => process.stdout.write(s + '\n');
 const disk = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
+// The harness sets the site language to Simplified Chinese before opening the browser.
+const zh = JSON.parse(fs.readFileSync(new URL('../../internal/i18n/messages/zh.json', import.meta.url), 'utf8'));
 
 await seedFixture(SRV, ADM, WRT);
 const c = await connect(CDP);
@@ -371,7 +373,7 @@ await step('设置面板 → 改自己那道门（不跳走）', async () => {
     if (!st.sheet) problems.push(`第 ${i + 1} 趟之后浮层不见了`);
   }
   if (!states[0].hasOld) problems.push('设上之后「现在的 PIN」那一格没长出来——形状没跟着变');
-  if (!/现在的 PIN 不对/.test(states[1].msg || '')) problems.push(`旧 PIN 填错时浮层里没有那句话：${JSON.stringify(states[1].msg)}`);
+  if (states[1].msg.trim() !== zh['prefs.pin.badOld']) problems.push(`旧 PIN 填错时浮层里没有对应的提示：${JSON.stringify(states[1].msg)}`);
   if (states[2].hasOld) problems.push('取消之后「现在的 PIN」那一格还在——形状没跟着变');
   return problems;
 } });
