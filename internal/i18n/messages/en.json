@@ -172,7 +172,7 @@
   "app.icon.unavailable": "The page was reachable, but its icon could not be retrieved.",
   "app.icon.httpOnly": "Enter a complete HTTP or HTTPS address.",
   "app.icon.upload": "Upload icon…",
-  "app.icon.find": "Find the website icon",
+  "app.icon.find": "Open the icon URL in a new tab",
   "app.icon.backup": "Use backup icon",
   "app.icon.backupError": "No backup icon was available for this site.",
   "app.icon.downloadHint": "Save the image, then choose “Upload icon…”",

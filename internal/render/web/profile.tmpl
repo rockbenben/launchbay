@@ -28,7 +28,7 @@
   {{if .LinkMode}}<span class="badge link-mode" title="{{.T "link.basis"}} · {{.T (printf "link.rule.%s" .LinkRule)}}">{{.T (printf "link.mode.%s" .LinkMode)}}</span>{{end}}
   <form class="search" method="get" action="/" role="search">
     <input type="search" name="q" value="{{.Query}}" aria-label="{{.T "profile.search.aria"}}" placeholder="{{.T "profile.search.placeholder"}}">
-    {{if .Query}}<a href="/" aria-label="{{.T "profile.nomatch.all"}}" title="{{.T "profile.nomatch.all"}}">✕</a>
+    {{if .Query}}<a class="search-clear" href="/" aria-label="{{.T "app.search.clear"}}" title="{{.T "app.search.clear"}}">×</a>
     {{else}}<kbd class="search-key" aria-hidden="true">/</kbd>{{end}}
     {{/* 提交出口是**这个字段的一部分**，不是栏里另一颗按钮（2026-10-15）：从前它带着
          与「＋ 添加」同样的那层框，两颗并排看着像一对等权重的动作键。现在它没有框、
@@ -137,9 +137,8 @@
 {{end}}
 <main role="main" id="main-content" tabindex="-1">
 {{if .Query}}
-  {{if not .Bookmarks.Groups}}<div class="bookmark-state">
+  {{if not (or .Bookmarks.Groups .Featured)}}<div class="bookmark-state search-state">
     <p class="nomatch">{{.T "profile.nomatch" .Query}}</p>
-    <a class="badge" href="/">{{.T "profile.nomatch.all"}}</a>
   </div>{{end}}
 {{else if .Empty}}
   <div class="bookmark-state">
@@ -277,12 +276,7 @@
                判据只有一处：地址取同一个 <code> 的 textContent，与 ⌘K 搜外部
                条目时读的是同一处，模板与脚本都不再抄一份 URL。
 
-               **地址与两枚键同住这一行**（2026-10-13 实拍后改判）。从前是地址一行、
-               复制键在它右端、把手绝对定位在名字行右上角——看起来分处两行就
-               不可能相交，实拍恰恰相反：把手 `top:6px` 高 44px 落到 y 6–50，
-               而第二行从 y 32 起算，**纵向重叠 18px**（用户实拍图：两枚键叠在
-               右下角）。把两枚键收进这一行、地址给它们让出右边，才是真的不相交，
-               而不是"算下来应该不相交"。 */}}
+               复制键留在地址行。编辑键由 bindItem 加在卡片外，卡片内边距为它留出空间。 */}}
           <span class="badge warn ext" title="{{$.T "profile.external.title"}}">{{$.T "profile.external.badge"}}</span>
         </span>
           {{if .Missing}}<span class="badge" data-icon-missing title="{{$.T "profile.icon.title"}}">{{$.T "profile.icon.missing"}}</span>{{end}}

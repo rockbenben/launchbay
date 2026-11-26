@@ -382,6 +382,47 @@ func TestResolve_抓图失败只降级不整体失败(t *testing.T) {
 	}
 }
 
+func TestResolve_DefaultFaviconWhenPageOrDeclaredIconIsUnavailable(t *testing.T) {
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/blocked":
+			http.Error(w, "Forbidden", http.StatusForbidden)
+		case "/broken-icon":
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<title>Example</title><link rel="icon" href="/missing.ico">`))
+		case "/favicon.ico":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer site.Close()
+	_, h := setupBatch(t)
+	for _, tc := range []struct {
+		path  string
+		title string
+	}{
+		{"/blocked", ""},
+		{"/broken-icon", "Example"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			body, err := json.Marshal(resolveRequest{URL: site.URL + tc.path, Profile: "dad", RefreshIcon: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec := doResolve(t, h, body, dadTok)
+			var got resolveResponse
+			if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+				t.Fatalf("resolve %d: %s", rec.Code, rec.Body)
+			}
+			if got.Favicon == nil || !strings.HasSuffix(*got.Favicon, ".png") || got.Title != tc.title {
+				t.Fatalf("unexpected resolve result: %s", rec.Body)
+			}
+		})
+	}
+}
+
 func TestResolve_resolve不写书签不写历史(t *testing.T) {
 	// 夹具必须走真正 Put 成功落盘的那条通路（apple-touch-icon 声明 + 桩站真
 	// 供图）：MarkFail 分支只写索引、不碰 blob，拿它当证人的话，真正往盘上

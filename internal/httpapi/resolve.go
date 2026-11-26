@@ -94,13 +94,21 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, finalURL, err := s.deps.Fetch.Page(in.URL)
-	if err != nil {
+	var page icons.Page
+	if err == nil {
+		page = icons.Extract(body, finalURL)
+	}
+	var favicon string
+	// A site can block the HTML page while still serving its favicon.
+	if err == nil || in.RefreshIcon {
+		favicon = s.resolveFavicon(in.URL, page, in.RefreshIcon)
+	}
+	if err != nil && favicon == "" {
 		// 502 而不是 500：失败在目标站点那边。detail 用 sentinel 自带的人话，
 		// 一次都不拼 Go 内部错误——里面会有 URL、实现细节与换行。
 		writeJSON(w, http.StatusBadGateway, errorResponse{Code: 502, Kind: apierr.TargetUnreachable, Detail: resolveDetail(err)})
 		return
 	}
-	page := icons.Extract(body, finalURL)
 	resp := resolveResponse{
 		URL:            in.URL,
 		Title:          page.Title,
@@ -108,9 +116,8 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 		SuggestedGroup: suggestGroup(snap.B, in.URL, page.Title),
 		IconCandidates: iconCandidates(s.deps.Icons, in.URL, page.Title),
 	}
-	if fav := s.resolveFavicon(in.URL, page, in.RefreshIcon); fav != "" {
-		f := fav
-		resp.Favicon = &f
+	if favicon != "" {
+		resp.Favicon = &favicon
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -142,13 +149,17 @@ func (s *Server) resolveFavicon(rawURL string, page icons.Page, refresh bool) st
 		}
 	}
 	candidate := page.Favicon
+	defaultIcon := origin + "/favicon.ico"
 	if candidate == "" {
 		// 没写 link 标签就按约定路径试一次：内网服务十有八九挂着
 		// /favicon.ico 而不在 HTML 里声明它（spec §5 那句"内网服务普遍没
 		// favicon"说的正是这批，试一次的成本比让家里人自己填低）。
-		candidate = origin + "/favicon.ico"
+		candidate = defaultIcon
 	}
 	data, ext, err := s.deps.Fetch.Image(candidate)
+	if err != nil && candidate != defaultIcon {
+		data, ext, err = s.deps.Fetch.Image(defaultIcon)
+	}
 	if err != nil {
 		if markErr := s.deps.Cache.MarkFail(origin); markErr != nil {
 			// 冷却记不下去，下次 resolve 还会重抓一次：可接受的退化，

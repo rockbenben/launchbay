@@ -90,7 +90,7 @@ func localizedAppScripts(code []byte) (map[i18n.Lang]appScript, map[string][]byt
 		cat := i18n.Load(lang)
 		msgs := make(map[string]string)
 		for _, key := range cat.Keys() {
-			if strings.HasPrefix(key, "app.") {
+			if strings.HasPrefix(key, "app.") || key == "profile.nomatch" {
 				msgs[key] = cat.T(key)
 			}
 		}

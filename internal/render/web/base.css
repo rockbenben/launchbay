@@ -167,11 +167,11 @@ body:not([data-searching]) .tiles .tags-row{display:none}
 
 .plain .addr{order:2;flex:1 0 100%;display:flex;align-items:center;gap:4px;min-width:0;margin-top:4px}
 .plain .addr>code{flex:1 1 0;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.plain .addr>.copybtn,.plain .addr>.pencil{flex:0 0 32px}
+.plain .addr>.copybtn{flex:0 0 32px}
 
 .tiles .card:not(.plain){display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:start}
 .tiles .card:not(.plain)>.ic-box{grid-column:1;grid-row:1 / span 2}
-.tiles .card:not(.plain)>b{grid-column:2;grid-row:1;padding-top:1px;padding-right:32px;white-space:normal;
+.tiles .card:not(.plain)>b{grid-column:2;grid-row:1;padding-top:1px;white-space:normal;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tiles .card:not(.plain)>i{grid-column:2;grid-row:2;margin-left:0;max-width:none;text-align:left}
 .tiles .card:not(.plain)>.tags-row{grid-column:2;grid-row:3;margin-top:4px;margin-left:0}
@@ -208,8 +208,6 @@ body:not([data-searching]) .tiles .tags-row{display:none}
     border:1px solid transparent;background:none;box-shadow:none}
   [data-profile-view=dense] .card:hover{transform:none;border-color:var(--line);background:var(--card-hi)}
   [data-profile-view=dense] .card i,[data-profile-view=dense] .tags-row{display:none}
-  [data-profile-view=dense] .pencil:not(.feat-card .pencil){position:static;top:auto;right:auto;margin-left:auto}
-  [data-profile-view=dense] .card:not(.feat-card) b{padding-right:0}
   [data-profile-view=dense] .addr{padding:0}
   [data-profile-view=dense] .ic-box{width:18px;height:18px;border-radius:4px;border:0;background:none;grid-row:auto}
   [data-profile-view=dense] .ic,[data-profile-view=dense] .ic-img,
@@ -708,10 +706,17 @@ footer p{margin:0}
   border:1px solid var(--line-s);border-radius:12px;background:var(--card);box-shadow:var(--sh);
   transition:border-color .15s ease,box-shadow .15s ease}
 .bookmark-header .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+@media (forced-colors:active){
+  .bookmark-header .search:has(input:focus-visible){outline:2px solid Highlight;outline-offset:2px}
+}
 .bookmark-header .search input{border:0;padding-inline:12px;background:transparent}
+.bookmark-header .search input:focus-visible{outline:none}
 .bookmark-header .search-go{border-radius:10px}
-.bookmark-header .search a{flex:0 0 44px;align-self:stretch}
-.bookmark-header .search:has(>a) input::-webkit-search-cancel-button{display:none}
+.bookmark-header .search .search-clear{display:grid;place-items:center;flex:0 0 32px;align-self:stretch;
+  padding:0;border:0;border-radius:8px;background:transparent;color:var(--ink2);box-shadow:none}
+.bookmark-header .search .search-clear:hover{color:var(--ink);background:var(--card-hi)}
+.bookmark-header .search .search-clear[hidden]{display:none}
+.bookmark-header .search:has(.search-clear) input::-webkit-search-cancel-button{display:none}
 .bookmark-header .add{white-space:nowrap;font-weight:500;background:var(--card);color:var(--ink);border-color:var(--line-s)}
 .bookmark-header .add:hover{background:var(--card-hi);border-color:var(--accent);color:var(--accent)}
 .bookmark-header nav{flex:0 1 auto;min-width:0;flex-wrap:wrap;gap:6px;margin-inline-start:auto}
@@ -727,6 +732,8 @@ body:not([data-profile-view=dense]) .shell>main section>h2{color:var(--ink);font
 .bookmark-state h2{color:var(--ink);font-size:clamp(19px,1rem + 1vw,24px)}
 .bookmark-state h2::before{display:none}
 .bookmark-state .nomatch{margin-top:0;color:var(--ink);font-weight:600}
+.search-state{width:min(100%,460px);margin:24px auto;text-align:center;break-inside:avoid}
+.search-state .nomatch{margin:0}
 .bookmark-state .empty-actions{margin:14px 0 10px}
 .bookmark-state [data-add-first]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .bookmark-state [data-add-first]:hover{filter:brightness(.93)}

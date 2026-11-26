@@ -37,7 +37,10 @@ func TestAppI18N_与语言包逐条一致(t *testing.T) {
 				t.Fatal(err)
 			}
 			cat := i18n.Load(lang)
-			count := 0
+			if got["profile.nomatch"] != cat.T("profile.nomatch") {
+				t.Error("实时筛选与服务端搜索的空态文案不一致")
+			}
+			count := 1
 			for _, key := range cat.Keys() {
 				if strings.HasPrefix(key, "app.") {
 					count++

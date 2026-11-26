@@ -113,8 +113,26 @@ try {
   assert.deepEqual(await search('nothing-matches-this-query'), []);
   assert.equal(await ev(`const status = document.querySelector('.live-nomatch [role=status]');
     return status.textContent.includes('nothing-matches-this-query') && getComputedStyle(status).display !== 'none';`), true);
-  await ev(`document.querySelector('.live-nomatch button').click()`);
+  assert.equal(await run(`[...document.querySelectorAll('header .search-clear:not([hidden])')].length`), 1);
+  const cancelSpot = await ev(`
+    const rect = document.activeElement.getBoundingClientRect();
+    return { x: rect.right - 18, y: rect.top + rect.height / 2 };
+  `);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, ...cancelSpot });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, ...cancelSpot });
+  assert.equal(await run(`document.querySelector('header input[type=search]').value`), 'nothing-matches-this-query');
+  assert.equal(await ev(`
+    document.body.dataset.profileView = 'wall';
+    const state = document.querySelector('.live-nomatch');
+    const result = state.getClientRects().length === 1 && getComputedStyle(state).columnSpan === 'all';
+    delete document.body.dataset.profileView;
+    return result;
+  `), true);
+  await ev(`document.querySelector('header .search-clear').click()`);
+  assert.equal(await run(`document.querySelector('.live-nomatch').hidden`), true);
   assert.equal(await run(`document.activeElement.matches('header input[type=search]') && !document.body.hasAttribute('data-searching')`), true);
+  assert.equal(await run(`[...document.querySelectorAll('main li[data-item]')]
+    .every(li => li.querySelector('button.pencil')?.parentElement === li)`), true);
   const groupAdd = 'section[data-gid="list-1"] .grp-add';
   await ev(`const button = document.querySelector('${groupAdd}'); button.focus(); button.click();`);
   assert.equal(await run(`document.getElementById('lb-group').value`), 'list-1');

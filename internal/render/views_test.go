@@ -629,37 +629,17 @@ func TestCSS_交互层的承重规则在场(t *testing.T) {
 		// 行尾，向右那圈落在行外量不到）——差的那一两像素是边界，不是没扩。
 		// **只在粗指针上扩**是这条规则的形状之一：dense 那一档（精确指针专属）
 		// 行高 40px（实测），无条件扩就会盖住相邻那行的把手。
-		"幽灵键命中区撑出边界（粗指针）": `@media (hover:none),(pointer:coarse){`,
-		"幽灵键命中区那一圈":       `.pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}`,
-		// 两枚键的缝给到 12px，否则后画的把手把 4px 那片整段拿走，复制键向右 0px。
-		"幽灵键之间留出扩展的缝": `.plain .pencil,.card .pencil{margin-left:8px}`,
+		"幽灵键命中区撑出边界（粗指针）":  `@media (hover:none),(pointer:coarse){`,
+		"幽灵键命中区那一圈":        `.pencil::before,.copybtn::before{content:"";position:absolute;inset:-6px}`,
+		"外部地址卡为两个触摸目标留出间隔": `li[data-lb-item-bound]>.plain{padding-inline-end:50px}`,
 		// 这一条是**实测**逼出来的：选择器前多打了一个引号（`'.inline-edit .row{`），
 		// 浏览器把整条规则当无效选择器丢掉，`.row` 退回块级——「存」与「取消」各占
 		// 一整行 278px 宽（实测那一行 96px 高，横排后 48px），「删掉这条」再占一行。
 		// CSS 文件读得进来、构建没错、每一颗按钮都还在、只是排成了两行三行——
 		// 所以除了逐字钉，下面另有一道"选择器段里没有游离引号"的形状闸。
-		"编辑态底部那一行是横排": `.inline-edit .row{display:flex;gap:8px}`,
-		// 「点不动那一行」的两枚键（复制 + 编辑）**换了一处，钉的形状也跟着换了**
-		// （2026-10-13 实拍后改判）。从前钉的是「两枚一起待在流里」，理由是写回
-		// 绝对定位时把手压在复制键身上：量到相交 25×42=1050px²，`elementFromPoint`
-		// 打在复制键中心返回 `button.pencil`——想复制，按下的是编辑。那个性交是真的。
-		//
-		// 但那个量**只覆盖了「复制键在行尾」这一种排布**，于是解法选错了：把复制键
-		// 也留在流里，195px 那一档的名字就只剩 42px——「群晖 Drive 外网直连」印成
-		// 「群…」，而同排可点的「管理后台」四个字一个不少。同样的数据、同样的磁贴宽，
-		// 差别只来自那枚点不动的键。
-		//
-		// 现在复制键由 base.css 那组栅格规则搬到**地址那一行**的右端，把手回右上角，
-		// 两枚键分处两行、不可能相交；那组规则由 base.css 侧逐字钉。这里钉的是
-		// **`.card` 独占的那半条 padding**：`.plain` 的第三列本来就是空的、就是把手
-		// 的停车位，名字让到它左边就够——两边都让就是让两遍，实拍把名字又压回 55px。
-		// 写成 `.tiles .card b,.tiles .plain b` 时这条闸是绿的而名字仍然是「群…」，
-		// 正是它该红的时候（别把它"顺手统一"回去）。
-		"可点那一行的名字让出右上角": `.tiles .card b{padding-right:32px}`,
-		// list 排法（`.rows`）的把手回行尾（2026-10-13 磁贴那一轮漏掉的一条）。
-		// 钉它是因为它**不会红**：少了它，把手只是停在内容后面半路、悬停时浮在
-		// 一行正中间——没有任何功能测试看得出"它没靠右"。
-		"单列那行的把手靠行尾": `.rows .card .pencil{margin-left:auto}`,
+		"编辑态底部那一行是横排":  `.inline-edit .row{display:flex;gap:8px}`,
+		"卡片给编辑键预留行尾空间": `li[data-lb-item-bound]>:is(.card,.plain,.feat-card){padding-inline-end:44px}`,
+		"单列的编辑键在行尾居中":  `.rows li[data-item]>.pencil{inset-block-start:50%;translate:0 -50%}`,
 		// 编辑面板改成模态族之后，"表单比视口高"这件事由 `.sheet` 的滚动兜着：
 		// 摘掉它，320×480 那一档最后一行「删掉这条」会滚不到（旧版靠
 		// `section:has(.inline-edit)` 与 `top:0;left:0` 两条补丁躲这一枪）。
@@ -1031,7 +1011,7 @@ func checkCSSSpecs(t *testing.T, css string) {
 		"磁贴里的名字第二列":   `.tiles .card:not(.plain)>b{grid-column:2`,
 		"点不动那行改栅格":    `.tiles .plain{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px`,
 		"地址行跨满两列":     `.tiles .plain>.addr{grid-row:2;grid-column:1/-1}`,
-		"两枚键并排在地址行":   `.plain .addr>.copybtn,.plain .addr>.pencil{flex:0 0 32px}`,
+		"复制键留在地址行":    `.plain .addr>.copybtn{flex:0 0 32px}`,
 		// 管理横幅与"两层 sticky 让位"这两格在 2026-10-10 随代管态一起删了，
 		// 对应的 CSS 也清干净了——一条永不触发的规则比没有更糟：它看起来像在那里
 		// 守着。替代它们的是下面那条**导入页的触摸目标**——那一族过去不在名单里，

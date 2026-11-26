@@ -41,7 +41,7 @@ try {
         { op: 'add', path: 'groups/tiles-1/items',
           value: { id: 'site-icon-peer', name: 'Same site', url: address + '/peer', icon: 'auto' } },
         { op: 'add', path: 'groups/tiles-1/items',
-          value: { id: 'backup-icon-test', name: 'Backup icon fixture', url: 'https://example.org/docs?private=1', icon: 'tabler:home' } },
+          value: { id: 'backup-icon-test', name: 'Backup icon fixture', url: 'https://linux.do/docs?private=1', icon: 'tabler:home' } },
       ],
     }),
   });
@@ -136,19 +136,23 @@ try {
     const original = window.fetch;
     window.fallbackRequests = [];
     window.fetch = (path, options) => {
+      if (path === '/api/v1/resolve') return Promise.resolve(Response.json({ kind: 'target-unreachable' }, { status: 502 }));
       if (path !== '/api/v1/icons/fallback') return original(path, options);
       window.fallbackRequests.push(JSON.parse(options.body));
       if (window.fallbackRequests.length === 1) return Promise.resolve(new Response('{}', { status: 502 }));
       return Promise.resolve(Response.json({ image: ${JSON.stringify(fallbackImage)} }));
     };
   }`);
+  await refresh();
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-backup').classList.contains('is-suggested')"), true);
+  assert.equal(await c.run("window.fallbackRequests.length"), 0);
   const clickBackup = () => c.ev(`document.querySelector('${backupButton('.inline-edit')}').click()`);
   await clickBackup();
   assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('未能获取这个网站的备用图标')"), true);
   assert.equal(await c.run("document.getElementById('lb-edit-icon').value"), 'tabler:home');
   await clickBackup();
   assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);
-  assert.equal(await c.run("JSON.stringify(window.fallbackRequests)"), JSON.stringify([{ host: 'example.org' }, { host: 'example.org' }]));
+  assert.equal(await c.run("JSON.stringify(window.fallbackRequests)"), JSON.stringify([{ host: 'linux.do' }, { host: 'linux.do' }]));
   assert.equal(await revision(), rev + 1);
   await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
   assert.equal(await waitFor(c, "document.querySelector('li[data-item=backup-icon-test] .ic-img')?.naturalWidth === 64"), true);

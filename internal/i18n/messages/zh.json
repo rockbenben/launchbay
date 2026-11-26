@@ -172,7 +172,7 @@
   "app.icon.unavailable": "网页可以访问，但未能获取网站图标。",
   "app.icon.httpOnly": "请输入完整的 HTTP 或 HTTPS 地址。",
   "app.icon.upload": "上传图标…",
-  "app.icon.find": "查找网站图标",
+  "app.icon.find": "在新标签页打开图标地址",
   "app.icon.backup": "使用备用图标",
   "app.icon.backupError": "未能获取这个网站的备用图标。",
   "app.icon.downloadHint": "保存图片后，点「上传图标…」。",

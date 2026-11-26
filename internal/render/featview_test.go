@@ -52,13 +52,12 @@ func Test密集档的收窄规则不适用于大卡(t *testing.T) {
 	for _, want := range []string{
 		"[data-profile-view=dense] .card:not(.feat-card)",
 		"[data-profile-view=dense] .plain:not(.feat-card)",
-		"[data-profile-view=dense] .card:not(.feat-card) b{padding-right:0}",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("base.css 里少了 %q：密集档会把带子里那张卡的脸也收掉", want)
 		}
 	}
-	// 反向证人：不收窄的那三句留着的话，带子里两种卡在密集档下长得不一样。
+	// 不收窄的规则会让大卡继承紧凑模式的样式。
 	for _, bad := range []string{
 		"[data-profile-view=dense] .card,[data-profile-view=dense] .plain{",
 		"[data-profile-view=dense] .card b{padding-right:0}",

@@ -314,24 +314,20 @@
       type: 'button', class: 'search-clear', text: '×', hidden: true,
       'aria-label': T('app.search.clear'), title: T('app.search.clear'),
     }) : null;
-    if (clearLive) searchInput.after(clearLive);
-    const resetLiveFilter = () => {
-      searchInput.value = '';
-      runLiveFilter();
-      searchInput.focus();
-    };
-    const status = el('p', { role: 'status' });
-    const clearEmpty = el('button', { type: 'button', class: 'badge', text: T('app.search.clear'),
-      hidden: true, on: { click: resetLiveFilter } });
-    const noMatchBox = el('div', { class: 'live-nomatch' }, [status, clearEmpty]);
-    if (!serverFiltered) $('main').append(noMatchBox);
+    const main = $('#main-content');
+    const status = el('p', { class: 'nomatch', role: 'status' });
+    const noMatchBox = el('div', { class: 'bookmark-state search-state live-nomatch', hidden: true }, [status]);
+    if (clearLive) {
+      searchInput.after(clearLive);
+      main.append(noMatchBox);
+    }
     const runLiveFilter = () => {
       if (serverFiltered) return;
       const raw = searchInput.value.trim();
       const q = raw.toLowerCase();
       if (q) body.dataset.searching = '1';
       else delete body.dataset.searching;
-      if (clearLive) clearLive.hidden = !q;
+      clearLive.hidden = !searchInput.value;
       let shown = 0;
       for (const li of document.querySelectorAll('main li[data-item]')) {
         const hit = !q || itemMatches(li, q);
@@ -352,17 +348,24 @@
         }
         feat.hidden = !!q && ![...feat.querySelectorAll('li[data-item]')].some((li) => !li.hidden);
       }
-      const emptyMessage = q && shown === 0 ? T('app.cmdk.none', raw) : '';
+      const emptyMessage = q && shown === 0 ? T('profile.nomatch', raw) : '';
+      noMatchBox.hidden = !emptyMessage;
       if (status.textContent !== emptyMessage) status.textContent = emptyMessage;
-      noMatchBox.classList.toggle('has-no-matches', !!emptyMessage);
-      clearEmpty.hidden = !emptyMessage;
     };
-    if (clearLive) clearLive.addEventListener('click', resetLiveFilter);
+    clearLive?.addEventListener('click', () => {
+      searchInput.value = '';
+      runLiveFilter();
+      searchInput.focus();
+    });
     searchInput.addEventListener('input', runLiveFilter);
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !composing(e) && searchInput.value) {
         e.preventDefault();
         e.stopPropagation();
+        if (serverFiltered) {
+          searchForm.querySelector('a.search-clear').click();
+          return;
+        }
         searchInput.value = '';
         runLiveFilter();
       }
@@ -1142,10 +1145,11 @@
     const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
     const iconSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.find') });
     const backup = el('button', {
-      type: 'button', class: 'fld', hidden: '', text: T('app.icon.backup'),
+      type: 'button', class: 'fld site-icon-backup', hidden: '', text: T('app.icon.backup'),
       on: { click: () => {
         if (!backupHost || backup.disabled) return;
         const host = backupHost;
+        backup.classList.remove('is-suggested');
         selectImage(async () => {
           const { image } = await api('/api/v1/icons/fallback', { host });
           return renderIconPNG(image);
@@ -1197,6 +1201,7 @@
     const resetSite = () => {
       request = null;
       refresh.disabled = backup.disabled = Boolean(upload);
+      backup.classList.remove('is-suggested');
       showSelected();
     };
     function load(force = false) {
@@ -1210,6 +1215,7 @@
       const current = { url, pending: true };
       request = current;
       refresh.disabled = true;
+      backup.classList.remove('is-suggested');
       status.textContent = T('app.icon.loading');
       const isCurrent = () => request === current && address.value.trim() === url && active();
       current.promise = api('/api/v1/resolve', { url, profile, refreshIcon: force }).then((result) => {
@@ -1221,9 +1227,12 @@
           status.replaceChildren(siteIconImage(result.favicon), T('app.icon.ready'));
         } else {
           status.textContent = T('app.icon.unavailable');
+          backup.classList.toggle('is-suggested', !backup.hidden);
         }
       }).catch((error) => {
-        if (isCurrent()) status.textContent = error.kind === 'target-unreachable' ? T('app.icon.pageDown') : error.message;
+        if (!isCurrent()) return;
+        status.textContent = error.kind === 'target-unreachable' ? T('app.icon.pageDown') : error.message;
+        backup.classList.toggle('is-suggested', error.kind === 'target-unreachable' && !backup.hidden);
       }).finally(() => {
         current.pending = false;
         if (request === current) refresh.disabled = false;
@@ -1285,7 +1294,7 @@
       field: el('div', { class: 'site-icon-field' }, [
         el('label', { text: T('app.field.icon') }, [select]),
         el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose, backup]),
-        fileInput, downloadHint, status,
+        status, fileInput, downloadHint,
       ]),
       syncDownload,
       pending: () => upload?.promise || (request?.pending && request.url === address.value.trim() ? request.promise : null),
@@ -3346,12 +3355,12 @@
     li.prepend(chk);
     const card = li.querySelector('.card, .feat-card, .plain');
     if (!card) return; // 三种形态都不是（坏档那一屏根本没有 li）才真的没有把手
+    const editLabel = T('app.edit.aria', itemName);
     const pencil = el('button', {
-      type: 'button', class: 'pencil', text: '✎', 'aria-label': T('app.edit.aria', itemName),
-      on: { click: (e) => { e.preventDefault(); editItem(li); } },
+      type: 'button', class: 'pencil', text: '✎', 'aria-label': editLabel, title: editLabel,
+      on: { click: () => editItem(li) },
     });
-    const keys = card.querySelector('.addr') || card;
-    keys.append(pencil);
+    li.append(pencil);
     card.setAttribute('draggable', 'true');
   }
   for (const li of document.querySelectorAll('li[data-item]')) bindItem(li);
