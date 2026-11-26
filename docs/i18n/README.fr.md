@@ -2,37 +2,17 @@
 
 > Tous les favoris que vous avez oubliés, sur une seule page — auto-hébergé, hors ligne, sans inscription.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Démarrage rapide](#démarrage-rapide) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Démarrage rapide](#démarrage-rapide) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · **Français** · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![Page de profil launchbay : recherche dans la barre supérieure, groupes en barre latérale et tuiles](../../docs/home-1280.en.webp)
+![Page de profil launchbay : recherche dans la barre supérieure, groupes en barre latérale et tuiles](../../docs/home-1280.fr.webp)
 
 Rassemblez sur une seule page toutes les adresses que vous n'arrivez jamais à retenir : l'administration du NAS, le routeur, l'intranet de l'entreprise, le tableau de bord de surveillance. Faites-en la page d'accueil de votre navigateur — **un clic, aucun temps d'attente.**
 
 L'application tourne sur votre propre machine — un NAS domestique, un Raspberry Pi, un routeur ou un serveur sur le réseau local de l'entreprise — de sorte que vos favoris ne touchent jamais les serveurs de quelqu'un d'autre.
-
-## Pourquoi launchbay
-
-La plupart des outils de gestion de favoris se distinguent sur quatre points : à qui appartient le serveur hébergeant les données, comment un foyer les partage, si cela fonctionne hors ligne et si l'on peut organiser ses liens par glisser-déposer.
-
-| Critère de comparaison | Favoris intégrés du navigateur | Services de favoris dans le cloud | launchbay |
-|---|---|---|---|
-| Où sont les données | Dans votre profil de navigateur, lié à votre compte | Sur les serveurs du fournisseur | **Votre propre machine** |
-| Une session par personne | Via les profils du navigateur | Par compte | **Chacun le sien, séparés sur le serveur** |
-| Hors ligne | Uniquement en local | Ne fonctionne pas | **Cache + file d'attente hors ligne** |
-| Organisation par glisser-déposer | Arborescence de dossiers, pas une mise en page | La plupart non | **Déposer pour enregistrer, glisser pour réordonner** |
-| Qui d'autre peut lire | Votre compte de navigateur | Le fournisseur | **Personne via l'application** |
-
-Aucun compte, aucun script tiers, aucune télémétrie. Les seules requêtes externes servent à récupérer la page que vous ajoutez (pour son titre) et son favicon ; la récupération d'un favicon échoué est suspendue pendant 24 heures.
-
-**Si vous êtes seul à l'utiliser, les favoris intégrés de votre navigateur suffisent probablement.** launchbay apporte trois atouts décisifs :
-
-- **Ouverture instantanée.** La page est rendue côté serveur : les favoris et leurs icônes sont présents dans le HTML avant même qu'un script ne s'exécute. L'objectif est un LCP premier affichage en réseau local < 300 ms ; un démarrage à froid sur un NAS réel n'a pas encore été mesuré (voir [Limites](#limites)).
-- **Chacun son espace, invisible pour les autres.** Chaque profil peut avoir son propre code PIN de 4 à 6 chiffres. L'administrateur peut créer, supprimer et réinitialiser les codes PIN, mais tous les points de terminaison de contenu refusent la clé d'administration avec une erreur 403 — il n'y a **aucune route** pour lire vos favoris. Il ne s'agit pas d'une protection cryptographique contre l'administrateur ou le réseau local (n'importe qui sur le LAN peut modifier un cookie), mais de la garantie que le serveur sépare strictement les profils.
-- **Toute fausse manipulation est réversible.** Chaque modification par lot enregistre d'abord un instantané. L'option « Revenir » indique combien de favoris et quels groupes contenait chaque version antérieure, et conserve la version actuelle avant restauration — ainsi, un retour arrière effectué par erreur peut lui-même être annulé. L'historique est conservé et n'est jamais effacé : chaque ligne indique qui a modifié ce profil, quand, par quel moyen (page web, IA, extension, CLI) et quelle entrée — sans jamais dévoiler le contenu.
 
 ## Ce qu'il couvre
 
@@ -44,7 +24,7 @@ Aucun compte, aucun script tiers, aucune télémétrie. Les seules requêtes ext
 | Navigateurs | Tout navigateur moderne ; même sans JavaScript, chaque favori reste visible et cliquable |
 | Ce qu'il faut installer | Seulement Docker : aucune bibliothèque tierce, aucune base de données, pas de Node au moment du build |
 | Où sont les données | Un répertoire ordinaire, `data/` ; faire une sauvegarde consiste simplement à le copier |
-| Langue de l'interface | 4 langues d'interface (chinois simplifié, chinois traditionnel, anglais, arabe RTL) ; choisissez la valeur par défaut lors de la configuration, puis chaque profil choisit la sienne |
+| Langue de l'interface | 18 langues d’interface, indiquées ci-dessus. Chaque profil peut choisir la sienne. |
 
 ## Ce qu'il fait
 
@@ -71,12 +51,26 @@ Aucun compte, aucun script tiers, aucune télémétrie. Les seules requêtes ext
 - **Un panneau de paramètres unique** : barre supérieure → Paramètres. Il rassemble l'apparence et la langue, la liste des groupes, la sauvegarde et l'historique, ainsi que **Mon code PIN** — pour verrouiller ou déverrouiller votre profil sans dépendre de l'administrateur.
 - **Fonctionne hors ligne** : la dernière page consultée reste en cache, et les favoris ajoutés hors ligne — ou lorsque la machine est éteinte — sont mis en file d'attente puis rejoués dès que le navigateur se reconnecte ; cliquez sur **Envoyer maintenant** si le serveur était temporairement indisponible.
 - **Clés dédiées pour les scripts et l'IA** : une API REST avec des jetons restreints au profil pour l'extension, la CLI et l'automatisation. Un jeton tentant d'accéder à un autre profil reçoit une erreur 403.
+- Restaurez les versions précédentes de vos favoris depuis les paramètres de sauvegarde et d’historique.
 
 ## Démarrage rapide
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Avant le démarrage, définissez votre propre `LAUNCHBAY_ADMIN_TOKEN` dans `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Ouvrez **http://<adresse LAN de cette machine>:7600** depuis n'importe quel appa
 
 L'image est étiquetée `:latest` ; la première commande `up` télécharge la version la plus récente. Une machine déjà en fonctionnement conserve son image locale : lancez d'abord `docker compose pull` pour mettre à jour.
 
-> **Changez impérativement la clé d'administration par défaut.** Le fichier compose fournit `launchbay123`, qui est publique. Toute personne sur votre réseau local connaissant cette clé peut créer ou supprimer des profils et réinitialiser les codes PIN (sans pouvoir lire les favoris). Définissez votre propre valeur dans `LAUNCHBAY_ADMIN_TOKEN` puis relancez `docker compose up -d` :
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "votre-propre-cle-admin"
-> ```
-
-Le premier accès affiche la page de configuration initiale : nommez le premier profil et définissez un code PIN de 4 à 6 chiffres. Il n'existe aucun identifiant par défaut, et la page de configuration se verrouille définitivement dès qu'un profil est créé.
+Le premier accès affiche la page de configuration initiale : nommez le premier profil et définissez un code PIN de 4 à 6 chiffres. Il n'existe aucun identifiant par défaut, et la page de configuration se verrouille définitivement dès qu'un profil est créé. Ouvrez le profil et ajoutez votre premier favori.
 
 **« Pas de code PIN » est une case à cocher explicite, pas un champ laissé vide.** Laisser le champ du code PIN vide est refusé ; cocher **Pas de code PIN** crée un profil accessible à tous sur le réseau local. Ce choix est délibéré : l'erreur coûteuse consisterait à taper trois chiffres et appuyer par inadvertance sur Entrée, publiant silencieusement les favoris personnels sur tout le réseau de la maison. Un profil sans code PIN n'affiche pas de champ PIN sur la page de sélection. Vous pourrez ajouter ou retirer ce verrou ultérieurement dans **Mon code PIN** ; le retrait n'exige l'ancien code que si un code est actuellement défini.
 
@@ -197,7 +185,7 @@ Les sauvegardes excluent le code PIN, l'identité du profil et l'image d'arrièr
 
 ## D'où vient l'image
 
-compose se contente de télécharger une image publiée ; la compilation relève de l'intégration continue (CI). Dès qu'un tag `v*` est posé (ou le workflow déclenché manuellement), `.github/workflows/docker.yml` compile les versions amd64 et arm64 et les publie sur Docker Hub et GHCR. Les tags de version sont `<version>`, `<major>.<minor>` et `<major>` (actuellement `0.4.0` / `0.4` / `0`), complétés par `latest` et le hash court du commit ; le numéro de version de l'image est exclusivement déterminé par le tag Git.
+compose se contente de télécharger une image publiée ; la compilation relève de l'intégration continue (CI). Dès qu'un tag `v*` est posé (ou le workflow déclenché manuellement), `.github/workflows/docker.yml` compile les versions amd64 et arm64 et les publie sur Docker Hub et GHCR. Les tags de version sont `<version>`, `<major>.<minor>` et `<major>`, complétés par `latest` et le hash court du commit ; le numéro de version de l'image est exclusivement déterminé par le tag Git.
 
 Pour lancer le service sans cloner le dépôt, démarrez directement l'image :
 
@@ -205,7 +193,6 @@ Pour lancer le service sans cloner le dépôt, démarrez directement l'image :
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="votre-propre-cle-admin" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:votre-propre-cle:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

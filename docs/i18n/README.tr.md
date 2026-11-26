@@ -2,37 +2,17 @@
 
 > Kaydettiğinizi unuttuğunuz her yer işareti tek bir sayfada — kendi sunucunuzda, çevrimdışı çalışır, kayıt gerektirmez.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Hızlı başlangıç](#hızlı-başlangıç) · [⬇ Sürümler](https://github.com/rockbenben/launchbay/releases)
+[▶ Hızlı başlangıç](#hızlı-başlangıç) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · **Türkçe** · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![launchbay profil sayfası: üst çubukta arama, kenar çubuğunda gruplar ve kutucuk kartları](../../docs/home-1280.en.webp)
+![launchbay profil sayfası: üst çubukta arama, kenar çubuğunda gruplar ve kutucuk kartları](../../docs/home-1280.tr.webp)
 
 Asla aklınızda tutamadığınız adresleri tek bir sayfaya toplayın: NAS yönetim paneli, yönlendirici, şirket içi intranet, izleme panosu. Bunu tarayıcınızın ana sayfası yapın — **tek tık, bekleme yok.**
 
 Kendi makinenizde çalışır — evdeki bir NAS, Raspberry Pi, yazılımsal yönlendirici veya şirket intranetindeki bir sunucu — böylece yer işaretleriniz asla başkasının sunucusuna gitmez.
-
-## Neden launchbay
-
-Çoğu yer işareti aracı dört temel noktada farklılaşır: verilerin kimin sunucusunda durduğu, bir evin bunu nasıl paylaştığı, çevrimdışı çalışıp çalışmadığı ve sürükleyerek düzenlenip düzenlenemediği.
-
-| Karşılaştırma | Tarayıcının kendi yer imleri | Bulut yer imi servisi | launchbay |
-|---|---|---|---|
-| Veriler nerede durur | Tarayıcı profilinizde, hesabınızı takip eder | Sağlayıcının sunucularında | **Kendi makinenizde** |
-| Kişi başına bir tane | Tarayıcı profilleri üzerinden | Hesap başına | **Herkese birer tane, sunucuda ayrı tutulur** |
-| Çevrimdışı | Yalnızca yerel | Çalışmaz | **Önbellek + çevrimdışı kuyruk** |
-| Sürükleyerek düzenleme | Bir klasör ağacı, düzenli bir sayfa değil | Çoğunlukla hayır | **Bırak kaydolsun, sürükle sıralansın** |
-| Başka kim okuyabilir | Tarayıcı hesabınız | Sağlayıcı | **Uygulama üzerinden hiç kimse** |
-
-Hesap yok, üçüncü taraf komut dosyası yok, telemetri yok. Dışarıya yapılan tek istek, eklediğiniz sayfayı (başlığını almak için) ve favicon'unu çekmektir; başarısız olan simge çekme işlemi 24 saat boyunca bekletilir.
-
-**Yalnızca tek bir kişiyseniz, tarayıcının kendi yer işaretleri sayfası muhtemelen yeterlidir.** launchbay bunun karşılığında üç avantaj sunar:
-
-- **Açılışta bekleme yapmaz.** Sayfa sunucu tarafında işlenir: yer işaretleri ve simgeleri herhangi bir betik çalışmadan önce HTML'de hazırdır. Hedef, yerel ağda ilk boyama (LCP) süresinin 300 ms'nin altında olmasıdır; gerçek bir NAS üzerindeki soğuk başlatma henüz ölçülmemiştir (bkz. [Sınırlar](#sınırlar)).
-- **Herkese ayrı bir profil, kimse başkasını görmez.** Her profilin kendine ait 4–6 haneli bir PIN kodu olabilir. Yönetici profil oluşturabilir, silebilir ve PIN sıfırlayabilir; ancak tüm içerik uç noktaları yönetici anahtarını 403 ile reddeder — yer işaretlerinize giden **hiçbir rota yoktur**. Bu, yöneticiye veya yerel ağa karşı bir kriptografi değildir (yerel ağdaki herkes bir çerezi değiştirebilir); sunucunun profilleri birbirinden ayrı tutmasıdır.
-- **Hatalar geri alınabilir.** Her toplu değişiklikten önce bir anlık görüntü alınır. Geri al özelliği, her eski sürümde kaç yer işareti ve hangi grupların olduğunu gösterir ve geri yüklemeden önce mevcut sürümü kaydeder — böylece yanlış yapılan bir geri alma işlemi de geri alınabilir. Geçmiş saklanır, asla silinmez: her satır bu profile kimin, ne zaman, hangi yolla (web sayfası, yapay zeka, uzantı, CLI) dokunduğunu ve hangi kaydı değiştirdiğini yazar — asla içeriği kaydetmez.
 
 ## Neleri kapsar
 
@@ -44,7 +24,7 @@ Hesap yok, üçüncü taraf komut dosyası yok, telemetri yok. Dışarıya yapı
 | Tarayıcılar | Tüm modern tarayıcılar; JavaScript kapalıyken bile tüm yer işaretleri görünür ve tıklanabilir durumdadır |
 | Ne kurulur | Yalnızca Docker: üçüncü taraf kütüphane yok, veritabanı yok, derleme aşamasında Node yok |
 | Veriler nerede durur | Sıradan bir dizinde, `data/`; yedekleme sadece bu dizini kopyalamaktan ibarettir |
-| Arayüz dili | 4 arayüz dili (Basitleştirilmiş Çince, Geleneksel Çince, İngilizce, Arapça RTL); kurulumda makine varsayılanı seçilir, ardından her profil kendi dilini seçebilir |
+| Arayüz dili | Arayüz, yukarıda listelenen 18 dili destekler. Her profil kendi dilini seçebilir. |
 
 ## Neler yapabilir
 
@@ -71,12 +51,26 @@ Hesap yok, üçüncü taraf komut dosyası yok, telemetri yok. Dışarıya yapı
 - **Tek bir ayarlar paneli**: üst çubuk → Ayarlar. Sayfanın görünümünü ve dilini, grup listesini, yedekleme ve geçmişi ve **PIN'im** bölümünü barındırır — yöneticiden bağımsız olarak kendi profilinizi kilitleyin veya kilidini açın.
 - **Çevrimdışı çalışır**: son sayfa önbelleğe alınır ve çevrimdışıyken — veya makine kapalıyken — eklenen yer işaretleri kuyruğa alınır ve tarayıcı yeniden bağlandığında iletilir; sunucunun kendisi kapalıysa **Send now** («Şimdi gönder») seçeneğine basın.
 - **Betikler ve yapay zeka kendi anahtarlarına sahiptir**: uzantı, CLI ve otomasyon için bir REST API ve profil kapsamlı belirteçler. Kendi profilinin dışına çıkmaya çalışan bir belirteç 403 alır.
+- Önceki yer işareti sürümlerini ayarlardaki yedekleme ve geçmiş bölümünden geri yükleyin.
 
 ## Hızlı başlangıç
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Başlatmadan önce `docker-compose.yml` dosyasında kendi `LAUNCHBAY_ADMIN_TOKEN` değerinizi belirleyin.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Yerel ağdaki herhangi bir cihazdan **http://<bu makinenin yerel ağ adresi>:760
 
 İmaj etiketi `:latest` şeklindedir; ilk `up` komutu en yeni sürümü çeker. Zaten çalışan bir makine yerel imajını korur, bu nedenle güncellemek için önce `docker compose pull` çalıştırın.
 
-> **Önce varsayılan yönetici anahtarını değiştirin.** compose dosyası herkese açık olan `launchbay123` anahtarıyla gelir. Yerel ağınızda bunu bilen herkes profil oluşturabilir, silebilir ve PIN'leri sıfırlayabilir (yine de yer işaretlerini okuyamazlar). Kendi anahtarınızı `LAUNCHBAY_ADMIN_TOKEN` içine yazın ve `docker compose up -d` komutunu yeniden çalıştırın:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "your-own-admin-key"
-> ```
-
-İlk açılışta tek seferlik kurulum sayfasına yönlendirilirsiniz: ilk profile bir isim verin ve 4–6 haneli bir PIN belirleyin. Varsayılan kimlik bilgileri yoktur ve herhangi bir profil oluşturulduktan sonra kurulum sayfası tamamen kapanır.
+İlk açılışta tek seferlik kurulum sayfasına yönlendirilirsiniz: ilk profile bir isim verin ve 4–6 haneli bir PIN belirleyin. Varsayılan kimlik bilgileri yoktur ve herhangi bir profil oluşturulduktan sonra kurulum sayfası tamamen kapanır. Profili açıp ilk yer işaretinizi kaydedin.
 
 **"PIN yok" seçeneği ayrı bir onay kutusudur, boş bırakılan bir kutu değildir.** PIN alanını boş bırakmak reddedilir; **PIN yok** seçeneğini işaretlemek yerel ağdaki herkese açık bir profil oluşturur. Bu bilinçli bir tercihtir — tehlikeli hata üç basamak yazıp Enter'a basmaktır ve bu durum bir kişinin yer işaretlerini tüm eve sessizce açardı. PIN'i olmayan bir profil, seçim sayfasında PIN kutusu göstermez. Daha sonra **PIN'im** bölümünden bir PIN ekleyebilir veya kaldırabilirsiniz; kaldırmak için eski PIN yalnızca bir PIN ayarlanmışken gereklidir.
 
@@ -197,7 +185,7 @@ Yedeklemeler PIN'i, profil kimliğini ve arka plan resmini hariç tutar. Yer iş
 
 ## İmaj nereden gelir
 
-compose yalnızca yayınlanmış bir imajı çeker; derleme CI'ın görevidir. Bir `v*` etiketlendiğinde (veya iş akışı tetiklendiğinde), `.github/workflows/docker.yml` Docker Hub ve GHCR için amd64 ve arm64 sürümlerini derler. Yayın etiketleri `<version>`, `<major>.<minor>` ve `<major>` (şu an `0.4.0` / `0.4` / `0`), artı `latest` ve commit sha biçimindedir; imaj sürümü yalnızca git etiketinden gelir.
+compose yalnızca yayınlanmış bir imajı çeker; derleme CI'ın görevidir. Bir `v*` etiketlendiğinde (veya iş akışı tetiklendiğinde), `.github/workflows/docker.yml` Docker Hub ve GHCR için amd64 ve arm64 sürümlerini derler. Yayın etiketleri `<version>`, `<major>.<minor>` ve `<major>`, artı `latest` ve commit sha biçimindedir; imaj sürümü yalnızca git etiketinden gelir.
 
 Klonlama adımını atlamak için imajı doğrudan çekebilirsiniz:
 
@@ -205,7 +193,6 @@ Klonlama adımını atlamak için imajı doğrudan çekebilirsiniz:
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="your-own-admin-key" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:your-own-key:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

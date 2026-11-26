@@ -1,50 +1,28 @@
 # launchbay
 
-> 一打开主页，书签就都在一页上；跑在自己机器上，不用注册，断网也能用。
+> 把 NAS、路由器和浏览器书签放在同一页。Docker 自托管。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 开源计划 #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](LICENSE) [![365 开源计划 #042](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ 快速开始](#快速开始) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ 快速开始](#快速开始) · [Docker 镜像](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](README.md) · **简体中文** · [繁體中文](docs/i18n/README.zh-Hant.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Español](docs/i18n/README.es.md) · [Português](docs/i18n/README.pt.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Italiano](docs/i18n/README.it.md) · [Русский](docs/i18n/README.ru.md) · [العربية](docs/i18n/README.ar.md) · [हिन्दी](docs/i18n/README.hi.md) · [বাংলা](docs/i18n/README.bn.md) · [ไทย](docs/i18n/README.th.md) · [Türkçe](docs/i18n/README.tr.md) · [Tiếng Việt](docs/i18n/README.vi.md) · [Bahasa Indonesia](docs/i18n/README.id.md)
 
 ![launchbay 档案页：顶栏搜索、侧栏分组与磁贴卡片](docs/home-1280.webp)
 
-把记不住的那些地址放进一页：NAS 管理后台、路由后台、公司 OA、监控面板。把它设成浏览器主页，之后每次点开就是它，**一点就到，不用等转圈**。
-
-跑在你自己那台机器上——家里 NAS、树莓派、软路由，或公司内网的一台服务器——书签不经过别人的服务器。
-
-## 为什么是 launchbay
-
-这类工具不少，差别主要在四件事：数据在谁的服务器上、一家人怎么分、断网还能不能用、能不能靠拖来整理。
-
-| 对比项 | 浏览器自带书签页 | 云端收藏服务 | launchbay |
-|---|---|---|---|
-| 数据在哪 | 浏览器配置目录，跟着账号走 | 厂商的服务器 | **自己的机器** |
-| 几人各一份 | 靠浏览器的多份配置 | 按账号 | **每人一份，服务端分开** |
-| 断网 | 本地还能用 | 用不了 | **缓存 + 离线队列** |
-| 靠拖整理 | 文件夹树，不是一页版面 | 多数不能 | **拖进来就存，可跨组排序** |
-| 还有谁能读 | 你的浏览器账号 | 厂商 | **应用里没有通路** |
-
-没有账号，没有第三方脚本，没有遥测。添加书签时可以读取目标页的标题和网站图标。图标抓取失败后，普通请求会等待 24 小时再试。手动刷新可以立即重试。
-
-**一个人用的话，浏览器自带书签页其实就够。** launchbay 换来的，是下面三件事：
-
-- **打开不用等。** 页面由服务端渲染，书签和图标直接写进 HTML，脚本没跑之前链接就在。目标是局域网首屏 LCP < 300ms；NAS 真机冷启动还没实测（见「限制」）。
-- **各人一份，别人看不见。** 每份档案可以有自己的 4–6 位 PIN。管理员能建档、删档、改 PIN，但所有内容端点对管理员密钥一律 403——**没有一条通路**能读到你的书签。这不是密码学意义上的防护（局域网里改个 cookie 就能冒充谁），是服务端把各份档案分开。
-- **改坏了能退回去。** 每次批量改动前先留快照。回退时能看见每个旧版本有几条书签、哪些分组；恢复前也会先存下当前版本，所以退错了还能再退回来。历史只增不删：每一行写着谁、什么时候、通过哪条路（网页、AI、扩展、命令行）动了哪一条，不记改成了什么样子。
+把 launchbay 设为浏览器主页，常用网站和设备都能从这一页打开。一家人可以共用一台服务器，各有自己的书签档案和 PIN。
 
 ## 支持范围
 
 | 方面 | 认不认你的 |
 |---|---|
-| 怎么跑 | `docker compose up -d`，或直接跑静态二进制（amd64 / arm64） |
+| 怎么跑 | Linux amd64 和 arm64 的 Docker 镜像，也可自行构建独立程序 |
 | 跑在哪 | 家里 NAS、树莓派、软路由，或公司内网的一台机器 |
 | 谁在用 | 一个人、一家人，或一个不想装一堆东西的小团队；每人一份，管理员管账号不管内容 |
 | 浏览器 | 任意现代浏览器；关掉 JavaScript，全部书签照样看得见、点得动 |
-| 要装什么 | 只要 Docker：零第三方库、零数据库、构建期不需要 Node |
+| 要装什么 | 安装 Docker Compose 即可运行镜像。数据存为文件。 |
 | 数据在哪 | 一个普通目录 `data/`，备份就是整目录拷走 |
-| 界面语言 | 4 门界面语言（简体中文、繁體中文、English、阿拉伯语 RTL）。装的时候选全机默认；之后每份档案在自己的面板里给自己选 |
+| 界面语言 | 18 种界面语言，见上方语言导航。每个档案可单独设置。 |
 
 ## 它能做什么
 
@@ -71,38 +49,34 @@
 - **一个面板**：顶栏「设置」里集中了这一页的样子与语言、分组列表、备份与历史，以及「我的 PIN」——给自己上锁或撤锁，不用找管理员。
 - **断网也能点**：最近一页缓存在浏览器里；离线时，或机器连不上时，加的书签先排队，浏览器恢复联网后自动重放，机器本身没起来就点「补进去」。
 - **脚本和 AI 有自己的钥匙**：REST 接口加按档案作用域的令牌，扩展、命令行、自动化各用各的；越界写别人的档案一律 403。
+- 在「设置 → 备份与历史」中恢复以前的书签版本。
 
 ## 快速开始
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> 启动前，在 `docker-compose.yml` 的 `environment` 中设置自己的 `LAUNCHBAY_ADMIN_TOKEN`。局域网内知道默认密钥的人可以创建或删除档案，也可以重设 PIN。
+
+在 Linux 或 NAS 上部署时，先准备数据目录。
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
-不需要 `.env`，不需要装 Go，镜像直接拉。
+在宿主机打开 [http://localhost:7600](http://localhost:7600)，或在同一局域网的其他设备打开 `http://<内网 IP>:7600`。创建档案并设置 4 到 6 位 PIN，进入档案后点「添加」，保存第一条书签。
 
-在局域网里**任何一台设备**上打开 **http://<这台机器的内网地址>:7600**——别用 `localhost`，它指的是「这台设备」，在手机上输它打开的是那部手机。人就在机器跟前时，`http://localhost:7600` 可用。
+更新已有安装时，先运行 `docker compose pull`，再运行 `docker compose up -d`。
 
-镜像是 `:latest`，首次 `up` 拉最新一次发布；已经跑着的机器本机已有镜像，要先 `docker compose pull` 才更新。
-
-> **先把默认管理密钥换掉。** compose 里 `LAUNCHBAY_ADMIN_TOKEN` 写的是 `launchbay123`，公开的默认值。同一局域网里认得它的人能建档、删档、给你改 PIN（仍然读不到书签）。换成你自己的，再 `docker compose up -d`：
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "你自己的管理密钥"
-> ```
-
-打开它会进入一次性建档页：给第一份档案起名、设 4–6 位 PIN。没有默认账号密码；磁盘上建出任何一份档案之后，这一页就永久关闭。
-
-**「不设 PIN」是一个单独的勾，不是空着不填。** PIN 空着会被拒；勾上「不设 PIN」才建出一份对局域网敞开的档案。这是故意的——最容易出的错是少敲一位就回车，把一个人的书签悄悄公开给全家。不设 PIN 的档案在选择页上连 PIN 框都不画。之后可以在「我的 PIN」里补上或撤掉；撤掉时只有本来就有 PIN 才要旧 PIN。
-
-第一份档案**不是管理员**。管这台机器的是 `LAUNCHBAY_ADMIN_TOKEN`：打开 `/admin` 输一次，拿到一条只属于管理身份的 cookie（30 天）。
-
-**后来的人不用等管理员。** 选择页上有一枚折叠的「新建自己的一份」：展开、填名字与 PIN 就建好（`POST /new`；机器那条是 `POST /api/v1/profiles/new`）。它不要任何凭证，局域网里任何设备都能建，选择页会多一张卡，管理员随时能删。建出来的是**空的**档案，只属于它自己的 PIN，不给人看别人的书签。名字最多 60 个字；跟别人重名，两张卡就分不清。
-
-**删档是唯一找不回来的动作**，所以要多问一次：确认页写明会删掉多少书签、多少快照，再输一次 `LAUNCHBAY_ADMIN_TOKEN` 才真的删。机器那条（`DELETE /api/v1/profiles`）只认这把 key，只带管理 cookie 是 403。快照和私有背景图跟着档案一起没了，回退救不了。
-
-同一页还有**界面语言**下拉框，装的时候顺手选。它定的是**全机默认**；之后每个人可以在自己的面板里选，管理员改的只影响还没选过的人。
+选择「不设 PIN」后，局域网内能访问本站的人可直接进入该档案。打开 `/admin` 并输入管理密钥，即可管理档案。
 
 ### 管理密钥与令牌
 
@@ -128,9 +102,9 @@ docker compose up -d
 1. 打开 `chrome://extensions`，右上角开**开发者模式**
 2. 点**加载已解压的扩展程序**，选 `extension/`
 3. 打开扩展的选项页，填这台机器的地址（不带结尾斜杠）、默认档案 id、令牌里那段密钥
-4. 点**试一下这台机器**
+4. 点**测试连接**
 
-「试一下」答 403 不是网络坏了，是令牌与档案 id 对不上。改 `LAUNCHBAY_WRITE_TOKENS` 里的作用域，重启再试。
+测试失败时，扩展会说明是档案 ID 与令牌不匹配、档案已停用，还是误填了管理密钥。
 
 装好之后：任意网页右键就能存；选项页还能把整棵浏览器书签树导进来，第一次用才问「读书签」权限。三条导入通路（网页、扩展、命令行）都**只进空档案**——导入是整份替换，不是往上叠加。Chrome 会警告「读取和更改您在所有网站上的数据」，那来自扩展响应右键所需的 `http://*/*` 与 `https://*/*`；令牌只存在 `chrome.storage.local`，不进同步。Firefox 未验证。
 
@@ -167,7 +141,7 @@ sudo chown -R 65534:65534 ./data
 | 改这一页的样子、视图、分组、背景、地址模式与点开方式 | 顶栏「设置」，或 `POST /prefs`、`/prefs/background`、`/prefs/group`、`/prefs/tabs` |
 | 改自己这一份的 PIN | 自己面板的「我的 PIN」，或 `POST /prefs/pin` / `POST /api/v1/profiles/self/pin` |
 | 建档、删档、给别人设 PIN、停用某个人 | `/admin`（或选择页底部的管理链接）。删档会再要一次 key；账号层面命令行只有 `profile create` 与 `profile rebuild` 两条 |
-| 给自己再建一份 | 选单页折叠的「新建自己的一份」，或 `POST /api/v1/profiles/new`（免凭证） |
+| 给自己再建一份 | 选单页折叠的「新建档案」，或 `POST /api/v1/profiles/new`（免凭证） |
 | 收拾「名字就是地址」的条目 | `launchbay profile fix-names --profile <id>`（先加 `--dry-run`） |
 | 让 AI 或脚本改书签 | `POST /api/v1/batch`，带 `expectedRev` |
 | 救坏档 | `POST /api/v1/profiles/rebuild`，或 `launchbay profile rebuild` |
@@ -188,7 +162,7 @@ sudo chown -R 65534:65534 ./data
 
 - **只在局域网内用，没有 HTTPS。** 书签内容是明文 JSON 躺在磁盘上；放到公网前，自己加一层 TLS 反代。
 - **一个档案的坏 `profile.json` 会锁住那一份。** `revert` 救不了它；`POST /api/v1/profiles/rebuild`（或 `launchbay profile rebuild`）只重写那一个文件，书签、快照、历史一个字节都不碰。
-- **抓图标有冷却**：同一个 origin 失败后 24 小时内不再抓。24 小时冷却让失败的站点不被反复探测。
+- **抓图标有冷却**：获取失败后，普通请求会等 24 小时再试。点「重新获取网站图标」可立即重试。
 - **没有共享清单**：不能把一条书签共享给全家，也不能公开一页。各存各的就是各存各的。
 - **还没在 NAS 真机上验收过。** 三轮验收都跑在 Windows + Docker Desktop；局域网 LCP 目标、真机冷启动、1,000 条书签的滚动帧率、离线缓存命中延迟，都还没测。
 - **不内置天气、时钟这类挂件。** 它们不在这一页的定位里。页脚文字与书签内容都走 `POST /api/v1/batch`；盘上的文件归服务端管。
@@ -197,7 +171,7 @@ sudo chown -R 65534:65534 ./data
 
 ## 镜像从哪来
 
-compose 只管拉已发布的镜像，构建是 CI 的事。打一个 `v*`（或手动 dispatch），`.github/workflows/docker.yml` 会构建 amd64 与 arm64，推到 Docker Hub 与 GHCR。发布标签是 `<version>`、`<major>.<minor>`、`<major>`（当前 `0.4.0` / `0.4` / `0`），加上 `latest` 与 commit 短 sha；镜像版本只来自 git tag。
+compose 只管拉已发布的镜像，构建是 CI 的事。打一个 `v*`（或手动 dispatch），`.github/workflows/docker.yml` 会构建 amd64 与 arm64，推到 Docker Hub 与 GHCR。发布标签是 `<version>`、`<major>.<minor>`、`<major>`，加上 `latest` 与 commit 短 sha；镜像版本只来自 git tag。
 
 不想 clone 也行，直接拉镜像：
 
@@ -205,7 +179,6 @@ compose 只管拉已发布的镜像，构建是 CI 的事。打一个 `v*`（或
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="换成你自己的管理密钥" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:换成你自己的密钥:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

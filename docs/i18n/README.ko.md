@@ -2,37 +2,17 @@
 
 > 저장해두고 잊어버린 모든 북마크를 한 페이지에 — 셀프 호스팅, 오프라인 지원, 회원가입 없음.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ 빠른 시작](#빠른-시작) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ 빠른 시작](#빠른-시작) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · **한국어** · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![launchbay 프로필 페이지: 상단 검색바, 사이드바 그룹 및 타일 카드](../../docs/home-1280.en.webp)
+![launchbay 프로필 페이지: 상단 검색바, 사이드바 그룹 및 타일 카드](../../docs/home-1280.ko.webp)
 
 외우기 힘든 주소들을 한 페이지에 모아두세요: NAS 관리자 패널, 공유기 설정, 사내 인트라넷, 모니터링 대시보드. 브라우저 홈페이지로 지정하면, **클릭 한 번으로 즉시 열리며 로딩 지연이 없습니다.**
 
 홈 NAS, 라즈베리 파이, 소프트 라우터, 사내 네트워크의 서버 등 내 기기에서 직접 구동되므로 북마크가 다른 사람의 서버를 거치지 않습니다.
-
-## 왜 launchbay인가
-
-이러한 도구들은 주로 네 가지에서 차이가 납니다: 데이터가 누구의 서버에 저장되는지, 가족 구성원이 어떻게 나누어 쓰는지, 오프라인에서도 작동하는지, 드래그로 정리할 수 있는지.
-
-| 비교 항목 | 브라우저 기본 북마크 | 클라우드 북마크 서비스 | launchbay |
-|---|---|---|---|
-| 데이터 저장 위치 | 브라우저 프로필 폴더 (계정 연동) | 업체의 서버 | **내 기기** |
-| 1인 1계정 분리 | 브라우저 다중 프로필 전환 | 계정별 분리 | **각자 1개씩, 서버에서 분리** |
-| 오프라인 동작 | 로컬만 동작 | 동작 불가 | **캐시 + 오프라인 큐** |
-| 드래그로 정리 | 폴더 트리 (단일 페이지 레이아웃 아님) | 대부분 미지원 | **드롭하여 저장, 드래그하여 순서 변경** |
-| 제3자 열람 가능 여부 | 브라우저 계정 | 업체 | **앱을 통한 조회 경로 없음** |
-
-계정 없음, 제3자 스크립트 없음, 원격 측정(telemetry) 없음. 외부 요청은 북마크 추가 시 대상 페이지(제목 확인)와 favicon을 단 한 번 가져오는 것이 전부입니다. 아이콘 가져오기에 실패한 사이트는 24시간 동안 재시도하지 않습니다.
-
-**혼자서만 쓴다면 브라우저의 기본 북마크 페이지로도 충분할 수 있습니다.** launchbay가 제공하는 세 가지 핵심 가치는 다음과 같습니다:
-
-- **열 때 기다리지 않습니다.** 페이지가 서버 사이드에서 렌더링되므로 스크립트가 실행되기 전에 HTML에 북마크와 아이콘이 이미 포함되어 있습니다. LAN 환경에서 첫 페인트 LCP < 300ms를 목표로 합니다 (실제 NAS 기기에서의 콜드 스타트는 아직 측정되지 않음. [제한 사항](#제한-사항) 참고).
-- **각자 하나씩, 다른 사람은 볼 수 없습니다.** 각 프로필마다 4~6자리 PIN을 설정할 수 있습니다. 관리자는 프로필을 생성, 삭제하고 PIN을 재설정할 수 있지만, 모든 콘텐츠 엔드포인트는 관리자 키에 대해 403을 반환하므로 북마크를 볼 수 있는 **경로 자체가 없습니다**. 이는 관리자나 LAN에 대한 암호학적 방어(LAN 내에서 쿠키를 변조하면 누구로든 위장 가능)가 아니라, 서버가 각 프로필을 완전히 분리하여 관리하기 위함입니다.
-- **실수로 변경해도 되돌릴 수 있습니다.** 일괄 변경 전에는 항상 스냅샷을 먼저 생성합니다. '되돌리기'에서는 각 이전 버전에 몇 개의 북마크와 그룹이 있었는지 확인할 수 있으며, 복원 전 현재 버전도 자동 저장되므로 잘못 되돌린 작업도 다시 되돌릴 수 있습니다. 기록은 추가만 되고 삭제되지 않습니다: 누가, 언제, 어떤 경로(웹페이지, AI, 확장 프로그램, CLI)로 어떤 항목을 수정했는지만 기록하며, 수정된 내용 자체는 기록하지 않습니다.
 
 ## 지원 범위
 
@@ -44,7 +24,7 @@
 | 브라우저 | 모든 최신 브라우저; JavaScript를 꺼도 모든 북마크가 표시되고 클릭 가능함 |
 | 설치 요구사항 | Docker만 필요: 서드파티 라이브러리 없음, 데이터베이스 없음, 빌드 시 Node 불필요 |
 | 데이터 저장 위치 | 일반 디렉터리인 `data/`; 통째로 복사하면 백업 완료 |
-| 인터페이스 언어 | 4개 인터페이스 언어 (간체 중국어, 번체 중국어, 영어, 아랍어 RTL). 설정 시 머신 기본값을 선택하고, 이후 각 프로필별로 개별 변경 가능 |
+| 인터페이스 언어 | 위에 표시된 18개 인터페이스 언어를 지원합니다. 프로필별로 언어를 선택할 수 있습니다. |
 
 ## 주요 기능
 
@@ -71,12 +51,26 @@
 - **통합 설정 패널**: 상단 바 → 설정. 페이지 외형과 언어, 그룹 목록, 백업 및 기록, 그리고 관리자를 거치지 않고 직접 프로필을 잠그거나 풀 수 있는 **내 PIN** 설정이 한곳에 있습니다.
 - **오프라인에서도 동작**: 최근 페이지가 브라우저에 캐시되며, 오프라인 상태이거나 머신이 꺼져 있을 때 추가한 북마크는 큐에 대기했다가 다시 연결되면 자동 재전송됩니다. 서버 자체가 내려가 있었다면 **지금 보내기**를 누르면 됩니다.
 - **스크립트와 AI를 위한 독립 키**: 확장 프로그램, CLI, 자동화를 위한 REST API와 프로필 전용 토큰을 제공합니다. 본인 프로필 범위를 벗어나는 토큰은 403으로 거부됩니다.
+- 설정의 백업 및 기록에서 이전 북마크 버전을 복원하세요.
 
 ## 빠른 시작
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> 실행 전에 `docker-compose.yml`에서 사용할 `LAUNCHBAY_ADMIN_TOKEN`을 직접 설정하세요.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ LAN 내의 **모든 기기**에서 **http://<이 머신의 내부 IP 주소>:760
 
 이미지 태그는 `:latest`입니다. 최초 `up` 시 최신 릴리스를 다운로드합니다. 이미 구동 중인 머신에는 로컬 이미지가 남아 있으므로 업데이트 시 먼저 `docker compose pull`을 실행하세요.
 
-> **먼저 기본 관리자 키를 변경하세요.** compose 파일에는 공개 기본값인 `launchbay123`이 설정되어 있습니다. 같은 LAN 내에서 이를 아는 사람은 누구나 프로필을 생성, 삭제하고 PIN을 변경할 수 있습니다(북마크 열람은 여전히 불가능). 본인만의 키를 `LAUNCHBAY_ADMIN_TOKEN`에 설정하고 다시 `docker compose up -d`를 실행하세요:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "나만의-관리자-키"
-> ```
-
-접속하면 1회성 초기 설정 페이지가 열립니다: 첫 프로필의 이름을 정하고 4~6자리 PIN을 설정합니다. 기본 계정이나 암호는 없으며, 디스크에 프로필이 하나라도 생성되면 이 설정 페이지는 영구적으로 닫힙니다.
+접속하면 1회성 초기 설정 페이지가 열립니다: 첫 프로필의 이름을 정하고 4~6자리 PIN을 설정합니다. 기본 계정이나 암호는 없으며, 디스크에 프로필이 하나라도 생성되면 이 설정 페이지는 영구적으로 닫힙니다. 프로필을 열고 첫 북마크를 저장하세요.
 
 **'PIN 없음'은 별도의 체크 항목이며, 빈칸으로 두는 것이 아닙니다.** PIN을 빈칸으로 두면 생성이 거부됩니다. **PIN 없음**에 체크해야만 LAN 내 누구나 접근할 수 있는 열린 프로필이 생성됩니다. 이는 의도된 설계입니다. 번호를 덜 누르고 실수로 Enter를 쳐서 개인 북마크가 온 가족에게 조용히 공개되는 치명적인 실수를 방지하기 위함입니다. PIN이 없는 프로필은 선택 화면에 PIN 입력란 자체가 나타나지 않습니다. 나중에 **내 PIN**에서 추가하거나 해제할 수 있으며, 해제할 때는 기존에 PIN이 설정되어 있던 경우에만 이전 PIN을 요구합니다.
 
@@ -197,7 +185,7 @@ sudo chown -R 65534:65534 ./data
 
 ## 이미지 출처
 
-compose는 공개된 빌드 이미지 다운로드만 담당하며 빌드는 CI가 수행합니다. `v*` 태그를 푸시하거나 워크플로를 수동 실행하면 `.github/workflows/docker.yml`이 amd64 및 arm64용 이미지를 빌드하여 Docker Hub와 GHCR로 푸시합니다. 릴리스 태그는 `<version>`, `<major>.<minor>`, `<major>`(현재 `0.4.0` / `0.4` / `0`)와 `latest`, 커밋 단축 sha가 사용되며, 이미지 버전은 오직 git 태그로부터 부여됩니다.
+compose는 공개된 빌드 이미지 다운로드만 담당하며 빌드는 CI가 수행합니다. `v*` 태그를 푸시하거나 워크플로를 수동 실행하면 `.github/workflows/docker.yml`이 amd64 및 arm64용 이미지를 빌드하여 Docker Hub와 GHCR로 푸시합니다. 릴리스 태그는 `<version>`, `<major>.<minor>`, `<major>`와 `latest`, 커밋 단축 sha가 사용되며, 이미지 버전은 오직 git 태그로부터 부여됩니다.
 
 저장소 clone 없이 이미지를 바로 실행하려면 다음과 같이 입력하세요:
 
@@ -205,7 +193,6 @@ compose는 공개된 빌드 이미지 다운로드만 담당하며 빌드는 CI�
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="나만의-관리자-키" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:나만의-시크릿:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

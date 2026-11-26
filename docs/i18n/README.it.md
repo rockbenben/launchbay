@@ -2,37 +2,17 @@
 
 > Tutti i segnalibri che hai dimenticato di aver salvato, su una sola pagina — self-hosted, offline, senza registrazione.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Avvio rapido](#avvio-rapido) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Avvio rapido](#avvio-rapido) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · **Italiano** · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![Pagina del profilo launchbay: ricerca nella barra superiore, gruppi nella barra laterale e schede a riquadri](../../docs/home-1280.en.webp)
+![Pagina del profilo launchbay: ricerca nella barra superiore, gruppi nella barra laterale e schede a riquadri](../../docs/home-1280.it.webp)
 
 Raccogli su una sola pagina tutti gli indirizzi che non riesci mai a ricordare: il pannello di gestione del NAS, il router, l'intranet aziendale, la dashboard di monitoraggio. Impostala come pagina iniziale del browser — **un clic, nessun caricamento.**
 
 Viene eseguito sul tuo computer — un NAS domestico, un Raspberry Pi, un router dedicato o un server nella rete locale aziendale — in modo che i tuoi segnalibri non transitino mai sui server di terzi.
-
-## Perché launchbay
-
-La maggior parte degli strumenti per segnalibri si differenzia per quattro aspetti: su quale server risiedono i dati, come vengono condivisi in famiglia, se funzionano offline e se è possibile riordinarli trascinando.
-
-| Aspetto a confronto | Segnalibri nativi del browser | Servizi di segnalibri in cloud | launchbay |
-|---|---|---|---|
-| Dove si trovano i dati | Nel profilo del browser, legato al tuo account | Sui server del fornitore | **La tua macchina** |
-| Uno per persona | Tramite profili del browser | Per account | **Uno a testa, separati sul server** |
-| Offline | Solo in locale | Non funziona | **Cache + coda offline** |
-| Organizzazione con trascinamento | Struttura ad albero, non una pagina impaginata | Per lo più no | **Rilascia per salvare, trascina per riordinare** |
-| Chi altro può leggerli | Il tuo account del browser | Il fornitore | **Nessuno tramite l'applicazione** |
-
-Nessun account, nessuno script di terze parti, nessuna telemetria. Le uniche richieste verso l'esterno servono a recuperare la pagina aggiunta (per ottenerne il titolo) e la sua favicon; il recupero di un'icona non riuscito viene sospeso per 24 ore.
-
-**Se sei l'unica persona a utilizzarlo, la pagina dei segnalibri del browser è probabilmente sufficiente.** launchbay offre in cambio tre vantaggi determinanti:
-
-- **Apertura immediata.** La pagina viene renderizzata lato server: segnalibri e icone sono già presenti nell'HTML prima ancora che venga eseguito qualsiasi script. L'obiettivo è un LCP di primo rendering su LAN < 300 ms; l'avvio a freddo su un vero NAS non è ancora stato misurato (vedi [Limiti](#limiti)).
-- **Uno spazio per ciascuno, invisibile agli altri.** Ogni profilo può avere un proprio PIN di 4–6 cifre. L'amministratore può creare ed eliminare profili e reimpostare i PIN, ma tutti gli endpoint dei contenuti rifiutano la chiave amministratore con un errore 403: non esiste **alcuna rotta** verso i tuoi segnalibri. Non si tratta di crittografia contro l'amministratore o la rete locale (chiunque sulla LAN può manipolare un cookie), ma del fatto che il server mantiene i profili rigorosamente separati.
-- **Gli errori sono reversibili.** Prima di ogni modifica massiva viene scattata automaticamente un'istantanea. «Ripristina» mostra quanti segnalibri e quali gruppi conteneva ciascuna versione precedente, e salva la versione corrente prima del ripristino — pertanto un ripristino accidentale può a sua volta essere annullato. La cronologia viene conservata e non viene mai cancellata: ogni riga riporta chi ha modificato il profilo, quando, attraverso quale canale (pagina web, IA, estensione, CLI) e quale voce — senza mai esporre il contenuto.
 
 ## Cosa comprende
 
@@ -44,7 +24,7 @@ Nessun account, nessuno script di terze parti, nessuna telemetria. Le uniche ric
 | Browser | Qualsiasi browser moderno; anche con JavaScript disattivato, ogni segnalibro resta visibile e cliccabile |
 | Cosa installare | Solo Docker: nessuna libreria di terze parti, nessun database, niente Node in fase di build |
 | Dove risiedono i dati | Una normale cartella, `data/`; un backup consiste semplicemente nel copiarla |
-| Lingua dell'interfaccia | 4 lingue dell'interfaccia (cinese semplificato, cinese tradizionale, inglese, arabo RTL); scegli l'impostazione predefinita iniziale, poi ogni profilo imposta la propria |
+| Lingua dell'interfaccia | 18 lingue dell’interfaccia, elencate sopra. Ogni profilo può scegliere la propria. |
 
 ## Cosa può fare
 
@@ -71,12 +51,26 @@ Nessun account, nessuno script di terze parti, nessuna telemetria. Le uniche ric
 - **Un unico pannello delle impostazioni**: barra superiore → Impostazioni. Gestisce l'aspetto grafico e la lingua della pagina, l'elenco dei gruppi, backup e cronologia, nonché **Il mio PIN** — per bloccare o sbloccare il tuo profilo senza l'amministratore.
 - **Funziona offline**: l'ultima pagina resta memorizzata nella cache, e i segnalibri aggiunti offline — o mentre il server è spento — restano in coda e vengono inviati automaticamente quando il browser si riconnette; premi **Invia ora** se il server è rimasto temporaneamente irraggiungibile.
 - **Chiavi dedicate per script e IA**: un'API REST e token limitati al profilo per l'estensione, la CLI e le automazioni. Un token che tenta di operare fuori dal proprio profilo riceve un errore 403.
+- Ripristina versioni precedenti dei segnalibri dalle impostazioni di backup e cronologia.
 
 ## Avvio rapido
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Prima dell’avvio, imposta il tuo `LAUNCHBAY_ADMIN_TOKEN` in `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Apri **http://<indirizzo LAN di questa macchina>:7600** da qualsiasi dispositivo
 
 L'immagine ha il tag `:latest`; il primo comando `up` scarica la versione più recente. Una macchina con il container già attivo mantiene l'immagine locale, quindi esegui prima `docker compose pull` per aggiornare.
 
-> **Cambia subito la chiave amministratore predefinita.** compose include `launchbay123`, che è pubblica. Chiunque sulla tua LAN la conosca può creare o cancellare profili e reimpostare i PIN (pur non potendo leggere i segnalibri). Inserisci la tua chiave in `LAUNCHBAY_ADMIN_TOKEN` e rilancia `docker compose up -d`:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "la-tua-chiave-amministratore"
-> ```
-
-Al primo accesso verrai indirizzato alla schermata di configurazione iniziale: assegna un nome al primo profilo e imposta un PIN di 4–6 cifre. Non esistono credenziali predefinite, e la pagina di configurazione si chiude per sempre non appena esiste un profilo.
+Al primo accesso verrai indirizzato alla schermata di configurazione iniziale: assegna un nome al primo profilo e imposta un PIN di 4–6 cifre. Non esistono credenziali predefinite, e la pagina di configurazione si chiude per sempre non appena esiste un profilo. Apri il profilo e salva il primo segnalibro.
 
 **«Nessun PIN» è una casella esplicita, non un campo lasciato vuoto.** Lasciare vuoto il PIN viene respinto; spuntare **Nessun PIN** crea un profilo accessibile a chiunque sulla LAN. È una scelta intenzionale: l'errore pericoloso consisterebbe nel digitare tre cifre e premere Invio per sbaglio, pubblicando inavvertitamente i segnalibri privati a tutta la casa. Un profilo senza PIN non mostra la casella di inserimento del PIN nella schermata di selezione. Potrai aggiungere o rimuovere il blocco in seguito in **Il mio PIN**; la rimozione richiede il vecchio PIN solo se ne era già presente uno.
 
@@ -197,7 +185,7 @@ I backup escludono il PIN, l'identità del profilo e l'immagine di sfondo. Un ba
 
 ## Da dove proviene l'immagine
 
-compose scarica unicamente immagini già pubblicate; la compilazione è a carico della CI. Quando viene rilasciato un tag `v*` (o avviato manualmente il workflow), `.github/workflows/docker.yml` compila le versioni amd64 e arm64 per Docker Hub e GHCR. I tag di rilascio seguono lo schema `<version>`, `<major>.<minor>` e `<major>` (attualmente `0.4.0` / `0.4` / `0`), assieme a `latest` e allo sha del commit; la versione dell'immagine deriva unicamente dal tag Git.
+compose scarica unicamente immagini già pubblicate; la compilazione è a carico della CI. Quando viene rilasciato un tag `v*` (o avviato manualmente il workflow), `.github/workflows/docker.yml` compila le versioni amd64 e arm64 per Docker Hub e GHCR. I tag di rilascio seguono lo schema `<version>`, `<major>.<minor>` e `<major>`, assieme a `latest` e allo sha del commit; la versione dell'immagine deriva unicamente dal tag Git.
 
 Se preferisci non clonare il repository, puoi avviare direttamente l'immagine:
 
@@ -205,7 +193,6 @@ Se preferisci non clonare il repository, puoi avviare direttamente l'immagine:
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="la-tua-chiave-amministratore" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:la-tua-chiave:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

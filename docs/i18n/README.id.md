@@ -2,37 +2,17 @@
 
 > Setiap bookmark yang sempat Anda lupakan, dalam satu halaman — self-hosted, offline, tanpa daftar.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Mulai cepat](#mulai-cepat) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Mulai cepat](#mulai-cepat) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · **Bahasa Indonesia**
 
-![Halaman profil launchbay: pencarian bilah atas, grup bilah samping, dan kartu ubin](../../docs/home-1280.en.webp)
+![Halaman profil launchbay: pencarian bilah atas, grup bilah samping, dan kartu ubin](../../docs/home-1280.id.webp)
 
 Kumpulkan semua alamat yang sulit Anda ingat ke dalam satu halaman: panel admin NAS, pengaturan router, intranet perusahaan, dasbor pemantauan. Jadikan beranda peramban Anda — **sekali klik, langsung sampai tanpa menunggu pemuatan.**
 
 Berjalan di mesin Anda sendiri — NAS rumah, Raspberry Pi, soft router, atau sebuah server di intranet — sehingga bookmark Anda tidak pernah menyentuh server orang lain.
-
-## Mengapa launchbay
-
-Sebagian besar alat bookmark berbeda dalam empat hal: server siapa yang menyimpan data, bagaimana keluarga membaginya, apakah bisa offline, dan apakah bisa dirapikan dengan seret-lepas.
-
-| Perbandingan | Bookmark bawaan peramban | Layanan bookmark cloud | launchbay |
-|---|---|---|---|
-| Lokasi data | Folder profil peramban, terikat akun | Server penyedia | **Mesin Anda sendiri** |
-| Terpisah per orang | Lewat banyak profil peramban | Berdasarkan akun | **Masing-masing satu, terpisah di server** |
-| Offline | Hanya lokal | Tidak berfungsi | **Cache + antrean offline** |
-| Penataan seret-lepas | Struktur folder, bukan tata letak satu halaman | Sebagian besar tidak bisa | **Lepas untuk simpan, seret untuk susun ulang** |
-| Siapa lagi yang bisa baca | Akun peramban Anda | Penyedia | **Tidak ada yang bisa mengakses lewat aplikasi** |
-
-Tanpa akun, tanpa skrip pihak ketiga, tanpa telemetri. Satu-satunya permintaan ke luar adalah mengambil halaman yang Anda tambahkan (untuk membaca judulnya) dan favicon-nya; ikon yang gagal diambil akan diberi jeda (cooldown) selama 24 jam.
-
-**Jika Anda menggunakannya sendirian, halaman bookmark bawaan peramban mungkin sudah cukup.** launchbay memberikan tiga nilai utama:
-
-- **Membuka tanpa menunggu.** Halaman dirender di sisi server: bookmark dan ikonnya sudah berada di dalam HTML sebelum skrip apa pun berjalan. Targetnya adalah LCP tampilan pertama di LAN < 300ms; cold start pada perangkat NAS fisik belum diukur (lihat [Batasan](#batasan)).
-- **Masing-masing satu, dan orang lain tidak bisa melihatnya.** Setiap profil dapat memiliki PIN 4–6 digit sendiri. Admin dapat membuat, menghapus, dan menyetel ulang PIN, tetapi setiap endpoint konten menolak kunci admin dengan 403 — **tidak ada jalur** untuk membaca bookmark Anda. Ini bukan kriptografi untuk melawan admin atau LAN (siapa pun di LAN dapat mengedit cookie untuk menyamar), melainkan cara server memisahkan profil secara tegas.
-- **Kesalahan pengeditan dapat dibatalkan.** Setiap perubahan massal akan mengambil snapshot terlebih dahulu. Fitur 'Kembalikan' menampilkan berapa banyak bookmark dan grup yang ada di setiap versi lama, serta menyimpan versi saat ini sebelum pemulihan — sehingga kesalahan pengembalian pun dapat dikembalikan lagi. Riwayat hanya bertambah dan tidak pernah dihapus: setiap baris mencatat siapa yang mengubah profil ini, kapan, lewat jalur mana (halaman web, AI, ekstensi, CLI), dan entri mana yang disentuh — tanpa mencatat isi kontennya.
 
 ## Cakupan dukungan
 
@@ -44,7 +24,7 @@ Tanpa akun, tanpa skrip pihak ketiga, tanpa telemetri. Satu-satunya permintaan k
 | Peramban | Semua peramban modern; saat JavaScript dinonaktifkan, semua bookmark tetap terlihat dan dapat diklik |
 | Kebutuhan instalasi | Hanya Docker: tanpa pustaka pihak ketiga, tanpa basis data, tanpa Node saat build |
 | Lokasi data | Direktori biasa `data/`; pencadangan cukup dengan menyalin direktori tersebut |
-| Bahasa antarmuka | 4 bahasa antarmuka (Tionghoa Sederhana, Tionghoa Tradisional, Inggris, Arab RTL); pilih bawaan mesin saat persiapan awal, lalu tiap profil dapat memilih bahasanya sendiri |
+| Bahasa antarmuka | 18 bahasa antarmuka, tercantum di atas. Setiap profil dapat memilih bahasanya sendiri. |
 
 ## Kemampuan sistem
 
@@ -71,12 +51,26 @@ Tanpa akun, tanpa skrip pihak ketiga, tanpa telemetri. Satu-satunya permintaan k
 - **Satu panel pengaturan terpadu**: bilah atas → Pengaturan. Berisi tampilan dan bahasa halaman, daftar grup, cadangan & riwayat, serta **PIN saya** — kunci atau buka kunci profil Anda sendiri tanpa perlu menghubungi admin.
 - **Tetap berfungsi saat offline**: halaman terakhir disimpan di cache peramban; bookmark yang ditambahkan saat offline — atau saat server mati — akan mengantre dan otomatis dikirim ulang saat peramban terhubung kembali; klik **Kirim sekarang** jika server baru saja menyala kembali.
 - **Skrip dan AI memiliki kunci sendiri**: REST API disertai token dengan cakupan profil untuk ekstensi peramban, CLI, dan otomatisasi. Token yang mencoba mengakses di luar cakupan profilnya akan menerima respons 403.
+- Pulihkan versi markah sebelumnya dari pengaturan cadangan dan riwayat.
 
 ## Mulai cepat
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Sebelum memulai, atur `LAUNCHBAY_ADMIN_TOKEN` Anda di `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Buka **http://<alamat IP internal mesin ini>:7600** dari perangkat mana pun di L
 
 Tag citra adalah `:latest`; perintah `up` pertama akan mengunduh rilis terbaru. Mesin yang sudah berjalan sebelumnya akan menyimpan citra lokal, jadi jalankan `docker compose pull` terlebih dahulu untuk memperbarui.
 
-> **Ubah kunci admin bawaan terlebih dahulu.** File compose menyertakan nilai bawaan publik yaitu `launchbay123`. Siapa pun di LAN yang mengetahui nilai ini dapat membuat, menghapus profil, dan menyetel ulang PIN (mereka tetap tidak bisa membaca bookmark Anda). Masukkan kunci Anda sendiri ke `LAUNCHBAY_ADMIN_TOKEN` lalu jalankan kembali `docker compose up -d`:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "kunci-admin-anda-sendiri"
-> ```
-
-Saat pertama kali dibuka, Anda akan masuk ke halaman pengaturan awal satu kali: beri nama profil pertama dan atur PIN 4–6 digit. Tidak ada kredensial bawaan, dan halaman ini akan tertutup secara permanen begitu ada profil yang tersimpan di disk.
+Saat pertama kali dibuka, Anda akan masuk ke halaman pengaturan awal satu kali: beri nama profil pertama dan atur PIN 4–6 digit. Tidak ada kredensial bawaan, dan halaman ini akan tertutup secara permanen begitu ada profil yang tersimpan di disk. Buka profil dan simpan markah pertama.
 
 **"Tanpa PIN" adalah kotak centang terpisah, bukan membiarkan kolom PIN kosong.** Membiarkan PIN kosong akan ditolak; hanya dengan mencentang **Tanpa PIN** Anda akan membuat profil yang terbuka untuk semua orang di LAN. Ini disengaja — kesalahan fatal yang sering terjadi adalah kurang mengetik digit lalu menekan Enter, yang tanpa disadari memublikasikan bookmark pribadi ke seluruh rumah. Profil tanpa PIN tidak akan menampilkan kotak PIN pada halaman pemilih profil. Anda dapat menambahkan atau menghapusnya nanti di **PIN saya**; menghapus PIN hanya memerlukan PIN lama jika profil tersebut memang memiliki PIN sebelumnya.
 
@@ -197,7 +185,7 @@ Pencadangan tidak menyertakan PIN, identitas profil, dan gambar latar belakang. 
 
 ## Asal citra Docker
 
-compose hanya mengunduh citra yang sudah dipublikasikan; pembangunan citra adalah tugas CI. Beri tag `v*` (atau jalankan alur kerja secara manual), maka `.github/workflows/docker.yml` akan membangun untuk amd64 dan arm64 lalu mengunggahnya ke Docker Hub dan GHCR. Tag rilis adalah `<version>`, `<major>.<minor>`, dan `<major>` (saat ini `0.4.0` / `0.4` / `0`), ditambah `latest` dan sha pendek commit; versi citra hanya berasal dari tag git.
+compose hanya mengunduh citra yang sudah dipublikasikan; pembangunan citra adalah tugas CI. Beri tag `v*` (atau jalankan alur kerja secara manual), maka `.github/workflows/docker.yml` akan membangun untuk amd64 dan arm64 lalu mengunggahnya ke Docker Hub dan GHCR. Tag rilis adalah `<version>`, `<major>.<minor>`, dan `<major>`, ditambah `latest` dan sha pendek commit; versi citra hanya berasal dari tag git.
 
 Untuk melewati proses clone repositori, Anda dapat langsung menjalankan citra:
 
@@ -205,7 +193,6 @@ Untuk melewati proses clone repositori, Anda dapat langsung menjalankan citra:
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="kunci-admin-anda-sendiri" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:kunci-rahasia-anda:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

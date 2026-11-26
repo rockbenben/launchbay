@@ -2,37 +2,17 @@
 
 > Todos los marcadores que olvidaste haber guardado, en una sola página: autohospedado, sin conexión y sin registro.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Inicio rápido](#inicio-rápido) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Inicio rápido](#inicio-rápido) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Español** · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![Página de perfil de launchbay: búsqueda en barra superior, grupos en barra lateral y tarjetas](../../docs/home-1280.en.webp)
+![Página de perfil de launchbay: búsqueda en barra superior, grupos en barra lateral y tarjetas](../../docs/home-1280.es.webp)
 
 Reúne en una sola página todas las direcciones que nunca logras recordar: el panel del NAS, el router, la intranet de la empresa, el cuadro de mando de monitorización. Conviértela en la página de inicio de tu navegador: **un clic, sin esperas ni pantallas de carga.**
 
 Se ejecuta en tu propia máquina —un NAS doméstico, una Raspberry Pi, un router neutro o un servidor en la red local de la empresa—, de modo que tus marcadores nunca tocan los servidores de nadie más.
-
-## Por qué launchbay
-
-La mayoría de las herramientas de marcadores difieren en cuatro aspectos: en qué servidor residen los datos, cómo los comparte un hogar, si funcionan sin conexión y si se pueden organizar arrastrando.
-
-| Aspecto comparado | Marcadores del propio navegador | Servicios de marcadores en la nube | launchbay |
-|---|---|---|---|
-| Dónde están los datos | En tu perfil del navegador, vinculados a tu cuenta | En los servidores del proveedor | **Tu propia máquina** |
-| Uno por persona | Mediante perfiles del navegador | Por cuenta | **Uno para cada uno, separados en el servidor** |
-| Sin conexión | Solo en local | No funciona | **Caché + cola de espera sin conexión** |
-| Organización por arrastre | Árbol de carpetas, no una cuadrícula visual | En su mayoría no | **Soltar para guardar, arrastrar para reordenar** |
-| Quién más puede leerlos | Tu cuenta de navegador | El proveedor | **Nadie a través de la aplicación** |
-
-Sin cuenta, sin scripts de terceros, sin telemetría. Las únicas solicitudes externas se realizan al añadir una página (para obtener su título) y su favicon; si la obtención de un favicon falla, se pausa durante 24 horas.
-
-**Si eres la única persona que lo va a usar, la página de marcadores del navegador probablemente baste.** launchbay te ofrece a cambio tres ventajas determinantes:
-
-- **Apertura instantánea.** La página se renderiza en el servidor: los marcadores y sus iconos ya están en el HTML antes de que se ejecute ningún script. El objetivo es un LCP de primera pintura en red local < 300 ms; el arranque en frío en un NAS real aún no se ha medido (consulta [Limitaciones](#limitaciones)).
-- **Un espacio para cada persona, que nadie más puede ver.** Cada perfil puede tener su propio PIN de 4 a 6 dígitos. El administrador puede crear, eliminar perfiles y restablecer PINs, pero todos los puntos finales de contenido rechazan la clave de administrador con un 403: no existe **ninguna ruta** para acceder a tus marcadores. No se trata de criptografía frente al administrador o la red local (cualquiera en la LAN puede manipular una cookie), sino de que el servidor mantiene los perfiles completamente aislados.
-- **Cualquier fallo se puede deshacer.** Cada cambio por lotes guarda primero una instantánea. «Revertir» muestra cuántos marcadores y qué grupos tenía cada versión anterior, y guarda la versión actual antes de restaurar, por lo que una restauración accidental también se puede revertir. El historial se conserva de forma permanente y nunca se borra: cada línea registra quién tocó este perfil, cuándo, mediante qué vía (página web, IA, extensión, CLI) y qué entrada, sin desvelar jamás el contenido.
 
 ## Qué abarca
 
@@ -44,7 +24,7 @@ Sin cuenta, sin scripts de terceros, sin telemetría. Las únicas solicitudes ex
 | Navegadores | Cualquier navegador moderno; con JavaScript desactivado, cada marcador sigue siendo visible y cliqueable |
 | Qué necesitas instalar | Únicamente Docker: sin bibliotecas de terceros, sin base de datos, sin Node durante la compilación |
 | Dónde están los datos | Un directorio convencional, `data/`; hacer una copia de seguridad es simplemente copiarlo |
-| Idioma de la interfaz | 4 idiomas de interfaz (chino simplificado, chino tradicional, inglés, árabe RTL); elige el predeterminado en la configuración inicial y cada perfil podrá cambiar el suyo |
+| Idioma de la interfaz | 18 idiomas de interfaz, indicados arriba. Cada perfil puede elegir el suyo. |
 
 ## Qué puede hacer
 
@@ -71,12 +51,26 @@ Sin cuenta, sin scripts de terceros, sin telemetría. Las únicas solicitudes ex
 - **Un único panel de ajustes**: barra superior → Ajustes. Controla la apariencia y el idioma, la lista de grupos, copias de seguridad e historial, y **Mi PIN** (para bloquear o desbloquear tu perfil sin depender del administrador).
 - **Funciona sin conexión**: la última página permanece en caché, y los marcadores añadidos sin conexión —o mientras la máquina está apagada— se ponen en cola y se sincronizan cuando el navegador recupera la conexión; pulsa **Enviar ahora** si el servidor estuvo temporalmente apagado.
 - **Claves dedicadas para scripts e IA**: una API REST y tokens con alcance de perfil para la extensión, la CLI y la automatización. Un token que intente salir de su perfil recibirá un código 403.
+- Restaura versiones anteriores de tus marcadores desde los ajustes de copia de seguridad e historial.
 
 ## Inicio rápido
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Antes de arrancar, configura tu propio `LAUNCHBAY_ADMIN_TOKEN` en `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Abre **http://<dirección LAN de esta máquina>:7600** desde cualquier dispositi
 
 La imagen utiliza la etiqueta `:latest`; el primer `up` descargará la versión más reciente. Si el contenedor ya se está ejecutando, conservará la imagen local; ejecuta primero `docker compose pull` para actualizarla.
 
-> **Cambia la clave de administrador predeterminada de inmediato.** compose incluye `launchbay123`, que es pública. Cualquier persona en tu red local que la conozca podrá crear o eliminar perfiles y restablecer PINs (aunque seguirá sin poder leer marcadores). Define tu propia clave en `LAUNCHBAY_ADMIN_TOKEN` y vuelve a ejecutar `docker compose up -d`:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "tu-propia-clave-de-administrador"
-> ```
-
-Al abrirlo por primera vez verás la página de configuración inicial única: pon nombre al primer perfil y establece un PIN de 4 a 6 dígitos. No existen credenciales predeterminadas, y la página de configuración se cierra definitivamente una vez que existe algún perfil.
+Al abrirlo por primera vez verás la página de configuración inicial única: pon nombre al primer perfil y establece un PIN de 4 a 6 dígitos. No existen credenciales predeterminadas, y la página de configuración se cierra definitivamente una vez que existe algún perfil. Abre el perfil y guarda tu primer marcador.
 
 **«Sin PIN» es una casilla separada, no un campo en blanco.** Dejar el PIN vacío será rechazado; marcar **Sin PIN** crea un perfil abierto para cualquier persona en la red local. Es deliberado: el error peligroso sería escribir tres dígitos y pulsar Intro por error, publicando inadvertidamente los marcadores personales ante toda la casa. Un perfil sin PIN no muestra cuadro de PIN en la página de selección. Podrás añadir o quitar este bloqueo más tarde en **Mi PIN**; quitarlo solo requiere el PIN anterior si había uno configurado.
 
@@ -197,7 +185,7 @@ Las copias de seguridad excluyen el PIN, la identidad del perfil y la imagen de 
 
 ## De dónde procede la imagen
 
-compose únicamente descarga una imagen ya publicada; su construcción corresponde a la CI. Al asignar una etiqueta `v*` (o lanzar el flujo de trabajo manualmente), `.github/workflows/docker.yml` compila las imágenes amd64 y arm64 para Docker Hub y GHCR. Las etiquetas de publicación son `<version>`, `<major>.<minor>` y `<major>` (actualmente `0.4.0` / `0.4` / `0`), más `latest` y el sha del commit; la versión de la imagen procede exclusivamente de la etiqueta de git.
+compose únicamente descarga una imagen ya publicada; su construcción corresponde a la CI. Al asignar una etiqueta `v*` (o lanzar el flujo de trabajo manualmente), `.github/workflows/docker.yml` compila las imágenes amd64 y arm64 para Docker Hub y GHCR. Las etiquetas de publicación son `<version>`, `<major>.<minor>` y `<major>`, más `latest` y el sha del commit; la versión de la imagen procede exclusivamente de la etiqueta de git.
 
 Para omitir la clonación, ejecuta la imagen directamente:
 
@@ -205,7 +193,6 @@ Para omitir la clonación, ejecuta la imagen directamente:
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="tu-propia-clave-de-administrador" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:tu-propia-clave:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

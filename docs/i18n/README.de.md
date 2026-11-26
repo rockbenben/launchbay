@@ -2,37 +2,17 @@
 
 > Jedes Lesezeichen, das du je vergessen hast, auf einer Seite — selbst gehostet, offline, ohne Registrierung.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Schnellstart](#schnellstart) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Schnellstart](#schnellstart) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · **Deutsch** · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![launchbay-Profilseite: Suchleiste oben, Gruppen in der Seitenleiste und Kachelkarten](../../docs/home-1280.en.webp)
+![launchbay-Profilseite: Suchleiste oben, Gruppen in der Seitenleiste und Kachelkarten](../../docs/home-1280.de.webp)
 
 Bringe die Adressen, die du dir nie merken kannst, auf eine einzige Seite: das NAS-Admin-Panel, die Router-Oberfläche, das Firmen-Intranet, das Monitoring-Dashboard. Mach sie zu deiner Browser-Startseite — **ein Klick, kein Warten auf Ladekreise.**
 
 Es läuft auf deiner eigenen Maschine — einem Heim-NAS, einem Raspberry Pi, einem Software-Router oder einem Server im Firmennetz — sodass deine Lesezeichen niemals fremde Server berühren.
-
-## Warum launchbay
-
-Die meisten Lesezeichen-Tools unterscheiden sich in vier Punkten: auf wessen Server die Daten liegen, wie ein Haushalt sie teilt, ob es offline funktioniert und ob man sie durch Ziehen anordnen kann.
-
-| Vergleichskriterium | Eigene Lesezeichen des Browsers | Cloud-Lesezeichendienste | launchbay |
-|---|---|---|---|
-| Wo die Daten liegen | Dein Browserprofil, folgt deinem Konto | Server des Anbieters | **Deine eigene Maschine** |
-| Pro Person getrennt | Über Browserprofile | Pro Konto | **Jeder ein eigenes, serverseitig getrennt** |
-| Offline | Nur lokal | Funktioniert nicht | **Cache + Offline-Warteschlange** |
-| Organisieren per Drag & Drop | Ordnerbaum, keine gestaltete Seite | Meist nicht | **Ablegen zum Speichern, Ziehen zum Sortieren** |
-| Wer sonst noch mitlesen kann | Dein Browser-Konto | Der Anbieter | **Niemand über die App** |
-
-Kein Konto, keine Drittanbieter-Skripte, keine Telemetrie. Die einzigen externen Anfragen dienen dem Abrufen der hinzugefügten Seite (für den Titel) und deren Favicon; ein fehlgeschlagener Favicon-Abruf wird für 24 Stunden pausiert.
-
-**Wenn du launchbay alleine nutzt, reicht die Lesezeichenseite des Browsers meist aus.** launchbay bietet dafür drei entscheidende Vorteile:
-
-- **Öffnen ohne Wartezeit.** Die Seite wird serverseitig gerendert: Lesezeichen und Icons sind bereits im HTML enthalten, bevor ein Skript ausgeführt wird. Das Ziel ist ein LAN-First-Paint LCP < 300 ms; ein Kaltstart auf einem echten NAS wurde noch nicht gemessen (siehe [Grenzen](#grenzen)).
-- **Jeder ein eigenes Profil, und niemand sonst sieht es.** Jedes Profil kann eine eigene 4–6-stellige PIN haben. Der Admin kann Profile anlegen, löschen und PINs zurücksetzen, aber jeder Inhalts-Endpunkt verweigert den Admin-Schlüssel mit einem 403 — es gibt **keine Route** zu deinen Lesezeichen. Das ist keine Kryptografie gegen den Admin oder das LAN (jeder im LAN kann Cookies manipulieren); der Server hält die Profile sauber voneinander getrennt.
-- **Fehler lassen sich rückgängig machen.** Vor jeder Massenänderung wird automatisch ein Schnappschuss erstellt. „Zurücksetzen“ zeigt an, wie viele Lesezeichen und welche Gruppen jede ältere Version enthielt, und speichert die aktuelle Version vor dem Wiederherstellen — ein versehentliches Zurücksetzen kann also selbst wieder rückgängig gemacht werden. Der Verlauf wird fortlaufend geführt und nie gelöscht: Jede Zeile dokumentiert, wer wann über welchen Weg (Webseite, KI, Erweiterung, CLI) welchen Eintrag geändert hat — niemals den Inhalt selbst.
 
 ## Was abgedeckt ist
 
@@ -44,7 +24,7 @@ Kein Konto, keine Drittanbieter-Skripte, keine Telemetrie. Die einzigen externen
 | Browser | Jeder moderne Browser; bei deaktiviertem JavaScript bleibt jedes Lesezeichen sichtbar und anklickbar |
 | Was du installierst | Nur Docker: keine Drittanbieter-Bibliotheken, keine Datenbank, kein Node zur Build-Zeit |
 | Wo die Daten liegen | Ein gewöhnliches Verzeichnis, `data/`; ein Backup ist einfaches Kopieren |
-| Oberflächensprache | 4 Oberflächensprachen (vereinfachtes Chinesisch, traditionelles Chinesisch, Englisch, Arabisch RTL); Standard beim Setup wählen, danach stellt jedes Profil seine eigene ein |
+| Oberflächensprache | 18 Oberflächensprachen, siehe oben. Jedes Profil kann seine Sprache selbst wählen. |
 
 ## Was es kann
 
@@ -71,12 +51,26 @@ Kein Konto, keine Drittanbieter-Skripte, keine Telemetrie. Die einzigen externen
 - **Ein Einstellungs-Panel**: Obere Leiste → Einstellungen. Hier findest du das Aussehen der Seite, die Sprache, die Gruppenliste, Backup und Verlauf sowie **Meine PIN** — sperre oder entsperre dein eigenes Profil ohne den Admin.
 - **Funktioniert offline**: Die letzte Seite wird gecacht, und im Offline-Zustand — oder während der Server aus ist — hinzugefügte Lesezeichen werden eingereiht und automatisch übertragen, sobald der Browser wieder verbunden ist; klicke auf **Jetzt senden**, falls der Server selbst offline war.
 - **Skripte und KI haben eigene Schlüssel**: Eine REST-API plus profilgebundene Tokens für die Browser-Erweiterung, die CLI und Automatisierungen. Ein Token, das über sein Profil hinausgreift, erhält einen 403.
+- Stellen Sie frühere Lesezeichenversionen über die Einstellungen für Sicherung und Verlauf wieder her.
 
 ## Schnellstart
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Setzen Sie vor dem Start einen eigenen `LAUNCHBAY_ADMIN_TOKEN` in `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Keine `.env`-Datei, keine Go-Toolchain — das Image wird einfach heruntergelade
 
 Das Image trägt das Tag `:latest`; das erste `up` lädt das neueste Release herunter. Ein Rechner, auf dem der Container bereits läuft, behält sein lokales Image — führe zuerst `docker compose pull` aus, um zu aktualisieren.
 
-> **Ändere zuerst den Standard-Admin-Schlüssel.** compose liefert `launchbay123` mit, was öffentlich bekannt ist. Jeder in deinem LAN, der ihn kennt, kann Profile erstellen, löschen und PINs zurücksetzen (Lesezeichen lesen kann er dennoch nicht). Trage deinen eigenen Schlüssel in `LAUNCHBAY_ADMIN_TOKEN` ein und starte `docker compose up -d` erneut:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "dein-eigener-admin-schluessel"
-> ```
-
-Beim ersten Aufruf gelangst du auf die einmalige Einrichtungsseite: Benenne das erste Profil und lege eine 4–6-stellige PIN fest. Es gibt keine Standardzugangsdaten, und die Einrichtungsseite schließt sich endgültig, sobald mindestens ein Profil existiert.
+Beim ersten Aufruf gelangst du auf die einmalige Einrichtungsseite: Benenne das erste Profil und lege eine 4–6-stellige PIN fest. Es gibt keine Standardzugangsdaten, und die Einrichtungsseite schließt sich endgültig, sobald mindestens ein Profil existiert. Öffnen Sie das Profil und speichern Sie Ihr erstes Lesezeichen.
 
 **„Keine PIN“ ist ein eigenes Häkchen, kein leeres Feld.** Ein leeres PIN-Feld wird abgelehnt; das Setzen des Häkchens bei **Keine PIN** erstellt ein Profil, das für jeden im LAN offen ist. Das ist Absicht: Der teure Fehler wäre, drei Ziffern einzutippen und versehentlich Enter zu drücken, wodurch die privaten Lesezeichen unbemerkt für das gesamte Haus freigegeben würden. Ein Profil ohne PIN zeigt auf der Auswahlliste kein PIN-Eingabefeld. Du kannst später unter **Meine PIN** jederzeit eine PIN hinzufügen oder entfernen; das Entfernen erfordert die alte PIN nur, solange eine aktiv gesetzt ist.
 
@@ -197,7 +185,7 @@ Backups schließen PIN, Profilidentität und Hintergrundbild aus. Ein Backup mit
 
 ## Woher das Image kommt
 
-compose lädt ausschließlich veröffentlichte Images herunter; das Bauen übernimmt die CI. Wird ein Tag `v*` gesetzt (oder der Workflow manuell ausgelöst), baut `.github/workflows/docker.yml` Images für amd64 und arm64 und überträgt sie zu Docker Hub und GHCR. Release-Tags lauten `<version>`, `<major>.<minor>` und `<major>` (aktuell `0.4.0` / `0.4` / `0`), ergänzt durch `latest` und den Commit-SHA; die Image-Version stammt ausschließlich aus dem Git-Tag.
+compose lädt ausschließlich veröffentlichte Images herunter; das Bauen übernimmt die CI. Wird ein Tag `v*` gesetzt (oder der Workflow manuell ausgelöst), baut `.github/workflows/docker.yml` Images für amd64 und arm64 und überträgt sie zu Docker Hub und GHCR. Release-Tags lauten `<version>`, `<major>.<minor>` und `<major>`, ergänzt durch `latest` und den Commit-SHA; die Image-Version stammt ausschließlich aus dem Git-Tag.
 
 Wenn du das Repository nicht klonen möchtest, kannst du das Image direkt starten:
 
@@ -205,7 +193,6 @@ Wenn du das Repository nicht klonen möchtest, kannst du das Image direkt starte
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="dein-eigener-admin-schluessel" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:dein-eigener-schluessel:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

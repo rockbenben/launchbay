@@ -2,37 +2,17 @@
 
 > Mọi dấu trang bạn từng quên mình đã lưu, trên một trang duy nhất — tự lưu trữ, ngoại tuyến, không cần đăng ký.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 Open Source Plan #042](https://img.shields.io/badge/365%20Open%20Source%20Plan-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ Bắt đầu nhanh](#bắt-đầu-nhanh) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ Bắt đầu nhanh](#bắt-đầu-nhanh) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · **Tiếng Việt** · [Bahasa Indonesia](README.id.md)
 
-![Trang hồ sơ launchbay: tìm kiếm trên thanh trên cùng, các nhóm ở thanh bên và thẻ ô](../../docs/home-1280.en.webp)
+![Trang hồ sơ launchbay: tìm kiếm trên thanh trên cùng, các nhóm ở thanh bên và thẻ ô](../../docs/home-1280.vi.webp)
 
 Đưa tất cả các địa chỉ bạn không bao giờ nhớ vào một trang duy nhất: bảng quản trị NAS, trang cấu hình router, mạng nội bộ công ty, bảng điều khiển giám sát. Đặt nó làm trang chủ trình duyệt — **một cú nhấp chuột, không vòng quay tải trang.**
 
 Chạy trên chính cỗ máy của bạn — NAS gia đình, Raspberry Pi, router phần mềm, hoặc một máy chủ trong mạng nội bộ — để các dấu trang của bạn không bao giờ chạm tới máy chủ của người khác.
-
-## Tại sao nên chọn launchbay
-
-Hầu hết các công cụ dấu trang khác nhau ở bốn điểm: máy chủ của ai lưu giữ dữ liệu, các thành viên trong gia đình chia sẻ thế nào, có hoạt động ngoại tuyến không, và có sắp xếp bằng thao tác kéo thả được không.
-
-| So sánh | Dấu trang có sẵn của trình duyệt | Dịch vụ dấu trang đám mây | launchbay |
-|---|---|---|---|
-| Nơi lưu dữ liệu | Thư mục hồ sơ trình duyệt, đi theo tài khoản | Máy chủ của nhà cung cấp | **Máy của chính bạn** |
-| Mỗi người một bản | Qua nhiều hồ sơ trình duyệt | Theo từng tài khoản | **Mỗi người một bản, tách biệt trên máy chủ** |
-| Ngoại tuyến | Chỉ cục bộ | Không hoạt động | **Bộ nhớ đệm + hàng đợi ngoại tuyến** |
-| Kéo thả để sắp xếp | Cây thư mục, không phải trang bố cục sẵn | Hầu hết không hỗ trợ | **Thả để lưu, kéo để sắp xếp lại** |
-| Ai khác có thể đọc | Tài khoản trình duyệt | Nhà cung cấp | **Không ai có quyền qua ứng dụng** |
-
-Không cần tài khoản, không có tập lệnh bên thứ ba, không thu thập dữ liệu từ xa (telemetry). Yêu cầu ra bên ngoài duy nhất là nạp trang bạn thêm vào (để lấy tiêu đề) và favicon của trang đó; việc nạp biểu tượng thất bại sẽ được làm nguội trong 24 giờ.
-
-**Nếu bạn chỉ dùng một mình, trang dấu trang tích hợp sẵn của trình duyệt có lẽ đã đủ.** launchbay đánh đổi điều đó để mang lại ba giá trị cốt lõi:
-
-- **Mở trang không cần chờ đợi.** Trang được kết xuất từ phía máy chủ: các dấu trang và biểu tượng đã nằm sẵn trong mã HTML trước khi bất kỳ tập lệnh nào chạy. Mục tiêu là LCP lần vẽ đầu tiên trong mạng LAN < 300ms; việc khởi động nguội trên NAS thực tế hiện chưa được đo đạc (xem [Giới hạn](#giới-hạn)).
-- **Mỗi người một bản, người khác không thể xem.** Mỗi hồ sơ có thể có mã PIN 4–6 chữ số riêng. Quản trị viên có thể tạo, xóa và đặt lại mã PIN, nhưng mọi điểm cuối nội dung đều từ chối khóa quản trị viên với mã 403 — hoàn toàn **không có lộ trình nào** để xem dấu trang của bạn. Đây không phải là mã hóa chống lại quản trị viên hay mạng LAN (bất kỳ ai trong mạng LAN đều có thể chỉnh sửa cookie để mạo danh), mà là cơ chế máy chủ giữ các hồ sơ hoàn toàn độc lập.
-- **Sửa sai có thể hoàn nguyên.** Mọi thay đổi hàng loạt đều tạo bản chụp nhanh trước. Hoàn nguyên sẽ hiển thị phiên bản cũ có bao nhiêu dấu trang và nhóm nào, đồng thời lưu lại phiên bản hiện tại trước khi khôi phục — nhờ đó thao tác hoàn nguyên nhầm lẫn vẫn có thể được hoàn nguyên trở lại. Lịch sử chỉ ghi thêm chứ không xóa: mỗi dòng cho biết ai đã thao tác trên hồ sơ này, vào lúc nào, qua kênh nào (trang web, AI, tiện ích mở rộng, CLI) và trên mục nào — tuyệt đối không ghi nội dung.
 
 ## Phạm vi hỗ trợ
 
@@ -44,7 +24,7 @@ Không cần tài khoản, không có tập lệnh bên thứ ba, không thu th�
 | Trình duyệt | Mọi trình duyệt hiện đại; khi tắt JavaScript, tất cả dấu trang vẫn hiển thị và bấm được bình thường |
 | Cần cài đặt gì | Chỉ Docker: không thư viện bên thứ ba, không cơ sở dữ liệu, không cần Node khi xây dựng |
 | Nơi lưu dữ liệu | Một thư mục thông thường `data/`; sao lưu chỉ đơn giản là sao chép thư mục đó |
-| Ngôn ngữ giao diện | 4 ngôn ngữ giao diện (Tiếng Trung giản thể, Tiếng Trung phồn thể, Tiếng Anh, Tiếng Ả Rập RTL); chọn mặc định toàn máy khi cài đặt, sau đó mỗi hồ sơ có thể tự chọn ngôn ngữ riêng |
+| Ngôn ngữ giao diện | 18 ngôn ngữ giao diện được liệt kê ở trên. Mỗi hồ sơ có thể chọn ngôn ngữ riêng. |
 
 ## Tính năng chính
 
@@ -71,12 +51,26 @@ Không cần tài khoản, không có tập lệnh bên thứ ba, không thu th�
 - **Một bảng điều khiển duy nhất**: thanh trên cùng → Cài đặt. Nơi đây tập trung giao diện và ngôn ngữ của trang, danh sách nhóm, sao lưu và lịch sử, cùng với **Mã PIN của tôi** — tự khóa hoặc mở khóa hồ sơ của chính bạn mà không cần quản trị viên.
 - **Hoạt động khi mất mạng**: trang gần nhất được lưu trong bộ nhớ đệm trình duyệt; các dấu trang thêm vào khi ngoại tuyến — hoặc khi máy chủ tạm ngừng — sẽ xếp hàng chờ và tự động đồng bộ lại khi kết nối lại; nhấn **Gửi ngay** nếu sự cố nằm ở việc máy chủ chưa bật.
 - **Tập lệnh và AI có chìa khóa riêng**: một REST API đi kèm mã thông báo (token) theo phạm vi hồ sơ dành cho tiện ích mở rộng, CLI và tự động hóa. Mã thông báo thao tác vượt ngoài hồ sơ được chỉ định sẽ nhận phản hồi 403.
+- Khôi phục các phiên bản dấu trang trước đó trong phần cài đặt sao lưu và lịch sử.
 
 ## Bắt đầu nhanh
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> Trước khi khởi động, đặt `LAUNCHBAY_ADMIN_TOKEN` riêng trong `docker-compose.yml`.
+
+**Linux / NAS**
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,13 +80,7 @@ Mở **http://<địa chỉ IP nội bộ của máy này>:7600** từ bất k�
 
 Hình ảnh dùng thẻ `:latest`; lệnh `up` đầu tiên sẽ tải bản phát hành mới nhất. Máy đã chạy trước đó vẫn giữ hình ảnh cục bộ, vì vậy hãy chạy `docker compose pull` trước khi muốn cập nhật.
 
-> **Hãy đổi khóa quản trị viên mặc định trước tiên.** compose đi kèm với `launchbay123`, là giá trị công khai. Bất kỳ ai trong mạng LAN biết giá trị này đều có thể tạo, xóa hồ sơ và đặt lại mã PIN (họ vẫn không thể đọc dấu trang). Hãy đặt khóa riêng của bạn vào `LAUNCHBAY_ADMIN_TOKEN` và chạy lại `docker compose up -d`:
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "khoa-quan-tri-cua-ban"
-> ```
-
-Khi truy cập lần đầu, bạn sẽ vào trang thiết lập một lần: đặt tên cho hồ sơ đầu tiên và đặt mã PIN 4–6 chữ số. Không có thông tin đăng nhập mặc định nào, và trang này sẽ đóng vĩnh viễn ngay khi có bất kỳ hồ sơ nào tồn tại trên đĩa.
+Khi truy cập lần đầu, bạn sẽ vào trang thiết lập một lần: đặt tên cho hồ sơ đầu tiên và đặt mã PIN 4–6 chữ số. Không có thông tin đăng nhập mặc định nào, và trang này sẽ đóng vĩnh viễn ngay khi có bất kỳ hồ sơ nào tồn tại trên đĩa. Mở hồ sơ và lưu dấu trang đầu tiên.
 
 **"Không có mã PIN" là một hộp kiểm riêng biệt, không phải là việc để trống ô nhập.** Việc để trống mã PIN sẽ bị từ chối; chỉ khi tích chọn **Không có mã PIN** thì mới tạo một hồ sơ mở cho tất cả mọi người trong mạng LAN. Điều này là có chủ ý — sai lầm tai hại là gõ thiếu số rồi lỡ tay bấm Enter, làm lộ dấu trang cá nhân cho cả nhà. Hồ sơ không có mã PIN sẽ không hiện ô nhập PIN trên trang lựa chọn. Bạn có thể thêm hoặc gỡ bỏ sau này trong mục **Mã PIN của tôi**; việc gỡ bỏ chỉ đòi hỏi mã PIN cũ khi hồ sơ đang có mã PIN.
 
@@ -197,7 +185,7 @@ Bản sao lưu không bao gồm mã PIN, danh tính hồ sơ và ảnh nền. B�
 
 ## Nguồn gốc hình ảnh Docker
 
-compose chỉ kéo hình ảnh đã xuất bản; việc biên dịch là nhiệm vụ của CI. Khi gắn thẻ `v*` (hoặc kích hoạt quy trình thủ công), `.github/workflows/docker.yml` sẽ xây dựng cho amd64 và arm64 rồi đẩy lên Docker Hub và GHCR. Các thẻ phát hành là `<version>`, `<major>.<minor>` và `<major>` (hiện tại là `0.4.0` / `0.4` / `0`), cùng với `latest` và chuỗi sha rút gọn của commit; phiên bản hình ảnh chỉ lấy từ thẻ git.
+compose chỉ kéo hình ảnh đã xuất bản; việc biên dịch là nhiệm vụ của CI. Khi gắn thẻ `v*` (hoặc kích hoạt quy trình thủ công), `.github/workflows/docker.yml` sẽ xây dựng cho amd64 và arm64 rồi đẩy lên Docker Hub và GHCR. Các thẻ phát hành là `<version>`, `<major>.<minor>` và `<major>`, cùng với `latest` và chuỗi sha rút gọn của commit; phiên bản hình ảnh chỉ lấy từ thẻ git.
 
 Để bỏ qua bước clone mã nguồn, bạn có thể chạy hình ảnh trực tiếp:
 
@@ -205,7 +193,6 @@ compose chỉ kéo hình ảnh đã xuất bản; việc biên dịch là nhiệ
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="khoa-quan-tri-cua-ban" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:khoa-bi-mat-cua-ban:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```

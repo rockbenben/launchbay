@@ -2,37 +2,17 @@
 
 > 一開啟主頁，書籤就都在一頁上；跑在自己機器上，不用註冊，斷網也能用。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 開源計劃 #042](https://img.shields.io/badge/365%20%E9%96%8B%E6%BA%90%E8%A8%88%E7%95%AB-%23042-1f6feb)](https://github.com/rockbenben/365opensource) [![ci](https://img.shields.io/github/actions/workflow/status/rockbenben/launchbay/ci.yml?label=ci&branch=main)](https://github.com/rockbenben/launchbay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f6feb)](../../LICENSE) [![365 開源計劃 #042](https://img.shields.io/badge/365%20%E9%96%8B%E6%BA%90%E8%A8%88%E7%95%AB-%23042-1f6feb)](https://github.com/rockbenben/365opensource)
 
-[▶ 快速開始](#快速開始) · [⬇ Releases](https://github.com/rockbenben/launchbay/releases)
+[▶ 快速開始](#快速開始) · [GHCR](https://github.com/rockbenben/launchbay/pkgs/container/launchbay) · [docker-compose.yml](https://raw.githubusercontent.com/rockbenben/launchbay/refs/heads/main/docker-compose.yml)
 
 [English](../../README.md) · [简体中文](../../README.zh.md) · **繁體中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
-![launchbay 檔案頁：頂欄搜尋、側欄分組與磁貼卡片](../../docs/home-1280.webp)
+![launchbay 檔案頁：頂欄搜尋、側欄分組與磁貼卡片](../../docs/home-1280.zh-Hant.webp)
 
 把記不住的那些地址放進一頁：NAS 管理後臺、路由後臺、公司 OA、監控面板。把它設成瀏覽器主頁，之後每次點開就是它，**一點就到，不用等轉圈**。
 
 跑在你自己那臺機器上——家裡 NAS、樹莓派、軟路由，或公司內網的一臺伺服器——書籤不經過別人的伺服器。
-
-## 為什麼是 launchbay
-
-這類工具不少，差別主要在四件事：資料在誰的伺服器上、一家人怎麼分、斷網還能不能用、能不能靠拖來整理。
-
-| 對比項 | 瀏覽器自帶書籤頁 | 雲端收藏服務 | launchbay |
-|---|---|---|---|
-| 資料在哪 | 瀏覽器配置目錄，跟著賬號走 | 廠商的伺服器 | **自己的機器** |
-| 幾人各一份 | 靠瀏覽器的多份配置 | 按賬號 | **每人一份，服務端分開** |
-| 斷網 | 本地還能用 | 用不了 | **快取 + 離線佇列** |
-| 靠拖整理 | 資料夾樹，不是一頁版面 | 多數不能 | **拖進來就存，可跨組排序** |
-| 還有誰能讀 | 你的瀏覽器賬號 | 廠商 | **應用裡沒有通路** |
-
-沒有賬號，沒有第三方指令碼，沒有遙測。唯一的外部請求是新增書籤時抓一次目標頁（取標題）和它的 favicon；圖示抓取失敗的站點冷卻 24 小時。
-
-**一個人用的話，瀏覽器自帶書籤頁其實就夠。** launchbay 換來的，是下面三件事：
-
-- **開啟不用等。** 頁面由服務端渲染，書籤和圖示直接寫進 HTML，指令碼沒跑之前連結就在。目標是區域網首屏 LCP < 300ms；NAS 真機冷啟動還沒實測（見「限制」）。
-- **各人一份，別人看不見。** 每份檔案可以有自己的 4–6 位 PIN。管理員能建檔、刪檔、改 PIN，但所有內容端點對管理員金鑰一律 403——**沒有一條通路**能讀到你的書籤。這不是密碼學意義上的防護（區域網裡改個 cookie 就能冒充誰），是服務端把各份檔案分開。
-- **改壞了能退回去。** 每次批次改動前先留快照。回退時能看見每個舊版本有幾條書籤、哪些分組；恢復前也會先存下當前版本，所以退錯了還能再退回來。歷史只增不刪：每一行寫著誰、什麼時候、透過哪條路（網頁、AI、擴充套件、命令列）動了哪一條，不記改成了什麼樣子。
 
 ## 支援範圍
 
@@ -44,7 +24,7 @@
 | 瀏覽器 | 任意現代瀏覽器；關掉 JavaScript，全部書籤照樣看得見、點得動 |
 | 要裝什麼 | 只要 Docker：零第三方庫、零資料庫、構建期不需要 Node |
 | 資料在哪 | 一個普通目錄 `data/`，備份就是整目錄拷走 |
-| 介面語言 | 4 門介面語言（簡體中文、繁體中文、English、阿拉伯語 RTL）。裝的時候選全機預設；之後每份檔案在自己的面板裡給自己選 |
+| 介面語言 | 18 種介面語言，見上方的語言連結。每個檔案可個別設定。 |
 
 ## 它能做什麼
 
@@ -71,12 +51,26 @@
 - **一個面板**：頂欄「設定」裡集中了這一頁的樣子與語言、分組列表、備份與歷史，以及「我的 PIN」——給自己上鎖或撤鎖，不用找管理員。
 - **斷網也能點**：最近一頁快取在瀏覽器裡；離線時，或機器連不上時，加的書籤先排隊，瀏覽器恢復聯網後自動重放，機器本身沒起來就點「補進去」。
 - **指令碼和 AI 有自己的鑰匙**：REST 介面加按檔案作用域的令牌，擴充套件、命令列、自動化各用各的；越界寫別人的檔案一律 403。
+- 在「設定 → 備份與歷史」中還原先前的書籤版本。
 
 ## 快速開始
 
 ```bash
 git clone https://github.com/rockbenben/launchbay
 cd launchbay
+```
+
+> [!IMPORTANT]
+> 啟動前，請在 `docker-compose.yml` 中設定自己的 `LAUNCHBAY_ADMIN_TOKEN`。
+
+在 Linux 或 NAS 上部署時，請先準備資料目錄。
+
+```bash
+mkdir -p ./data
+sudo chown 65534:65534 ./data
+```
+
+```bash
 docker compose up -d
 ```
 
@@ -86,19 +80,13 @@ docker compose up -d
 
 映象是 `:latest`，首次 `up` 拉最新一次釋出；已經跑著的機器本機已有映象，要先 `docker compose pull` 才更新。
 
-> **先把預設管理金鑰換掉。** compose 裡 `LAUNCHBAY_ADMIN_TOKEN` 寫的是 `launchbay123`，公開的預設值。同一區域網裡認得它的人能建檔、刪檔、給你改 PIN（仍然讀不到書籤）。換成你自己的，再 `docker compose up -d`：
->
-> ```yaml
-> LAUNCHBAY_ADMIN_TOKEN: "你自己的管理金鑰"
-> ```
-
-開啟它會進入一次性建檔頁：給第一份檔案起名、設 4–6 位 PIN。沒有預設賬號密碼；磁碟上建出任何一份檔案之後，這一頁就永久關閉。
+開啟它會進入一次性建檔頁：給第一份檔案起名、設 4–6 位 PIN。沒有預設賬號密碼；磁碟上建出任何一份檔案之後，這一頁就永久關閉。 進入檔案後，按「新增」儲存第一筆書籤。
 
 **「不設 PIN」是一個單獨的勾，不是空著不填。** PIN 空著會被拒；勾上「不設 PIN」才建出一份對區域網敞開的檔案。這是故意的——最容易出的錯是少敲一位就回車，把一個人的書籤悄悄公開給全家。不設 PIN 的檔案在選擇頁上連 PIN 框都不畫。之後可以在「我的 PIN」裡補上或撤掉；撤掉時只有本來就有 PIN 才要舊 PIN。
 
 第一份檔案**不是管理員**。管這臺機器的是 `LAUNCHBAY_ADMIN_TOKEN`：開啟 `/admin` 輸一次，拿到一條只屬於管理身份的 cookie（30 天）。
 
-**後來的人不用等管理員。** 選擇頁上有一枚摺疊的「新建自己的一份」：展開、填名字與 PIN 就建好（`POST /new`；機器那條是 `POST /api/v1/profiles/new`）。它不要任何憑證，區域網裡任何裝置都能建，選擇頁會多一張卡，管理員隨時能刪。建出來的是**空的**檔案，只屬於它自己的 PIN，不給人看別人的書籤。名字最多 60 個字；跟別人重名，兩張卡就分不清。
+**後來的人不用等管理員。** 選擇頁上有一枚摺疊的「建立檔案」：展開、填名字與 PIN 就建好（`POST /new`；機器那條是 `POST /api/v1/profiles/new`）。它不要任何憑證，區域網裡任何裝置都能建，選擇頁會多一張卡，管理員隨時能刪。建出來的是**空的**檔案，只屬於它自己的 PIN，不給人看別人的書籤。名字最多 60 個字；跟別人重名，兩張卡就分不清。
 
 **刪檔是唯一找不回來的動作**，所以要多問一次：確認頁寫明會刪掉多少書籤、多少快照，再輸一次 `LAUNCHBAY_ADMIN_TOKEN` 才真的刪。機器那條（`DELETE /api/v1/profiles`）只認這把 key，只帶管理 cookie 是 403。快照和私有背景圖跟著檔案一起沒了，回退救不了。
 
@@ -128,7 +116,7 @@ docker compose up -d
 1. 開啟 `chrome://extensions`，右上角開**開發者模式**
 2. 點**載入已解壓的擴充套件程式**，選 `extension/`
 3. 開啟擴充套件的選項頁，填這臺機器的地址（不帶結尾斜槓）、預設檔案 id、令牌裡那段金鑰
-4. 點**試一下這臺機器**
+4. 點**測試連線**
 
 「試一下」答 403 不是網路壞了，是令牌與檔案 id 對不上。改 `LAUNCHBAY_WRITE_TOKENS` 裡的作用域，重啟再試。
 
@@ -167,7 +155,7 @@ sudo chown -R 65534:65534 ./data
 | 改這一頁的樣子、檢視、分組、背景、地址模式與點開方式 | 頂欄「設定」，或 `POST /prefs`、`/prefs/background`、`/prefs/group`、`/prefs/tabs` |
 | 改自己這一份的 PIN | 自己面板的「我的 PIN」，或 `POST /prefs/pin` / `POST /api/v1/profiles/self/pin` |
 | 建檔、刪檔、給別人設 PIN、停用某個人 | `/admin`（或選擇頁底部的管理連結）。刪檔會再要一次 key；賬號層面命令列只有 `profile create` 與 `profile rebuild` 兩條 |
-| 給自己再建一份 | 選單頁摺疊的「新建自己的一份」，或 `POST /api/v1/profiles/new`（免憑證） |
+| 給自己再建一份 | 選單頁摺疊的「建立檔案」，或 `POST /api/v1/profiles/new`（免憑證） |
 | 收拾「名字就是地址」的條目 | `launchbay profile fix-names --profile <id>`（先加 `--dry-run`） |
 | 讓 AI 或指令碼改書籤 | `POST /api/v1/batch`，帶 `expectedRev` |
 | 救壞檔 | `POST /api/v1/profiles/rebuild`，或 `launchbay profile rebuild` |
@@ -197,7 +185,7 @@ sudo chown -R 65534:65534 ./data
 
 ## 映象從哪來
 
-compose 只管拉已釋出的映象，構建是 CI 的事。打一個 `v*`（或手動 dispatch），`.github/workflows/docker.yml` 會構建 amd64 與 arm64，推到 Docker Hub 與 GHCR。釋出標籤是 `<version>`、`<major>.<minor>`、`<major>`（當前 `0.4.0` / `0.4` / `0`），加上 `latest` 與 commit 短 sha；映象版本只來自 git tag。
+compose 只管拉已釋出的映象，構建是 CI 的事。打一個 `v*`（或手動 dispatch），`.github/workflows/docker.yml` 會構建 amd64 與 arm64，推到 Docker Hub 與 GHCR。釋出標籤是 `<version>`、`<major>.<minor>`、`<major>`，加上 `latest` 與 commit 短 sha；映象版本只來自 git tag。
 
 不想 clone 也行，直接拉映象：
 
@@ -205,7 +193,6 @@ compose 只管拉已釋出的映象，構建是 CI 的事。打一個 `v*`（或
 docker run -d --name launchbay -p 7600:7600 \
   -v launchbay-data:/data -e LAUNCHBAY_DATA_DIR=/data \
   -e LAUNCHBAY_ADMIN_TOKEN="換成你自己的管理金鑰" \
-  -e LAUNCHBAY_WRITE_TOKENS="ai-dad:換成你自己的金鑰:dad" -e TZ=Asia/Shanghai \
   --health-cmd "/launchbay healthcheck" --health-interval 30s \
   ghcr.io/rockbenben/launchbay:latest
 ```
