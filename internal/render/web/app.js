@@ -192,15 +192,7 @@
   // 面板纹丝不动，而背后整页还被 inert 摘掉了可聚焦性（点不动、Tab 也出不去）。
   // 两处各写一份顺序的判据，早晚会漂，所以只留这一份。
   function closeTopLayer() {
-    // 多选排第一：进多选时那句提示明写「按 Esc 退出」，而从前这一支里
-    // 根本没有 exitMulti——说了没做。编辑面板比它更靠上层，先关它。
-    // 判据读 openEdit 而不是查 DOM：这一层如今挂在 body 上，
-    // `editing.closest('li')` 那套"从面板找回它那一行"的写法已经不成立。
     if (openEdit) { closeEdit(); return true; }
-    // 多选**不在这条"关掉"的路上**：它是页面的一部分（顶栏一条多选带），
-    // 点外面去不叫"关掉弹层"，而 Esc 要管它——所以这里 return false，
-    // 让"点外面"那半句继续往下的层找，而不是把整条多选带撤掉。
-    if (multi.on) { return false; }
     // 台面浮层要排在下面那个通用 `.sheet` 分支**之前**：它就是一个 `.sheet`，
     // 而那一支是 `dlg.remove()`——那是为"用完即弃"的挑组/标签/确认框写的
     // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
@@ -219,18 +211,23 @@
     // 同文件里台面面板的关闭与添加浮层的 × 都写了 focus()，这一支原先漏了。
     const dlg = [...document.querySelectorAll('.sheet')].find((x) => x !== sheet && x !== prefsSheet);
     if (dlg) {
-      const opener = dlg.__opener || document.activeElement;
-      dlg.remove();
-      syncTrap();
-      if (opener && opener.isConnected) opener.focus();
+      closeTransientDialog(dlg);
       return true;
     }
     if (!help.hidden) { help.hidden = true; syncTrap(); return true; }
     if (!cmdk.hidden) { cmdkClose(); return true; }
     if (!sheet.hidden) { closeSheet(); return true; }
+    if (multi.on) { return false; }
     const banner = $('#lb-banner');
     if (banner) { banner.remove(); return true; }
     return false;
+  }
+
+  function closeTransientDialog(dlg) {
+    const opener = dlg.__opener;
+    dlg.remove();
+    syncTrap();
+    if (opener?.isConnected) opener.focus();
   }
 
   // 点层外 = 关掉最上面那一层（2026-10-14）。
@@ -3748,7 +3745,7 @@
   }
 
   // ── §8.4 多选 → 批量移动 / 打标签 ────────────────────────────────────
-  const multi = { on: false, picked: new Set() };
+  const multi = { on: false, picked: new Set(), hint: null };
   const multiBtn = el('button', {
     type: 'button', id: 'lb-multi', class: 'multi-toggle',
     title: T('app.cmdk.multi'), 'aria-label': T('app.cmdk.multi'), 'aria-pressed': 'false',
@@ -3789,11 +3786,13 @@
     if (first) multi.picked.add(first);
     body.dataset.multi = 'on';
     paintPicked();
-    showBanner(T('app.multi.hint'));
+    multi.hint = showBanner(T('app.multi.hint'));
   }
   function exitMulti() {
     const focus = document.activeElement;
-    if (bar.contains(focus) || focus?.classList.contains('pick-chk')) multiBtn.focus();
+    if (bar.contains(focus) || multi.hint?.contains(focus) || focus?.classList.contains('pick-chk')) multiBtn.focus();
+    multi.hint?.remove();
+    multi.hint = null;
     multi.on = false;
     multi.picked.clear();
     delete body.dataset.multi;
@@ -3857,7 +3856,7 @@
         type: 'button', class: 'fld', text: groupLabel(g.dataset.gid, groupName(g)),
         on: {
           click: async () => {
-            dlg.remove(); // 从前是 dlg.hidden = true：节点留在 DOM 里，第二次进多选会攒出第二个同名 dialog
+            closeTransientDialog(dlg);
             const to = g.dataset.gid;
             // **不给 index**（2026-10-16 查排序时发现）：ops 在锁内按顺序应用，
             // 缺席即追加到末尾（ops.go 里 pos = bound）。从前每一条都写 `index: 0`
@@ -3874,7 +3873,7 @@
         },
       }))),
       el('div', { class: 'sheet-actions' }, [el('button', {
-        type: 'button', class: 'fld', text: T('app.move.cancel'), on: { click: () => dlg.remove() },
+        type: 'button', class: 'fld', text: T('app.move.cancel'), on: { click: () => closeTransientDialog(dlg) },
       })]),
     ]);
     // 记住是谁打开它的（2026-10-20）：关掉时把焦点还回去。
@@ -3885,6 +3884,7 @@
     // 背后——aria-modal 只是一句空声明。打开浮层/台面/⌘K/图标库那几处都记得调，
     // 这三处原先漏了。
     syncTrap();
+    dlg.lastElementChild.querySelector('button').focus();
   }
 
   async function pickTags() {
@@ -3902,7 +3902,7 @@
             click: async () => {
               const list = input.value.split(/[\s,，]+/).map((t) => t.trim()).filter(Boolean);
               if (!list.length) { showBanner(T('app.tags.empty')); return; }
-              dlg.remove();
+              closeTransientDialog(dlg);
               const ops = picked.map((li) => ({
                 op: 'set',
                 path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}/tags`,
@@ -3912,7 +3912,7 @@
             },
           },
         }),
-        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
+        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeTransientDialog(dlg) } }),
       ]),
     ]);
     dlg.__opener = document.activeElement;
@@ -3943,7 +3943,7 @@
           type: 'button', class: 'fld danger', text: T('app.delete.confirmMany', names.length),
           on: {
             click: async () => {
-              dlg.remove();
+              closeTransientDialog(dlg);
               const ops = picked.map((li) => ({
                 op: 'remove',
                 path: `groups/${groupOf(li).dataset.gid}/items/${li.dataset.item}`,
@@ -3952,7 +3952,7 @@
             },
           },
         }),
-        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => dlg.remove() } }),
+        el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeTransientDialog(dlg) } }),
       ]),
     ]);
     dlg.__opener = document.activeElement;
@@ -4018,8 +4018,8 @@
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      closeTopLayer();
-      if (multi.on) exitMulti();
+      const closed = closeTopLayer();
+      if (!closed && multi.on) exitMulti();
       return;
     }
     if (typing || mod(e) || e.altKey) return;
@@ -4079,6 +4079,7 @@
     // 往右推（实拍：多选提示 600px 宽，标题被顶到 x=645）。一条会自己出现又
     // 自己消失的临时消息，不该每出现一次就重排一次主结构。
     header.after(p);
+    return p;
   }
 
   // 自己会走的那一条：倒计时 + **指针移上去或焦点落进去就暂停**——一条正在读的

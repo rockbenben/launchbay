@@ -241,10 +241,30 @@ try {
   assert.equal(await run(checkboxVisible), true);
   await ev(`document.querySelector('li[data-item] .pick-chk').click()`);
   assert.equal(await run(`document.querySelector('.pick-chk').getAttribute('aria-pressed')`), 'true');
-  await ev(`document.querySelector('.multibar button:last-child').click()`);
-  assert.equal(await run(`!document.body.dataset.multi && document.getElementById('lb-multi').getAttribute('aria-pressed') === 'false'`), true);
+  const pressEscape = async () => {
+    const key = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 };
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+  };
+  for (const [index, exit] of [[0, 'Escape'], [1, 'cancel'], [2, 'cancel']]) {
+    const opener = `.multibar button:nth-child(${index + 1})`;
+    const bulkDialog = '.sheet[role="dialog"]:not([hidden])';
+    await ev(`const button = document.querySelector(${JSON.stringify(opener)}); button.focus(); button.click()`);
+    assert.equal(await run(`!!document.querySelector('${bulkDialog}') && !!document.querySelector('main').closest('[inert]')`), true);
+    if (exit === 'Escape') await pressEscape();
+    else await ev(`document.querySelector('${bulkDialog} .sheet-actions:last-child button:last-child').click()`);
+    assert.equal(await run(`!document.querySelector('${bulkDialog}') && !document.querySelector('main').closest('[inert]')
+      && document.activeElement === document.querySelector('${opener}')
+      && document.body.dataset.multi === 'on'
+      && document.querySelector('.pick-chk').getAttribute('aria-pressed') === 'true'`), true);
+  }
+  assert.equal(await run(`!!document.getElementById('lb-banner')`), true);
+  await pressEscape();
+  assert.equal(await run(`!document.body.dataset.multi && !document.getElementById('lb-banner')
+    && document.getElementById('lb-multi').getAttribute('aria-pressed') === 'false'
+    && document.activeElement === document.getElementById('lb-multi')`), true);
   assert.equal(await run(checkboxVisible), false);
-  console.log('PASS card hover hides checkboxes and the toolbar button enables selection');
+  console.log('PASS multi-select hides inactive checkboxes, restores focus after dialogs and clears its hint on exit');
 
   // Force a conflicting suggestion while preserving the real batch write.
   await ev(`window.__fetch=window.fetch;window.fetch=(url,opts)=>String(url).includes('/api/v1/resolve')?Promise.resolve(new Response(JSON.stringify({title:'Drop target',suggestedGroup:{id:'tiles-1',title:'Tiles'}}),{headers:{'Content-Type':'application/json'}})):window.__fetch(url,opts)`);

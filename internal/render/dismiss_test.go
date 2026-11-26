@@ -36,7 +36,7 @@ func Test点层外能关掉最上面那一层(t *testing.T) {
 	if !strings.Contains(js, "function closeTopLayer()") {
 		t.Error("没有 closeTopLayer：Esc 与「点外面」各写一份必然漂")
 	}
-	if !strings.Contains(js, "if (e.key === 'Escape') {\n      e.preventDefault();\n      closeTopLayer();") {
+	if !strings.Contains(js, "if (e.key === 'Escape') {\n      e.preventDefault();\n      const closed = closeTopLayer();") {
 		t.Error("Esc 那一支没有走 closeTopLayer")
 	}
 	if strings.Count(js, "closeTopLayer();") < 2 {
