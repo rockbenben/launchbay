@@ -28,7 +28,7 @@ const changeIcon = id => c.ev(`{
   select.value = 'auto';
   select.dispatchEvent(new Event('change', { bubbles: true }));
 }`);
-const refresh = () => c.ev("document.querySelector('.inline-edit .edit-icon-row button').click()");
+const refresh = () => c.ev("document.querySelector('.inline-edit .site-icon-origin').click()");
 
 try {
   const seeded = await fetch(srv + '/api/v1/batch', {
@@ -75,7 +75,7 @@ try {
   assert.equal(await revision(), rev);
 
   const addIconSource = "#lb-sheet .site-icon-field a";
-  const backupButton = scope => scope + ' .edit-icon-row button:last-child';
+  const backupButton = scope => scope + ' .site-icon-backup';
   const backupHidden = () => c.run(`document.querySelector('${backupButton('#lb-sheet')}').hidden`);
   await c.ev("document.getElementById('lb-add').click()");
   assert.equal(await c.run(`document.querySelector('${addIconSource}').parentElement.hidden`), true);
@@ -129,14 +129,18 @@ try {
   await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
   assert.equal(await revision(), rev + 1);
   await c.ev("document.querySelector('li[data-item=backup-icon-test] button.pencil').click()");
+  assert.equal(await c.run("document.querySelector('.inline-edit .edit-icon-row').firstElementChild.matches('.site-icon-backup.is-suggested')"), true);
   const fallbackImage = 'data:image/svg+xml;base64,' + Buffer.from(
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="green"/></svg>'
   ).toString('base64');
   await c.ev(`{
     const original = window.fetch;
     window.fallbackRequests = [];
+    window.originAvailable = false;
     window.fetch = (path, options) => {
-      if (path === '/api/v1/resolve') return Promise.resolve(Response.json({ kind: 'target-unreachable' }, { status: 502 }));
+      if (path === '/api/v1/resolve') return Promise.resolve(window.originAvailable
+        ? Response.json({ favicon: ${JSON.stringify(newIcon)}, iconCandidates: [] })
+        : Response.json({ kind: 'target-unreachable' }, { status: 502 }));
       if (path !== '/api/v1/icons/fallback') return original(path, options);
       window.fallbackRequests.push(JSON.parse(options.body));
       if (window.fallbackRequests.length === 1) return Promise.resolve(new Response('{}', { status: 502 }));
@@ -144,11 +148,16 @@ try {
     };
   }`);
   await refresh();
-  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-backup').classList.contains('is-suggested')"), true);
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('目标网页无法访问') && !document.querySelector('.inline-edit .site-icon-origin').disabled"), true);
+  assert.equal(await c.run("document.querySelector('.inline-edit .site-icon-backup').classList.contains('is-suggested')"), true);
+  await c.ev("window.originAvailable = true");
+  await refresh();
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth > 0"), true);
+  assert.equal(await c.run("document.querySelector('.inline-edit .site-icon-backup').hidden"), false);
   assert.equal(await c.run("window.fallbackRequests.length"), 0);
   const clickBackup = () => c.ev(`document.querySelector('${backupButton('.inline-edit')}').click()`);
   await clickBackup();
-  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('未能获取这个网站的备用图标')"), true);
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('未能从 DuckDuckGo 获取图标')"), true);
   assert.equal(await c.run("document.getElementById('lb-edit-icon').value"), 'tabler:home');
   await clickBackup();
   assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);

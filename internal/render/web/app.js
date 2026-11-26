@@ -1149,7 +1149,6 @@
       on: { click: () => {
         if (!backupHost || backup.disabled) return;
         const host = backupHost;
-        backup.classList.remove('is-suggested');
         selectImage(async () => {
           const { image } = await api('/api/v1/icons/fallback', { host });
           return renderIconPNG(image);
@@ -1180,12 +1179,13 @@
       // The server also checks configured LAN hosts before contacting it.
       const publicHost = host.length <= 253 && /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/i.test(host) &&
         !/\.(?:arpa|corp|example|home|i2p|internal|invalid|lan|local|localhost|onion|test)$/i.test(host);
-      backupHost = publicHost && !resolvedIcon ? host : '';
+      backupHost = publicHost ? host : '';
       if (upload?.host && upload.host !== host) {
         upload = null;
         resetSite();
       }
       backup.hidden = !backupHost;
+      backup.classList.toggle('is-suggested', !!backupHost && !resolvedIcon && !uploadedIcon(select.value));
 
       downloadHint.hidden = !origin;
       if (origin) iconSource.href = resolvedIcon || origin + '/favicon.ico';
@@ -1201,7 +1201,6 @@
     const resetSite = () => {
       request = null;
       refresh.disabled = backup.disabled = Boolean(upload);
-      backup.classList.remove('is-suggested');
       showSelected();
     };
     function load(force = false) {
@@ -1215,7 +1214,6 @@
       const current = { url, pending: true };
       request = current;
       refresh.disabled = true;
-      backup.classList.remove('is-suggested');
       status.textContent = T('app.icon.loading');
       const isCurrent = () => request === current && address.value.trim() === url && active();
       current.promise = api('/api/v1/resolve', { url, profile, refreshIcon: force }).then((result) => {
@@ -1227,12 +1225,10 @@
           status.replaceChildren(siteIconImage(result.favicon), T('app.icon.ready'));
         } else {
           status.textContent = T('app.icon.unavailable');
-          backup.classList.toggle('is-suggested', !backup.hidden);
         }
       }).catch((error) => {
         if (!isCurrent()) return;
         status.textContent = error.kind === 'target-unreachable' ? T('app.icon.pageDown') : error.message;
-        backup.classList.toggle('is-suggested', error.kind === 'target-unreachable' && !backup.hidden);
       }).finally(() => {
         current.pending = false;
         if (request === current) refresh.disabled = false;
@@ -1240,7 +1236,7 @@
       return current.promise;
     }
     const refresh = el('button', {
-      type: 'button', class: 'fld', text: T('app.icon.refresh'),
+      type: 'button', class: 'fld site-icon-origin', text: T('app.icon.refresh'),
       on: { click: () => load(true) },
     });
     const fileInput = el('input', { type: 'file', hidden: '', accept: '.png,.jpg,.jpeg,.webp,.gif,.ico,.svg' });
@@ -1287,13 +1283,14 @@
       backup.disabled = false;
       if (select.value === 'auto') load();
       else resetSite();
+      syncDownload();
     });
     showSelected();
     syncDownload();
     return {
       field: el('div', { class: 'site-icon-field' }, [
         el('label', { text: T('app.field.icon') }, [select]),
-        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose, backup]),
+        el('div', { class: 'edit-icon-row' }, [backup, refresh, iconLibraryButton(select), choose]),
         status, fileInput, downloadHint,
       ]),
       syncDownload,
