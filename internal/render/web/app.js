@@ -1185,7 +1185,7 @@
           status.textContent = T('app.icon.unavailable');
         }
       }).catch((error) => {
-        if (isCurrent()) status.textContent = error.status === 502 ? T('app.icon.unavailable') : error.message;
+        if (isCurrent()) status.textContent = error.kind === 'target-unreachable' ? T('app.icon.pageDown') : error.message;
       }).finally(() => {
         current.pending = false;
         if (request === current) refresh.disabled = false;
