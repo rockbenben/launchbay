@@ -191,16 +191,13 @@
   // 面板纹丝不动，而背后整页还被 inert 摘掉了可聚焦性（点不动、Tab 也出不去）。
   // 两处各写一份顺序的判据，早晚会漂，所以只留这一份。
   function closeTopLayer() {
+    if (iconPick.panel) { closeIconPicker(); return true; }
     if (openEdit) { closeEdit(); return true; }
     // 台面浮层要排在下面那个通用 `.sheet` 分支**之前**：它就是一个 `.sheet`，
     // 而那一支是 `dlg.remove()`——那是为"用完即弃"的挑组/标签/确认框写的
     // （它们每次重新画）。台面面板的标记是**fetch 一次、反复复用**的，
     // remove 掉等于第二次打开要重新拉一次，而且 DOM 里那个空壳被摘走了。
     if (prefsSheet && !prefsSheet.hidden) { prefsClose(); return true; }
-    // 图标库那一层要排在下面那个通用 `.sheet` 分支**之前**：它就是 `.sheet`，
-    // 而那一支是 `dlg.remove()`——摘掉 DOM 却不同步 syncTrap，页面会整片留在
-    // inert 里（面板没了，一个字都点不动）。它的收尾还要把焦点还给打开它的那颗键。
-    if (iconPick.panel) { closeIconPicker(); return true; }
     // 那些"用完即弃"的小层（挑组 / 挑标签 / 确认）：DOM 里现找，摘掉。
     //
     // **焦点要还回去**（2026-10-20）：这一层是被某个按钮打开的（挑组是从
@@ -263,6 +260,8 @@
   function resetSheetForm(gid) {
     fUrl.value = '';
     fWan.value = '';
+    addWAN.open = false;
+    wanErr.textContent = '';
     fTitle.value = '';
     fDesc.value = '';
     fNewGroup.value = '';
@@ -447,7 +446,9 @@
   // 根本没跑，产品那句「这个地址还不完整…」也就到不了。所以下面这张表单带
   // `novalidate`：留下 type=url 的键盘与 autofill，把判据交回 submit() 自己。
   const fUrl = el('input', { type: 'url', id: 'lb-url', class: 'fld', placeholder: 'https://', 'aria-required': 'true', autocomplete: 'off' });
-  const fWan = el('input', { type: 'url', id: 'lb-wan', name: 'urls/wan', class: 'fld', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'lb-wan-hint' });
+  const fWan = el('input', { type: 'url', id: 'lb-wan', name: 'urls/wan', class: 'fld', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false' });
+  const wanErr = el('p', { id: 'lb-wan-error', class: 'sheet-status bad fieldmsg', role: 'alert' });
+  const addWAN = wanDisclosure(fWan, wanErr);
   const fTitle = el('input', { type: 'text', id: 'lb-title', class: 'fld', placeholder: T('app.ph.title'), autocomplete: 'off' });
   const fDesc = el('input', { type: 'text', id: 'lb-desc', class: 'fld', placeholder: T('app.ph.desc'), autocomplete: 'off' });
   const fGroup = el('select', { id: 'lb-group', class: 'fld' });
@@ -554,8 +555,6 @@
     el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [fUrl]), urlErr]),
     // 字段名与就地编辑统一成「名称」（数据里就是 name）。这里从前叫「标题」、
     // 就地编辑叫「名字」——同一个东西在两层里两个名字。
-    el('label', { text: T('app.field.wan') }, [fWan]),
-    el('p', { id: 'lb-wan-hint', class: 'prefs-hint', text: T('app.wan.hint') }),
     el('label', { text: T('app.field.title') }, [fTitle]),
     el('label', { text: T('app.field.desc') }, [fDesc]),
     // **这一格从前没有标签**（2026-10-14 实拍修掉）：`el('label', {}, [...])` 里
@@ -571,6 +570,7 @@
     el('label', { text: T('app.field.group') }, [fGroup]),
     fNewGroupLabel,
     fGroupShapeWrap,
+    addWAN,
     addSiteIcon.field,
     el('div', { class: 'sheet-actions' }, [saveBtn, moreBtn]),
     status,
@@ -1165,7 +1165,7 @@
       let origin = '';
       let host = '';
       try {
-        const url = new URL(address.value.trim());
+        const url = new URL(bookmarkAddress(address.value));
         if (url.protocol === 'http:' || url.protocol === 'https:') {
           origin = url.origin;
           host = url.hostname.replace(/\.$/, '');
@@ -1205,7 +1205,7 @@
     };
     function load(force = false) {
       if (upload) return upload.promise;
-      const url = address.value.trim();
+      const url = bookmarkAddress(address.value);
       if (request?.url === url && (!force || request.pending)) return request.promise;
       if (!siteIconOrigin(url)) {
         status.textContent = T('app.icon.httpOnly');
@@ -1215,7 +1215,7 @@
       request = current;
       refresh.disabled = true;
       status.textContent = T('app.icon.loading');
-      const isCurrent = () => request === current && address.value.trim() === url && active();
+      const isCurrent = () => request === current && bookmarkAddress(address.value) === url && active();
       current.promise = api('/api/v1/resolve', { url, profile, refreshIcon: force }).then((result) => {
         if (result.favicon) updateSiteIcons(url, result.favicon);
         if (!isCurrent()) return;
@@ -1294,7 +1294,7 @@
         status, fileInput, downloadHint,
       ]),
       syncDownload,
-      pending: () => upload?.promise || (request?.pending && request.url === address.value.trim() ? request.promise : null),
+      pending: () => upload?.promise || (request?.pending && request.url === bookmarkAddress(address.value) ? request.promise : null),
       load,
       reset: () => {
         upload = null;
@@ -1715,19 +1715,53 @@
     closeIconPicker();
   }
 
-  // **浏览器能解析成 URL 才值得发请求**（2026-10-24）：去掉原生校验之后，
-  // 敲 "abc" 会先跑一次 resolve、按保存时再跑一次 batch，两次都必然失败。
-  // 这里只拦"一眼不是地址"的形状；主机名、scheme、slug 的正式判据仍在服务端
-  // 那一处（`model.CheckURL`），不在这里抄第二份。
-  //
-  // **必须放在下面那个 bookmarklet 预填之前**：`?add=` 那一支会在模块初始化时
-  // 调用 `resolveNow()`，而它第一件事就是用这一格。写在 resolveNow 旁边时，
-  // 那一发会撞上 TDZ（`Cannot access 'parseableAddress' before initialization`）：
-  // 浮层照开、`t=` 带来的标题还在，但那一次读取整个不发生（说明/图标/建议分组
-  // 都读不到，状态行空着），错误只在 console 里。
-  const parseableAddress = (s) => {
-    try { new URL(s); return true; } catch { return false; }
-  };
+  // Complete recognizable web addresses while preserving explicitly entered schemes.
+  function bookmarkAddress(value, publicAddress = false) {
+    const address = value.trim();
+    if (/^(?:file|mailto|tel|sms|data|javascript|magnet):/i.test(address)) return address;
+    const short = /^(\[[\da-f:.]+\]|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.?)(:\d+)?(?=[/?#]|$)/iu.exec(address);
+    if (!short) return address;
+    const [, host, port] = short;
+    if (!host.includes('.') && !host.startsWith('[') && !port && !/^localhost$/i.test(host)) return address;
+    const local = host.startsWith('[') || /^\d+(\.\d+){3}$/.test(host) ||
+      !host.includes('.') || /(?:^|\.)(?:home\.arpa|local|localhost)\.?$/i.test(host);
+    return (local && !publicAddress ? 'http://' : 'https://') + address;
+  }
+
+  function parseableAddress(address) {
+    try {
+      const url = new URL(address);
+      if (url.protocol === 'file:') return /^file:.+/i.test(address);
+      return !!url.hostname && /^[\w+.-]+:\/\/[^/?#]/.test(address);
+    } catch { return false; }
+  }
+
+  function wanDisclosure(input, error) {
+    const hintID = input.id + '-hint';
+    input.setAttribute('aria-label', T('app.field.wan'));
+    input.setAttribute('aria-describedby', hintID + ' ' + error.id);
+    input.addEventListener('input', () => { error.textContent = ''; });
+    return el('details', { class: 'wan-address', open: input.value ? '' : null }, [
+      el('summary', { class: 'fld', text: T('app.field.wan') }),
+      input,
+      el('p', { id: hintID, class: 'prefs-hint', text: T('app.wan.hint') }),
+      error,
+    ]);
+  }
+
+  function readWAN(input, details, error, original = '') {
+    error.textContent = '';
+    if (input.value.trim() === original.trim()) return original;
+    const address = bookmarkAddress(input.value, true);
+    if (address && !siteIconOrigin(address)) {
+      details.open = true;
+      input.focus();
+      error.textContent = T('app.icon.httpOnly');
+      return null;
+    }
+    input.value = address;
+    return address;
+  }
 
   // ── bookmarklet 带进来的一条（§6.3）────────────────────────────────────
   // 页面已经渲染完并带着 data-add（服务端透传，见 PageRequest）。这里只**预填**
@@ -1999,10 +2033,11 @@
   function fetchMeta(url) { return api('/api/v1/resolve', { url, profile }); }
 
   async function resolveNow() {
+    const url = bookmarkAddress(fUrl.value);
+    fUrl.value = url;
     addSiteIcon.syncDownload();
     const seq = ++statusSeq;
     const gen = sheetGen;
-    const url = fUrl.value.trim();
     if (!url) return;
     if (!parseableAddress(url)) {
       say(T('app.resolveBadUrl'), 'bad', urlErr);
@@ -2169,7 +2204,7 @@
   // 不等服务端拿新 id 去撞旧 id。
   function itemURLAlreadySaved(url) {
     for (const li of document.querySelectorAll('li[data-item]')) {
-      if (itemURL(li) === url) return true;
+      if (itemURL(li) === url || li.dataset.addrLan === url || li.dataset.addrWan === url) return true;
     }
     return false;
   }
@@ -2188,7 +2223,7 @@
       });
       if (!r.ok) return false;
       const d = await r.json();
-      return (d.data?.groups || []).some((g) => (g.items || []).some((it) => it.url === url));
+      return (d.data?.groups || []).some((g) => (g.items || []).some((it) => it.url === url || it.urls?.wan === url));
     } catch {
       return false;
     }
@@ -2197,7 +2232,7 @@
   async function submitOnce(keepOpen) {
     ++statusSeq; // 这一发写入的答案优先于任何还在路上的 resolve（见 say 上面那段）
     const gen = sheetGen;
-    const url = fUrl.value.trim();
+    const url = bookmarkAddress(fUrl.value);
     // 空地址同样归那一格（与 resolve 的地址类失败同一处）：它说的是这一格，
     // 而这一格下面就是它自己。人按了「保存」得到一句飘在五格之外的话，
     // 得自己判断那句是在说哪一格——而这一格是唯一可能空的那一格。
@@ -2219,6 +2254,8 @@
       say(T('app.resolveBadUrl'), 'bad', urlErr);
       return;
     }
+    fUrl.value = url;
+    if (readWAN(fWan, addWAN, wanErr) === null) return;
     const iconRequest = addSiteIcon.pending() ||
       (iconTouched && fIcon.value === 'auto' && navigator.onLine ? addSiteIcon.load() : null);
     if (iconRequest) {
@@ -2285,8 +2322,10 @@
       // 去落库（那会把他刚敲的字丢掉）。
       name = itemName(fTitle.value.trim(), url);
     }
+    const wan = readWAN(fWan, addWAN, wanErr);
+    if (wan === null) return;
     const value = { id: slug(url, true), name, url };
-    if (fWan.value.trim()) value.urls = { wan: fWan.value.trim() };
+    if (wan) value.urls = { wan };
     if (fDesc.value.trim()) value.desc = fDesc.value.trim();
     if (fIcon.value) value.icon = fIcon.value;
     const g = groupOpsAndTarget();
@@ -3030,7 +3069,7 @@
       .map(([k, v]) => ({ op: 'set', path: `groups/${gid}/items/${iid}/${k}`, value: v }));
   }
 
-  async function applyOps(ops, what) {
+  async function applyOps(ops, what, onError) {
     try {
       const r = await api('/api/v1/batch', { profile, expectedRev: rev, by: 'web', ops });
       rev = r.rev;
@@ -3039,7 +3078,8 @@
       // 409 也已经在 api() 里按状态码换过句子了（app.opsConflict），这里不再
       // 分第二次——两处各判一遍同一个状态码，迟早有一处忘了加新一档。
       const message = T('app.applyOps.fail', T(what), e.message);
-      if (prefsSheet && !prefsSheet.hidden) showPrefsError(message);
+      if (onError) onError(message);
+      else if (prefsSheet && !prefsSheet.hidden) showPrefsError(message);
       else showBanner(message, 'bad');
       return false;
     }
@@ -3504,8 +3544,13 @@
     const gid = group?.dataset.gid || '';
     const f = (k, v) => el('input', { type: 'text', class: 'fld', name: k, value: v, autocomplete: 'off' });
     const n = f('name', name), d = f('desc', desc), u = f('url', url), w = f('urls/wan', wan);
+    u.inputMode = w.inputMode = 'url';
+    const addressError = el('p', { id: 'lb-edit-url-error', class: 'sheet-status bad fieldmsg', role: 'alert' });
+    u.setAttribute('aria-describedby', addressError.id);
+    u.addEventListener('input', () => { addressError.textContent = ''; });
     w.id = 'lb-edit-wan';
-    w.setAttribute('aria-describedby', 'lb-edit-wan-hint');
+    const wanError = el('p', { id: 'lb-edit-wan-error', class: 'sheet-status bad fieldmsg', role: 'alert' });
+    const editWAN = wanDisclosure(w, wanError);
     for (const input of [u, w]) { input.setAttribute('autocorrect', 'off'); input.setAttribute('autocapitalize', 'off'); input.setAttribute('spellcheck', 'false'); }
     // 图标这一格从前只在「＋ 添加」那一层有——于是"给一条已经在库里的书签换个图标"
     // 在界面上没有任何出口：能改内容的那一层没有图标，能选图标的那一层只用于新增。
@@ -3517,6 +3562,20 @@
     const siteIcon = siteIconControls(ic, u, () => form.isConnected);
     if (curIcon === 'auto') siteIcon.syncDownload(li.querySelector('.ic-img')?.getAttribute('src'));
     let saving = false;
+    const save = el('button', { type: 'submit', class: 'fld primary', text: T('app.generic.save') });
+    const feedback = el('p', { class: 'sheet-status bad fieldmsg', role: 'alert' });
+    async function writeEdit(ops, what) {
+      saving = save.disabled = del.disabled = true;
+      feedback.textContent = '';
+      try {
+        if (await applyOps(ops, what, (message) => {
+          feedback.textContent = message;
+          feedback.scrollIntoView({ block: 'nearest' });
+        })) reloadKeepingPlace();
+      } finally {
+        saving = save.disabled = del.disabled = false;
+      }
+    }
     // 分组那一格（2026-10-16）。这里从前是一句「这一条在「应用」里」——它说得出
     // 在哪一组，却改不了。把一条书签挪到别组在界面上只剩两条路：拖（只有鼠标
     // 做得顺手）与多选里的「移动到」（要先长按卡片，而那个暗示在屏幕上看不见）。
@@ -3536,27 +3595,29 @@
     // 一条书签"前面的东西。超时自己退回第一步，所以"按了一半走开"不会留下武装态。
     let armed = false;
     let armTimer = 0;
+    function disarmDelete() {
+      clearTimeout(armTimer);
+      armed = false;
+      del.classList.remove('armed');
+      del.textContent = T('app.delete.item');
+      undo.hidden = true;
+    }
     const del = el('button', {
       type: 'button', class: 'fld danger', text: T('app.delete.item'),
       on: {
         click: async () => {
+          if (saving) return;
           if (!armed) {
             armed = true;
             del.classList.add('armed');
             del.textContent = T('app.delete.confirm', name);
             undo.hidden = false;
-            clearTimeout(armTimer);
-            armTimer = setTimeout(() => {
-              armed = false;
-              del.classList.remove('armed');
-              del.textContent = T('app.delete.item');
-              undo.hidden = true;
-            }, 8000);
+            armTimer = setTimeout(disarmDelete, 8000);
             return;
           }
-          clearTimeout(armTimer);
+          disarmDelete();
           const ops = [{ op: 'remove', path: `groups/${gid}/items/${li.dataset.item}` }];
-          if (await applyOps(ops, 'app.ops.delete')) reloadKeepingPlace();
+          await writeEdit(ops, 'app.ops.delete');
         },
       },
     });
@@ -3566,14 +3627,25 @@
         submit: async (e) => {
           e.preventDefault();
           if (saving) return;
-          const nextURL = u.value.trim();
+          const nextURL = u.value.trim() === url.trim() ? url : bookmarkAddress(u.value);
+          addressError.textContent = '';
+          if (nextURL !== url && !parseableAddress(nextURL)) {
+            u.focus();
+            addressError.textContent = T(nextURL ? 'app.resolveBadUrl' : 'app.err.url');
+            return;
+          }
+          u.value = nextURL;
+          if (readWAN(w, editWAN, wanError, wan) === null) return;
           const iconRequest = siteIcon.pending() ||
             (ic.value === 'auto' && nextURL !== url && navigator.onLine ? siteIcon.load() : null);
           if (iconRequest) {
-            saving = true;
-            const result = await iconRequest;
-            saving = false;
-            if (result === false || !form.isConnected || nextURL !== u.value.trim()) return;
+            saving = save.disabled = del.disabled = true;
+            try {
+              const result = await iconRequest;
+              if (result === false || !form.isConnected || nextURL.trim() !== u.value.trim()) return;
+            } finally {
+              saving = save.disabled = del.disabled = false;
+            }
           }
           // **没改的字段不发**（2026-10-24 修）：从前名字、说明、地址三格永远发，
           // 于是打开一条按「保存」什么都不改，也会写一版快照、rev +1，并在历史
@@ -3583,8 +3655,10 @@
           const nextName = n.value.trim() || name;
           if (nextName !== name) fields.name = nextName;
           if (d.value !== desc) fields.desc = d.value;
-          if (u.value !== url && u.value.trim() !== url) fields.url = u.value.trim();
-          if (w.value !== wan && w.value.trim() !== wan) fields['urls/wan'] = w.value.trim();
+          const nextWAN = readWAN(w, editWAN, wanError, wan);
+          if (nextWAN === null) return;
+          if (nextURL !== url) fields.url = nextURL;
+          if (nextWAN !== wan) fields['urls/wan'] = nextWAN;
           if (ic.value !== curIcon) fields.icon = ic.value;
           const ops = opsFor(li, fields);
           // 挪组排在改字段**之后**：那些 set 走的是现在这一组的路径，先挪就把
@@ -3594,7 +3668,7 @@
           }
           // 空批也会写一版 rev：打开看看再关掉，不该在「回退」里多一条。
           if (!ops.length) { closeEdit(); return; }
-          if (await applyOps(ops, 'app.ops.item')) reloadKeepingPlace();
+          await writeEdit(ops, 'app.ops.item');
         },
         // 这一层浮在整屏之上，Esc 该先关它、回到 ✎，而不是把底下的浮层一起关掉。
         // 武装态下的 Esc 先**解除武装**，再按一次才关面板——两步确认不能被 Esc 一次跳过。
@@ -3603,24 +3677,21 @@
           e.preventDefault();
           e.stopPropagation();
           if (armed) {
-            armed = false;
-            clearTimeout(armTimer);
-            del.classList.remove('armed');
-            del.textContent = T('app.delete.item');
-            undo.hidden = true;
+            disarmDelete();
             return;
           }
           closeEdit();
         },
       },
     }, [el('h2', { id: 'lb-edit-h', text: T('app.edit.aria', name || T('app.edit.fallbackName')) }),
-        el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]), el('label', { text: T('app.field.url') }, [u]),
-        el('label', { text: T('app.field.wan') }, [w]),
-        el('p', { id: 'lb-edit-wan-hint', class: 'prefs-hint', text: T('app.wan.hint') }),
+        el('label', { text: T('app.field.title') }, [n]), el('label', { text: T('app.field.desc') }, [d]),
+        el('div', { class: 'fld-group' }, [el('label', { text: T('app.field.url') }, [u]), addressError]),
         el('label', { text: T('app.field.group') }, [gs]),
+        editWAN,
         siteIcon.field,
+        feedback,
         el('div', { class: 'row' }, [
-          el('button', { type: 'submit', class: 'fld', text: T('app.generic.save') }),
+          save,
           el('button', { type: 'button', class: 'fld', text: T('app.generic.cancel'), on: { click: () => closeEdit() } }),
         ]),
         el('div', { class: 'row' }, [del]),

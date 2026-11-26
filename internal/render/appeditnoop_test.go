@@ -24,7 +24,9 @@ func TestEditSheet_没改的字段不发(t *testing.T) {
 		// 三格各比一次：没改的不进 fields。
 		"if (nextName !== name) fields.name = nextName;",
 		"if (d.value !== desc) fields.desc = d.value;",
-		"if (u.value !== url && u.value.trim() !== url) fields.url = u.value.trim();",
+		"const nextURL = u.value.trim() === url.trim() ? url : bookmarkAddress(u.value);",
+		"if (nextURL !== url) fields.url = nextURL;",
+		"if (nextWAN !== wan) fields['urls/wan'] = nextWAN;",
 		// 一条 op 都没有（也没挪组）就关掉，不发空批。
 		"if (!ops.length) { closeEdit(); return; }",
 	} {

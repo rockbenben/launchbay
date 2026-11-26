@@ -15,6 +15,7 @@
 .fld:hover{border-color:var(--accent)}
 .sheet label:has(input,select,textarea,button):not([hidden]){display:block;font-size:12px;color:var(--ink2)}
 .sheet-form{display:flex;flex-direction:column;gap:10px}
+.wan-address>summary{display:list-item;list-style-position:inside;cursor:pointer}
 .sheet .fld-group{display:flex;flex-direction:column;gap:8px}
 .sheet .fieldmsg:empty{display:none}
 .cmdk-list code{display:inline;font-size:12px;color:var(--ink2)}

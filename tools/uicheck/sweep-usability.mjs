@@ -353,9 +353,55 @@ try {
   await home('empty-ui');
   assert.equal(await run(`!!document.querySelector('[data-add-first]:not([hidden])') && !!document.querySelector('.empty-actions a[href="/import"]')`), true);
   await screenshot('empty-start');
+  assert.equal(await run(`fetch('/import').then(r => r.text()).then(html =>
+    !!new DOMParser().parseFromString(html, 'text/html').querySelector('input[type=file][name=bookmarks]'))`), true);
   await ev(`document.querySelector('[data-add-first]').click()`);
-  assert.equal(await run(`!document.getElementById('lb-sheet').hidden`), true);
-  console.log('PASS empty profile offers add and import; add opens the existing sheet');
+  assert.equal(await run(`!document.getElementById('lb-sheet').hidden && !document.querySelector('#lb-sheet .wan-address').open`), true);
+
+  const bareAddress = new URL(srv).host + '/healthz';
+  const addAddress = address => ev(`
+    document.getElementById('lb-url').value = ${JSON.stringify(address)};
+    document.getElementById('lb-title').value = 'New bookmark';
+    document.getElementById('lb-newgroup').value = 'First group';
+    document.querySelector('#lb-sheet button[type=submit]').click();
+  `);
+  await addAddress('not a website');
+  assert.equal(await run(`document.querySelector('#lb-url').closest('.fld-group').querySelector('[role=alert]').textContent.length > 0`), true);
+  await ev(`
+    document.querySelector('#lb-sheet .wan-address summary').click();
+    document.getElementById('lb-wan').value = 'ftp://example.test';
+  `);
+  await addAddress(bareAddress);
+  assert.equal(await run(`document.activeElement.id === 'lb-wan' && !!document.getElementById('lb-wan-error').textContent`), true);
+  await ev(`document.getElementById('lb-wan').value = ''`);
+  await addAddress(bareAddress);
+  assert.equal(await waitFor(c, `!!document.querySelector('main a[href="${srv}/healthz"]')`), true);
+
+  await ev(`document.querySelector('main button.pencil').click()`);
+  assert.equal(await run(`!document.querySelector('.inline-edit .wan-address').open`), true);
+  await ev(`
+    document.querySelector('.inline-edit input[name=name]').value = 'Edited bookmark';
+    document.querySelector('.inline-edit input[name=url]').value = 'example.test/docs';
+    document.querySelector('.inline-edit .edit-icon-row button:nth-child(3)').click();
+  `);
+  assert.equal(await run(`!!document.querySelector('.icpick[role=dialog]')`), true);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, x: 2, y: 2 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, x: 2, y: 2 });
+  assert.equal(await run(`!document.querySelector('.icpick[role=dialog]') &&
+    document.querySelector('.inline-edit input[name=name]').value === 'Edited bookmark'`), true);
+  await ev(`
+    window.originalEditFetch = window.fetch;
+    window.fetch = (url, options) => url === '/api/v1/batch'
+      ? Promise.resolve(Response.json({}, { status: 503 }))
+      : window.originalEditFetch(url, options);
+    document.querySelector('.inline-edit button[type=submit]').click();
+  `);
+  assert.equal(await waitFor(c, `[...document.querySelectorAll('.inline-edit [role=alert]')].some(node => node.textContent)`), true);
+  assert.equal(await run(`document.querySelector('.inline-edit input[name=url]').value === 'https://example.test/docs' &&
+    document.querySelector('.inline-edit input[name=name]').value === 'Edited bookmark'`), true);
+  await ev(`window.fetch = window.originalEditFetch; document.querySelector('.inline-edit button[type=submit]').click()`);
+  assert.equal(await waitFor(c, `document.querySelector('main a[href="https://example.test/docs"] b')?.textContent === 'Edited bookmark'`), true);
+  console.log('PASS first-bookmark and import entry points, address completion, and recoverable edit errors');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });

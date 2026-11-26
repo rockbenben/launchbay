@@ -93,7 +93,7 @@ func Test地址类的错落在地址那一格而不是表单最底端(t *testing
 	//
 	// 去掉原生校验之后，敲 "abc" 会先跑一次 resolve、按保存时再跑一次 batch，
 	// 两次都必然失败；这里提前拦，正式判据仍在服务端的 CheckURL。
-	if !strings.Contains(js, "const parseableAddress = (s) => {") ||
+	if !strings.Contains(js, "function parseableAddress(address) {") ||
 		!strings.Contains(js, "if (!parseableAddress(url)) {") {
 		t.Error("没有客户端地址形状闸：坏地址会照发 resolve 与 batch")
 	}
