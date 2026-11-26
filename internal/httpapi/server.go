@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -26,10 +27,12 @@ type Dependencies struct {
 	// 与 /status 的缺图统计都读它。真实服务必须非 nil（装配点读不到就退出），
 	// 但 `New(Dependencies{})` 仍要能构造——契约测试靠它枚举路由。
 	Icons *icons.Index
-	// Fetch 是运行时唯一的出网通路，只由 /api/v1/resolve 使用（spec §5）。
-	// Task 8 才接上 handler；这里先装配，为的是"唯一通路"从上线第一天起
-	// 就是依赖注入的一部分，而不是 handler 里现 new 一个。
-	Fetch *icons.Fetcher
+	// Fetch 为网页解析与备用图标提供出网通路。
+	Fetch interface {
+		Page(string) ([]byte, string, error)
+		Image(string) ([]byte, string, error)
+		FallbackImage(context.Context, string) ([]byte, string, error)
+	}
 	// Cache 是 data/icons/ 的站级图标缓存。/status 的缺图统计读它，写入
 	// 只归 resolve（Task 8）。真实服务必须非 nil；契约测试用的
 	// `New(Dependencies{})` 允许留空（它不发请求）。

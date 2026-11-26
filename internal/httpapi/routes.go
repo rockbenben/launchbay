@@ -227,6 +227,8 @@ func (s *Server) routes() []route {
 		// 公开（credNone）：它是一份公共名单，说不出任何人有什么书签。
 		{Method: "GET", Pattern: "/api/v1/icons/starter", Cred: credNone,
 			Summary: "图标选择器的默认那一批：常用图标清单，画好的 HTML 方格（公开）", H: s.handleIconStarter},
+		{Method: "POST", Pattern: "/api/v1/icons/fallback", Cred: credSession,
+			Summary: "从备用提供方获取书签图标预览（仅会话，不写盘）", H: s.handleIconFallback},
 		{Method: "GET", Pattern: "/icons/{name}", Cred: credNone,
 			Summary: "resolve 抓来的 favicon 缓存（内容哈希命名，immutable）", H: s.handleIconFile},
 		// 这一页自己的背景图。**与上面那条 favicon 通路相反**：那条是公开的

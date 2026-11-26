@@ -90,7 +90,7 @@ func TestAppJS_图标库那一格两处都进得去(t *testing.T) {
 		"就地编辑的入口": `siteIconControls(ic, u,`,
 		// **那颗键不进 <label>**：label 包着的控件是那个 <select>，点 label 里的任何
 		// 一点都会连带激活它——于是点「图标库…」会顺带把下拉弹开，两件事一起发生。
-		"入口不在 label 里": `el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose])`,
+		"入口不在 label 里": `el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose, backup])`,
 		// 图库要向服务端要**画好的**那一格：搬进 app.js 等于让只看首屏的每一页都背
 		// 一份一万条的名字表（§7.3 那条操作线管的就是这件事）。
 		"向服务端要方格":        `/api/v1/icons/tiles?q=`,

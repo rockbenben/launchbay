@@ -1,6 +1,7 @@
 package icons
 
 import (
+	"context"
 	"errors"
 	"io"
 	"mime"
@@ -12,7 +13,7 @@ import (
 )
 
 // 抓取约束全部来自 spec §5，一条都不许多（"多出来的防护也算失败"）。
-// 运行时唯一的抓取入口是 /api/v1/resolve，它要求凭证，所以这里不设速率限制。
+// 网页解析和备用图标共用抓取上限。备用图标只请求固定的提供方。
 const (
 	FetchTimeout   = 3 * time.Second
 	FetchMaxBytes  = 256 << 10 // 256KB
@@ -75,7 +76,7 @@ func (f *Fetcher) maxBytes() int64 {
 // 字节交给调用方解析（extract.go），这里不解析——不留 HTML 是 resolve 的
 // 职责（spec §6.1），而"不解析"就是"不留"最好实现的方式。
 func (f *Fetcher) Page(rawURL string) ([]byte, string, error) {
-	body, final, err := f.fetch(rawURL, func(ct string) bool {
+	body, final, err := f.fetch(context.Background(), rawURL, MaxRedirects, func(ct string) bool {
 		media, _, _ := mime.ParseMediaType(ct)
 		return media == "text/html" || media == "application/xhtml+xml"
 	})
@@ -90,8 +91,18 @@ func (f *Fetcher) Page(rawURL string) ([]byte, string, error) {
 // svg 只会被渲染成 <img src>，绝不内联：浏览器在 <img> 语境里不执行 SVG 内的
 // 脚本，而一旦把它当 markup 拼进 HTML，那个沙箱假设就没了。
 func (f *Fetcher) Image(rawURL string) ([]byte, string, error) {
+	return f.image(context.Background(), rawURL, MaxRedirects)
+}
+
+// FallbackImage only contacts the provider. Redirects cannot turn it into
+// another request to the bookmark's host or another destination.
+func (f *Fetcher) FallbackImage(ctx context.Context, host string) ([]byte, string, error) {
+	return f.image(ctx, "https://icons.duckduckgo.com/ip3/"+url.PathEscape(host)+".ico", 0)
+}
+
+func (f *Fetcher) image(ctx context.Context, rawURL string, redirects int) ([]byte, string, error) {
 	var ext string
-	body, _, err := f.fetch(rawURL, func(ct string) bool {
+	body, _, err := f.fetch(ctx, rawURL, redirects, func(ct string) bool {
 		media, _, _ := mime.ParseMediaType(ct)
 		if !strings.HasPrefix(media, "image/") {
 			return false
@@ -118,7 +129,7 @@ func (f *Fetcher) Image(rawURL string) ([]byte, string, error) {
 	return body, ext, nil
 }
 
-func (f *Fetcher) fetch(rawURL string, wantType func(string) bool) ([]byte, string, error) {
+func (f *Fetcher) fetch(ctx context.Context, rawURL string, redirects int, wantType func(string) bool) ([]byte, string, error) {
 	u, err := parseHTTP(rawURL)
 	if err != nil {
 		return nil, "", err
@@ -126,8 +137,8 @@ func (f *Fetcher) fetch(rawURL string, wantType func(string) bool) ([]byte, stri
 	client := f.httpClient()
 	cur := u.String()
 
-	for hop := 0; hop <= MaxRedirects; hop++ {
-		req, err := http.NewRequest(http.MethodGet, cur, nil)
+	for hop := 0; hop <= redirects; hop++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, cur, nil)
 		if err != nil {
 			return nil, "", ErrBadURL
 		}

@@ -40,6 +40,8 @@ try {
           value: { id: 'site-icon-test', name: 'Site icon fixture', url: address } },
         { op: 'add', path: 'groups/tiles-1/items',
           value: { id: 'site-icon-peer', name: 'Same site', url: address + '/peer', icon: 'auto' } },
+        { op: 'add', path: 'groups/tiles-1/items',
+          value: { id: 'backup-icon-test', name: 'Backup icon fixture', url: 'https://example.org/docs?private=1', icon: 'tabler:home' } },
       ],
     }),
   });
@@ -73,8 +75,8 @@ try {
   assert.equal(await revision(), rev);
 
   const addIconSource = "#lb-sheet .site-icon-field a";
-  const backupIconSource = "#lb-sheet .site-icon-field span > a";
-  const backupHref = () => c.run(`document.querySelector('${backupIconSource}').getAttribute('href')`);
+  const backupButton = scope => scope + ' .edit-icon-row button:last-child';
+  const backupHidden = () => c.run(`document.querySelector('${backupButton('#lb-sheet')}').hidden`);
   await c.ev("document.getElementById('lb-add').click()");
   assert.equal(await c.run(`document.querySelector('${addIconSource}').parentElement.hidden`), true);
   const typeAddress = url => c.ev(`{
@@ -84,11 +86,10 @@ try {
   }`);
   await typeAddress('https://user:secret@example.org:8443/private?q=token#section');
   assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.org:8443/favicon.ico');
-  assert.equal(await backupHref(), 'https://icons.duckduckgo.com/ip3/example.org.ico');
-  assert.equal(await c.run(`document.querySelector('${backupIconSource}').relList.contains('noreferrer')`), true);
+  assert.equal(await backupHidden(), false);
   for (const privateURL of ['http://nas/', 'http://printer.local/', 'http://device.home.arpa/', 'http://127.0.0.1/', 'http://[::1]/']) {
     await typeAddress(privateURL);
-    assert.equal(await backupHref(), null, privateURL);
+    assert.equal(await backupHidden(), true, privateURL);
   }
   await typeAddress('chrome://settings');
   assert.equal(await c.run(`document.querySelector('${addIconSource}').hasAttribute('href')`), false);
@@ -99,8 +100,8 @@ try {
   assert.equal(await c.run(`document.querySelector('${addIconSource}').getAttribute('href')`), newIcon);
   await typeAddress('https://example.net/docs');
   assert.equal(await c.run(`document.querySelector('${addIconSource}').href`), 'https://example.net/favicon.ico');
-  assert.equal(await backupHref(), 'https://icons.duckduckgo.com/ip3/example.net.ico');
-  assert.equal(await c.run("performance.getEntriesByType('resource').some(e => e.name.startsWith('https://icons.duckduckgo.com/'))"), false);
+  assert.equal(await backupHidden(), false);
+  assert.equal(await c.run("performance.getEntriesByType('resource').some(e => e.name.endsWith('/api/v1/icons/fallback'))"), false);
   await c.ev("document.querySelector('#lb-sheet button.close').click()");
   await c.ev("document.querySelector('li[data-item=site-icon-test] button.pencil').click()");
   assert.equal(await c.run("document.querySelector('.inline-edit .site-icon-field a').getAttribute('href')"), newIcon);
@@ -127,7 +128,32 @@ try {
   assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);
   await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
   assert.equal(await revision(), rev + 1);
-  console.log('PASS site icon: fetch, refresh, upload preview, save, and reopen');
+  await c.ev("document.querySelector('li[data-item=backup-icon-test] button.pencil').click()");
+  const fallbackImage = 'data:image/svg+xml;base64,' + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="green"/></svg>'
+  ).toString('base64');
+  await c.ev(`{
+    const original = window.fetch;
+    window.fallbackRequests = [];
+    window.fetch = (path, options) => {
+      if (path !== '/api/v1/icons/fallback') return original(path, options);
+      window.fallbackRequests.push(JSON.parse(options.body));
+      if (window.fallbackRequests.length === 1) return Promise.resolve(new Response('{}', { status: 502 }));
+      return Promise.resolve(Response.json({ image: ${JSON.stringify(fallbackImage)} }));
+    };
+  }`);
+  const clickBackup = () => c.ev(`document.querySelector('${backupButton('.inline-edit')}').click()`);
+  await clickBackup();
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status').textContent.includes('未能获取这个网站的备用图标')"), true);
+  assert.equal(await c.run("document.getElementById('lb-edit-icon').value"), 'tabler:home');
+  await clickBackup();
+  assert.equal(await waitFor(c, "document.querySelector('.inline-edit .site-icon-status img')?.naturalWidth === 64"), true);
+  assert.equal(await c.run("JSON.stringify(window.fallbackRequests)"), JSON.stringify([{ host: 'example.org' }, { host: 'example.org' }]));
+  assert.equal(await revision(), rev + 1);
+  await c.ev("document.querySelector('.inline-edit button[type=submit]').click()");
+  assert.equal(await waitFor(c, "document.querySelector('li[data-item=backup-icon-test] .ic-img')?.naturalWidth === 64"), true);
+  assert.equal(await revision(), rev + 2);
+  console.log('PASS site icon: backup selection and upload both preview before saving');
 } finally {
   site.close();
   await c.close();

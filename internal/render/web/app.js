@@ -1159,11 +1159,21 @@
   function siteIconControls(select, address, active) {
     const status = el('p', { class: 'sheet-status site-icon-status', role: 'status' });
     const iconSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.find') });
-    const backupSource = el('a', { target: '_blank', rel: 'noopener noreferrer', text: T('app.icon.backup') });
-    const backupChoice = el('span', { hidden: '' }, [' · ', backupSource]);
-    const downloadHint = el('p', { class: 'sheet-status', hidden: '' }, [
-      iconSource, backupChoice, ' ', T('app.icon.downloadHint'),
-    ]);
+    const backup = el('button', {
+      type: 'button', class: 'fld', hidden: '', text: T('app.icon.backup'),
+      on: { click: () => {
+        if (!backupHost || backup.disabled) return;
+        const host = backupHost;
+        selectImage(async () => {
+          const { image } = await api('/api/v1/icons/fallback', { host });
+          return renderIconPNG(image);
+        }, 'app.icon.backupError', host);
+      } },
+    });
+    const downloadHint = el('p', { class: 'sheet-status', hidden: '' }, [iconSource, ' ', T('app.icon.downloadHint')]);
+    let backupHost = '';
+    let request;
+    let upload;
     let downloadOrigin = '';
     let resolvedIcon = '';
     const syncDownload = (favicon) => {
@@ -1180,19 +1190,21 @@
       downloadOrigin = origin;
       if (origin && favicon?.startsWith('/icons/')) resolvedIcon = favicon;
 
-      // Only disclose the hostname on explicit navigation to the provider.
-      const publicHost = /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/i.test(host) &&
+      // Offer the provider only for DNS names outside common local namespaces.
+      // The server also checks configured LAN hosts before contacting it.
+      const publicHost = host.length <= 253 && /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/i.test(host) &&
         !/\.(?:arpa|corp|example|home|i2p|internal|invalid|lan|local|localhost|onion|test)$/i.test(host);
-      backupChoice.hidden = !publicHost || Boolean(resolvedIcon);
-      if (backupChoice.hidden) backupSource.removeAttribute('href');
-      else backupSource.href = 'https://icons.duckduckgo.com/ip3/' + encodeURIComponent(host) + '.ico';
+      backupHost = publicHost && !resolvedIcon ? host : '';
+      if (upload?.host && upload.host !== host) {
+        upload = null;
+        resetSite();
+      }
+      backup.hidden = !backupHost;
 
       downloadHint.hidden = !origin;
       if (origin) iconSource.href = resolvedIcon || origin + '/favicon.ico';
       else iconSource.removeAttribute('href');
     };
-    let request;
-    let upload;
     const showSelected = () => {
       if (uploadedIcon(select.value)) {
         status.replaceChildren(siteIconImage(select.value), T('app.icon.custom'));
@@ -1202,11 +1214,11 @@
     };
     const resetSite = () => {
       request = null;
-      refresh.disabled = Boolean(upload);
+      refresh.disabled = backup.disabled = Boolean(upload);
       showSelected();
     };
     function load(force = false) {
-      if (upload) return upload;
+      if (upload) return upload.promise;
       const url = address.value.trim();
       if (request?.url === url && (!force || request.pending)) return request.promise;
       if (!siteIconOrigin(url)) {
@@ -1248,11 +1260,15 @@
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       fileInput.value = '';
-      if (!file) return;
+      if (file) selectImage(() => readUploadedIcon(file), 'app.icon.uploadError');
+    });
+    function selectImage(read, errorKey, host = '') {
       request = null;
-      status.replaceChildren();
-      refresh.disabled = true;
-      const current = readUploadedIcon(file).then((value) => {
+      status.textContent = host ? T('app.icon.loading') : '';
+      refresh.disabled = backup.disabled = true;
+      const current = { host };
+      upload = current;
+      current.promise = read().then((value) => {
         if (upload !== current || !active()) return false;
         for (const option of select.options) {
           if (uploadedIcon(option.value)) { option.remove(); break; }
@@ -1262,22 +1278,22 @@
         select.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
       }).catch(() => {
-        if (upload === current && active()) status.textContent = T('app.icon.uploadError');
+        if (upload === current && active()) status.textContent = T(errorKey);
         return false;
       }).finally(() => {
         if (upload === current) {
           upload = null;
-          refresh.disabled = false;
+          refresh.disabled = backup.disabled = false;
         }
       });
-      upload = current;
-    });
+    }
     address.addEventListener('input', () => {
       resetSite();
       syncDownload();
     });
     select.addEventListener('change', () => {
       upload = null;
+      backup.disabled = false;
       if (select.value === 'auto') load();
       else resetSite();
     });
@@ -1286,11 +1302,11 @@
     return {
       field: el('div', { class: 'site-icon-field' }, [
         el('label', { text: T('app.field.icon') }, [select]),
-        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose]),
+        el('div', { class: 'edit-icon-row' }, [refresh, iconLibraryButton(select), choose, backup]),
         fileInput, downloadHint, status,
       ]),
       syncDownload,
-      pending: () => upload || (request?.pending && request.url === address.value.trim() ? request.promise : null),
+      pending: () => upload?.promise || (request?.pending && request.url === address.value.trim() ? request.promise : null),
       load,
       reset: () => {
         upload = null;
@@ -1314,6 +1330,10 @@
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(new Blob([file], { type }));
     });
+    return renderIconPNG(source);
+  }
+
+  async function renderIconPNG(source) {
     const image = new Image();
     image.src = source;
     await image.decode();
